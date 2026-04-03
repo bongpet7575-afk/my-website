@@ -1,7 +1,8 @@
 body {
-  background-color: #f0f0f0;
-  background-image: radial-gradient(#c0c0c0 1px, transparent 1px);
-  background-size: 20px 20px;
+  background-image: url('background.png');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
   text-align: center;
   font-family: 'Poppins', sans-serif;
 }
@@ -24,7 +25,12 @@ img {
 }
 
 .card {
-  background-color: white;
+  background-image: url('background_card.png');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  text-align: center;
+  font-family: 'Poppins', sans-serif;
   width: 500px;
   margin: 50px auto;
   padding: 30px;
