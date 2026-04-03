@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rotana's RPG Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --gold: #f0c040;
+        --dark-gold: #a07820;
+        --blood: #8b0000;
+        --deep-blue: #0a0a2e;
+        --panel: rgba(10, 10, 46, 0.92);
+        --border: #3a2a0a;
+        --text: #e8d5a0;
+        --green: #00ff88;
+        --red: #ff4444;
+        --blue: #4488ff;
+        --purple: #bb44ff;
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        background-color: #0a0a1a;
+        background-image:
+          radial-gradient(ellipse at 20% 50%, rgba(60, 20, 0, 0.3) 0%, transparent 50%),
+          radial-gradient(ellipse at 80% 20%, rgba(0, 20, 60, 0.3) 0%, transparent 50%),
+          url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        font-family: 'Crimson Text', serif;
+        color: var(--text);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+      }
+
+      /* NAV */
+      nav {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      nav a {
+        color: var(--gold);
+        background: var(--panel);
+        border: 1px solid var(--dark-gold);
+        padding: 8px 16px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-family: 'Cinzel', serif;
+        font-size: 13px;
+        transition: all 0.3s;
+      }
+      nav a:hover { background: var(--dark-gold); color: #fff; }
+
+      /* LOADER */
+      #loader {
+        position: fixed;
+        inset: 0;
+        background: #0a0a1a;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        font-family: 'Cinzel', serif;
+        color: var(--gold);
+        font-size: 18px;
+        gap: 20px;
+        transition: opacity 0.5s;
+      }
+      .spinner {
+        width: 60px; height: 60px;
+        border: 4px solid var(--dark-gold);
+        border-top-color: var(--gold);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      /* TITLE */
+      h1.game-title {
+        font-family: 'Cinzel', serif;
+        font-size: 2.2em;
+        color: var(--gold);
+        text-shadow: 0 0 20px rgba(240,192,64,0.5), 0 2px 4px #000;
+        text-align: center;
+        margin-bottom: 5px;
+        letter-spacing: 3px;
+      }
+      .subtitle {
+        text-align: center;
+        color: var(--dark-gold);
+        font-style: italic;
+        margin-bottom: 20px;
+        font-size: 1.1em;
+      }
+
+      /* MAIN LAYOUT */
+      #game-wrapper {
+        display: grid;
+        grid-template-columns: 220px 1fr 220px;
+        gap: 15px;
+        width: 100%;
+        max-width: 1000px;
+      }
+
+      @media (max-width: 700px) {
+        #game-wrapper { grid-template-columns: 1fr; }
+      }
+
+      /* PANELS */
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+      }
+
+      .panel-title {
+        font-family: 'Cinzel', serif;
+        color: var(--gold);
+        font-size: 0.85em;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 8px;
+        margin-bottom: 12px;
+        text-align: center;
+      }
+
+      /* STATS */
+      .stat-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+        font-size: 0.95em;
+      }
+      .stat-label { color: #aaa; font-size: 0.85em; }
+      .stat-value { color: var(--gold); font-weight: 600; }
+
+      .bar-container {
+        width: 100%;
+        height: 8px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 4px;
+        margin-top: 3px;
+        overflow: hidden;
+      }
+      .bar-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.5s ease;
+      }
+      .hp-bar { background: linear-gradient(90deg, #ff4444, #ff8888); }
+      .mp-bar { background: linear-gradient(90deg, #4488ff, #88bbff); }
+      .xp-bar { background: linear-gradient(90deg, #f0c040, #ffe080); }
+
+      .stat-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        margin-top: 10px;
+      }
+      .stat-box {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 6px;
+        text-align: center;
+      }
+      .stat-box .val { color: var(--gold); font-size: 1.1em; font-weight: 600; }
+      .stat-box .lbl { color: #888; font-size: 0.75em; }
+
+      /* MIDDLE - STORY */
+      #story-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      #story-box {
+        background: rgba(0,0,0,0.4);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 18px;
+        min-height: 140px;
+        font-size: 1.05em;
+        line-height: 1.7;
+        color: var(--text);
+      }
+
+      #story-box .scene-title {
+        font-family: 'Cinzel', serif;
+        color: var(--gold);
+        font-size: 1em;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      #choices-box {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .choice-btn {
+        background: rgba(10,10,46,0.8);
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--dark-gold);
+        color: var(--text);
+        padding: 12px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-family: 'Crimson Text', serif;
+        font-size: 1em;
+        text-align: left;
+        transition: all 0.25s;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .choice-btn:hover {
+        background: rgba(60,40,0,0.6);
+        border-left-color: var(--gold);
+        color: var(--gold);
+        transform: translateX(4px);
+      }
+      .choice-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      /* COMBAT */
+      #combat-box {
+        display: none;
+        background: rgba(80,0,0,0.3);
+        border: 1px solid #5a0000;
+        border-radius: 8px;
+        padding: 15px;
+      }
+      .enemy-name {
+        font-family: 'Cinzel', serif;
+        color: var(--red);
+        font-size: 1.1em;
+        margin-bottom: 10px;
+        text-align: center;
+      }
+      .enemy-hp-bar { background: linear-gradient(90deg, #8b0000, #ff4444); }
+
+      .combat-btns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .combat-btn {
+        background: rgba(10,10,46,0.8);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-family: 'Crimson Text', serif;
+        font-size: 0.95em;
+        transition: all 0.2s;
+      }
+      .combat-btn:hover { background: rgba(60,40,0,0.6); color: var(--gold); }
+
+      #combat-log {
+        background: rgba(0,0,0,0.3);
+        border-radius: 6px;
+        padding: 10px;
+        font-size: 0.9em;
+        min-height: 60px;
+        margin-top: 10px;
+        color: #ccc;
+        max-height: 80px;
+        overflow-y: auto;
+      }
+
+      /* NAME INPUT */
+      #name-screen {
+        text-align: center;
+        padding: 20px;
+      }
+      #name-input {
+        background: rgba(0,0,0,0.4);
+        border: 1px solid var(--dark-gold);
+        color: var(--text);
+        padding: 12px 18px;
+        border-radius: 8px;
+        font-family: 'Crimson Text', serif;
+        font-size: 1.1em;
+        width: 100%;
+        max-width: 280px;
+        margin: 15px 0;
+        text-align: center;
+        outline: none;
+      }
+      #name-input:focus { border-color: var(--gold); box-shadow: 0 0 10px rgba(240,192,64,0.2); }
+
+      .start-btn {
+        background: linear-gradient(135deg, var(--dark-gold), var(--gold));
+        color: #1a0a00;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 8px;
+        font-family: 'Cinzel', serif;
+        font-size: 1em;
+        cursor: pointer;
+        font-weight: 700;
+        transition: all 0.3s;
+        letter-spacing: 1px;
+      }
+      .start-btn:hover { transform: scale(1.05); box-shadow: 0 4px 15px rgba(240,192,64,0.4); }
+
+      /* INVENTORY */
+      .inv-item {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 8px 10px;
+        margin-bottom: 6px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.9em;
+      }
+      .inv-item .item-name { color: var(--text); }
+      .inv-item .item-val { color: var(--gold); font-size: 0.8em; }
+      .inv-empty { color: #555; font-style: italic; font-size: 0.9em; text-align: center; padding: 10px; }
+
+      .gold-display {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: 'Cinzel', serif;
+        color: var(--gold);
+        font-size: 1.1em;
+        margin-bottom: 12px;
+        padding: 8px;
+        background: rgba(240,192,64,0.08);
+        border-radius: 6px;
+        border: 1px solid var(--dark-gold);
+        justify-content: center;
+      }
+
+      /* LOG */
+      #log-box {
+        background: rgba(0,0,0,0.3);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px;
+        max-height: 100px;
+        overflow-y: auto;
+        font-size: 0.85em;
+        color: #aaa;
+        line-height: 1.6;
+      }
+      .log-entry { margin-bottom: 2px; }
+      .log-good { color: var(--green); }
+      .log-bad { color: var(--red); }
+      .log-info { color: var(--blue); }
+      .log-gold { color: var(--gold); }
+
+      /* SHOP */
+      .shop-item {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 8px;
+        margin-bottom: 6px;
+        font-size: 0.85em;
+      }
+      .shop-item-name { color: var(--text); margin-bottom: 4px; }
+      .shop-item-price { color: var(--gold); font-size: 0.8em; }
+      .shop-btn {
+        background: var(--dark-gold);
+        color: #1a0a00;
+        border: none;
+        padding: 3px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.8em;
+        font-family: 'Cinzel', serif;
+        float: right;
+        transition: all 0.2s;
+      }
+      .shop-btn:hover { background: var(--gold); }
+
+      /* USE ITEM BTN */
+      .use-btn {
+        background: rgba(0,100,0,0.5);
+        color: var(--green);
+        border: 1px solid #005500;
+        padding: 2px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.75em;
+        transition: all 0.2s;
+      }
+      .use-btn:hover { background: rgba(0,150,0,0.5); }
+
+      /* FLASH ANIMATION */
+      @keyframes flash { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+      .flash { animation: flash 0.3s ease; }
+
+      @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(15px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .fade-in { animation: fadeInUp 0.4s ease forwards; }
+
+      /* SCROLLBAR */
+      ::-webkit-scrollbar { width: 4px; }
+      ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+      ::-webkit-scrollbar-thumb { background: var(--dark-gold); border-radius: 2px; }
+    </style>
+  </head>
+  <body>
+
+    <div id="loader">
+      <div class="spinner"></div>
+      <p>Loading Game...</p>
+    </div>
+
+    <nav>
+      <a href="index.html">🏠 Home</a>
+      <a href="projects.html">📁 My Projects</a>
+      <a href="game.html">⚔️ Play Game</a>
+    </nav>
+
+    <h1 class="game-title">⚔️ ROTANA'S RPG ⚔️</h1>
+    <p class="subtitle">A Text-Based Adventure</p>
+
+    <!-- NAME SCREEN -->
+    <div id="name-screen" class="panel" style="max-width:400px;width:100%;">
+      <div class="panel-title">Begin Your Adventure</div>
+      <p style="color:#aaa;font-size:0.95em;">What is the name of our brave hero?</p>
+      <br>
+      <input type="text" id="name-input" placeholder="Enter your name..." maxlength="20">
+      <br>
+      <button class="start-btn" onclick="startGame()">⚔️ Start Adventure</button>
+    </div>
+
+    <!-- GAME WRAPPER -->
+    <div id="game-wrapper" style="display:none;">
+
+      <!-- LEFT: CHARACTER -->
+      <div style="display:flex;flex-direction:column;gap:12px;">
+
+        <div class="panel">
+          <div class="panel-title">⚔️ Character</div>
+          <div style="text-align:center;margin-bottom:10px;">
+            <div style="font-size:2.5em;">🧙</div>
+            <div id="char-name" style="font-family:'Cinzel',serif;color:var(--gold);font-size:0.95em;"></div>
+            <div id="char-level" style="color:#aaa;font-size:0.8em;">Level 1 Adventurer</div>
+          </div>
+
+          <div class="stat-row">
+            <span class="stat-label">❤️ HP</span>
+            <span class="stat-value"><span id="hp-val">100</span>/100</span>
+          </div>
+          <div class="bar-container"><div class="bar-fill hp-bar" id="hp-bar" style="width:100%"></div></div>
+
+          <div class="stat-row" style="margin-top:8px;">
+            <span class="stat-label">💧 MP</span>
+            <span class="stat-value"><span id="mp-val">50</span>/50</span>
+          </div>
+          <div class="bar-container"><div class="bar-fill mp-bar" id="mp-bar" style="width:100%"></div></div>
+
+          <div class="stat-row" style="margin-top:8px;">
+            <span class="stat-label">⭐ XP</span>
+            <span class="stat-value"><span id="xp-val">0</span>/100</span>
+          </div>
+          <div class="bar-container"><div class="bar-fill xp-bar" id="xp-bar" style="width:0%"></div></div>
+
+          <div class="stat-grid">
+            <div class="stat-box"><div class="val" id="str-val">5</div><div class="lbl">⚔️ STR</div></div>
+            <div class="stat-box"><div class="val" id="agi-val">5</div><div class="lbl">💨 AGI</div></div>
+            <div class="stat-box"><div class="val" id="int-val">5</div><div class="lbl">🧠 INT</div></div>
+            <div class="stat-box"><div class="val" id="def-val">2</div><div class="lbl">🛡️ DEF</div></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">🎒 Inventory</div>
+          <div class="gold-display">💰 <span id="gold-val">30</span> Gold</div>
+          <div id="inventory-list"><div class="inv-empty">No items yet</div></div>
+        </div>
+
+      </div>
+
+      <!-- MIDDLE: STORY -->
+      <div id="story-panel">
+        <div class="panel" id="story-box">
+          <div id="story-content"></div>
+        </div>
+
+        <div id="combat-box" class="panel">
+          <div class="enemy-name" id="enemy-name">Enemy</div>
+          <div class="stat-row">
+            <span class="stat-label">❤️ Enemy HP</span>
+            <span class="stat-value"><span id="enemy-hp-val">0</span>/<span id="enemy-hp-max">0</span></span>
+          </div>
+          <div class="bar-container"><div class="bar-fill enemy-hp-bar" id="enemy-hp-bar" style="width:100%"></div></div>
+          <div id="combat-log"></div>
+          <div class="combat-btns">
+            <button class="combat-btn" onclick="combatAction('attack')">⚔️ Attack</button>
+            <button class="combat-btn" onclick="combatAction('magic')">✨ Magic</button>
+            <button class="combat-btn" onclick="combatAction('defend')">🛡️ Defend</button>
+            <button class="combat-btn" onclick="combatAction('flee')">🏃 Flee</button>
+          </div>
+        </div>
+
+        <div class="panel" id="choices-box"></div>
+
+        <div class="panel">
+          <div class="panel-title">📜 Adventure Log</div>
+          <div id="log-box"></div>
+        </div>
+      </div>
+
+      <!-- RIGHT: SHOP & QUESTS -->
+      <div style="display:flex;flex-direction:column;gap:12px;">
+
+        <div class="panel" id="shop-panel">
+          <div class="panel-title">🏪 Shop</div>
+          <div id="shop-content"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">📋 Quests</div>
+          <div id="quest-list" style="font-size:0.85em;color:#aaa;"></div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <audio id="clickSound" src="click.mp3"></audio>
+
+    <script>
+      // LOADER
+      window.addEventListener('load', () => {
+        const loader = document.getElementById('loader');
+        loader.style.opacity = '0';
+        setTimeout(() => loader.style.display = 'none', 500);
+      });
+
+      // GAME STATE
+      const state = {
+        name: '',
+        level: 1,
+        xp: 0, xpNext: 100,
+        hp: 100, maxHp: 100,
+        mp: 50, maxMp: 50,
+        str: 5, agi: 5, int: 5, def: 2,
+        gold: 30,
+        inventory: [],
+        defending: false,
+        currentScene: 'town',
+        quests: ['🗡️ Defeat your first enemy', '💰 Earn 50 gold', '🏆 Reach Level 3']
+      };
+
+      // SHOP ITEMS
+      const shopItems = [
+        { id: 'sword', name: '⚔️ Iron Sword', price: 20, effect: 'str', val: 3, desc: '+3 STR' },
+        { id: 'shield', name: '🛡️ Wooden Shield', price: 15, effect: 'def', val: 2, desc: '+2 DEF' },
+        { id: 'potion', name: '❤️ Health Potion', price: 10, effect: 'hp', val: 30, desc: 'Restore 30 HP', usable: true },
+        { id: 'mana', name: '💧 Mana Potion', price: 8, effect: 'mp', val: 20, desc: 'Restore 20 MP', usable: true },
+        { id: 'boots', name: '👢 Swift Boots', price: 18, effect: 'agi', val: 3, desc: '+3 AGI' },
+        { id: 'tome', name: '📖 Magic Tome', price: 22, effect: 'int', val: 4, desc: '+4 INT' },
+      ];
+
+      // SCENES
+      const scenes = {
+        town: {
+          title: '🏘️ Town Square',
+          text: 'You stand in the peaceful town square. The smell of bread and adventure fills the air. Where do you go?',
+          choices: [
+            { text: '🌲 Enter the Dark Forest', next: 'forest' },
+            { text: '⛰️ Head to the Dungeon', next: 'dungeon_entrance' },
+            { text: '🏪 Visit the Shop', next: 'shop_scene' },
+            { text: '⛪ Rest at the Inn (+30 HP/MP)', next: 'inn', cost: 5 },
+          ]
+        },
+        forest: {
+          title: '🌲 Dark Forest',
+          text: 'The forest is dark and full of danger. Twisted trees loom overhead. You hear rustling in the bushes...',
+          choices: [
+            { text: '🐺 Fight the Wolf', next: 'combat', enemy: 'wolf' },
+            { text: '🕷️ Fight the Giant Spider', next: 'combat', enemy: 'spider' },
+            { text: '🔍 Search for treasure', next: 'forest_treasure' },
+            { text: '🏘️ Return to Town', next: 'town' },
+          ]
+        },
+        forest_treasure: {
+          title: '💎 Hidden Treasure',
+          text: 'You search the forest floor and discover a hidden chest behind an old tree!',
+          choices: [
+            { text: '📦 Open the chest', next: 'chest_open' },
+            { text: '🏘️ Return to Town', next: 'town' },
+          ]
+        },
+        chest_open: {
+          title: '📦 Treasure Chest',
+          text: 'You open the chest and find gold coins and a mysterious item inside!',
+          action: () => {
+            const gold = Math.floor(Math.random() * 20) + 10;
+            state.gold += gold;
+            addLog(`Found ${gold} gold in the chest! 💰`, 'gold');
+            addToInventory({ name: '🗝️ Old Key', desc: 'Opens something...', sellPrice: 5 });
+            updateUI();
+          },
+          choices: [{ text: '🏘️ Return to Town', next: 'town' }]
+        },
+        dungeon_entrance: {
+          title: '⛰️ Dungeon Entrance',
+          text: 'A dark cavern opens before you. The smell of damp stone and danger fills the air. Monsters lurk within, but so does great treasure!',
+          choices: [
+            { text: '👹 Fight the Goblin', next: 'combat', enemy: 'goblin' },
+            { text: '💀 Face the Skeleton', next: 'combat', enemy: 'skeleton' },
+            { text: '🐉 Challenge the Dragon (Boss)', next: 'combat', enemy: 'dragon' },
+            { text: '🏘️ Return to Town', next: 'town' },
+          ]
+        },
+        shop_scene: {
+          title: '🏪 General Shop',
+          text: 'The shopkeeper greets you warmly. Browse the items on the right panel and buy what you need for your adventure!',
+          choices: [
+            { text: '🏘️ Leave the Shop', next: 'town' },
+          ]
+        },
+        inn: {
+          title: '⛪ The Rusty Flagon Inn',
+          text: 'You rest comfortably at the inn. Your wounds heal and your energy is restored.',
+          action: () => {
+            if (state.gold >= 5) {
+              state.gold -= 5;
+              state.hp = Math.min(state.maxHp, state.hp + 30);
+              state.mp = Math.min(state.maxMp, state.mp + 30);
+              addLog('Rested at the inn. +30 HP, +30 MP. Cost 5 gold.', 'good');
+              updateUI();
+            } else {
+              addLog('Not enough gold to rest! (Need 5 gold)', 'bad');
+            }
+          },
+          choices: [{ text: '🏘️ Return to Town', next: 'town' }]
+        },
+        victory: {
+          title: '🏆 Victory!',
+          text: 'You defeated the enemy and claimed your reward!',
+          choices: [
+            { text: '🌲 Explore the Forest', next: 'forest' },
+            { text: '⛰️ Enter the Dungeon', next: 'dungeon_entrance' },
+            { text: '🏘️ Return to Town', next: 'town' },
+          ]
+        },
+        defeat: {
+          title: '💀 Defeated...',
+          text: 'You have fallen in battle. The townspeople carry you back to safety. You lose some gold but live to fight another day.',
+          action: () => {
+            const lost = Math.floor(state.gold * 0.2);
+            state.gold = Math.max(0, state.gold - lost);
+            state.hp = Math.floor(state.maxHp * 0.5);
+            state.mp = Math.floor(state.maxMp * 0.5);
+            addLog(`Lost ${lost} gold. Revived with half HP/MP.`, 'bad');
+            updateUI();
+          },
+          choices: [{ text: '🔄 Try Again', next: 'town' }]
+        }
+      };
+
+      // ENEMIES
+      const enemies = {
+        wolf: { name: '🐺 Forest Wolf', hp: 30, maxHp: 30, atk: 8, def: 2, xp: 20, gold: [5,15], loot: [{name:'🪶 Wolf Fang', sellPrice:8}] },
+        spider: { name: '🕷️ Giant Spider', hp: 25, maxHp: 25, atk: 6, def: 1, xp: 15, gold: [3,10], loot: [{name:'🕸️ Spider Silk', sellPrice:6}] },
+        goblin: { name: '👹 Dungeon Goblin', hp: 40, maxHp: 40, atk: 12, def: 3, xp: 35, gold: [10,25], loot: [{name:'🗡️ Rusty Dagger', sellPrice:12}] },
+        skeleton: { name: '💀 Skeleton Warrior', hp: 55, maxHp: 55, atk: 15, def: 5, xp: 50, gold: [15,30], loot: [{name:'🦴 Bone Fragment', sellPrice:5}] },
+        dragon: { name: '🐉 Ancient Dragon', hp: 120, maxHp: 120, atk: 30, def: 10, xp: 150, gold: [50,100], loot: [{name:'🐉 Dragon Scale', sellPrice:50},{name:'💎 Dragon Gem', sellPrice:80}] },
+      };
+
+      let currentEnemy = null;
+      let pendingScene = null;
+
+      // START GAME
+      function startGame() {
+        const n = document.getElementById('name-input').value.trim();
+        if (!n) { alert('Please enter your name!'); return; }
+        state.name = n;
+        document.getElementById('name-screen').style.display = 'none';
+        document.getElementById('game-wrapper').style.display = 'grid';
+        document.getElementById('char-name').textContent = n;
+        updateUI();
+        renderShop();
+        renderQuests();
+        loadScene('town');
+        addLog(`${n} begins their adventure!`, 'info');
+      }
+
+      // LOAD SCENE
+      function loadScene(sceneId, enemyId) {
+        // Handle combat
+        if (sceneId === 'combat' && enemyId) {
+          startCombat(enemyId);
+          return;
+        }
+
+        const scene = scenes[sceneId];
+        if (!scene) return;
+        state.currentScene = sceneId;
+
+        // Run action if exists
+        if (scene.action) scene.action();
+
+        // Story
+        document.getElementById('story-content').innerHTML = `
+          <div class="scene-title">${scene.title}</div>
+          <p>${scene.text}</p>
+        `;
+
+        // Hide combat
+        document.getElementById('combat-box').style.display = 'none';
+
+        // Choices
+        const box = document.getElementById('choices-box');
+        box.innerHTML = '';
+        scene.choices.forEach(c => {
+          const btn = document.createElement('button');
+          btn.className = 'choice-btn fade-in';
+          const costText = c.cost ? ` <span style="color:var(--gold);font-size:0.85em;">(${c.cost}g)</span>` : '';
+          btn.innerHTML = c.text + costText;
+          btn.onclick = () => {
+            if (c.next === 'combat' && c.enemy) loadScene('combat_proxy', c.enemy);
+            else loadScene(c.next);
+          };
+          // Special: combat from choices
+          if (c.enemy) btn.onclick = () => startCombat(c.enemy);
+          box.appendChild(btn);
+        });
+
+        updateUI();
+      }
+
+      // COMBAT
+      function startCombat(enemyId) {
+        const template = enemies[enemyId];
+        currentEnemy = { ...template, hp: template.hp };
+
+        document.getElementById('enemy-name').textContent = currentEnemy.name;
+        document.getElementById('enemy-hp-val').textContent = currentEnemy.hp;
+        document.getElementById('enemy-hp-max').textContent = currentEnemy.maxHp;
+        document.getElementById('enemy-hp-bar').style.width = '100%';
+        document.getElementById('combat-log').innerHTML = '';
+        document.getElementById('combat-box').style.display = 'block';
+        document.getElementById('choices-box').innerHTML = '';
+
+        document.getElementById('story-content').innerHTML = `
+          <div class="scene-title">⚔️ Combat!</div>
+          <p>A wild <strong style="color:var(--red)">${currentEnemy.name}</strong> appears! Prepare to fight!</p>
+        `;
+
+        addLog(`Encountered ${currentEnemy.name}!`, 'bad');
+        state.defending = false;
+      }
+
+      function combatAction(action) {
+        if (!currentEnemy) return;
+        let log = '';
+
+        if (action === 'attack') {
+          const dmg = Math.max(1, state.str + Math.floor(Math.random() * 6) - currentEnemy.def);
+          currentEnemy.hp -= dmg;
+          log = `You deal ${dmg} damage to ${currentEnemy.name}!`;
+          addCombatLog(`⚔️ You hit for ${dmg} damage!`, 'good');
+          state.defending = false;
+
+        } else if (action === 'magic') {
+          if (state.mp < 10) { addCombatLog('❌ Not enough MP! (Need 10)', 'bad'); return; }
+          const dmg = Math.max(1, state.int * 2 + Math.floor(Math.random() * 8));
+          currentEnemy.hp -= dmg;
+          state.mp -= 10;
+          log = `Magic blast deals ${dmg} damage!`;
+          addCombatLog(`✨ Magic hits for ${dmg} damage! (-10 MP)`, 'info');
+          state.defending = false;
+
+        } else if (action === 'defend') {
+          state.defending = true;
+          addCombatLog('🛡️ You brace for impact! (Half damage next hit)', 'info');
+
+        } else if (action === 'flee') {
+          const chance = state.agi > currentEnemy.def ? 0.7 : 0.4;
+          if (Math.random() < chance) {
+            addLog('You fled from battle!', 'bad');
+            currentEnemy = null;
+            document.getElementById('combat-box').style.display = 'none';
+            loadScene('town');
+            return;
+          } else {
+            addCombatLog('❌ Failed to flee!', 'bad');
+          }
+          state.defending = false;
+        }
+
+        // Check enemy death
+        if (currentEnemy && currentEnemy.hp <= 0) {
+          currentEnemy.hp = 0;
+          updateEnemyBar();
+          endCombat(true);
+          return;
+        }
+
+        // Enemy attacks back
+        if (currentEnemy && currentEnemy.hp > 0) {
+          let enemyDmg = Math.max(1, currentEnemy.atk + Math.floor(Math.random() * 5) - state.def);
+          if (state.defending) enemyDmg = Math.floor(enemyDmg / 2);
+          state.hp -= enemyDmg;
+          addCombatLog(`${currentEnemy.name} hits you for ${enemyDmg}!`, 'bad');
+
+          if (state.hp <= 0) {
+            state.hp = 0;
+            updateUI();
+            endCombat(false);
+            return;
+          }
+        }
+
+        updateEnemyBar();
+        updateUI();
+      }
+
+      function endCombat(won) {
+        currentEnemy && (currentEnemy.hp = Math.max(0, currentEnemy.hp));
+        if (won) {
+          const goldEarned = Math.floor(Math.random() * (currentEnemy.gold[1] - currentEnemy.gold[0])) + currentEnemy.gold[0];
+          state.gold += goldEarned;
+          state.xp += currentEnemy.xp;
+          addLog(`Defeated ${currentEnemy.name}! +${currentEnemy.xp} XP, +${goldEarned} Gold`, 'good');
+          currentEnemy.loot.forEach(item => {
+            addToInventory(item);
+            addLog(`Found: ${item.name}`, 'gold');
+          });
+          checkLevelUp();
+          checkQuests();
+          currentEnemy = null;
+          document.getElementById('combat-box').style.display = 'none';
+          loadScene('victory');
+        } else {
+          currentEnemy = null;
+          document.getElementById('combat-box').style.display = 'none';
+          loadScene('defeat');
+        }
+        updateUI();
+      }
+
+      function updateEnemyBar() {
+        if (!currentEnemy) return;
+        const pct = Math.max(0, (currentEnemy.hp / currentEnemy.maxHp) * 100);
+        document.getElementById('enemy-hp-bar').style.width = pct + '%';
+        document.getElementById('enemy-hp-val').textContent = Math.max(0, currentEnemy.hp);
+      }
+
+      // LEVEL UP
+      function checkLevelUp() {
+        while (state.xp >= state.xpNext) {
+          state.xp -= state.xpNext;
+          state.level++;
+          state.xpNext = state.level * 100;
+          state.maxHp += 20; state.hp = state.maxHp;
+          state.maxMp += 10; state.mp = state.maxMp;
+          state.str += 2; state.agi += 2; state.int += 2; state.def += 1;
+          document.getElementById('char-level').textContent = `Level ${state.level} Adventurer`;
+          addLog(`🎉 LEVEL UP! Now Level ${state.level}! All stats increased!`, 'gold');
+        }
+      }
+
+      // INVENTORY
+      function addToInventory(item) {
+        state.inventory.push({ ...item, id: Date.now() + Math.random() });
+        renderInventory();
+      }
+
+      function renderInventory() {
+        const list = document.getElementById('inventory-list');
+        if (state.inventory.length === 0) {
+          list.innerHTML = '<div class="inv-empty">No items yet</div>';
+          return;
+        }
+        list.innerHTML = state.inventory.map(item => `
+          <div class="inv-item">
+            <div>
+              <div class="item-name">${item.name}</div>
+              <div class="item-val">Sell: ${item.sellPrice}g</div>
+            </div>
+            <div style="display:flex;gap:4px;flex-direction:column;align-items:flex-end;">
+              ${item.usable ? `<button class="use-btn" onclick="useItem(${item.id})">Use</button>` : ''}
+              <button class="use-btn" style="background:rgba(100,0,0,0.5);color:var(--red);border-color:#500000;" onclick="sellItem(${item.id})">Sell</button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      function useItem(id) {
+        const idx = state.inventory.findIndex(i => i.id === id);
+        if (idx === -1) return;
+        const item = state.inventory[idx];
+        if (item.usable) {
+          if (item.effect === 'hp') { state.hp = Math.min(state.maxHp, state.hp + item.val); addLog(`Used ${item.name}: +${item.val} HP`, 'good'); }
+          if (item.effect === 'mp') { state.mp = Math.min(state.maxMp, state.mp + item.val); addLog(`Used ${item.name}: +${item.val} MP`, 'info'); }
+          state.inventory.splice(idx, 1);
+          renderInventory();
+          updateUI();
+        }
+      }
+
+      function sellItem(id) {
+        const idx = state.inventory.findIndex(i => i.id === id);
+        if (idx === -1) return;
+        const item = state.inventory[idx];
+        state.gold += item.sellPrice;
+        addLog(`Sold ${item.name} for ${item.sellPrice} gold`, 'gold');
+        state.inventory.splice(idx, 1);
+        renderInventory();
+        updateUI();
+        checkQuests();
+      }
+
+      // SHOP
+      function renderShop() {
+        document.getElementById('shop-content').innerHTML = shopItems.map(item => `
+          <div class="shop-item">
+            <button class="shop-btn" onclick="buyItem('${item.id}')">Buy</button>
+            <div class="shop-item-name">${item.name}</div>
+            <div class="shop-item-price">💰 ${item.price}g — ${item.desc}</div>
+          </div>
+        `).join('');
+      }
+
+      function buyItem(itemId) {
+        const item = shopItems.find(i => i.id === itemId);
+        if (!item) return;
+        if (state.gold < item.price) { addLog(`Not enough gold to buy ${item.name}!`, 'bad'); return; }
+        state.gold -= item.price;
+        if (item.usable) {
+          addToInventory({ name: item.name, effect: item.effect, val: item.val, usable: true, sellPrice: Math.floor(item.price * 0.5) });
+        } else {
+          state[item.effect] += item.val;
+          addToInventory({ name: item.name, desc: item.desc, sellPrice: Math.floor(item.price * 0.5) });
+        }
+        addLog(`Bought ${item.name} for ${item.price} gold!`, 'gold');
+        updateUI();
+        checkQuests();
+      }
+
+      // QUESTS
+      function checkQuests() {
+        // Simple quest tracking
+        renderQuests();
+      }
+
+      function renderQuests() {
+        document.getElementById('quest-list').innerHTML = state.quests.map(q => `
+          <div style="padding:6px 0;border-bottom:1px solid var(--border);">${q}</div>
+        `).join('');
+      }
+
+      // LOGS
+      function addLog(msg, type = '') {
+        const box = document.getElementById('log-box');
+        const div = document.createElement('div');
+        div.className = `log-entry ${type ? 'log-' + type : ''}`;
+        div.textContent = msg;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+      }
+
+      function addCombatLog(msg, type = '') {
+        const box = document.getElementById('combat-log');
+        const div = document.createElement('div');
+        div.className = `log-entry ${type ? 'log-' + type : ''}`;
+        div.textContent = msg;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+      }
+
+      // UPDATE UI
+      function updateUI() {
+        document.getElementById('hp-val').textContent = Math.max(0, state.hp);
+        document.getElementById('mp-val').textContent = Math.max(0, state.mp);
+        document.getElementById('xp-val').textContent = state.xp;
+        document.getElementById('gold-val').textContent = state.gold;
+        document.getElementById('str-val').textContent = state.str;
+        document.getElementById('agi-val').textContent = state.agi;
+        document.getElementById('int-val').textContent = state.int;
+        document.getElementById('def-val').textContent = state.def;
+        document.getElementById('char-level').textContent = `Level ${state.level} Adventurer`;
+
+        document.getElementById('hp-bar').style.width = Math.max(0, (state.hp / state.maxHp) * 100) + '%';
+        document.getElementById('mp-bar').style.width = Math.max(0, (state.mp / state.maxMp) * 100) + '%';
+        document.getElementById('xp-bar').style.width = Math.min(100, (state.xp / state.xpNext) * 100) + '%';
+      }
+
+      // CLICK SOUND
+      const sound = document.getElementById('clickSound');
+      document.querySelectorAll('button, a').forEach(el => {
+        el.addEventListener('click', () => {
+          if (sound) { sound.currentTime = 0; sound.play().catch(() => {}); }
+        });
+      });
+    </script>
+
+  </body>
+</html>
