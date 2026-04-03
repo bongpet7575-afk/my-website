@@ -83,5 +83,23 @@
       </footer>
 
     </div>
+    <audio id="clickSound" src="click.mp3"></audio>
+
+<script>
+  const sound = document.getElementById('clickSound');
+  const links = document.querySelectorAll('a');
+
+  links.forEach(link => {
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      const destination = link.href;
+      sound.currentTime = 0;
+      sound.play();
+      setTimeout(() => {
+        window.location.href = destination;
+      }, 300);
+    });
+  });
+</script>
   </body>
 </html>
