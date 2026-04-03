@@ -49,3 +49,24 @@ footer {
   color: gray;
   font-size: 14px;
 }
+#google_translate_element {
+  margin-bottom: 15px;
+}
+
+.goog-te-gadget img {
+  display: none !important;
+}
+
+.goog-te-gadget {
+  font-size: 0px !important;
+}
+
+.goog-te-gadget .goog-te-combo {
+  font-size: 14px !important;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 2px solid darkblue;
+  color: darkblue;
+  background-color: white;
+  cursor: pointer;
+}

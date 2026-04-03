@@ -1,11 +1,28 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>About Me</title>
     <link rel="stylesheet" href="style.css">
   </head>
   <body>
     <div class="card">
+      <p>Translate This page:</p>
+      <div id="google_translate_element"></div>
+
+<script type="text/javascript">
+  function googleTranslateElementInit() {
+    new google.translate.TranslateElement(
+      {pageLanguage: 'en', includedLanguages: 'km,en'},
+      'google_translate_element'
+    );
+  }
+</script>
+
+<script type="text/javascript" 
+  src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit">
+</script>
     <img src="https://picsum.photos/200" alt="My Photo" title="Random pict">
     <h1>Rotana Khin</h1>
     <p>I am a beginner programmer from Cambodia.</p>
@@ -17,9 +34,9 @@
     </ul>
     <h2>My Favorite Foods</h2>
     <ol>
-      <li>Lok lak sach ko</li>
-      <li>Sach ko ang</li>
-      <li>Num banh jok</li>
+      <li>Fried Chicken</li>
+      <li>Curry</li>
+      <li>Salmon sashimi</li>
     </ol>
     <h2>My Links</h2>
     <a href="https://github.com/bongpet7575-afk/my-website">My GitHub</a>
