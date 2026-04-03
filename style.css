@@ -70,3 +70,40 @@ footer {
   background-color: white;
   cursor: pointer;
 }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+th {
+  background-color: darkblue;
+  color: white;
+  padding: 10px;
+  border: 1px solid darkblue;
+}
+
+td {
+  padding: 10px;
+  border: 1px solid darkblue;
+  color: gray;
+}
+tr:nth-child(even) {
+  background-color: lightblue;
+}
+
+tr:hover {
+  background-color: lightgray;
+}
+@keyframes ledColors {
+  0%   { background-color: red; }
+  25%  { background-color: blue; }
+  50%  { background-color: green; }
+  75%  { background-color: purple; }
+  100% { background-color: red; }
+}
+
+tr:hover {
+  animation: ledColors 1s infinite;
+  color: white;
+}
