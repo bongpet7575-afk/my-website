@@ -494,6 +494,10 @@
     </div>
 
     <nav>
+        <div style="display:flex;gap:10px;margin-bottom:15px;justify-content:center;flex-wrap:wrap;">
+         <button class="start-btn" onclick="saveGame()" style="font-size:0.85em;padding:8px 20px;">💾 Save Game</button>
+         <button class="start-btn" onclick="loadGame()" style="font-size:0.85em;padding:8px 20px;background:linear-gradient(135deg,#1a3a6a,#2a5aaa);color:white;">📂 Load Game</button>
+        </div>
       <a href="index.html">🏠 Home</a>
       <a href="projects.html">📁 My Projects</a>
       <a href="game.html">⚔️ Play Game</a>
@@ -1081,7 +1085,64 @@
         document.getElementById('mp-bar').style.width = Math.max(0, (state.mp / state.maxMp) * 100) + '%';
         document.getElementById('xp-bar').style.width = Math.min(100, (state.xp / state.xpNext) * 100) + '%';
       }
+// SAVE GAME
+function saveGame() {
+  const saveData = {
+    name: state.name,
+    level: state.level,
+    xp: state.xp,
+    xpNext: state.xpNext,
+    hp: state.hp,
+    maxHp: state.maxHp,
+    mp: state.mp,
+    maxMp: state.maxMp,
+    str: state.str,
+    agi: state.agi,
+    int: state.int,
+    def: state.def,
+    gold: state.gold,
+    inventory: state.inventory,
+    currentScene: state.currentScene,
+    quests: state.quests
+  };
+  localStorage.setItem('rpgSave', JSON.stringify(saveData));
+  addLog('💾 Game saved successfully!', 'gold');
+  alert('Game saved! ✅');
+}
 
+// LOAD GAME
+function loadGame() {
+  const saved = localStorage.getItem('rpgSave');
+  if (!saved) {
+    alert('No save file found!');
+    return;
+  }
+  const data = JSON.parse(saved);
+  Object.assign(state, data);
+
+  document.getElementById('name-screen').style.display = 'none';
+  document.getElementById('game-wrapper').style.display = 'grid';
+  document.getElementById('leaderboard-panel').style.display = 'block';
+  document.getElementById('char-name').textContent = state.name;
+  document.getElementById('char-level').textContent = `Level ${state.level} Adventurer`;
+
+  updateUI();
+  renderShop();
+  renderQuests();
+  renderInventory();
+  loadScene(state.currentScene || 'town');
+  addLog(`📂 Welcome back ${state.name}!`, 'gold');
+  fetchLeaderboard();
+  alert(`Welcome back ${state.name}! ✅`);
+}
+
+// AUTO SAVE every 2 minutes
+setInterval(() => {
+  if (state.name) {
+    localStorage.setItem('rpgSave', JSON.stringify(state));
+    addLog('💾 Auto saved!', 'info');
+  }
+}, 120000);
       // LEADERBOARD
       const BIN_ID = '69cfb2ac856a682189f75afe';
       const API_KEY = '$2a$10$YF9VPNwKfgYqI4zh6NrrXOhYxRNaCiwM153V.Mbc5wcjEQXcZEAIu';
