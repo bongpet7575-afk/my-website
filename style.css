@@ -113,3 +113,21 @@ tr:hover {
   animation: ledColors 1s infinite;
   color: white;
 }
+.project-card {
+  background-color: white;
+  border: 2px solid darkblue;
+  border-radius: 10px;
+  padding: 20px;
+  margin: 20px 0;
+  text-align: left;
+}
+
+.project-card h2 {
+  color: darkblue;
+  font-size: 20px;
+}
+
+.project-card p {
+  color: gray;
+  font-size: 15px;
+}
