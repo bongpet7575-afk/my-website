@@ -426,6 +426,64 @@
       ::-webkit-scrollbar { width: 4px; }
       ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
       ::-webkit-scrollbar-thumb { background: var(--dark-gold); border-radius: 2px; }
+
+      /* LEADERBOARD */
+      #leaderboard-panel {
+        width: 100%;
+        max-width: 1000px;
+        margin-top: 20px;
+      }
+      .lb-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.95em;
+        transition: background 0.2s;
+      }
+      .lb-row:hover { background: rgba(255,255,255,0.03); }
+      .lb-rank {
+        font-family: 'Cinzel', serif;
+        color: var(--gold);
+        width: 30px;
+        text-align: center;
+        font-size: 1em;
+      }
+      .lb-rank.gold { color: #ffd700; font-size: 1.2em; }
+      .lb-rank.silver { color: #c0c0c0; font-size: 1.1em; }
+      .lb-rank.bronze { color: #cd7f32; font-size: 1.1em; }
+      .lb-name { flex: 1; color: var(--text); font-weight: 600; }
+      .lb-level { color: var(--blue); font-size: 0.85em; width: 70px; text-align: center; }
+      .lb-gold { color: var(--gold); font-size: 0.85em; width: 80px; text-align: right; }
+      .lb-empty { color: #555; font-style: italic; text-align: center; padding: 20px; }
+      .submit-btn {
+        background: linear-gradient(135deg, var(--dark-gold), var(--gold));
+        color: #1a0a00;
+        border: none;
+        padding: 10px 24px;
+        border-radius: 8px;
+        font-family: 'Cinzel', serif;
+        font-size: 0.9em;
+        cursor: pointer;
+        font-weight: 700;
+        transition: all 0.3s;
+        letter-spacing: 1px;
+        margin-right: 8px;
+      }
+      .submit-btn:hover { transform: scale(1.05); box-shadow: 0 4px 15px rgba(240,192,64,0.4); }
+      .refresh-btn {
+        background: rgba(10,10,46,0.8);
+        color: var(--text);
+        border: 1px solid var(--border);
+        padding: 10px 24px;
+        border-radius: 8px;
+        font-family: 'Cinzel', serif;
+        font-size: 0.9em;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+      .refresh-btn:hover { border-color: var(--gold); color: var(--gold); }
     </style>
   </head>
   <body>
@@ -547,6 +605,16 @@
 
       </div>
 
+    </div>
+
+    <!-- LEADERBOARD -->
+    <div id="leaderboard-panel" class="panel" style="display:none;">
+      <div class="panel-title">🏆 Global Leaderboard</div>
+      <div style="display:flex;justify-content:center;gap:10px;margin-bottom:15px;flex-wrap:wrap;">
+        <button class="submit-btn" onclick="submitScore()">📤 Submit My Score</button>
+        <button class="refresh-btn" onclick="fetchLeaderboard()">🔄 Refresh</button>
+      </div>
+      <div id="lb-list"><div class="lb-empty">Loading leaderboard...</div></div>
     </div>
 
     <audio id="clickSound" src="click.mp3"></audio>
@@ -702,12 +770,14 @@
         state.name = n;
         document.getElementById('name-screen').style.display = 'none';
         document.getElementById('game-wrapper').style.display = 'grid';
+        document.getElementById('leaderboard-panel').style.display = 'block';
         document.getElementById('char-name').textContent = n;
         updateUI();
         renderShop();
         renderQuests();
         loadScene('town');
         addLog(`${n} begins their adventure!`, 'info');
+        fetchLeaderboard();
       }
 
       // LOAD SCENE
@@ -1011,6 +1081,90 @@
         document.getElementById('mp-bar').style.width = Math.max(0, (state.mp / state.maxMp) * 100) + '%';
         document.getElementById('xp-bar').style.width = Math.min(100, (state.xp / state.xpNext) * 100) + '%';
       }
+
+      // LEADERBOARD
+      const BIN_ID = '69cfae7036566621a876bd4a';
+      const API_KEY = '$2a$10$VqfRwJTvyV1S/3nK1vd81.02tVHLXJ573oQPUH4Mvu5V7d3vtKjq.';
+      const BIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
+      async function fetchLeaderboard() {
+        try {
+          document.getElementById('lb-list').innerHTML = '<div class="lb-empty">Loading...</div>';
+          const res = await fetch(BIN_URL + '/latest', {
+            headers: { 'X-Master-Key': API_KEY }
+          });
+          const data = await res.json();
+          const scores = data.record.scores || [];
+          renderLeaderboard(scores);
+        } catch (e) {
+          document.getElementById('lb-list').innerHTML = '<div class="lb-empty">Could not load leaderboard.</div>';
+        }
+      }
+
+      async function submitScore() {
+        if (!state.name) { alert('Start the game first!'); return; }
+        try {
+          const res = await fetch(BIN_URL + '/latest', {
+            headers: { 'X-Master-Key': API_KEY }
+          });
+          const data = await res.json();
+          let scores = data.record.scores || [];
+
+          // Remove old entry for same player
+          scores = scores.filter(s => s.name.toLowerCase() !== state.name.toLowerCase());
+
+          // Add new score
+          scores.push({
+            name: state.name,
+            level: state.level,
+            gold: state.gold,
+            date: new Date().toLocaleDateString()
+          });
+
+          // Sort by level then gold
+          scores.sort((a, b) => b.level - a.level || b.gold - a.gold);
+
+          // Keep top 20 only
+          scores = scores.slice(0, 20);
+
+          // Save back to JSONBin
+          await fetch(BIN_URL, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Master-Key': API_KEY
+            },
+            body: JSON.stringify({ scores })
+          });
+
+          renderLeaderboard(scores);
+          addLog(`🏆 Score submitted! Level ${state.level}, ${state.gold} Gold`, 'gold');
+          alert(`Score submitted! You are on the global leaderboard! 🏆`);
+        } catch (e) {
+          alert('Could not submit score. Check your connection!');
+        }
+      }
+
+      function renderLeaderboard(scores) {
+        const list = document.getElementById('lb-list');
+        if (!scores || scores.length === 0) {
+          list.innerHTML = '<div class="lb-empty">No scores yet! Be the first! 🏆</div>';
+          return;
+        }
+        const medals = ['🥇', '🥈', '🥉'];
+        const classes = ['gold', 'silver', 'bronze'];
+        list.innerHTML = scores.map((s, i) => `
+          <div class="lb-row">
+            <div class="lb-rank ${classes[i] || ''}">${medals[i] || '#' + (i + 1)}</div>
+            <div class="lb-name">${s.name}</div>
+            <div class="lb-level">⭐ Lv.${s.level}</div>
+            <div class="lb-gold">💰 ${s.gold}g</div>
+          </div>
+        `).join('');
+      }
+
+      // Fetch leaderboard on page load
+      fetchLeaderboard();
 
       // CLICK SOUND
       const sound = document.getElementById('clickSound');
