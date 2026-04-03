@@ -131,3 +131,20 @@ tr:hover {
   color: gray;
   font-size: 15px;
 }
+nav {
+  margin-bottom: 20px;
+}
+
+nav a {
+  margin: 0 10px;
+  color: white;
+  background-color: darkblue;
+  padding: 8px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+nav a:hover {
+  background-color: blue;
+}
