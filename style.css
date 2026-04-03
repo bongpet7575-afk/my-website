@@ -1,42 +1,42 @@
 body {
-  background-color: lightblue;
-}
-h1 {
-  color: darkblue;
-  font-size: 40px;
-}
-
-p {
-  color: red;
-  font-size: 18px;
-}
-body {
   background-color: #f0f0f0;
   background-image: radial-gradient(#c0c0c0 1px, transparent 1px);
   background-size: 20px 20px;
   text-align: center;
   font-family: 'Poppins', sans-serif;
 }
+
+h1 {
+  color: darkblue;
+  font-size: 40px;
+}
+
+p {
+  color: gray;
+  font-size: 18px;
+}
+
 img {
   width: 200px;
   height: 200px;
   border-radius: 50%;
   border: 5px solid rgb(76, 76, 190);
 }
+
 .card {
-  background-color: #f0f0f0;
-  background-image: radial-gradient(#c0c0c0 1px, transparent 1px);
-  background-size: 20px 20px;
+  background-color: white;
   width: 500px;
   margin: 50px auto;
   padding: 30px;
   border-radius: 15px;
   box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.1);
 }
+
 ul, ol {
   display: inline-block;
   text-align: left;
 }
+
 a {
   color: white;
   background-color: darkblue;
@@ -55,6 +55,7 @@ footer {
   color: gray;
   font-size: 14px;
 }
+
 #google_translate_element {
   margin-bottom: 15px;
 }
@@ -76,6 +77,7 @@ footer {
   background-color: white;
   cursor: pointer;
 }
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -94,13 +96,11 @@ td {
   border: 1px solid darkblue;
   color: gray;
 }
+
 tr:nth-child(even) {
   background-color: lightblue;
 }
 
-tr:hover {
-  background-color: lightgray;
-}
 @keyframes ledColors {
   0%   { background-color: red; }
   25%  { background-color: blue; }
