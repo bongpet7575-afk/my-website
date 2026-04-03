@@ -1,0 +1,17 @@
+body {
+  background-color: lightblue;
+}
+h1 {
+  color: darkblue;
+  font-size: 40px;
+}
+
+p {
+  color: red;
+  font-size: 18px;
+}
+body {
+  background-color: lightblue;
+  text-align: center;
+  font-family: Arial, sans-serif;
+}
