@@ -11,9 +11,11 @@ p {
   font-size: 18px;
 }
 body {
-  background-color: lightblue;
+  background-color: #f0f0f0;
+  background-image: radial-gradient(#c0c0c0 1px, transparent 1px);
+  background-size: 20px 20px;
   text-align: center;
-  font-family: Arial, sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 img {
   width: 200px;
@@ -22,11 +24,14 @@ img {
   border: 5px solid rgb(76, 76, 190);
 }
 .card {
-  background-color: white;
+  background-color: #f0f0f0;
+  background-image: radial-gradient(#c0c0c0 1px, transparent 1px);
+  background-size: 20px 20px;
   width: 500px;
   margin: 50px auto;
   padding: 30px;
   border-radius: 15px;
+  box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.1);
 }
 ul, ol {
   display: inline-block;
@@ -38,6 +43,7 @@ a {
   padding: 10px 20px;
   border-radius: 10px;
   text-decoration: none;
+  transition: all 0.3s ease;
 }
 
 a:hover {
