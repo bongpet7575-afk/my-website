@@ -9,6 +9,10 @@
     <link rel="icon" href="favicon.ico" type="image/x-icon">
   </head>
   <body>
+    <div id="loader">
+      <div class="spinner"></div>
+      <p>Loading Projects...</p>
+    </div>
     <div class="card">
         <nav>
              <a href="index.html">Home</a>
@@ -32,6 +36,14 @@
     <audio id="clickSound" src="click.mp3"></audio>
 
 <script>
+    window.addEventListener('load', () => {
+    const loader = document.getElementById('loader');
+    loader.style.transition = 'opacity 0.5s ease';
+    loader.style.opacity = '0';
+    setTimeout(() => {
+      loader.style.display = 'none';
+    }, 500);
+  });
   const sound = document.getElementById('clickSound');
   const links = document.querySelectorAll('a');
 
