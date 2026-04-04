@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Rotana's RPG</title>
+  <title>Rotana's RPG - Improved</title>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
   <style>
     :root{
@@ -36,7 +36,6 @@
     .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:9px;}
     .stat-box{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:5px;padding:4px;text-align:center;}
     .stat-box .val{color:var(--gold);font-size:1em;font-weight:600;}.stat-box .lbl{color:#777;font-size:.65em;}
-    /* CHARACTER */
     .char-display{position:relative;text-align:center;padding:8px 0;margin-bottom:7px;}
     .char-avatar{font-size:3em;display:inline-block;animation:idle 3s ease-in-out infinite;}
     @keyframes idle{0%,100%{transform:translateY(0);}50%{transform:translateY(-4px);}}
@@ -44,10 +43,10 @@
     @keyframes attack-anim{0%{transform:translateX(0);}30%{transform:translateX(18px) scale(1.15);}60%{transform:translateX(-5px);}100%{transform:translateX(0);}}
     .char-avatar.hit{animation:player-hit .4s ease;}
     @keyframes player-hit{0%,100%{filter:none;}50%{filter:brightness(3) sepia(1) hue-rotate(300deg);transform:translateX(-8px);}}
-    /* EQUIP SLOTS */
     .equip-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:8px;}
-    .equip-slot{background:rgba(255,255,255,.03);border:1px dashed #333;border-radius:6px;padding:5px;text-align:center;cursor:pointer;transition:all .2s;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+    .equip-slot{background:rgba(255,255,255,.03);border:1px dashed #333;border-radius:6px;padding:5px;text-align:center;cursor:pointer;transition:all .2s;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;}
     .equip-slot:hover{border-color:var(--gold);background:rgba(240,192,64,.06);}
+    .equip-slot:hover::after{content:'Click to unequip';position:absolute;bottom:-20px;background:#000;color:var(--gold);padding:2px 6px;border-radius:3px;font-size:.6em;white-space:nowrap;z-index:100;}
     .equip-slot.has-item{border-style:solid;}
     .equip-slot.legendary{border-color:var(--legendary);box-shadow:0 0 8px rgba(255,140,0,.3);}
     .equip-slot.epic{border-color:var(--epic);box-shadow:0 0 8px rgba(163,53,238,.3);}
@@ -56,12 +55,10 @@
     .equip-slot-label{font-size:.58em;color:#555;margin-bottom:2px;}
     .equip-slot-icon{font-size:1.2em;}
     .equip-slot-name{font-size:.58em;color:var(--text);margin-top:2px;max-width:55px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    /* STORY */
     #story-box{background:rgba(0,0,0,.45);border:1px solid var(--border);border-radius:8px;padding:16px;min-height:130px;font-size:1em;line-height:1.75;}
     .scene-title{font-family:'Cinzel',serif;color:var(--gold);font-size:.92em;margin-bottom:9px;}
     .choice-btn{background:rgba(8,8,40,.8);border:1px solid var(--border);border-left:3px solid var(--dark-gold);color:var(--text);padding:10px 14px;border-radius:6px;cursor:pointer;font-family:'Crimson Text',serif;font-size:.97em;text-align:left;transition:all .22s;width:100%;}
     .choice-btn:hover{background:rgba(60,40,0,.5);border-left-color:var(--gold);color:var(--gold);transform:translateX(4px);}
-    /* ARENA */
     #combat-box{display:none;background:rgba(60,0,0,.25);border:1px solid #5a0000;border-radius:10px;padding:14px;}
     .arena{display:flex;align-items:center;justify-content:space-between;padding:10px 5px;margin-bottom:10px;background:rgba(0,0,0,.3);border-radius:8px;border:1px solid #2a0000;position:relative;}
     .arena-side{text-align:center;flex:1;}
@@ -82,7 +79,6 @@
     .combat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:9px;}
     .combat-btn{background:rgba(8,8,40,.8);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:6px;cursor:pointer;font-family:'Crimson Text',serif;font-size:.9em;transition:all .2s;}
     .combat-btn:hover{background:rgba(60,40,0,.5);color:var(--gold);}
-    /* SKILLS */
     #skills-bar{display:none;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:9px;margin-bottom:9px;}
     .skill-slot{display:inline-flex;flex-direction:column;align-items:center;margin:0 4px;cursor:pointer;}
     .skill-icon-wrap{width:44px;height:44px;background:rgba(255,255,255,.05);border:2px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.3em;transition:all .2s;}
@@ -92,7 +88,6 @@
     .skill-cd-lbl{font-size:.6em;color:var(--red);}
     #log-box{background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:8px;padding:9px;max-height:85px;overflow-y:auto;font-size:.82em;color:#aaa;line-height:1.6;}
     .log-good{color:var(--green);}.log-bad{color:var(--red);}.log-info{color:var(--blue);}.log-gold{color:var(--gold);}.log-purple{color:var(--purple);}.log-legendary{color:var(--legendary);}.log-epic{color:var(--epic);}
-    /* NAME */
     #name-screen{text-align:center;padding:22px;max-width:400px;width:100%;}
     #name-input{background:rgba(0,0,0,.4);border:1px solid var(--dark-gold);color:var(--text);padding:10px 14px;border-radius:8px;font-family:'Crimson Text',serif;font-size:1.1em;width:100%;max-width:260px;margin:12px 0;text-align:center;outline:none;}
     #name-input:focus{border-color:var(--gold);}
@@ -101,13 +96,10 @@
     .blue-btn{background:linear-gradient(135deg,#1a3a6a,#2a5aaa);color:white;}
     .purple-btn{background:linear-gradient(135deg,#4400aa,#8844ff);color:white;}
     .red-btn{background:linear-gradient(135deg,#6a0000,#aa2222);color:white;}
-    /* TABS */
     .tabs{display:flex;gap:4px;margin-bottom:8px;}
     .tab{flex:1;padding:5px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-family:'Cinzel',serif;font-size:.62em;text-align:center;color:#888;transition:all .2s;}
     .tab.active{background:rgba(240,192,64,.12);border-color:var(--dark-gold);color:var(--gold);}
-    /* INVENTORY */
     .gold-display{display:flex;align-items:center;gap:6px;font-family:'Cinzel',serif;color:var(--gold);font-size:.95em;margin-bottom:8px;padding:6px;background:rgba(240,192,64,.07);border-radius:5px;border:1px solid var(--dark-gold);justify-content:center;}
-    /* STACKED ITEM */
     .inv-item{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;padding:6px 8px;margin-bottom:5px;font-size:.83em;position:relative;}
     .inv-item.legendary{border-color:var(--legendary);box-shadow:0 0 5px rgba(255,140,0,.2);}
     .inv-item.epic{border-color:var(--epic);box-shadow:0 0 5px rgba(163,53,238,.2);}
@@ -126,12 +118,10 @@
     .btn-sell{background:rgba(100,0,0,.4);color:var(--red);border:1px solid #550000 !important;}
     .btn-craft{background:rgba(80,0,150,.5);color:var(--purple);border:1px solid #440088 !important;}
     .inv-empty{color:#444;font-style:italic;font-size:.85em;text-align:center;padding:12px;}
-    /* SHOP */
     .shop-item{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;padding:7px;margin-bottom:5px;font-size:.82em;}
     .shop-item.legendary{border-color:var(--legendary);}.shop-item.epic{border-color:var(--epic);}.shop-item.rare{border-color:var(--rare);}
     .shop-btn{background:var(--dark-gold);color:#1a0a00;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:.75em;float:right;transition:all .2s;font-family:'Cinzel',serif;}
     .shop-btn:hover{background:var(--gold);}
-    /* CRAFTING */
     #craft-screen{display:none;position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:8000;overflow-y:auto;padding:20px;}
     .craft-container{max-width:850px;margin:0 auto;}
     .craft-title{font-family:'Cinzel',serif;color:var(--purple);font-size:1.5em;text-align:center;margin-bottom:5px;text-shadow:0 0 20px rgba(187,68,255,.5);}
@@ -143,9 +133,8 @@
     .craft-req{font-size:.8em;color:#888;margin-bottom:8px;line-height:1.5;}
     .craft-req .ok{color:var(--green);}.craft-req .no{color:var(--red);}
     .craft-btn{background:linear-gradient(135deg,#4400aa,#8844ff);color:white;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:'Cinzel',serif;font-size:.8em;transition:all .3s;}
-    .craft-btn:hover{transform:scale(1.04);}
+    .craft-btn:hover:not(:disabled){transform:scale(1.04);}
     .craft-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
-    /* CLASS */
     #class-screen{display:none;position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:8000;overflow-y:auto;padding:20px;}
     .class-container{max-width:900px;margin:0 auto;text-align:center;}
     .class-title{font-family:'Cinzel',serif;color:var(--gold);font-size:1.7em;margin-bottom:6px;}
@@ -158,7 +147,6 @@
     .class-desc{color:#aaa;font-size:.85em;line-height:1.5;margin-bottom:8px;}
     .class-stat{display:flex;justify-content:space-between;font-size:.8em;padding:2px 0;border-bottom:1px solid rgba(255,255,255,.05);}
     .class-stat span:last-child{color:var(--gold);}
-    /* TALENT */
     #talent-screen{display:none;position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:8000;overflow-y:auto;padding:20px;}
     .talent-container{max-width:950px;margin:0 auto;}
     .talent-title{font-family:'Cinzel',serif;color:var(--gold);font-size:1.4em;text-align:center;margin-bottom:4px;}
@@ -175,7 +163,6 @@
     .talent-node-desc{font-size:.76em;color:#999;margin-top:3px;}
     .talent-node-cost{font-size:.72em;color:var(--gold);margin-top:3px;}
     .talent-node-rank{font-size:.7em;color:var(--green);float:right;}
-    /* BOSS CUTSCENE */
     #boss-cutscene{display:none;position:fixed;inset:0;background:#000;z-index:9500;overflow:hidden;}
     .boss-bg{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(120,0,0,.7),#000 70%);animation:bossAura 2s ease-in-out infinite alternate;}
     @keyframes bossAura{from{opacity:.7;}to{opacity:1;}}
@@ -187,7 +174,6 @@
     .boss-cs-text{color:#ddd;font-size:1.05em;max-width:520px;line-height:1.7;margin-bottom:20px;}
     .boss-start-btn{background:linear-gradient(135deg,#8b0000,#cc0000);color:white;border:2px solid #ff4444;padding:13px 32px;border-radius:8px;font-family:'Cinzel',serif;font-size:.97em;cursor:pointer;transition:all .3s;letter-spacing:1px;}
     .boss-start-btn:hover{transform:scale(1.05);}
-    /* LEADERBOARD */
     #leaderboard-panel{width:100%;max-width:1080px;margin-top:13px;}
     .lb-row{display:flex;align-items:center;gap:11px;padding:8px 12px;border-bottom:1px solid var(--border);font-size:.88em;}
     .lb-rank{font-family:'Cinzel',serif;color:var(--gold);width:26px;text-align:center;}
@@ -203,7 +189,6 @@
     .fade-in{animation:fadeInUp .35s ease forwards;}
     .quest-item{padding:5px 0;border-bottom:1px solid var(--border);font-size:.8em;}
     .quest-done{color:var(--green);text-decoration:line-through;opacity:.55;}
-    /* AUTO SELL TOGGLE */
     .toggle-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:.82em;color:#aaa;}
     .toggle{position:relative;display:inline-block;width:36px;height:18px;}
     .toggle input{opacity:0;width:0;height:0;}
@@ -211,15 +196,37 @@
     .toggle-slider:before{position:absolute;content:'';height:14px;width:14px;left:2px;bottom:2px;background:white;border-radius:50%;transition:.3s;}
     input:checked+.toggle-slider{background:var(--dark-gold);}
     input:checked+.toggle-slider:before{transform:translateX(18px);}
-    /* NOTIFICATION */
     #notification{position:fixed;top:20px;right:20px;background:var(--panel);border:1px solid var(--gold);border-radius:8px;padding:12px 18px;font-family:'Cinzel',serif;font-size:.85em;color:var(--gold);z-index:9800;display:none;animation:slideIn .3s ease;}
     @keyframes slideIn{from{opacity:0;transform:translateX(50px);}to{opacity:1;transform:translateX(0);}}
+    .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9900;align-items:center;justify-content:center;}
+    .modal-overlay.active{display:flex;}
+    .modal-content{background:var(--panel);border:2px solid var(--gold);border-radius:12px;padding:20px;max-width:400px;text-align:center;}
+    .modal-title{font-family:'Cinzel',serif;color:var(--gold);font-size:1.2em;margin-bottom:12px;}
+    .modal-text{color:var(--text);margin-bottom:16px;font-size:.95em;}
+    .modal-buttons{display:flex;gap:10px;justify-content:center;}
+    .modal-btn{padding:8px 20px;border-radius:6px;border:none;cursor:pointer;font-family:'Cinzel',serif;font-size:.9em;transition:all .2s;}
+    .modal-btn-confirm{background:var(--gold);color:#1a0a00;font-weight:700;}
+    .modal-btn-confirm:hover{transform:scale(1.05);}
+    .modal-btn-cancel{background:rgba(255,255,255,.1);color:var(--text);border:1px solid var(--border);}
+    .modal-btn-cancel:hover{background:rgba(255,255,255,.15);}
   </style>
 </head>
 <body>
 
 <div id="loader"><div class="spinner"></div><p>Loading Game...</p></div>
 <div id="notification"></div>
+
+<!-- CONFIRMATION MODAL -->
+<div id="confirmModal" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-title" id="modalTitle">Confirm Action</div>
+    <div class="modal-text" id="modalText">Are you sure?</div>
+    <div class="modal-buttons">
+      <button class="modal-btn modal-btn-confirm" onclick="confirmAction()">Yes</button>
+      <button class="modal-btn modal-btn-cancel" onclick="cancelAction()">Cancel</button>
+    </div>
+  </div>
+</div>
 
 <!-- BOSS CUTSCENE -->
 <div id="boss-cutscene">
@@ -229,7 +236,7 @@
     <div class="boss-cs-name" id="boss-cs-name">Boss</div>
     <div class="boss-cs-req" id="boss-cs-req"></div>
     <div class="boss-cs-text" id="boss-cs-text"></div>
-    <button class="boss-start-btn" onclick="startBossFight()">⚔️ Fight!</button>
+    <button class="boss-start-btn" onclick="GameEngine.startBossFight()">⚔️ Fight!</button>
   </div>
 </div>
 
@@ -248,7 +255,7 @@
     <div class="talent-title" id="talent-title">Talent Tree</div>
     <div class="talent-pts">✨ Talent Points: <span id="talent-pts-val">0</span></div>
     <div class="tree-grid" id="tree-grid"></div>
-    <div style="text-align:center;margin-top:14px;"><button class="start-btn" onclick="closeTalents()">✅ Done</button></div>
+    <div style="text-align:center;margin-top:14px;"><button class="start-btn" onclick="GameUI.closeTalents()">✅ Done</button></div>
   </div>
 </div>
 
@@ -258,7 +265,7 @@
     <div class="craft-title">⚗️ Crafting Table</div>
     <p style="color:#888;font-size:.9em;text-align:center;">Combine materials to forge powerful items!</p>
     <div class="craft-grid" id="craft-grid"></div>
-    <div style="text-align:center;margin-top:16px;"><button class="start-btn" onclick="closeCrafting()">✅ Close</button></div>
+    <div style="text-align:center;margin-top:16px;"><button class="start-btn" onclick="GameUI.closeCrafting()">✅ Close</button></div>
   </div>
 </div>
 
@@ -272,10 +279,10 @@
 <p class="subtitle">A Text-Based Adventure — Max Level 100</p>
 
 <div style="display:flex;gap:7px;margin-bottom:11px;justify-content:center;flex-wrap:wrap;">
-  <button class="start-btn" onclick="saveGame()" style="font-size:.8em;padding:6px 16px;">💾 Save</button>
-  <button class="start-btn blue-btn" onclick="loadGame()" style="font-size:.8em;padding:6px 16px;">📂 Load</button>
-  <button class="start-btn purple-btn" onclick="openCrafting()" style="font-size:.8em;padding:6px 16px;">⚗️ Craft</button>
-  <button class="start-btn" onclick="openTalents()" id="talent-btn" style="font-size:.8em;padding:6px 16px;display:none;background:linear-gradient(135deg,#4400aa,#8844ff);color:white;">🌟 Talents</button>
+  <button class="start-btn" onclick="GameEngine.saveGame()" style="font-size:.8em;padding:6px 16px;">💾 Save</button>
+  <button class="start-btn blue-btn" onclick="GameEngine.loadGame()" style="font-size:.8em;padding:6px 16px;">📂 Load</button>
+  <button class="start-btn purple-btn" onclick="GameUI.openCrafting()" style="font-size:.8em;padding:6px 16px;">⚗️ Craft</button>
+  <button class="start-btn" onclick="GameUI.openTalents()" id="talent-btn" style="font-size:.8em;padding:6px 16px;display:none;background:linear-gradient(135deg,#4400aa,#8844ff);color:white;">🌟 Talents</button>
 </div>
 
 <!-- NAME SCREEN -->
@@ -283,8 +290,9 @@
   <div class="panel-title">Begin Your Adventure</div>
   <p style="color:#888;font-size:.93em;">What is the name of our brave hero?</p><br>
   <input type="text" id="name-input" placeholder="Enter your name..." maxlength="20"><br>
-  <button class="start-btn" onclick="startGame()">⚔️ Start Adventure</button><br>
-  <button class="start-btn blue-btn" onclick="loadGame()" style="margin-top:4px;">📂 Continue Saved Game</button>
+  <button class="start-btn" onclick="GameEngine.startGame()">⚔️ Start Adventure</button><br>
+  <button class="start-btn blue-btn" onclick="GameEngine.loadGame
+  " style="margin-top:4px;">📂 Continue Saved Game</button>
 </div>
 
 <!-- GAME WRAPPER -->
@@ -316,12 +324,12 @@
     <div class="panel">
       <div class="panel-title">🛡️ Equipment</div>
       <div class="equip-grid" id="equip-grid">
-        <div class="equip-slot" id="slot-weapon" onclick="unequipSlot('weapon')"><div class="equip-slot-label">Weapon</div><div class="equip-slot-icon">⚔️</div><div class="equip-slot-name" id="slot-weapon-name">Empty</div></div>
-        <div class="equip-slot" id="slot-armor" onclick="unequipSlot('armor')"><div class="equip-slot-label">Armor</div><div class="equip-slot-icon">🛡️</div><div class="equip-slot-name" id="slot-armor-name">Empty</div></div>
-        <div class="equip-slot" id="slot-helmet" onclick="unequipSlot('helmet')"><div class="equip-slot-label">Helmet</div><div class="equip-slot-icon">⛑️</div><div class="equip-slot-name" id="slot-helmet-name">Empty</div></div>
-        <div class="equip-slot" id="slot-boots" onclick="unequipSlot('boots')"><div class="equip-slot-label">Boots</div><div class="equip-slot-icon">👢</div><div class="equip-slot-name" id="slot-boots-name">Empty</div></div>
-        <div class="equip-slot" id="slot-ring" onclick="unequipSlot('ring')"><div class="equip-slot-label">Ring</div><div class="equip-slot-icon">💍</div><div class="equip-slot-name" id="slot-ring-name">Empty</div></div>
-        <div class="equip-slot" id="slot-amulet" onclick="unequipSlot('amulet')"><div class="equip-slot-label">Amulet</div><div class="equip-slot-icon">📿</div><div class="equip-slot-name" id="slot-amulet-name">Empty</div></div>
+        <div class="equip-slot" data-slot="weapon" onclick="GameInventory.unequipSlot('weapon')"><div class="equip-slot-label">Weapon</div><div class="equip-slot-icon">⚔️</div><div class="equip-slot-name" id="slot-weapon-name">Empty</div></div>
+        <div class="equip-slot" data-slot="armor" onclick="GameInventory.unequipSlot('armor')"><div class="equip-slot-label">Armor</div><div class="equip-slot-icon">🛡️</div><div class="equip-slot-name" id="slot-armor-name">Empty</div></div>
+        <div class="equip-slot" data-slot="helmet" onclick="GameInventory.unequipSlot('helmet')"><div class="equip-slot-label">Helmet</div><div class="equip-slot-icon">⛑️</div><div class="equip-slot-name" id="slot-helmet-name">Empty</div></div>
+        <div class="equip-slot" data-slot="boots" onclick="GameInventory.unequipSlot('boots')"><div class="equip-slot-label">Boots</div><div class="equip-slot-icon">👢</div><div class="equip-slot-name" id="slot-boots-name">Empty</div></div>
+        <div class="equip-slot" data-slot="ring" onclick="GameInventory.unequipSlot('ring')"><div class="equip-slot-label">Ring</div><div class="equip-slot-icon">💍</div><div class="equip-slot-name" id="slot-ring-name">Empty</div></div>
+        <div class="equip-slot" data-slot="amulet" onclick="GameInventory.unequipSlot('amulet')"><div class="equip-slot-label">Amulet</div><div class="equip-slot-icon">📿</div><div class="equip-slot-name" id="slot-amulet-name">Empty</div></div>
       </div>
     </div>
   </div>
@@ -350,10 +358,10 @@
       <div class="stat-row"><span class="stat-label">❤️ Enemy HP</span><span class="stat-value"><span id="enemy-hp-val">0</span>/<span id="enemy-hp-max">0</span></span></div>
       <div id="combat-log"></div>
       <div class="combat-grid">
-        <button class="combat-btn" onclick="combatAction('attack')">⚔️ Attack</button>
-        <button class="combat-btn" onclick="combatAction('magic')">✨ Magic (10MP)</button>
-        <button class="combat-btn" onclick="combatAction('defend')">🛡️ Defend</button>
-        <button class="combat-btn" onclick="combatAction('flee')">🏃 Flee</button>
+        <button class="combat-btn" onclick="GameCombat.action('attack')">⚔️ Attack</button>
+        <button class="combat-btn" onclick="GameCombat.action('magic')">✨ Magic (10MP)</button>
+        <button class="combat-btn" onclick="GameCombat.action('defend')">🛡️ Defend</button>
+        <button class="combat-btn" onclick="GameCombat.action('flee')">🏃 Flee</button>
       </div>
     </div>
     <div class="panel" id="choices-box" style="display:flex;flex-direction:column;gap:7px;"></div>
@@ -366,17 +374,16 @@
     <div class="panel">
       <div class="panel-title">🎒 Inventory</div>
       <div class="gold-display">💰 <span id="gold-val">30</span> Gold</div>
-      <!-- AUTO SELL SETTINGS -->
       <div style="background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;padding:7px;margin-bottom:8px;">
         <div style="font-family:'Cinzel',serif;color:var(--gold);font-size:.72em;margin-bottom:5px;">⚙️ AUTO SELL JUNK</div>
-        <div class="toggle-row">Normal <label class="toggle"><input type="checkbox" id="as-normal" onchange="saveAutoSell()"><span class="toggle-slider"></span></label></div>
-        <div class="toggle-row">Uncommon <label class="toggle"><input type="checkbox" id="as-uncommon" onchange="saveAutoSell()"><span class="toggle-slider"></span></label></div>
-        <button class="start-btn red-btn" onclick="autoSellNow()" style="font-size:.72em;padding:4px 12px;margin-top:5px;width:100%;">🗑️ Sell Junk Now</button>
+        <div class="toggle-row">Normal <label class="toggle"><input type="checkbox" id="as-normal" onchange="GameInventory.saveAutoSell()"><span class="toggle-slider"></span></label></div>
+        <div class="toggle-row">Uncommon <label class="toggle"><input type="checkbox" id="as-uncommon" onchange="GameInventory.saveAutoSell()"><span class="toggle-slider"></span></label></div>
+        <button class="start-btn red-btn" onclick="GameInventory.autoSellNow()" style="font-size:.72em;padding:4px 12px;margin-top:5px;width:100%;">🗑️ Sell Junk Now</button>
       </div>
       <div class="tabs" id="inv-tabs">
-        <div class="tab active" onclick="switchInvTab('equipment')" id="inv-tab-equipment">⚔️ Equip</div>
-        <div class="tab" onclick="switchInvTab('consumable')" id="inv-tab-consumable">🧪 Items</div>
-        <div class="tab" onclick="switchInvTab('material')" id="inv-tab-material">💎 Mats</div>
+        <div class="tab active" onclick="GameInventory.switchTab('equipment')" id="inv-tab-equipment">⚔️ Equip</div>
+        <div class="tab" onclick="GameInventory.switchTab('consumable')" id="inv-tab-consumable">🧪 Items</div>
+        <div class="tab" onclick="GameInventory.switchTab('material')" id="inv-tab-material">💎 Mats</div>
       </div>
       <div id="inventory-list"></div>
     </div>
@@ -384,8 +391,8 @@
     <div class="panel">
       <div class="panel-title">🏪 Shop</div>
       <div class="tabs">
-        <div class="tab active" onclick="switchShopTab('equipment')" id="shop-tab-equipment">⚔️ Equip</div>
-        <div class="tab" onclick="switchShopTab('consumable')" id="shop-tab-consumable">🧪 Items</div>
+        <div class="tab active" onclick="GameShop.switchTab('equipment')" id="shop-tab-equipment">⚔️ Equip</div>
+        <div class="tab" onclick="GameShop.switchTab('consumable')" id="shop-tab-consumable">🧪 Items</div>
       </div>
       <div id="shop-content"></div>
     </div>
@@ -398,955 +405,2150 @@
 <div id="leaderboard-panel" class="panel" style="display:none;margin-top:13px;width:100%;max-width:1080px;">
   <div class="panel-title">🏆 Global Leaderboard</div>
   <div style="display:flex;justify-content:center;gap:7px;margin-bottom:11px;flex-wrap:wrap;">
-    <button class="submit-btn" onclick="submitScore()">📤 Submit Score</button>
-    <button class="refresh-btn" onclick="fetchLeaderboard()">🔄 Refresh</button>
+    <button class="submit-btn" onclick="GameLeaderboard.submit()">📤 Submit Score</button>
+    <button class="refresh-btn" onclick="GameLeaderboard.fetch()">🔄 Refresh</button>
   </div>
   <div id="lb-list"><div class="lb-empty">Loading...</div></div>
 </div>
 
-<audio id="snd-attack" src="https://assets.mixkit.co/active_storage/sfx/2058/2058-preview.mp3"></audio>
-<audio id="snd-magic" src="https://assets.mixkit.co/active_storage/sfx/2015/2015-preview.mp3"></audio>
-<audio id="snd-heal" src="https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3"></audio>
-<audio id="snd-levelup" src="https://assets.mixkit.co/active_storage/sfx/1997/1997-preview.mp3"></audio>
-<audio id="snd-death" src="https://assets.mixkit.co/active_storage/sfx/2001/2001-preview.mp3"></audio>
-<audio id="snd-boss" src="https://assets.mixkit.co/active_storage/sfx/2008/2008-preview.mp3"></audio>
-<audio id="snd-craft" src="https://assets.mixkit.co/active_storage/sfx/1997/1997-preview.mp3"></audio>
-<audio id="clickSound" src="click.mp3"></audio>
-
 <script>
-// ── LOADER ──
-window.addEventListener('load',()=>{const l=document.getElementById('loader');l.style.opacity='0';setTimeout(()=>l.style.display='none',500);});
+// ════════════════════════════════════════════════════════════════
+// GAME STATE & CONSTANTS
+// ════════════════════════════════════════════════════════════════
 
-// ── SOUND ──
-function playSound(id){try{const a=document.getElementById(id);if(a){a.currentTime=0;a.volume=0.4;a.play().catch(()=>{});}}catch(e){}}
-
-// ── NOTIFY ──
-function notify(msg,color='var(--gold)'){
-  const n=document.getElementById('notification');
-  n.textContent=msg;n.style.color=color;n.style.display='block';
-  clearTimeout(n._t);n._t=setTimeout(()=>n.style.display='none',3000);
-}
-
-// ── RARITY ──
-const RARITY={
-  legendary:{label:'Legendary',color:'var(--legendary)',chance:.03,mult:3.5},
-  epic:{label:'Epic',color:'var(--epic)',chance:.08,mult:2.5},
-  rare:{label:'Rare',color:'var(--rare)',chance:.18,mult:1.8},
-  uncommon:{label:'Uncommon',color:'var(--uncommon)',chance:.35,mult:1.3},
-  normal:{label:'Normal',color:'#cccccc',chance:1,mult:1},
-};
-function rollRarity(){
-  const r=Math.random();
-  if(r<.03)return'legendary';if(r<.08)return'epic';if(r<.18)return'rare';if(r<.35)return'uncommon';return'normal';
-}
-
-// ── STATE ──
-const state={
-  name:'',level:1,xp:0,xpNext:100,maxLevel:100,
-  hp:100,maxHp:100,mp:50,maxMp:50,
-  str:5,agi:5,int:5,def:2,gold:30,
-  inventory:[],equipped:{weapon:null,armor:null,helmet:null,boots:null,ring:null,amulet:null},
-  class:null,talentPoints:0,unlockedTalents:[],skills:[],skillCooldowns:{},
-  defending:false,manaShield:false,usedUndying:false,
-  currentScene:'town',invTab:'equipment',shopTab:'equipment',
-  autoSell:{normal:false,uncommon:false},
-  quests:{
-    kill1:{text:'🗡️ Defeat your first enemy',done:false},
-    gold50:{text:'💰 Earn 50 gold',done:false},
-    level5:{text:'⭐ Reach Level 5',done:false},
-    level10:{text:'🏆 Reach Level 10',done:false},
-    boss:{text:'🐉 Defeat a Boss',done:false},
-    class:{text:'✨ Choose a Class',done:false},
-    talent:{text:'🌟 Unlock a Talent',done:false},
-    equip:{text:'🛡️ Equip an item',done:false},
-    legendary:{text:'🔱 Find a Legendary item',done:false},
-    craft:{text:'⚗️ Craft an item',done:false},
-    level50:{text:'👑 Reach Level 50',done:false},
-    level100:{text:'🌟 Reach Max Level 100',done:false},
-  }
+const CONSTANTS = {
+  SAVE_KEY: 'rpgSave_v2',
+  AUTO_SAVE_INTERVAL: 120000, // 2 minutes
+  MAX_LEVEL: 100,
+  STARTING_GOLD: 300,
+  STARTING_HP: 100,
+  STARTING_MP: 50,
+  BASE_XP_NEXT: 100,
+  XP_MULTIPLIER: 1.25,
+  BOSS_SCALING: 0.03,
+  ENEMY_SCALING: 0.04,
 };
 
-// ── CLASSES ──
-const CLASSES={
-  warrior:{name:'Warrior',icon:'⚔️',desc:'A mighty melee fighter. High HP and STR.',
-    bonuses:{str:8,def:5,maxHp:50,maxMp:-10},skills:['power_strike','battle_cry','last_stand'],
-    trees:{
-      dps:{name:'🗡️ DPS',talents:[
-        {id:'berserker',name:'Berserker Rage',desc:'+4 STR, bonus dmg when HP<50%',cost:1,ranks:3,effect:()=>{state.str+=4;}},
-        {id:'cleave',name:'Cleave',desc:'Attacks hit twice at 70% dmg',cost:2,ranks:1,effect:()=>{}},
-        {id:'execute',name:'Execute',desc:'Massive bonus dmg when enemy HP<30%',cost:2,ranks:1,effect:()=>{}},
-      ]},
-      tank:{name:'🛡️ Tank',talents:[
-        {id:'iron_skin',name:'Iron Skin',desc:'+3 DEF, +20 Max HP per rank',cost:1,ranks:3,effect:()=>{state.def+=3;state.maxHp+=20;state.hp+=20;}},
-        {id:'fortress',name:'Fortress Stance',desc:'DEF doubled while defending',cost:2,ranks:1,effect:()=>{}},
-        {id:'shield_wall',name:'Shield Wall',desc:'Reduce all incoming damage by 10%',cost:3,ranks:1,effect:()=>{}},
-      ]},
-      heal:{name:'💚 Self Heal',talents:[
-        {id:'second_wind',name:'Second Wind',desc:'Restore 10 HP each combat turn',cost:1,ranks:3,effect:()=>{}},
-        {id:'undying',name:'Undying Will',desc:'Survive killing blow once with 1 HP',cost:3,ranks:1,effect:()=>{}},
-        {id:'regeneration',name:'Regeneration',desc:'+5% Max HP after each battle',cost:2,ranks:2,effect:()=>{}},
-      ]}
+const RARITY = {
+  legendary: { label: 'Legendary', color: 'var(--legendary)', chance: 0.03, mult: 3.5 },
+  epic: { label: 'Epic', color: 'var(--epic)', chance: 0.08, mult: 2.5 },
+  rare: { label: 'Rare', color: 'var(--rare)', chance: 0.18, mult: 1.8 },
+  uncommon: { label: 'Uncommon', color: 'var(--uncommon)', chance: 0.35, mult: 1.3 },
+  normal: { label: 'Normal', color: '#cccccc', chance: 1, mult: 1 },
+};
+
+const SLOT_ICONS = {
+  weapon: '⚔️', armor: '🛡️', helmet: '⛑️', boots: '👢', ring: '💍', amulet: '📿'
+};
+
+// ════════════════════════════════════════════════════════════════
+// GAME STATE
+// ════════════════════════════════════════════════════════════════
+
+const GameState = {
+  name: '',
+  level: 9,
+  xp: 0,
+  xpNext: CONSTANTS.BASE_XP_NEXT,
+  maxLevel: CONSTANTS.MAX_LEVEL,
+  hp: CONSTANTS.STARTING_HP,
+  maxHp: CONSTANTS.STARTING_HP,
+  mp: CONSTANTS.STARTING_MP,
+  maxMp: CONSTANTS.STARTING_MP,
+  str: 5,
+  agi: 5,
+  int: 5,
+  def: 2,
+  gold: CONSTANTS.STARTING_GOLD ,
+  inventory: [],
+  equipped: { weapon: null, armor: null, helmet: null, boots: null, ring: null, amulet: null },
+  class: null,
+  talentPoints: 0,
+  unlockedTalents: [],
+  skills: [],
+  skillCooldowns: {},
+  defending: false,
+  manaShield: false,
+  usedUndying: false,
+  currentScene: 'town',
+  invTab: 'equipment',
+  shopTab: 'equipment',
+  autoSell: { normal: false, uncommon: false },
+  quests: {
+    kill1: { text: '🗡️ Defeat your first enemy', done: false },
+    gold50: { text: '💰 Earn 50 gold', done: false },
+    level5: { text: '⭐ Reach Level 5', done: false },
+    level10: { text: '🏆 Reach Level 10', done: false },
+    boss: { text: '🐉 Defeat a Boss', done: false },
+    class: { text: '✨ Choose a Class', done: false },
+    talent: { text: '🌟 Unlock a Talent', done: false },
+    equip: { text: '🛡️ Equip an item', done: false },
+    legendary: { text: '🔱 Find a Legendary item', done: false },
+    craft: { text: '⚗️ Craft an item', done: false },
+    level50: { text: '👑 Reach Level 50', done: false },
+    level100: { text: '🌟 Reach Max Level 100', done: false },
+  },
+};
+
+// ════════════════════════════════════════════════════════════════
+// UTILITY FUNCTIONS
+// ════════════════════════════════════════════════════════════════
+
+const Utils = {
+  sanitizeName(name) {
+    return name.trim().substring(0, 20).replace(/[<>]/g, '');
+  },
+
+  rollRarity() {
+    const r = Math.random();
+    if (r < 0.03) return 'legendary';
+    if (r < 0.08) return 'epic';
+    if (r < 0.18) return 'rare';
+    if (r < 0.35) return 'uncommon';
+    return 'normal';
+  },
+
+  genUid() {
+    return Date.now() + Math.random();
+  },
+
+  playSound(id) {
+    try {
+      const audio = document.getElementById(id);
+      if (audio) {
+        audio.currentTime = 0;
+        audio.volume = 0.3;
+        audio.play().catch(() => {});
+      }
+    } catch (e) {}
+  },
+
+  notify(msg, color = 'var(--gold)') {
+    const n = document.getElementById('notification');
+    n.textContent = msg;
+    n.style.color = color;
+    n.style.display = 'block';
+    clearTimeout(n._t);
+    n._t = setTimeout(() => (n.style.display = 'none'), 3000);
+  },
+
+  showConfirm(title, text, callback) {
+    window._confirmCallback = callback;
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalText').textContent = text;
+    document.getElementById('confirmModal').classList.add('active');
+  },
+};
+
+window.confirmAction = () => {
+  document.getElementById('confirmModal').classList.remove('active');
+  if (window._confirmCallback) window._confirmCallback(true);
+};
+
+window.cancelAction = () => {
+  document.getElementById('confirmModal').classList.remove('active');
+  if (window._confirmCallback) window._confirmCallback(false);
+};
+
+// ════════════════════════════════════════════════════════════════
+// GAME ENGINE
+// ════════════════════════════════════════════════════════════════
+
+const GameEngine = {
+  currentEnemy: null,
+  pendingBossId: null,
+
+  startGame() {
+    const name = Utils.sanitizeName(document.getElementById('name-input').value);
+    if (!name) {
+      alert('Please enter your name!');
+      return;
+    }
+    GameState.name = name;
+    this.showGame();
+    GameScenes.load('town');
+    GameLog.add(`${name} begins their adventure!`, 'info');
+    GameLeaderboard.fetch();
+  },
+
+  showGame() {
+    document.getElementById('name-screen').style.display = 'none';
+    document.getElementById('game-wrapper').style.display = 'grid';
+    document.getElementById('leaderboard-panel').style.display = 'block';
+    document.getElementById('char-name').textContent = GameState.name;
+    document.getElementById('arena-player').textContent = GameState.class ? CLASSES[GameState.class].icon : '🧙';
+    document.getElementById('arena-player-label').textContent = GameState.name;
+    GameInventory.loadAutoSellUI();
+    GameUI.updateUI();
+    GameInventory.render();
+    GameShop.render();
+    GameQuests.render();
+    GameSkills.render();
+    GameEquipment.render();
+  },
+
+  saveGame() {
+    try {
+      localStorage.setItem(CONSTANTS.SAVE_KEY, JSON.stringify(GameState));
+      GameLog.add('💾 Game saved!', 'gold');
+      alert('Game saved! ✅');
+    } catch (e) {
+      alert('Save failed — try clearing old save data!');
     }
   },
-  mage:{name:'Mage',icon:'🔮',desc:'A powerful spellcaster. High INT and MP.',
-    bonuses:{int:10,maxMp:60,str:-2,def:-1},skills:['fireball','ice_lance','mana_shield'],
-    trees:{
-      fire:{name:'🔥 Fire',talents:[
-        {id:'fire_mastery',name:'Fire Mastery',desc:'+5 INT, fire spells +20% dmg',cost:1,ranks:3,effect:()=>{state.int+=5;}},
-        {id:'ignite',name:'Ignite',desc:'Enemy burns: 5 dmg/turn x3 turns',cost:1,ranks:1,effect:()=>{}},
-        {id:'meteor',name:'Meteor',desc:'INT×5 damage mega spell',cost:3,ranks:1,effect:()=>{}},
-      ]},
-      ice:{name:'❄️ Ice',talents:[
-        {id:'frost',name:'Frost Nova',desc:'Freeze enemy — skip one turn',cost:1,ranks:2,effect:()=>{}},
-        {id:'ice_armor',name:'Ice Armor',desc:'+3 DEF from ice shields',cost:1,ranks:2,effect:()=>{state.def+=3;}},
-        {id:'blizzard',name:'Blizzard',desc:'Hit 3 times for INT×1.5 each',cost:3,ranks:1,effect:()=>{}},
-      ]},
-      arcane:{name:'✨ Arcane',talents:[
-        {id:'mana_regen',name:'Mana Regen',desc:'Restore 5 MP each combat turn',cost:1,ranks:3,effect:()=>{}},
-        {id:'spell_power',name:'Spell Power',desc:'All spells +15% dmg per rank',cost:2,ranks:2,effect:()=>{}},
-        {id:'arcane_surge',name:'Arcane Surge',desc:'Next spell: 0 MP, double dmg',cost:3,ranks:1,effect:()=>{}},
-      ]}
+
+  loadGame() {
+    const saved = localStorage.getItem(CONSTANTS.SAVE_KEY);
+    if (!saved) {
+      alert('No save file found!');
+      return;
+    }
+    try {
+      const data = JSON.parse(saved);
+      Object.assign(GameState, data);
+      this.showGame();
+      GameScenes.load(GameState.currentScene || 'town');
+      if (GameState.class) {
+        document.getElementById('char-class').textContent = `${CLASSES[GameState.class].icon} ${CLASSES[GameState.class].name}`;
+        document.getElementById('char-avatar').textContent = CLASSES[GameState.class].icon;
+        document.getElementById('arena-player').textContent = CLASSES[GameState.class].icon;
+        document.getElementById('talent-btn').style.display = 'inline-block';
+        GameUI.updateTalentBtn();
+      }
+      GameLog.add(`📂 Welcome back ${GameState.name}!`, 'gold');
+      GameLeaderboard.fetch();
+      alert(`Welcome back ${GameState.name}! ✅`);
+    } catch (e) {
+      alert('Load failed!');
     }
   },
-  rogue:{name:'Rogue',icon:'🗡️',desc:'A cunning assassin. High AGI and crits.',
-    bonuses:{agi:10,str:3,def:-1,maxHp:-10},skills:['backstab','poison_blade','shadow_step'],
-    trees:{
-      assassination:{name:'☠️ Assassin',talents:[
-        {id:'crit',name:'Critical Strike',desc:'+15% crit chance, crits deal 2× dmg',cost:1,ranks:3,effect:()=>{}},
-        {id:'ambush',name:'Ambush',desc:'First attack: AGI×3 dmg',cost:2,ranks:1,effect:()=>{}},
-        {id:'death_mark',name:'Death Mark',desc:'All attacks +50% dmg to target',cost:3,ranks:1,effect:()=>{}},
-      ]},
-      subtlety:{name:'🌑 Subtlety',talents:[
-        {id:'evasion',name:'Evasion',desc:'+15% dodge chance per rank',cost:1,ranks:3,effect:()=>{}},
-        {id:'smoke_bomb',name:'Smoke Bomb',desc:'Guaranteed flee from any battle',cost:1,ranks:1,effect:()=>{}},
-        {id:'vanish',name:'Vanish',desc:'Enemy misses next attack',cost:2,ranks:1,effect:()=>{}},
-      ]},
-      poison:{name:'🐍 Poison',talents:[
-        {id:'venom',name:'Venom Coat',desc:'Attacks poison enemy: 8 dmg/turn',cost:1,ranks:3,effect:()=>{}},
-        {id:'cripple',name:'Cripple',desc:'Reduce enemy ATK 30% for 3 turns',cost:2,ranks:1,effect:()=>{}},
-        {id:'plague',name:'Plague',desc:'Spread poison for massive DoT',cost:3,ranks:1,effect:()=>{}},
-      ]}
-    }
-  }
+
+  startBossFight() {
+    document.getElementById('boss-cutscene').style.display = 'none';
+    if (!this.pendingBossId) return;
+    const boss = BOSSES.find(b => b.id === this.pendingBossId);
+    if (!boss) return;
+
+    const scale = 1 + Math.max(0, (GameState.level - boss.levelReq) * CONSTANTS.BOSS_SCALING);
+    this.currentEnemy = {
+      ...boss,
+      hp: Math.floor(boss.hp * scale),
+      maxHp: Math.floor(boss.hp * scale),
+      atk: Math.floor(boss.atk * scale),
+      def: boss.def,
+      poisoned: 0,
+      frozen: false,
+      crippled: 0,
+      boss: true,
+    };
+    GameCombat.start(this.currentEnemy);
+  },
 };
 
-// ── SKILLS ──
-const SKILLS={
-  power_strike:{name:'Power Strike',icon:'💥',mp:15,cd:2,use:(e)=>{const d=Math.floor(state.str*2.5);e.hp-=d;addCombatLog(`💥 Power Strike! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
-  battle_cry:{name:'Battle Cry',icon:'📯',mp:20,cd:3,use:(e)=>{state.str+=3;state.def+=2;addCombatLog('📯 Battle Cry! +3 STR, +2 DEF!','good');playSound('snd-magic');return 0;}},
-  last_stand:{name:'Last Stand',icon:'🛡️',mp:25,cd:4,use:(e)=>{state.hp=Math.min(state.maxHp,state.hp+40);addCombatLog('🛡️ Last Stand! +40 HP!','good');playSound('snd-heal');spawnDmgFloat('+40HP',true,'heal-float');return 0;}},
-  fireball:{name:'Fireball',icon:'🔥',mp:18,cd:1,use:(e)=>{const d=Math.floor(state.int*3+Math.random()*10);e.hp-=d;addCombatLog(`🔥 Fireball! ${d} dmg!`,'good');playSound('snd-magic');animateAttack(true,d,false);return d;}},
-  ice_lance:{name:'Ice Lance',icon:'❄️',mp:12,cd:2,use:(e)=>{const d=Math.floor(state.int*2);e.hp-=d;e.frozen=true;addCombatLog(`❄️ Ice Lance! ${d} dmg — Frozen!`,'info');playSound('snd-magic');animateAttack(true,d,false);return d;}},
-  mana_shield:{name:'Mana Shield',icon:'🔮',mp:30,cd:4,use:(e)=>{state.manaShield=true;addCombatLog('🔮 Mana Shield active!','info');playSound('snd-heal');return 0;}},
-  backstab:{name:'Backstab',icon:'🗡️',mp:10,cd:1,use:(e)=>{const d=Math.floor(state.agi*2.8);e.hp-=d;addCombatLog(`🗡️ Backstab! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
-  poison_blade:{name:'Poison Blade',icon:'🐍',mp:15,cd:2,use:(e)=>{e.poisoned=(e.poisoned||0)+3;addCombatLog('🐍 Poisoned for 3 turns!','good');playSound('snd-magic');return 0;}},
-  shadow_step:{name:'Shadow Step',icon:'🌑',mp:20,cd:3,use:(e)=>{const d=Math.floor(state.agi*3.5);e.hp-=d;addCombatLog(`🌑 Shadow Step! ${d} dmg!`,'purple');playSound('snd-magic');animateAttack(true,d,false);return d;}},
-};
+// ════════════════════════════════════════════════════════════════
+// CLASSES & TALENTS
+// ════════════════════════════════════════════════════════════════
 
-// ── BOSSES (one every 10 levels, up to level 100) ──
-const BOSSES=[
-  {id:'boss_10',levelReq:10,name:'🐉 Ancient Dragon',icon:'🐉',hp:250,atk:38,def:14,xp:400,gold:[80,160],
-   cs:{title:'Ancient Dragon',req:'Required: Level 10',text:'The earth trembles as the Ancient Dragon awakens from its century-long slumber! Fire and fury await you, hero!'},
-   loot:()=>[mkEquipDrop('weapon','epic'),mkMat('🐉 Dragon Scale','epic',60),mkMat('🔥 Dragon Flame','rare',40)]},
-  {id:'boss_20',levelReq:20,name:'💀 Lich King',icon:'💀',hp:450,atk:55,def:20,xp:700,gold:[150,250],
-   cs:{title:'Lich King',req:'Required: Level 20',text:'The Lich King rises from the underworld! His death magic corrupts everything it touches. Face him only if you dare!'},
-   loot:()=>[mkEquipDrop('armor','epic'),mkEquipDrop('ring','rare'),mkMat('💀 Death Essence','epic',80)]},
-  {id:'boss_30',levelReq:30,name:'😈 Demon Lord',icon:'😈',hp:650,atk:70,def:26,xp:1000,gold:[220,350],
-   cs:{title:'Demon Lord',req:'Required: Level 30',text:'The sky tears open! The Demon Lord descends with hellfire in his wake. This battle will echo through eternity!'},
-   loot:()=>[mkEquipDrop('weapon','legendary'),mkEquipDrop('amulet','epic'),mkMat('😈 Demon Horn','legendary',150)]},
-  {id:'boss_40',levelReq:40,name:'⚡ Ancient Titan',icon:'⚡',hp:900,atk:88,def:34,xp:1400,gold:[300,450],
-   cs:{title:'Ancient Titan',req:'Required: Level 40',text:'A god among monsters! The Ancient Titan towers over mountains. Its every step causes earthquakes. Can you really stand against it?'},
-   loot:()=>[mkEquipDrop('armor','legendary'),mkEquipDrop('helmet','epic'),mkMat('⚡ Titan Soul','legendary',200)]},
-  {id:'boss_50',levelReq:50,name:'🌑 Void Dragon',icon:'🌑',hp:1200,atk:105,def:42,xp:2000,gold:[400,600],
-   cs:{title:'Void Dragon',req:'Required: Level 50',text:'From the void between worlds emerges the Void Dragon! A creature of pure darkness and chaos. Even gods fear this name!'},
-   loot:()=>[mkEquipDrop('weapon','legendary'),mkEquipDrop('ring','legendary'),mkMat('🌑 Void Crystal','legendary',300)]},
-  {id:'boss_60',levelReq:60,name:'🔱 Sea Leviathan',icon:'🔱',hp:1600,atk:125,def:50,xp:2800,gold:[500,750],
-   cs:{title:'Sea Leviathan',req:'Required: Level 60',text:'The ancient seas churn as the Leviathan erupts from the deep! Sailors have feared this beast for centuries. Today you face it alone!'},
-   loot:()=>[mkEquipDrop('armor','legendary'),mkEquipDrop('boots','legendary'),mkMat('🔱 Leviathan Scale','legendary',350)]},
-  {id:'boss_70',levelReq:70,name:'☄️ Fallen God',icon:'☄️',hp:2200,atk:148,def:60,xp:3800,gold:[650,950],
-   cs:{title:'Fallen God',req:'Required: Level 70',text:'A god cast down from the heavens — bitter and powerful beyond imagination! The Fallen God wants revenge on all living things. Stand firm, hero!'},
-   loot:()=>[mkEquipDrop('weapon','legendary'),mkEquipDrop('amulet','legendary'),mkMat('☄️ Divine Shard','legendary',450)]},
-  {id:'boss_80',levelReq:80,name:'🌀 Chaos Serpent',icon:'🌀',hp:3000,atk:175,def:72,xp:5000,gold:[800,1200],
-   cs:{title:'Chaos Serpent',req:'Required: Level 80',text:'Reality warps and tears as the Chaos Serpent slithers from between dimensions! It feeds on destruction and grows stronger from chaos itself!'},
-   loot:()=>[mkEquipDrop('armor','legendary'),mkEquipDrop('ring','legendary'),mkMat('🌀 Chaos Essence','legendary',550)]},
-  {id:'boss_90',levelReq:90,name:'💎 Crystal Colossus',icon:'💎',hp:4000,atk:205,def:88,xp:7000,gold:[1000,1500],
-   cs:{title:'Crystal Colossus',req:'Required: Level 90',text:'The Crystal Colossus — forged from the hardest material in existence, animated by ancient magic. Its crystalline body reflects your own attacks back at you!'},
-   loot:()=>[mkEquipDrop('helmet','legendary'),mkEquipDrop('boots','legendary'),mkMat('💎 Pure Crystal Core','legendary',700)]},
-  {id:'boss_100',levelReq:100,name:'🌟 Eternal King',icon:'🌟',hp:6000,atk:250,def:110,xp:15000,gold:[2000,3000],
-   cs:{title:'Eternal King',req:'Required: Level 100 — FINAL BOSS',text:'The Eternal King — ruler of all realms, immortal and all-powerful. Defeating him is the ultimate achievement. Heroes who have reached this far are legends. Are you ready for your final battle?'},
-   loot:()=>[mkEquipDrop('weapon','legendary'),mkEquipDrop('armor','legendary'),mkEquipDrop('ring','legendary'),mkMat('🌟 Eternal Crown','legendary',1000)]},
-];
-
-// ── NORMAL ENEMIES ──
-const NORMAL_ENEMIES=[
-  {id:'wolf',name:'🐺 Forest Wolf',icon:'🐺',hp:35,atk:8,def:2,xp:25,gold:[5,15],loot:()=>[mkMat('🪶 Wolf Fang',rollRarity(),5)]},
-  {id:'spider',name:'🕷️ Giant Spider',icon:'🕷️',hp:28,atk:7,def:1,xp:18,gold:[3,12],loot:()=>[mkMat('🕸️ Spider Silk',rollRarity(),6)]},
-  {id:'goblin',name:'👹 Dungeon Goblin',icon:'👹',hp:45,atk:12,def:3,xp:38,gold:[10,25],loot:()=>[mkEquipDrop('weapon',rollRarity())]},
-  {id:'skeleton',name:'💀 Skeleton',icon:'💀',hp:60,atk:16,def:5,xp:55,gold:[15,30],loot:()=>[mkEquipDrop('armor',rollRarity())]},
-  {id:'orc',name:'👊 Orc Warrior',icon:'👊',hp:80,atk:20,def:7,xp:75,gold:[20,40],loot:()=>[mkEquipDrop('weapon',rollRarity()),mkMat('🪓 Orc Fragment','normal',8)]},
-  {id:'vampire',name:'🧛 Vampire',icon:'🧛',hp:90,atk:22,def:8,xp:90,gold:[25,50],loot:()=>[mkEquipDrop('ring',rollRarity()),mkCons('🩸 Blood Vial','uncommon',35,8)]},
-  {id:'troll',name:'👾 Cave Troll',icon:'👾',hp:110,atk:26,def:10,xp:100,gold:[30,55],loot:()=>[mkEquipDrop('armor',rollRarity()),mkMat('💎 Troll Gem','rare',30)]},
-  {id:'golem',name:'🗿 Stone Golem',icon:'🗿',hp:130,atk:28,def:14,xp:120,gold:[35,60],loot:()=>[mkEquipDrop('helmet',rollRarity()),mkMat('🪨 Stone Core','uncommon',15)]},
-  {id:'demon_knight',name:'😈 Demon Knight',icon:'😈',hp:150,atk:32,def:12,xp:145,gold:[40,70],loot:()=>[mkEquipDrop('weapon','rare'),mkEquipDrop('armor',rollRarity())]},
-  {id:'werewolf',name:'🐺 Werewolf',icon:'🐺',hp:170,atk:36,def:15,xp:165,gold:[45,80],loot:()=>[mkEquipDrop('boots',rollRarity()),mkMat('🌕 Moon Shard','rare',25)]},
-  {id:'sea_monster',name:'🦑 Sea Monster',icon:'🦑',hp:200,atk:42,def:18,xp:190,gold:[55,95],loot:()=>[mkEquipDrop('amulet',rollRarity()),mkMat('🦑 Kraken Ink','epic',45)]},
-  {id:'phoenix',name:'🦅 Phoenix',icon:'🦅',hp:230,atk:50,def:20,xp:220,gold:[65,110],loot:()=>[mkEquipDrop('ring',rollRarity()),mkMat('🔥 Phoenix Feather','epic',60)]},
-];
-
-// ── ITEM HELPERS ──
-const SLOT_ICONS={weapon:'⚔️',armor:'🛡️',helmet:'⛑️',boots:'👢',ring:'💍',amulet:'📿'};
-const EQUIP_PREFIXES={legendary:['Divine','Mythic','Godforged','Ancient','Eternal','Celestial'],epic:['Heroic','Valiant','Exalted','Magnificent','Radiant'],rare:['Polished','Reinforced','Enchanted','Gleaming'],uncommon:['Sturdy','Sharpened','Improved','Sturdy'],normal:['Iron','Wooden','Basic','Simple']};
-const EQUIP_NAMES={weapon:['Blade','Sword','Axe','Spear','Dagger','Staff','Bow'],armor:['Plate','Chainmail','Robe','Leather','Cuirass'],helmet:['Helm','Crown','Hood','Circlet','Visor'],boots:['Greaves','Sabatons','Boots','Treads'],ring:['Band','Seal','Loop','Signet'],amulet:['Pendant','Amulet','Talisman','Necklace']};
-const EQUIP_STATS={weapon:{str:[2,6]},armor:{def:[2,5]},helmet:{def:[1,3],int:[1,2]},boots:{agi:[2,5]},ring:{str:[1,3],int:[1,3]},amulet:{int:[2,4],maxMp:[10,20]}};
-
-function mkEquipDrop(slot,rarity){
-  const mult=RARITY[rarity].mult;
-  const prefix=EQUIP_PREFIXES[rarity][Math.floor(Math.random()*EQUIP_PREFIXES[rarity].length)];
-  const suffix=EQUIP_NAMES[slot][Math.floor(Math.random()*EQUIP_NAMES[slot].length)];
-  const stats={};
-  Object.entries(EQUIP_STATS[slot]).forEach(([k,[mn,mx]])=>{stats[k]=Math.round((Math.floor(Math.random()*(mx-mn+1))+mn)*mult);});
-  return {uid:genUid(),name:`${SLOT_ICONS[slot]} ${prefix} ${suffix}`,category:'equipment',slot,rarity,stats,equipped:false,sellPrice:Math.round(12*mult*(state.level||1)*.4)};
-}
-function mkMat(name,rarity,sellPrice){return {uid:genUid(),name,category:'material',rarity,sellPrice,stackable:true,qty:1};}
-function mkCons(name,rarity,sellPrice,hpVal){return {uid:genUid(),name,category:'consumable',rarity,sellPrice,stackable:true,qty:1,effect:'hp',val:hpVal};}
-function genUid(){return Date.now()+Math.random();}
-
-// ── CRAFTING RECIPES ──
-const CRAFTING=[
-  {id:'craft_steel_sword',result:{name:'⚔️ Crafted Steel Sword',slot:'weapon',rarity:'rare',stats:{str:10},category:'equipment'},
-   req:[{name:'🪓 Orc Fragment',qty:3},{name:'🪶 Wolf Fang',qty:2}],desc:'A powerful steel sword forged from orc metal'},
-  {id:'craft_shadow_blade',result:{name:'🗡️ Shadow Blade',slot:'weapon',rarity:'epic',stats:{str:8,agi:6},category:'equipment'},
-   req:[{name:'🌕 Moon Shard',qty:2},{name:'🪶 Wolf Fang',qty:3},{name:'🕸️ Spider Silk',qty:2}],desc:'A blade imbued with shadow energy'},
-  {id:'craft_dragon_armor',result:{name:'🛡️ Dragon Scale Armor',slot:'armor',rarity:'epic',stats:{def:12},category:'equipment'},
-   req:[{name:'🐉 Dragon Scale',qty:3},{name:'🪨 Stone Core',qty:2}],desc:'Armor forged from dragon scales'},
-  {id:'craft_void_ring',result:{name:'💍 Void Ring',slot:'ring',rarity:'epic',stats:{str:5,int:5,agi:5},category:'equipment'},
-   req:[{name:'🌑 Void Crystal',qty:2},{name:'💎 Troll Gem',qty:3}],desc:'A ring channeling the power of the void'},
-  {id:'craft_phoenix_amulet',result:{name:'📿 Phoenix Amulet',slot:'amulet',rarity:'legendary',stats:{int:15,maxMp:40},category:'equipment'},
-   req:[{name:'🔥 Phoenix Feather',qty:2},{name:'🔥 Dragon Flame',qty:2},{name:'💎 Pure Crystal Core',qty:1}],desc:'Ultimate mage amulet — requires rare boss drops'},
-  {id:'craft_titan_helm',result:{name:'⛑️ Titan Helm',slot:'helmet',rarity:'legendary',stats:{def:20,str:8},category:'equipment'},
-   req:[{name:'⚡ Titan Soul',qty:1},{name:'💀 Death Essence',qty:2},{name:'🪨 Stone Core',qty:3}],desc:'A helmet of godlike defense'},
-  {id:'craft_chaos_boots',result:{name:'👢 Chaos Treads',slot:'boots',rarity:'legendary',stats:{agi:18,str:5},category:'equipment'},
-   req:[{name:'🌀 Chaos Essence',qty:2},{name:'🌕 Moon Shard',qty:3}],desc:'Boots that bend space with every step'},
-  {id:'craft_mega_potion',result:{name:'❤️ Mega Elixir',category:'consumable',rarity:'epic',effect:'hp',val:150,stackable:true,qty:1},
-   req:[{name:'🩸 Blood Vial',qty:3},{name:'🔥 Phoenix Feather',qty:1}],desc:'Restores 150 HP instantly'},
-  {id:'craft_divine_blade',result:{name:'⚔️ Divine Blade',slot:'weapon',rarity:'legendary',stats:{str:22},category:'equipment'},
-   req:[{name:'☄️ Divine Shard',qty:2},{name:'🐉 Dragon Scale',qty:2},{name:'😈 Demon Horn',qty:1}],desc:'The ultimate weapon — forged from fallen god material'},
-];
-
-// ── SCENES ──
-const SCENES={
-  town:{title:'🏘️ Town Square',text:'You stand in the peaceful town square. Merchants hawk their wares and adventurers share tales of glory.',
-    choices:[
-      {text:'🌲 Dark Forest',next:'forest'},{text:'⛰️ Dungeon',next:'dungeon'},
-      {text:'🏔️ Mountains',next:'mountains'},{text:'🌊 Coast',next:'coast'},
-      {text:'🏜️ Wasteland',next:'wasteland'},{text:'🌋 Volcanic Rift',next:'volcanic'},
-      {text:'🏪 Shop',next:'shop_scene'},{text:'⛪ Inn (+40 HP/MP, 5g)',next:'inn'},
-    ]},
-  forest:{title:'🌲 Dark Forest',text:'Ancient trees tower overhead. Creatures lurk in every shadow.',
-    choices:[
-      {text:'🐺 Fight Wolf',next:'combat',enemy:'wolf'},{text:'🕷️ Fight Spider',next:'combat',enemy:'spider'},
-      {text:'🔍 Search treasure',next:'forest_chest'},{text:'🌿 Gather herbs (+20 HP)',next:'gather_herbs'},
-      {text:'🐉 Boss: Ancient Dragon (Lv10+)',next:'boss_fight',bossId:'boss_10'},
-      {text:'🏘️ Town',next:'town'},
-    ]},
-  forest_chest:{title:'💎 Hidden Clearing',text:'You find a hidden chest buried under ancient roots!',
-    choices:[{text:'📦 Open it',next:'chest_open'},{text:'🏘️ Return',next:'town'}]},
-  chest_open:{title:'📦 Ancient Chest',text:'The chest opens revealing glittering treasures!',
-    action:()=>{
-      const g=Math.floor(Math.random()*25)+15;state.gold+=g;
-      const drop=mkEquipDrop(['weapon','armor','ring','boots'][Math.floor(Math.random()*4)],rollRarity());
-      addToInventory(drop);addLog(`Found ${g} gold + ${drop.name}!`,'gold');
-      if(drop.rarity==='legendary'){state.quests.legendary.done=true;}
-      updateUI();renderInventory();
+const CLASSES = {
+  warrior: {
+    name: 'Warrior',
+    icon: '⚔️',
+    desc: 'A mighty melee fighter. High HP and STR.',
+    bonuses: { str: 8, def: 5, maxHp: 50, maxMp: -10 },
+    skills: ['power_strike', 'battle_cry', 'last_stand'],
+    trees: {
+      dps: {
+        name: '🗡️ DPS',
+        talents: [
+          { id: 'berserker', name: 'Berserker Rage', desc: '+4 STR, bonus dmg when HP<50%', cost: 1, ranks: 3, effect: () => { GameState.str += 4; } },
+          { id: 'cleave', name: 'Cleave', desc: 'Attacks hit twice at 70% dmg', cost: 2, ranks: 1, effect: () => {} },
+          { id: 'execute', name: 'Execute', desc: 'Massive bonus dmg when enemy HP<30%', cost: 2, ranks: 1, effect: () => {} },
+        ],
+      },
+      tank: {
+        name: '🛡️ Tank',
+        talents: [
+          { id: 'iron_skin', name: 'Iron Skin', desc: '+3 DEF, +20 Max HP per rank', cost: 1, ranks: 3, effect: () => { GameState.def += 3; GameState.maxHp += 20; GameState.hp += 20; } },
+          { id: 'fortress', name: 'Fortress Stance', desc: 'DEF doubled while defending', cost: 2, ranks: 1, effect: () => {} },
+          { id: 'shield_wall', name: 'Shield Wall', desc: 'Reduce all incoming damage by 10%', cost: 3, ranks: 1, effect: () => {} },
+        ],
+      },
+      heal: {
+        name: '💚 Self Heal',
+        talents: [
+          { id: 'second_wind', name: 'Second Wind', desc: 'Restore 10 HP each combat turn', cost: 1, ranks: 3, effect: () => {} },
+          { id: 'undying', name: 'Undying Will', desc: 'Survive killing blow once with 1 HP', cost: 3, ranks: 1, effect: () => {} },
+          { id: 'regeneration', name: 'Regeneration', desc: '+5% Max HP after each battle', cost: 2, ranks: 2, effect: () => {} },
+        ],
+      },
     },
-    choices:[{text:'🌲 Continue',next:'forest'},{text:'🏘️ Town',next:'town'}]},
-  gather_herbs:{title:'🌿 Herb Gathering',text:'You find healing herbs and feel refreshed!',
-    action:()=>{state.hp=Math.min(state.maxHp,state.hp+20);addLog('Gathered herbs: +20 HP','good');playSound('snd-heal');updateUI();},
-    choices:[{text:'🌲 Continue',next:'forest'},{text:'🏘️ Town',next:'town'}]},
-  dungeon:{title:'⛰️ Dungeon Depths',text:'Dark stone corridors stretch before you. Multiple passages lead into darkness.',
-    choices:[
-      {text:'👹 Fight Goblin',next:'combat',enemy:'goblin'},{text:'💀 Fight Skeleton',next:'combat',enemy:'skeleton'},
-      {text:'👊 Fight Orc',next:'combat',enemy:'orc'},{text:'🗿 Fight Stone Golem',next:'combat',enemy:'golem'},
-      {text:'💀 Boss: Lich King (Lv20+)',next:'boss_fight',bossId:'boss_20'},
-      {text:'🏘️ Town',next:'town'},
-    ]},
-  mountains:{title:'🏔️ Frozen Mountains',text:'Cold winds cut through the air. Dangerous creatures prowl the peaks.',
-    choices:[
-      {text:'🧛 Fight Vampire',next:'combat',enemy:'vampire'},{text:'👾 Fight Cave Troll',next:'combat',enemy:'troll'},
-      {text:'🐺 Fight Werewolf',next:'combat',enemy:'werewolf'},{text:'⛏️ Mine gems',next:'mine_gems'},
-      {text:'😈 Boss: Demon Lord (Lv30+)',next:'boss_fight',bossId:'boss_30'},
-      {text:'🏘️ Town',next:'town'},
-    ]},
-  mine_gems:{title:'⛏️ Crystal Cave',text:'You chip away at glittering crystal walls!',
-    action:()=>{const g=Math.floor(Math.random()*20)+10;state.gold+=g;addToInventory(mkMat('💎 Mountain Crystal',rollRarity(),g));addLog(`Mined ${g}g worth of gems!`,'gold');updateUI();renderInventory();},
-    choices:[{text:'🏔️ Continue',next:'mountains'},{text:'🏘️ Town',next:'town'}]},
-  coast:{title:'🌊 Stormy Coast',text:'Dark waves crash against jagged rocks. Pirates and sea monsters lurk here.',
-    choices:[
-      {text:'😈 Fight Demon Knight',next:'combat',enemy:'demon_knight'},{text:'🦑 Fight Sea Monster',next:'combat',enemy:'sea_monster'},
-      {text:'🏴‍☠️ Pirate treasure',next:'pirate_treasure'},
-      {text:'⚡ Boss: Ancient Titan (Lv40+)',next:'boss_fight',bossId:'boss_40'},
-      {text:'🌑 Boss: Void Dragon (Lv50+)',next:'boss_fight',bossId:'boss_50'},
-      {text:'🏘️ Town',next:'town'},
-    ]},
-  pirate_treasure:{title:'🏴‍☠️ Pirate Treasure',text:'You find a washed up treasure chest!',
-    action:()=>{const g=Math.floor(Math.random()*40)+20;state.gold+=g;addToInventory(mkEquipDrop('amulet',rollRarity()));addLog(`Pirate treasure: ${g} gold!`,'gold');updateUI();renderInventory();},
-    choices:[{text:'🌊 Continue',next:'coast'},{text:'🏘️ Town',next:'town'}]},
-  wasteland:{title:'🏜️ Barren Wasteland',text:'A desolate landscape stretches endlessly. Ancient ruins dot the horizon.',
-    choices:[
-      {text:'🦅 Fight Phoenix',next:'combat',enemy:'phoenix'},{text:'🗿 Fight Stone Golem',next:'combat',enemy:'golem'},
-      {text:'🔍 Ancient ruins',next:'ancient_ruins'},
-      {text:'🔱 Boss: Sea Leviathan (Lv60+)',next:'boss_fight',bossId:'boss_60'},
-      {text:'🏘️ Town',next:'town'},
-    ]},
-  ancient_ruins:{title:'🏛️ Ancient Ruins',text:'Crumbling pillars surround a glowing altar of incredible power.',
-    action:()=>{const drop=mkEquipDrop(['weapon','armor','helmet','ring','amulet'][Math.floor(Math.random()*5)],'rare');addToInventory(drop);addLog(`Found ${drop.name} in the ruins!`,'gold');updateUI();renderInventory();},
-    choices:[{text:'🏜️ Continue',next:'wasteland'},{text:'🏘️ Town',next:'town'}]},
-  volcanic:{title:'🌋 Volcanic Rift',text:'Rivers of lava flow through cracked earth. The most dangerous creatures live here.',
-    choices:[
-      {text:'🦅 Fight Phoenix',next:'combat',enemy:'phoenix'},{text:'😈 Fight Demon Knight',next:'combat',enemy:'demon_knight'},
-      {text:'🦑 Fight Sea Monster',next:'combat',enemy:'sea_monster'},
-      {text:'☄️ Boss: Fallen God (Lv70+)',next:'boss_fight',bossId:'boss_70'},
-      {text:'🌀 Boss: Chaos Serpent (Lv80+)',next:'boss_fight',bossId:'boss_80'},
-      {text:'🏘️ Town',next:'town'},
-    ]},
-  shop_scene:{title:'🏪 General Shop',text:'The shopkeeper greets you warmly. Browse items on the right!',
-    choices:[{text:'🏘️ Leave Shop',next:'town'}]},
-  inn:{title:'⛪ The Rusty Flagon Inn',text:'You rest comfortably. Your wounds heal and energy is restored.',
-    action:()=>{if(state.gold>=5){state.gold-=5;state.hp=Math.min(state.maxHp,state.hp+40);state.mp=Math.min(state.maxMp,state.mp+40);addLog('Rested: +40 HP, +40 MP. Cost 5g.','good');playSound('snd-heal');}else addLog('Need 5 gold to rest!','bad');updateUI();},
-    choices:[{text:'🏘️ Return to Town',next:'town'}]},
-  victory:{title:'🏆 Victory!',text:'You defeated the enemy and claimed your reward!',
-    choices:[{text:'🌲 Forest',next:'forest'},{text:'⛰️ Dungeon',next:'dungeon'},{text:'🏔️ Mountains',next:'mountains'},{text:'🌊 Coast',next:'coast'},{text:'🏜️ Wasteland',next:'wasteland'},{text:'🌋 Volcanic Rift',next:'volcanic'},{text:'🏘️ Town',next:'town'}]},
-  defeat:{title:'💀 Defeated...',text:'You have fallen. The townspeople carry you back to safety.',
-    action:()=>{const lost=Math.floor(state.gold*.15);state.gold=Math.max(0,state.gold-lost);state.hp=Math.floor(state.maxHp*.5);state.mp=Math.floor(state.maxMp*.5);addLog(`Lost ${lost} gold. Revived.`,'bad');playSound('snd-death');updateUI();},
-    choices:[{text:'🔄 Back to Town',next:'town'}]},
+  },
+  mage: {
+    name: 'Mage',
+    icon: '🔮',
+    desc: 'A powerful spellcaster. High INT and MP.',
+    bonuses: { int: 10, maxMp: 60, str: -2, def: -1 },
+    skills: ['fireball', 'ice_lance', 'mana_shield'],
+    trees: {
+      fire: {
+        name: '🔥 Fire',
+        talents: [
+          { id: 'fire_mastery', name: 'Fire Mastery', desc: '+5 INT, fire spells +20% dmg', cost: 1, ranks: 3, effect: () => { GameState.int += 5; } },
+          { id: 'ignite', name: 'Ignite', desc: 'Enemy burns: 5 dmg/turn x3 turns', cost: 1, ranks: 1, effect: () => {} },
+          { id: 'meteor', name: 'Meteor', desc: 'INT×5 damage mega spell', cost: 3, ranks: 1, effect: () => {} },
+        ],
+      },
+      ice: {
+        name: '❄️ Ice',
+        talents: [
+          { id: 'frost', name: 'Frost Nova', desc: 'Freeze enemy — skip one turn', cost: 1, ranks: 2, effect: () => {} },
+          { id: 'ice_armor', name: 'Ice Armor', desc: '+3 DEF from ice shields', cost: 1, ranks: 2, effect: () => { GameState.def += 3; } },
+          { id: 'blizzard', name: 'Blizzard', desc: 'Hit 3 times for INT×1.5 each', cost: 3, ranks: 1, effect: () => {} },
+        ],
+      },
+      arcane: {
+        name: '✨ Arcane',
+        talents: [
+          { id: 'mana_regen', name: 'Mana Regen', desc: 'Restore 5 MP each combat turn', cost: 1, ranks: 3, effect: () => {} },
+          { id: 'spell_power', name: 'Spell Power', desc: 'All spells +15% dmg per rank', cost: 2, ranks: 2, effect: () => {} },
+          { id: 'arcane_surge', name: 'Arcane Surge', desc: 'Next spell: 0 MP, double dmg', cost: 3, ranks: 1, effect: () => {} },
+        ],
+      },
+    },
+  },
+  rogue: {
+    name: 'Rogue',
+    icon: '🗡️',
+    desc: 'A cunning assassin. High AGI and crits.',
+    bonuses: { agi: 10, str: 3, def: -1, maxHp: -10 },
+    skills: ['backstab', 'poison_blade', 'shadow_step'],
+    trees: {
+      assassination: {
+        name: '☠️ Assassin',
+        talents: [
+          { id: 'crit', name: 'Critical Strike', desc: '+15% crit chance, crits deal 2× dmg', cost: 1, ranks: 3, effect: () => {} },
+          { id: 'ambush', name: 'Ambush', desc: 'First attack: AGI×3 dmg', cost: 2, ranks: 1, effect: () => {} },
+          { id: 'death_mark', name: 'Death Mark', desc: 'All attacks +50% dmg to target', cost: 3, ranks: 1, effect: () => {} },
+        ],
+      },
+      subtlety: {
+        name: '🌑 Subtlety',
+        talents: [
+          { id: 'evasion', name: 'Evasion', desc: '+15% dodge chance per rank', cost: 1, ranks: 3, effect: () => {} },
+          { id: 'smoke_bomb', name: 'Smoke Bomb', desc: 'Guaranteed flee from any battle', cost: 1, ranks: 1, effect: () => {} },
+          { id: 'vanish', name: 'Vanish', desc: 'Enemy misses next attack', cost: 2, ranks: 1, effect: () => {} },
+        ],
+      },
+      poison: {
+        name: '🐍 Poison',
+        talents: [
+          { id: 'venom', name: 'Venom Coat', desc: 'Attacks poison enemy: 8 dmg/turn', cost: 1, ranks: 3, effect: () => {} },
+          { id: 'cripple', name: 'Cripple', desc: 'Reduce enemy ATK 30% for 3 turns', cost: 2, ranks: 1, effect: () => {} },
+          { id: 'plague', name: 'Plague', desc: 'Spread poison for massive DoT', cost: 3, ranks: 1, effect: () => {} },
+        ],
+      },
+    },
+  },
 };
 
-// ── SHOP ITEMS ──
-const SHOP_EQUIP=[
-  {id:'s1',name:'⚔️ Iron Sword',price:20,slot:'weapon',rarity:'normal',stats:{str:3}},
-  {id:'s2',name:'⚔️ Steel Sword',price:50,slot:'weapon',rarity:'uncommon',stats:{str:7}},
-  {id:'s3',name:'🛡️ Wooden Shield',price:18,slot:'armor',rarity:'normal',stats:{def:2}},
-  {id:'s4',name:'🛡️ Iron Plate',price:40,slot:'armor',rarity:'uncommon',stats:{def:5}},
-  {id:'s5',name:'👢 Leather Boots',price:22,slot:'boots',rarity:'normal',stats:{agi:3}},
-  {id:'s6',name:'💍 Power Ring',price:35,slot:'ring',rarity:'uncommon',stats:{str:3,int:2}},
-  {id:'s7',name:'⛑️ Iron Helm',price:28,slot:'helmet',rarity:'normal',stats:{def:2,int:1}},
-  {id:'s8',name:'📿 Mage Amulet',price:55,slot:'amulet',rarity:'rare',stats:{int:6,maxMp:15}},
+// ════════════════════════════════════════════════════════════════
+// SKILLS
+// ════════════════════════════════════════════════════════════════
+
+const SKILLS = {
+  power_strike: {
+    name: 'Power Strike',
+    icon: '💥',
+    mp: 15,
+    cd: 2,
+    use: (e) => {
+      const d = Math.floor(GameState.str * 2.5);
+      e.hp -= d;
+      GameCombat.addLog(`💥 Power Strike! ${d} dmg!`, 'good');
+      Utils.playSound('snd-attack');
+      GameCombat.animateAttack(true, d, false);
+      return d;
+    },
+  },
+  battle_cry: {
+    name: 'Battle Cry',
+    icon: '📯',
+    mp: 20,
+    cd: 3,
+    use: (e) => {
+      GameState.str += 3;
+      GameState.def += 2;
+      GameCombat.addLog('📯 Battle Cry! +3 STR, +2 DEF!', 'good');
+      Utils.playSound('snd-magic');
+      return 0;
+    },
+  },
+  last_stand: {
+    name: 'Last Stand',
+    icon: '🛡️',
+    mp: 25,
+    cd: 4,
+    use: (e) => {
+      GameState.hp = Math.min(GameState.maxHp, GameState.hp + 40);
+      GameCombat.addLog('🛡️ Last Stand! +40 HP!', 'good');
+      Utils.playSound('snd-heal');
+      GameCombat.spawnDmgFloat('+40HP', true, 'heal-float');
+      return 0;
+    },
+  },
+  fireball: {
+    name: 'Fireball',
+    icon: '🔥',
+    mp: 18,
+    cd: 1,
+    use: (e) => {
+      const d = Math.floor(GameState.int * 3 + Math.random() * 10);
+      e.hp -= d;
+      GameCombat.addLog(`🔥 Fireball! ${d} dmg!`, 'good');
+      Utils.playSound('snd-magic');
+      GameCombat.animateAttack(true, d, false);
+      return d;
+    },
+  },
+  ice_lance: {
+    name: 'Ice Lance',
+    icon: '❄️',
+    mp: 12,
+    cd: 2,
+    use: (e) => {
+      const d = Math.floor(GameState.int * 2);
+      e.hp -= d;
+      e.frozen = true;
+      GameCombat.addLog(`❄️ Ice Lance! ${d} dmg — Frozen!`, 'info');
+      Utils.playSound('snd-magic');
+      GameCombat.animateAttack(true, d, false);
+      return d;
+    },
+  },
+  mana_shield: {
+    name: 'Mana Shield',
+    icon: '🔮',
+    mp: 30,
+    cd: 4,
+    use: (e) => {
+      GameState.manaShield = true;
+      GameCombat.addLog('🔮 Mana Shield active!', 'info');
+      Utils.playSound('snd-heal');
+      return 0;
+    },
+  },
+  backstab: {
+    name: 'Backstab',
+    icon: '🗡️',
+    mp: 10,
+    cd: 1,
+    use: (e) => {
+      const d = Math.floor(GameState.agi * 2.8);
+      e.hp -= d;
+      GameCombat.addLog(`🗡️ Backstab! ${d} dmg!`, 'good');
+      Utils.playSound('snd-attack');
+      GameCombat.animateAttack(true, d, false);
+      return d;
+    },
+  },
+  poison_blade: {
+    name: 'Poison Blade',
+    icon: '🐍',
+    mp: 15,
+    cd: 2,
+    use: (e) => {
+      e.poisoned = (e.poisoned || 0) + 3;
+      GameCombat.addLog('🐍 Poisoned for 3 turns!', 'good');
+      Utils.playSound('snd-magic');
+      return 0;
+    },
+  },
+  shadow_step: {
+    name: 'Shadow Step',
+    icon: '🌑',
+    mp: 20,
+    cd: 3,
+    use: (e) => {
+      const d = Math.floor(GameState.agi * 3.5);
+      e.hp -= d;
+      GameCombat.addLog(`🌑 Shadow Step! ${d} dmg!`, 'purple');
+      Utils.playSound('snd-magic');
+      GameCombat.animateAttack(true, d, false);
+      return d;
+    },
+  },
+};
+
+// ════════════════════════════════════════════════════════════════
+// BOSSES
+// ════════════════════════════════════════════════════════════════
+
+const BOSSES = [
+  {
+    id: 'boss_10',
+    levelReq: 10,
+    name: '🐉 Ancient Dragon',
+    icon: '🐉',
+    hp: 250,
+    atk: 38,
+    def: 14,
+    xp: 400,
+    gold: [80, 160],
+    cs: { title: 'Ancient Dragon', req: 'Required: Level 10', text: 'The earth trembles as the Ancient Dragon awakens from its century-long slumber! Fire and fury await you, hero!' },
+    loot: () => [GameItems.mkEquipDrop('weapon', 'epic'), GameItems.mkMat('🐉 Dragon Scale', 'epic', 60), GameItems.mkMat('🔥 Dragon Flame', 'rare', 40)],
+  },
+  {
+    id: 'boss_20',
+    levelReq: 20,
+    name: '💀 Lich King',
+    icon: '💀',
+    hp: 450,
+    atk: 55,
+    def: 20,
+    xp: 700,
+    gold: [150, 250],
+    cs: { title: 'Lich King', req: 'Required: Level 20', text: 'The Lich King rises from the underworld! His death magic corrupts everything it touches. Face him only if you dare!' },
+    loot: () => [GameItems.mkEquipDrop('armor', 'epic'), GameItems.mkEquipDrop('ring', 'rare'), GameItems.mkMat('💀 Death Essence', 'epic', 80)],
+  },
+  {
+    id: 'boss_30',
+    levelReq: 30,
+    name: '😈 Demon Lord',
+    icon: '😈',
+    hp: 650,
+    atk: 70,
+    def: 26,
+    xp: 1000,
+    gold: [220, 350],
+    cs: { title: 'Demon Lord', req: 'Required: Level 30', text: 'The sky tears open! The Demon Lord descends with hellfire in his wake. This battle will echo through eternity!' },
+    loot: () => [GameItems.mkEquipDrop('weapon', 'legendary'), GameItems.mkEquipDrop('amulet', 'epic'), GameItems.mkMat('😈 Demon Horn', 'legendary', 150)],
+  },
+  {
+    id: 'boss_40',
+    levelReq: 40,
+    name: '⚡ Ancient Titan',
+    icon: '⚡',
+    hp: 900,
+    atk: 88,
+    def: 34,
+    xp: 1400,
+    gold: [300, 450],
+    cs: { title: 'Ancient Titan', req: 'Required: Level 40', text: 'A god among monsters! The Ancient Titan towers over mountains. Its every step causes earthquakes. Can you really stand against it?' },
+    loot: () => [GameItems.mkEquipDrop('armor', 'legendary'), GameItems.mkEquipDrop('helmet', 'epic'), GameItems.mkMat('⚡ Titan Soul', 'legendary', 200)],
+  },
+  {
+    id: 'boss_50',
+    levelReq: 50,
+    name: '🌑 Void Dragon',
+    icon: '🌑',
+    hp: 1200,
+    atk: 105,
+    def: 42,
+    xp: 2000,
+    gold: [400, 600],
+    cs: { title: 'Void Dragon', req: 'Required: Level 50', text: 'From the void between worlds emerges the Void Dragon! A creature of pure darkness and chaos. Even gods fear this name!' },
+    loot: () => [GameItems.mkEquipDrop('weapon', 'legendary'), GameItems.mkEquipDrop('ring', 'legendary'), GameItems.mkMat('🌑 Void Crystal', 'legendary', 300)],
+  },
+  {
+    id: 'boss_60',
+    levelReq: 60,
+    name: '🔱 Sea Leviathan',
+    icon: '🔱',
+    hp: 1600,
+    atk: 125,
+    def: 50,
+    xp: 2800,
+    gold: [500, 750],
+    cs: { title: 'Sea Leviathan', req: 'Required: Level 60', text: 'The ancient seas churn as the Leviathan erupts from the deep! Sailors have feared this beast for centuries. Today you face it alone!' },
+    loot: () => [GameItems.mkEquipDrop('armor', 'legendary'), GameItems.mkEquipDrop('boots', 'legendary'), GameItems.mkMat('🔱 Leviathan Scale', 'legendary', 350)],
+  },
+  {
+    id: 'boss_70',
+    levelReq: 70,
+    name: '☄️ Fallen God',
+    icon: '☄️',
+    hp: 2200,
+    atk: 148,
+    def: 60,
+    xp: 3800,
+    gold: [650, 950],
+    cs: { title: 'Fallen God', req: 'Required: Level 70', text: 'A god cast down from the heavens — bitter and powerful beyond imagination! The Fallen God wants revenge on all living things. Stand firm, hero!' },
+    loot: () => [GameItems.mkEquipDrop('weapon', 'legendary'), GameItems.mkEquipDrop('amulet', 'legendary'), GameItems.mkMat('☄️ Divine Shard', 'legendary', 450)],
+  },
+  {
+    id: 'boss_80',
+    levelReq: 80,
+    name: '🌀 Chaos Serpent',
+    icon: '🌀',
+    hp: 3000,
+    atk: 175,
+    def: 72,
+    xp: 5000,
+    gold: [800, 1200],
+    cs: { title: 'Chaos Serpent', req: 'Required: Level 80', text: 'Reality warps and tears as the Chaos Serpent slithers from between dimensions! It feeds on destruction and grows stronger from chaos itself!' },
+    loot: () => [GameItems.mkEquipDrop('armor', 'legendary'), GameItems.mkEquipDrop('ring', 'legendary'), GameItems.mkMat('🌀 Chaos Essence', 'legendary', 550)],
+  },
+  {
+    id: 'boss_90',
+    levelReq: 90,
+    name: '💎 Crystal Colossus',
+    icon: '💎',
+    hp: 4000,
+    atk: 205,
+    def: 88,
+    xp: 7000,
+    gold: [1000, 1500],
+    cs: { title: 'Crystal Colossus', req: 'Required: Level 90', text: 'The Crystal Colossus — forged from the hardest material in existence, animated by ancient magic. Its crystalline body reflects your own attacks back at you!' },
+    loot: () => [GameItems.mkEquipDrop('helmet', 'legendary'), GameItems.mkEquipDrop('boots', 'legendary'), GameItems.mkMat('💎 Pure Crystal Core', 'legendary', 700)],
+  },
+  {
+    id: 'boss_100',
+    levelReq: 100,
+    name: '🌟 Eternal King',
+    icon: '🌟',
+    hp: 6000,
+    atk: 250,
+    def: 110,
+    xp: 15000,
+    gold: [2000, 3000],
+    cs: { title: 'Eternal King', req: 'Required: Level 100 — FINAL BOSS', text: 'The Eternal King — ruler of all realms, immortal and all-powerful. Defeating him is the ultimate achievement. Heroes who have reached this far are legends. Are you ready for your final battle?' },
+    loot: () => [GameItems.mkEquipDrop('weapon', 'legendary'), GameItems.mkEquipDrop('armor', 'legendary'), GameItems.mkEquipDrop('ring', 'legendary'), GameItems.mkMat('🌟 Eternal Crown', 'legendary', 1000)],
+  },
 ];
-const SHOP_CONS=[
-  {id:'c1',name:'❤️ Health Potion',price:10,rarity:'normal',effect:'hp',val:40},
-  {id:'c2',name:'❤️ Mega Potion',price:22,rarity:'uncommon',effect:'hp',val:80},
-  {id:'c3',name:'💧 Mana Potion',price:8,rarity:'normal',effect:'mp',val:30},
-  {id:'c4',name:'💧 Mana Flask',price:18,rarity:'uncommon',effect:'mp',val:60},
-  {id:'c5',name:'✨ Elixir',price:40,rarity:'rare',effect:'both',val:60},
+
+// ════════════════════════════════════════════════════════════════
+// NORMAL ENEMIES
+// ════════════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════════
+// NORMAL ENEMIES - FIXED
+// ════════════════════════════════════════════════════════════════
+
+const NORMAL_ENEMIES = [
+  { id: 'wolf', name: '🐺 Forest Wolf', icon: '🐺', hp: 35, atk: 8, def: 2, xp: 25, gold: [5, 15], loot: () => [GameItems.mkMat('🪶 Wolf Fang', Utils.rollRarity(), 5)] },
+  { id: 'spider', name: '🕷️ Giant Spider', icon: '🕷️', hp: 28, atk: 7, def: 1, xp: 18, gold: [3, 12], loot: () => [GameItems.mkMat('🕸️ Spider Silk', Utils.rollRarity(), 6)] },
+  { id: 'goblin', name: '👹 Dungeon Goblin', icon: '👹', hp: 45, atk: 12, def: 3, xp: 38, gold: [10, 25], loot: () => [GameItems.mkEquipDrop('weapon', Utils.rollRarity())] },
+  { id: 'skeleton', name: '💀 Skeleton', icon: '💀', hp: 60, atk: 16, def: 5, xp: 55, gold: [15, 30], loot: () => [GameItems.mkEquipDrop('armor', Utils.rollRarity())] },
+  { id: 'orc', name: '👊 Orc Warrior', icon: '👊', hp: 80, atk: 20, def: 7, xp: 75, gold: [20, 40], loot: () => [GameItems.mkEquipDrop('weapon', Utils.rollRarity()), GameItems.mkMat('🪓 Orc Fragment', 'normal', 8)] },
+  { id: 'vampire', name: '🧛 Vampire', icon: '🧛', hp: 90, atk: 22, def: 8, xp: 90, gold: [25, 50], loot: () => [GameItems.mkEquipDrop('ring', Utils.rollRarity()), GameItems.mkCons('🩸 Blood Vial', 'uncommon', 35, 8)] },
+  { id: 'troll', name: '👾 Cave Troll', icon: '👾', hp: 110, atk: 26, def: 10, xp: 100, gold: [30, 55], loot: () => [GameItems.mkEquipDrop('armor', Utils.rollRarity()), GameItems.mkMat('💎 Troll Gem', 'rare', 30)] },
+  { id: 'golem', name: '🗿 Stone Golem', icon: '🗿', hp: 130, atk: 28, def: 14, xp: 120, gold: [35, 60], loot: () => [GameItems.mkEquipDrop('helmet', Utils.rollRarity()), GameItems.mkMat('🪨 Stone Core', 'uncommon', 15)] },
+  { id: 'demon_knight', name: '😈 Demon Knight', icon: '😈', hp: 150, atk: 32, def: 12, xp: 145, gold: [40, 70], loot: () => [GameItems.mkEquipDrop('weapon', 'rare'), GameItems.mkEquipDrop('armor', Utils.rollRarity())] },
+  { id: 'werewolf', name: '🐺 Werewolf', icon: '🐺', hp: 170, atk: 36, def: 15, xp: 165, gold: [45, 80], loot: () => [GameItems.mkEquipDrop('boots', Utils.rollRarity()), GameItems.mkMat('🌕 Moon Shard', 'rare', 25)] },
+  { id: 'sea_monster', name: '🦑 Sea Monster', icon: '🦑', hp: 200, atk: 42, def: 18, xp: 190, gold: [55, 95], loot: () => [GameItems.mkEquipDrop('amulet', Utils.rollRarity()), GameItems.mkMat('🦑 Kraken Ink', 'epic', 45)] },
+  { id: 'phoenix', name: '🦅 Phoenix', icon: '🦅', hp: 230, atk: 50, def: 20, xp: 220, gold: [65, 110], loot: () => [GameItems.mkEquipDrop('ring', Utils.rollRarity()), GameItems.mkMat('🔥 Phoenix Feather', 'epic', 60)] },
 ];
 
-let currentEnemy=null;
-let pendingBossId=null;
-let currentInvTab='equipment';
-let currentShopTab='equipment';
+// ════════════════════════════════════════════════════════════════
+// ITEMS & CRAFTING
+// ════════════════════════════════════════════════════════════════
 
-// ── ANIMATIONS ──
-function animateAttack(isPlayer,dmg,isCrit){
-  if(isPlayer){
-    const a=document.getElementById('char-avatar');a.classList.remove('attacking');void a.offsetWidth;a.classList.add('attacking');setTimeout(()=>a.classList.remove('attacking'),500);
-    const e=document.getElementById('arena-enemy');e.classList.remove('enemy-shake','enemy-hit');void e.offsetWidth;e.classList.add('enemy-shake');setTimeout(()=>e.classList.remove('enemy-shake'),500);
-  } else {
-    const p=document.getElementById('arena-player');p.classList.remove('enemy-shake');void p.offsetWidth;p.classList.add('enemy-shake');setTimeout(()=>p.classList.remove('enemy-shake'),400);
-    const c=document.getElementById('char-avatar');c.classList.add('hit');setTimeout(()=>c.classList.remove('hit'),400);
-  }
-  spawnDmgFloat(isCrit?`💥${dmg}!`:String(dmg),!isPlayer,isCrit?'crit-dmg':isPlayer?'enemy-dmg':'player-dmg');
-}
-function spawnDmgFloat(text,onEnemy,cls=''){
-  const arena=document.getElementById('arena');
-  if(!arena)return;
-  const rect=arena.getBoundingClientRect();
-  const div=document.createElement('div');
-  div.className=`dmg-float ${cls}`;div.textContent=text;
-  div.style.left=(onEnemy?rect.right-80:rect.left+30)+'px';
-  div.style.top=(rect.top+rect.height/2-20)+'px';
-  document.body.appendChild(div);setTimeout(()=>div.remove(),950);
-}
+const GameItems = {
+  EQUIP_PREFIXES: {
+    legendary: ['Divine', 'Mythic', 'Godforged', 'Ancient', 'Eternal', 'Celestial'],
+    epic: ['Heroic', 'Valiant', 'Exalted', 'Magnificent', 'Radiant'],
+    rare: ['Polished', 'Reinforced', 'Enchanted', 'Gleaming'],
+    uncommon: ['Sturdy', 'Sharpened', 'Improved'],
+    normal: ['Iron', 'Wooden', 'Basic', 'Simple'],
+  },
 
-// ── START ──
-function startGame(){
-  const n=document.getElementById('name-input').value.trim();
-  if(!n){alert('Please enter your name!');return;}
-  state.name=n;showGame();loadScene('town');addLog(`${n} begins their adventure!`,'info');fetchLeaderboard();
-}
-function showGame(){
-  document.getElementById('name-screen').style.display='none';
-  document.getElementById('game-wrapper').style.display='grid';
-  document.getElementById('leaderboard-panel').style.display='block';
-  document.getElementById('char-name').textContent=state.name;
-  document.getElementById('arena-player').textContent=state.class?CLASSES[state.class].icon:'🧙';
-  document.getElementById('arena-player-label').textContent=state.name;
-  loadAutoSellUI();updateUI();renderShop();renderQuests();renderInventory();renderSkillBar();renderEquipSlots();
-}
+  EQUIP_NAMES: {
+    weapon: ['Blade', 'Sword', 'Axe', 'Spear', 'Dagger', 'Staff', 'Bow'],
+    armor: ['Plate', 'Chainmail', 'Robe', 'Leather', 'Cuirass'],
+    helmet: ['Helm', 'Crown', 'Hood', 'Circlet', 'Visor'],
+    boots: ['Greaves', 'Sabatons', 'Boots', 'Treads'],
+    ring: ['Band', 'Seal', 'Loop', 'Signet'],
+    amulet: ['Pendant', 'Amulet', 'Talisman', 'Necklace'],
+  },
 
-// ── LOAD SCENE ──
-function loadScene(sceneId){
-  if(sceneId==='boss_fight')return;
-  const scene=SCENES[sceneId];if(!scene)return;
-  state.currentScene=sceneId;
-  if(scene.action)scene.action();
-  document.getElementById('story-content').innerHTML=`<div class="scene-title">${scene.title}</div><p>${scene.text}</p>`;
-  document.getElementById('combat-box').style.display='none';
-  const box=document.getElementById('choices-box');
-  box.innerHTML='';box.style.display='flex';
-  scene.choices.forEach(c=>{
-    const btn=document.createElement('button');
-    btn.className='choice-btn fade-in';btn.innerHTML=c.text;
-    if(c.enemy)btn.onclick=()=>startCombat(c.enemy,false);
-    else if(c.bossId)btn.onclick=()=>triggerBoss(c.bossId);
-    else btn.onclick=()=>loadScene(c.next);
-    box.appendChild(btn);
-  });
-  updateUI();
-}
+  EQUIP_STATS: {
+    weapon: { str: [2, 6] },
+    armor: { def: [2, 5] },
+    helmet: { def: [1, 3], int: [1, 2] },
+    boots: { agi: [2, 5] },
+    ring: { str: [1, 3], int: [1, 3] },
+    amulet: { int: [2, 4], maxMp: [10, 20] },
+  },
 
-// ── BOSS ──
-function triggerBoss(bossId){
-  const boss=BOSSES.find(b=>b.id===bossId);if(!boss)return;
-  if(state.level<boss.levelReq){notify(`⚠️ Need Level ${boss.levelReq} for this boss!`,'var(--red)');return;}
-  pendingBossId=bossId;
-  const cs=boss.cs;
-  document.getElementById('boss-icon').textContent=cs.icon||boss.icon;
-  document.getElementById('boss-cs-name').textContent=cs.title;
-  document.getElementById('boss-cs-req').textContent=cs.req||'';
-  document.getElementById('boss-cs-text').textContent=cs.text;
-  document.getElementById('boss-cutscene').style.display='block';
-  playSound('snd-boss');
-}
-function startBossFight(){
-  document.getElementById('boss-cutscene').style.display='none';
-  if(!pendingBossId)return;
-  const boss=BOSSES.find(b=>b.id===pendingBossId);if(!boss)return;
-  // Scale boss HP/ATK slightly with player level above requirement
-  const scale=1+Math.max(0,(state.level-boss.levelReq))*0.03;
-  currentEnemy={
-    ...boss,hp:Math.floor(boss.hp*scale),maxHp:Math.floor(boss.hp*scale),
-    atk:Math.floor(boss.atk*scale),def:boss.def,
-    poisoned:0,frozen:false,crippled:0,boss:true,
-  };
-  startCombatWith(currentEnemy);
-}
+  mkEquipDrop(slot, rarity) {
+    const mult = RARITY[rarity].mult;
+    const prefix = this.EQUIP_PREFIXES[rarity] [Math.floor(Math.random() * this.EQUIP_PREFIXES[rarity].length)];
+    const suffix = this.EQUIP_NAMES[slot] [Math.floor(Math.random() * this.EQUIP_NAMES[slot].length)];
+    const stats = {};
+    Object.entries(this.EQUIP_STATS[slot]).forEach(([k, [mn, mx]]) => {
+      stats[k] = Math.round((Math.floor(Math.random() * (mx - mn + 1)) + mn) * mult);
+    });
+    return {
+      uid: Utils.genUid(),
+      name: `${SLOT_ICONS[slot]} ${prefix} ${suffix}`,
+      category: 'equipment',
+      slot,
+      rarity,
+      stats,
+      equipped: false,
+      sellPrice: Math.round(12 * mult * (GameState.level || 1) * 0.4),
+    };
+  },
 
-// ── COMBAT ──
-function startCombat(enemyId,isBoss){
-  const tmpl=NORMAL_ENEMIES.find(e=>e.id===enemyId);if(!tmpl)return;
-  // Scale enemy slightly with player level
-  const scale=1+Math.max(0,(state.level-1))*0.04;
-  currentEnemy={...tmpl,hp:Math.floor(tmpl.hp*scale),maxHp:Math.floor(tmpl.hp*scale),atk:Math.floor(tmpl.atk*scale),def:tmpl.def,poisoned:0,frozen:false,crippled:0,boss:false};
-  startCombatWith(currentEnemy);
-}
-function startCombatWith(enemy){
-  document.getElementById('enemy-hp-val').textContent=enemy.hp;
-  document.getElementById('enemy-hp-max').textContent=enemy.maxHp;
-  document.getElementById('arena-enemy').textContent=enemy.icon;
-  document.getElementById('arena-enemy-label').textContent=enemy.name;
-  document.getElementById('arena-enemy-hp').style.width='100%';
-  document.getElementById('combat-log').innerHTML='';
-  document.getElementById('combat-box').style.display='block';
-  document.getElementById('choices-box').style.display='none';
-  document.getElementById('story-content').innerHTML=`<div class="scene-title">⚔️ Combat!</div><p><strong style="color:var(--red)">${enemy.name}</strong> appears!${enemy.boss?'<br><span style="color:var(--gold)">⚠️ BOSS BATTLE!</span>':''}</p>`;
-  addLog(`Encountered ${enemy.name}!`,'bad');state.defending=false;
-}
+  mkMat(name, rarity, sellPrice) {
+    return { uid: Utils.genUid(), name, category: 'material', rarity, sellPrice, stackable: true, qty: 1 };
+  },
 
-function combatAction(action){
-  if(!currentEnemy)return;
-  if(action==='attack'){
-    let dmg=Math.max(1,state.str+Math.floor(Math.random()*8)-currentEnemy.def);
-    let isCrit=false;
-    if(state.unlockedTalents.includes('berserker')&&state.hp<state.maxHp*.5)dmg=Math.floor(dmg*1.35);
-    if(state.unlockedTalents.includes('crit')&&Math.random()<.3){dmg=Math.floor(dmg*2);isCrit=true;}
-    if(state.unlockedTalents.includes('death_mark'))dmg=Math.floor(dmg*1.5);
-    if(state.unlockedTalents.includes('venom'))currentEnemy.poisoned=(currentEnemy.poisoned||0)+1;
-    currentEnemy.hp-=dmg;
-    addCombatLog(`⚔️ ${isCrit?'💥CRIT! ':''}You hit for ${dmg}!`,isCrit?'gold':'good');
-    playSound('snd-attack');animateAttack(true,dmg,isCrit);
-    state.defending=false;
-  } else if(action==='magic'){
-    if(state.mp<10){addCombatLog('❌ Not enough MP!','bad');return;}
-    let dmg=Math.max(1,state.int*2+Math.floor(Math.random()*10));
-    if(state.unlockedTalents.includes('spell_power'))dmg=Math.floor(dmg*1.3);
-    if(state.unlockedTalents.includes('fire_mastery'))dmg=Math.floor(dmg*1.2);
-    currentEnemy.hp-=dmg;state.mp-=10;
-    addCombatLog(`✨ Magic hits for ${dmg}! (-10 MP)`,'info');playSound('snd-magic');animateAttack(true,dmg,false);
-    state.defending=false;
-  } else if(action==='defend'){
-    state.defending=true;addCombatLog('🛡️ Bracing for impact!','info');
-  } else if(action==='flee'){
-    const ok=state.unlockedTalents.includes('smoke_bomb')?.99:state.agi>currentEnemy.def?.7:.35;
-    if(Math.random()<ok){addLog('Fled from battle!','bad');currentEnemy=null;document.getElementById('combat-box').style.display='none';loadScene('town');return;}
-    addCombatLog('❌ Failed to flee!','bad');state.defending=false;
-  }
-  if(currentEnemy&&currentEnemy.hp<=0){currentEnemy.hp=0;updateEnemyBar();endCombat(true);return;}
-  if(state.unlockedTalents.includes('second_wind'))state.hp=Math.min(state.maxHp,state.hp+10);
-  if(state.unlockedTalents.includes('mana_regen'))state.mp=Math.min(state.maxMp,state.mp+5);
-  if(currentEnemy&&currentEnemy.hp>0){
-    if(currentEnemy.frozen){currentEnemy.frozen=false;addCombatLog(`${currentEnemy.name} is frozen!`,'info');}
-    else{
-      let eDmg=Math.max(1,currentEnemy.atk+Math.floor(Math.random()*6)-state.def);
-      if(state.defending)eDmg=Math.floor(eDmg/(state.unlockedTalents.includes('fortress')?4:2));
-      if(state.unlockedTalents.includes('shield_wall'))eDmg=Math.floor(eDmg*.9);
-      if(state.manaShield){state.manaShield=false;addCombatLog('🔮 Mana Shield absorbed!','info');eDmg=0;}
-      if(state.unlockedTalents.includes('evasion')&&Math.random()<.25){addCombatLog('💨 Dodged!','good');eDmg=0;}
-      state.hp-=eDmg;
-      if(eDmg>0){addCombatLog(`${currentEnemy.name} hits you for ${eDmg}!`,'bad');animateAttack(false,eDmg,false);}
+  mkCons(name, rarity, sellPrice, hpVal) {
+    return { uid: Utils.genUid(), name, category: 'consumable', rarity, sellPrice, stackable: true, qty: 1, effect: 'hp', val: hpVal };
+  },
+};
+
+const CRAFTING = [
+  {
+    id: 'craft_steel_sword',
+    result: { name: '⚔️ Crafted Steel Sword', slot: 'weapon', rarity: 'rare', stats: { str: 10 }, category: 'equipment' },
+    req: [{ name: '🪓 Orc Fragment', qty: 3 }, { name: '🪶 Wolf Fang', qty: 2 }],
+    desc: 'A powerful steel sword forged from orc metal',
+  },
+  {
+    id: 'craft_shadow_blade',
+    result: { name: '🗡️ Shadow Blade', slot: 'weapon', rarity: 'epic', stats: { str: 8, agi: 6 }, category: 'equipment' },
+    req: [{ name: '🌕 Moon Shard', qty: 2 }, { name: '🪶 Wolf Fang', qty: 3 }, { name: '🕸️ Spider Silk', qty: 2 }],
+    desc: 'A blade imbued with shadow energy',
+  },
+  {
+    id: 'craft_dragon_armor',
+    result: { name: '🛡️ Dragon Scale Armor', slot: 'armor', rarity: 'epic', stats: { def: 12 }, category: 'equipment' },
+    req: [{ name: '🐉 Dragon Scale', qty: 3 }, { name: '🪨 Stone Core', qty: 2 }],
+    desc: 'Armor forged from dragon scales',
+  },
+  {
+    id: 'craft_void_ring',
+    result: { name: '💍 Void Ring', slot: 'ring', rarity: 'epic', stats: { str: 5, int: 5, agi: 5 }, category: 'equipment' },
+    req: [{ name: '🌑 Void Crystal', qty: 2 }, { name: '💎 Troll Gem', qty: 3 }],
+    desc: 'A ring channeling the power of the void',
+  },
+  {
+    id: 'craft_phoenix_amulet',
+    result: { name: '📿 Phoenix Amulet', slot: 'amulet', rarity: 'legendary', stats: { int: 15, maxMp: 40 }, category: 'equipment' },
+    req: [{ name: '🔥 Phoenix Feather', qty: 2 }, { name: '🔥 Dragon Flame', qty: 2 }, { name: '💎 Pure Crystal Core', qty: 1 }],
+    desc: 'Ultimate mage amulet — requires rare boss drops',
+  },
+  {
+    id: 'craft_titan_helm',
+    result: { name: '⛑️ Titan Helm', slot: 'helmet', rarity: 'legendary', stats: { def: 20, str: 8 }, category: 'equipment' },
+    req: [{ name: '⚡ Titan Soul', qty: 1 }, { name: '💀 Death Essence', qty: 2 }, { name: '🪨 Stone Core', qty: 3 }],
+    desc: 'A helmet of godlike defense',
+  },
+  {
+    id: 'craft_chaos_boots',
+    result: { name: '👢 Chaos Treads', slot: 'boots', rarity: 'legendary', stats: { agi: 18, str: 5 }, category: 'equipment' },
+    req: [{ name: '🌀 Chaos Essence', qty: 2 }, { name: '🌕 Moon Shard', qty: 3 }],
+    desc: 'Boots that bend space with every step',
+  },
+  {
+    id: 'craft_mega_potion',
+    result: { name: '❤️ Mega Elixir', category: 'consumable', rarity: 'epic', effect: 'hp', val: 150, stackable: true, qty: 1 },
+    req: [{ name: '🩸 Blood Vial', qty: 3 }, { name: '🔥 Phoenix Feather', qty: 1 }],
+    desc: 'Restores 150 HP instantly',
+  },
+  {
+    id: 'craft_divine_blade',
+    result: { name: '⚔️ Divine Blade', slot: 'weapon', rarity: 'legendary', stats: { str: 22 }, category: 'equipment' },
+    req: [{ name: '☄️ Divine Shard', qty: 2 }, { name: '🐉 Dragon Scale', qty: 2 }, { name: '😈 Demon Horn', qty: 1 }],
+    desc: 'The ultimate weapon — forged from fallen god material',
+  },
+];
+
+// ════════════════════════════════════════════════════════════════
+// SCENES
+// ════════════════════════════════════════════════════════════════
+
+const SCENES = {
+  town: {
+    title: '🏘️ Town Square',
+    text: 'You stand in the peaceful town square. Merchants hawk their wares and adventurers share tales of glory.',
+    choices: [
+      { text: '🌲 Dark Forest', next: 'forest' },
+      { text: '⛰️ Dungeon', next: 'dungeon' },
+      { text: '🏔️ Mountains', next: 'mountains' },
+      { text: '🌊 Coast', next: 'coast' },
+      { text: '🏜️ Wasteland', next: 'wasteland' },
+      { text: '🌋 Volcanic Rift', next: 'volcanic' },
+      { text: '🏪 Shop', next: 'shop_scene' },
+      { text: '⛪ Inn (+40 HP/MP, 5g)', next: 'inn' },
+    ],
+  },
+  forest: {
+    title: '🌲 Dark Forest',
+    text: 'Ancient trees tower overhead. Creatures lurk in every shadow.',
+    choices: [
+      { text: '🐺 Fight Wolf', next: 'combat', enemy: 'wolf' },
+      { text: '🕷️ Fight Spider', next: 'combat', enemy: 'spider' },
+      { text: '🔍 Search treasure', next: 'forest_chest' },
+      { text: '🌿 Gather herbs (+20 HP)', next: 'gather_herbs' },
+      { text: '🐉 Boss: Ancient Dragon (Lv10+)', next: 'boss_fight', bossId: 'boss_10' },
+      { text: '🏘️ Town', next: 'town' },
+    ],
+  },
+  forest_chest: {
+    title: '💎 Hidden Clearing',
+    text: 'You find a hidden chest buried under ancient roots!',
+    choices: [{ text: '📦 Open it', next: 'chest_open' }, { text: '🏘️ Return', next: 'town' }],
+  },
+  chest_open: {
+    title: '📦 Ancient Chest',
+    text: 'The chest opens revealing glittering treasures!',
+    action: () => {
+      const g = Math.floor(Math.random() * 25) + 15;
+      GameState.gold += g;
+      const drop = GameItems.mkEquipDrop(['weapon', 'armor', 'ring', 'boots'] [Math.floor(Math.random() * 4)], Utils.rollRarity());
+      GameInventory.add(drop);
+      GameLog.add(`Found ${g} gold + ${drop.name}!`, 'gold');
+      if (drop.rarity === 'legendary') GameState.quests.legendary.done = true;
+      GameUI.updateUI();
+      GameInventory.render();
+    },
+    choices: [{ text: '🌲 Continue', next: 'forest' }, { text: '🏘️ Town', next: 'town' }],
+  },
+  gather_herbs: {
+    title: '🌿 Herb Gathering',
+    text: 'You find healing herbs and feel refreshed!',
+    action: () => {
+      GameState.hp = Math.min(GameState.maxHp, GameState.hp + 20);
+      GameLog.add('Gathered herbs: +20 HP', 'good');
+      Utils.playSound('snd-heal');
+      GameUI.updateUI();
+    },
+    choices: [{ text: '🌲 Continue', next: 'forest' }, { text: '🏘️ Town', next: 'town' }],
+  },
+  dungeon: {
+    title: '⛰️ Dungeon Depths',
+    text: 'Dark stone corridors stretch before you. Multiple passages lead into darkness.',
+    choices: [
+      { text: '👹 Fight Goblin', next: 'combat', enemy: 'goblin' },
+      { text: '💀 Fight Skeleton', next: 'combat', enemy: 'skeleton' },
+      { text: '👊 Fight Orc', next: 'combat', enemy: 'orc' },
+      { text: '🗿 Fight Stone Golem', next: 'combat', enemy: 'golem' },
+      { text: '💀 Boss: Lich King (Lv20+)', next: 'boss_fight', bossId: 'boss_20' },
+      { text: '🏘️ Town', next: 'town' },
+    ],
+  },
+  mountains: {
+    title: '🏔️ Frozen Mountains',
+    text: 'Cold winds cut through the air. Dangerous creatures prowl the peaks.',
+    choices: [
+      { text: '🧛 Fight Vampire', next: 'combat', enemy: 'vampire' },
+      { text: '👾 Fight Cave Troll', next: 'combat', enemy: 'troll' },
+      { text: '🐺 Fight Werewolf', next: 'combat', enemy: 'werewolf' },
+      { text: '⛏️ Mine gems', next: 'mine_gems' },
+      { text: '😈 Boss: Demon Lord (Lv30+)', next: 'boss_fight', bossId: 'boss_30' },
+      { text: '🏘️ Town', next: 'town' },
+    ],
+  },
+  mine_gems: {
+    title: '⛏️ Crystal Cave',
+    text: 'You chip away at glittering crystal walls!',
+    action: () => {
+      const g = Math.floor(Math.random() * 20) + 10;
+      GameState.gold += g;
+      GameInventory.add(GameItems.mkMat('💎 Mountain Crystal', Utils.rollRarity(), g));
+      GameLog.add(`Mined ${g}g worth of gems!`, 'gold');
+      GameUI.updateUI();
+      GameInventory.render();
+    },
+    choices: [{ text: '🏔️ Continue', next: 'mountains' }, { text: '🏘️ Town', next: 'town' }],
+  },
+  coast: {
+    title: '🌊 Stormy Coast',
+    text: 'Dark waves crash against jagged rocks. Pirates and sea monsters lurk here.',
+    choices: [
+      { text: '😈 Fight Demon Knight', next: 'combat', enemy: 'demon_knight' },
+      { text: '🦑 Fight Sea Monster', next: 'combat', enemy: 'sea_monster' },
+      { text: '🏴‍☠️ Pirate treasure', next: 'pirate_treasure' },
+      { text: '⚡ Boss: Ancient Titan (Lv40+)', next: 'boss_fight', bossId: 'boss_40' },
+      { text: '🌑 Boss: Void Dragon (Lv50+)', next: 'boss_fight', bossId: 'boss_50' },
+      { text: '🏘️ Town', next: 'town' },
+    ],
+  },
+  pirate_treasure: {
+    title: '🏴‍☠️ Pirate Treasure',
+    text: 'You find a washed up treasure chest!',
+    action: () => {
+      const g = Math.floor(Math.random() * 40) + 20;
+      GameState.gold += g;
+      GameInventory.add(GameItems.mkEquipDrop('amulet', Utils.rollRarity()));
+      GameLog.add(`Pirate treasure: ${g} gold!`, 'gold');
+      GameUI.updateUI();
+      GameInventory.render();
+    },
+    choices: [{ text: '🌊 Continue', next: 'coast' }, { text: '🏘️ Town', next: 'town' }],
+  },
+  wasteland: {
+    title: '🏜️ Barren Wasteland',
+    text: 'A desolate landscape stretches endlessly. Ancient ruins dot the horizon.',
+    choices: [
+      { text: '🦅 Fight Phoenix', next: 'combat', enemy: 'phoenix' },
+      { text: '🗿 Fight Stone Golem', next: 'combat', enemy: 'golem' },
+      { text: '🔍 Ancient ruins', next: 'ancient_ruins' },
+      { text: '🔱 Boss: Sea Leviathan (Lv60+)', next: 'boss_fight', bossId: 'boss_60' },
+      { text: '🏘️ Town', next: 'town' },
+    ],
+  },
+  ancient_ruins: {
+    title: '🏛️ Ancient Ruins',
+    text: 'Crumbling pillars surround a glowing altar of incredible power.',
+    action: () => {
+      const drop = GameItems.mkEquipDrop(['weapon', 'armor', 'helmet', 'ring', 'amulet'] [Math.floor(Math.random() * 5)], 'rare');
+      GameInventory.add(drop);
+      GameLog.add(`Found ${drop.name} in the ruins!`, 'gold');
+      GameUI.updateUI();
+      GameInventory.render();
+    },
+    choices: [{ text: '🏜️ Continue', next: 'wasteland' }, { text: '🏘️ Town', next: 'town' }],
+  },
+  volcanic: {
+    title: '🌋 Volcanic Rift',
+    text: 'Rivers of lava flow through cracked earth. The most dangerous creatures live here.',
+    choices: [
+      { text: '🦅 Fight Phoenix', next: 'combat', enemy: 'phoenix' },
+      { text: '😈 Fight Demon Knight', next: 'combat', enemy: 'demon_knight' },
+      { text: '🦑 Fight Sea Monster', next: 'combat', enemy: 'sea_monster' },
+      { text: '☄️ Boss: Fallen God (Lv70+)', next: 'boss_fight', bossId: 'boss_70' },
+      { text: '🌀 Boss: Chaos Serpent (Lv80+)', next: 'boss_fight', bossId: 'boss_80' },
+      { text: '🏘️ Town', next: 'town' },
+    ],
+  },
+  shop_scene: {
+    title: '🏪 General Shop',
+    text: 'The shopkeeper greets you warmly. Browse items on the right!',
+    choices: [{ text: '🏘️ Leave Shop', next: 'town' }],
+  },
+  inn: {
+    title: '⛪ The Rusty Flagon Inn',
+    text: 'You rest comfortably. Your wounds heal and energy is restored.',
+    action: () => {
+        const restCost = 5;
+      if (GameState.gold >= 5) {
+        GameState.gold -= 5;
+        GameState.hp = Math.min(GameState.maxHp, GameState.hp + 40);
+        GameState.mp = Math.min(GameState.maxMp, GameState.mp + 40);
+        GameLog.add('Rested: +40 HP, +40 MP. Cost 5g.', 'good');
+        Utils.playSound('snd-heal');
+      } else {
+        GameLog.add('Need 5 gold to rest!', 'bad');
+      }
+      GameUI.updateUI();
+    },
+    choices: [{ text: '🏘️ Return to Town', next: 'town' }],
+  },
+  victory: {
+    title: '🏆 Victory!',
+    text: 'You defeated the enemy and claimed your reward!',
+    choices: [
+      { text: '🌲 Forest', next: 'forest' },
+      { text: '⛰️ Dungeon', next: 'dungeon' },
+      { text: '🏔️ Mountains', next: 'mountains' },
+      { text: '🌊 Coast', next: 'coast' },
+      { text: '🏜️ Wasteland', next: 'wasteland' },
+      { text: '🌋 Volcanic Rift', next: 'volcanic' },
+      { text: '🏘️ Town', next: 'town' },
+    ],
+  },
+  defeat: {
+    title: '💀 Defeated...',
+    text: 'You have fallen. The townspeople carry you back to safety.',
+    action: () => {
+      const lost = Math.floor(GameState.gold * 0.15);
+      GameState.gold = Math.max(0, GameState.gold - lost);
+      GameState.hp = Math.floor(GameState.maxHp * 0.5);
+      GameState.mp = Math.floor(GameState.maxMp * 0.5);
+      GameLog.add(`Lost ${lost} gold. Revived.`, 'bad');
+      Utils.playSound('snd-death');
+      GameUI.updateUI();
+    },
+    choices: [{ text: '🔄 Back to Town', next: 'town' }],
+  },
+};
+
+// ════════════════════════════════════════════════════════════════
+// SHOP ITEMS
+// ════════════════════════════════════════════════════════════════
+
+const SHOP_EQUIP = [
+  { id: 's1', name: '⚔️ Iron Sword', price: 20, slot: 'weapon', rarity: 'normal', stats: { str: 3 } },
+  { id: 's2', name: '⚔️ Steel Sword', price: 50, slot: 'weapon', rarity: 'uncommon', stats: { str: 7 } },
+  { id: 's3', name: '🛡️ Wooden Shield', price: 18, slot: 'armor', rarity: 'normal', stats: { def: 2 } },
+  { id: 's4', name: '🛡️ Iron Plate', price: 40, slot: 'armor', rarity: 'uncommon', stats: { def: 5 } },
+  { id: 's5', name: '👢 Leather Boots', price: 22, slot: 'boots', rarity: 'normal', stats: { agi: 3 } },
+  { id: 's6', name: '💍 Power Ring', price: 35, slot: 'ring', rarity: 'uncommon', stats: { str: 3, int: 2 } },
+  { id: 's7', name: '⛑️ Iron Helm', price: 28, slot: 'helmet', rarity: 'normal', stats: { def: 2, int: 1 } },
+  { id: 's8', name: '📿 Mage Amulet', price: 55, slot: 'amulet', rarity: 'rare', stats: { int: 6, maxMp: 15 } },
+];
+
+const SHOP_CONS = [
+  { id: 'c1', name: '❤️ Health Potion', price: 10, rarity: 'normal', effect: 'hp', val: 40 },
+  { id: 'c2', name: '❤️ Mega Potion', price: 22, rarity: 'uncommon', effect: 'hp', val: 80 },
+  { id: 'c3', name: '💧 Mana Potion', price: 8, rarity: 'normal', effect: 'mp', val: 30 },
+  { id: 'c4', name: '💧 Mana Flask', price: 18, rarity: 'uncommon', effect: 'mp', val: 60 },
+  { id: 'c5', name: '✨ Elixir', price: 40, rarity: 'rare', effect: 'both', val: 60 },
+];
+
+// ════════════════════════════════════════════════════════════════
+// GAME SCENES MODULE
+// ════════════════════════════════════════════════════════════════
+
+const GameScenes = {
+  load(sceneId) {
+    if (sceneId === 'boss_fight') return;
+    if (sceneId === 'combat') return;
+    const scene = SCENES[sceneId];
+    if (!scene) return;
+
+    GameState.currentScene = sceneId;
+    if (scene.action) scene.action();
+
+    document.getElementById('story-content').innerHTML = `<div class="scene-title">${scene.title}</div><p>${scene.text}</p>`;
+    document.getElementById('combat-box').style.display = 'none';
+
+    const box = document.getElementById('choices-box');
+    box.innerHTML = '';
+    box.style.display = 'flex';
+
+    scene.choices.forEach(c => {
+      const btn = document.createElement('button');
+      btn.className = 'choice-btn fade-in';
+      btn.innerHTML = c.text;
+
+      if (c.enemy) {
+        btn.onclick = () => GameCombat.startNormal(c.enemy);
+      } else if (c.bossId) {
+        btn.onclick = () => GameCombat.triggerBoss(c.bossId);
+      } else {
+        btn.onclick = () => GameScenes.load(c.next);
+      }
+
+      box.appendChild(btn);
+    });
+
+    GameUI.updateUI();
+  },
+};
+
+// ════════════════════════════════════════════════════════════════
+// COMBAT MODULE
+// ════════════════════════════════════════════════════════════════
+
+const GameCombat = {
+  triggerBoss(bossId) {
+    const boss = BOSSES.find(b => b.id === bossId);
+    if (!boss) return;
+    if (GameState.level < boss.levelReq) {
+      Utils.notify(`⚠️ Need Level ${boss.levelReq} for this boss!`, 'var(--red)');
+      return;
     }
-    if(currentEnemy.poisoned>0){const pd=8;currentEnemy.hp-=pd;currentEnemy.poisoned--;addCombatLog(`🐍 Poison deals ${pd}!`,'good');}
-    if(state.hp<=0&&state.unlockedTalents.includes('undying')&&!state.usedUndying){state.hp=1;state.usedUndying=true;addCombatLog('💪 Undying Will! Survived!','gold');}
-    if(state.hp<=0){state.hp=0;updateUI();endCombat(false);return;}
-  }
-  if(currentEnemy&&currentEnemy.hp<=0){currentEnemy.hp=0;updateEnemyBar();endCombat(true);return;}
-  updateEnemyBar();updateUI();
-}
 
-function useSkillInCombat(skillId){
-  if(!currentEnemy)return;
-  const sk=SKILLS[skillId];if(!sk)return;
-  const cd=state.skillCooldowns[skillId]||0;
-  if(cd>0){addCombatLog(`${sk.name} on cooldown! (${cd})`,'bad');return;}
-  if(state.mp<sk.mp){addCombatLog(`Not enough MP for ${sk.name}!`,'bad');return;}
-  state.mp-=sk.mp;state.skillCooldowns[skillId]=sk.cd;
-  sk.use(currentEnemy);
-  Object.keys(state.skillCooldowns).forEach(k=>{if(k!==skillId&&state.skillCooldowns[k]>0)state.skillCooldowns[k]--;});
-  if(currentEnemy.hp<=0){currentEnemy.hp=0;updateEnemyBar();endCombat(true);return;}
-  if(currentEnemy.hp>0){const eDmg=Math.max(1,currentEnemy.atk+Math.floor(Math.random()*6)-state.def);state.hp-=eDmg;addCombatLog(`${currentEnemy.name} retaliates: ${eDmg}!`,'bad');animateAttack(false,eDmg,false);if(state.hp<=0){state.hp=0;updateUI();endCombat(false);return;}}
-  updateEnemyBar();updateUI();renderSkillBar();
-}
+    GameEngine.pendingBossId = bossId;
+    const cs = boss.cs;
+    document.getElementById('boss-icon').textContent = cs.icon || boss.icon;
+    document.getElementById('boss-cs-name').textContent = cs.title;
+    document.getElementById('boss-cs-req').textContent = cs.req || '';
+    document.getElementById('boss-cs-text').textContent = cs.text;
+    document.getElementById('boss-cutscene').style.display = 'block';
+    Utils.playSound('snd-boss');
+  },
 
-function endCombat(won){
-  state.usedUndying=false;
-  if(won){
-    const g=Math.floor(Math.random()*(currentEnemy.gold[1]-currentEnemy.gold[0]))+currentEnemy.gold[0];
-    state.gold+=g;state.xp+=currentEnemy.xp;
-    addLog(`Defeated ${currentEnemy.name}! +${currentEnemy.xp} XP, +${g} Gold`,'good');
-    if(currentEnemy.loot){
-      currentEnemy.loot().forEach(item=>{
-        addToInventory(item);
-        addLog(`Loot: ${item.name} [${RARITY[item.rarity]?.label||'Normal'}]`,item.rarity==='legendary'?'legendary':item.rarity==='epic'?'epic':'gold');
-        if(item.rarity==='legendary')state.quests.legendary.done=true;
+  startNormal(enemyId) {
+    const tmpl = NORMAL_ENEMIES.find(e => e.id === enemyId);
+    if (!tmpl) return;
+
+    const scale = 1 + Math.max(0, (GameState.level - 1) * CONSTANTS.ENEMY_SCALING);
+    GameEngine.currentEnemy = {
+      ...tmpl,
+      hp: Math.floor(tmpl.hp * scale),
+      maxHp: Math.floor(tmpl.hp * scale),
+      atk: Math.floor(tmpl.atk * scale),
+      def: tmpl.def,
+      poisoned: 0,
+      frozen: false,
+      crippled: 0,
+      boss: false,
+    };
+    this.start(GameEngine.currentEnemy);
+  },
+
+  start(enemy) {
+    document.getElementById('enemy-hp-val').textContent = enemy.hp;
+    document.getElementById('enemy-hp-max').textContent = enemy.maxHp;
+    document.getElementById('arena-enemy').textContent = enemy.icon;
+    document.getElementById('arena-enemy-label').textContent = enemy.name;
+    document.getElementById('arena-enemy-hp').style.width = '100%';
+    document.getElementById('combat-log').innerHTML = '';
+    document.getElementById('combat-box').style.display = 'block';
+    document.getElementById('choices-box').style.display = 'none';
+    document.getElementById('story-content').innerHTML = `<div class="scene-title">⚔️ Combat!</div><p><strong style="color:var(--red)">${enemy.name}</strong> appears!${enemy.boss ? '<br><span style="color:var(--gold)">⚠️ BOSS BATTLE!</span>' : ''}</p>`;
+    this.addLog(`Encountered ${enemy.name}!`, 'bad');
+    GameState.defending = false;
+  },
+
+  action(type) {
+    if (!GameEngine.currentEnemy) return;
+    const enemy = GameEngine.currentEnemy;
+
+    if (type === 'attack') {
+      let dmg = Math.max(1, GameState.str + Math.floor(Math.random() * 8) - enemy.def);
+      let isCrit = false;
+
+      if (GameState.unlockedTalents.includes('berserker') && GameState.hp < GameState.maxHp * 0.5) {
+        dmg = Math.floor(dmg * 1.35);
+      }
+      if (GameState.unlockedTalents.includes('crit') && Math.random() < 0.3) {
+        dmg = Math.floor(dmg * 2);
+        isCrit = true;
+      }
+      if (GameState.unlockedTalents.includes('death_mark')) dmg = Math.floor(dmg * 1.5);
+      if (GameState.unlockedTalents.includes('venom')) enemy.poisoned = (enemy.poisoned || 0) + 1;
+
+      enemy.hp -= dmg;
+      this.addLog(`⚔️ ${isCrit ? '💥CRIT! ' : ''}You hit for ${dmg}!`, isCrit ? 'gold' : 'good');
+      Utils.playSound('snd-attack');
+      this.animateAttack(true, dmg, isCrit);
+      GameState.defending = false;
+          } else if (type === 'magic') {
+      if (GameState.mp < 10) {
+        this.addLog('❌ Not enough MP!', 'bad');
+        return;
+      }
+      let dmg = Math.max(1, GameState.int * 2 + Math.floor(Math.random() * 10));
+      if (GameState.unlockedTalents.includes('spell_power')) dmg = Math.floor(dmg * 1.3);
+      if (GameState.unlockedTalents.includes('fire_mastery')) dmg = Math.floor(dmg * 1.2);
+      enemy.hp -= dmg;
+      GameState.mp -= 10;
+      this.addLog(`✨ Magic hits for ${dmg}! (-10 MP)`, 'info');
+      Utils.playSound('snd-magic');
+      this.animateAttack(true, dmg, false);
+      GameState.defending = false;
+    } else if (type === 'defend') {
+      GameState.defending = true;
+      this.addLog('🛡️ Bracing for impact!', 'info');
+    } else if (type === 'flee') {
+      const ok = GameState.unlockedTalents.includes('smoke_bomb') ? 0.99 : GameState.agi > enemy.def ? 0.7 : 0.35;
+      if (Math.random() < ok) {
+        GameLog.add('Fled from battle!', 'bad');
+        GameEngine.currentEnemy = null;
+        document.getElementById('combat-box').style.display = 'none';
+        GameScenes.load('town');
+        return;
+      }
+      this.addLog('❌ Failed to flee!', 'bad');
+      GameState.defending = false;
+    }
+
+    if (enemy && enemy.hp <= 0) {
+      enemy.hp = 0;
+      this.updateEnemyBar();
+      this.end(true);
+      return;
+    }
+
+    if (GameState.unlockedTalents.includes('second_wind')) GameState.hp = Math.min(GameState.maxHp, GameState.hp + 10);
+    if (GameState.unlockedTalents.includes('mana_regen')) GameState.mp = Math.min(GameState.maxMp, GameState.mp + 5);
+
+    if (enemy && enemy.hp > 0) {
+      if (enemy.frozen) {
+        enemy.frozen = false;
+        this.addLog(`${enemy.name} is frozen!`, 'info');
+      } else {
+        let eDmg = Math.max(1, enemy.atk + Math.floor(Math.random() * 6) - GameState.def);
+        if (GameState.defending) eDmg = Math.floor(eDmg / (GameState.unlockedTalents.includes('fortress') ? 4 : 2));
+        if (GameState.unlockedTalents.includes('shield_wall')) eDmg = Math.floor(eDmg * 0.9);
+        if (GameState.manaShield) {
+          GameState.manaShield = false;
+          this.addLog('🔮 Mana Shield absorbed!', 'info');
+          eDmg = 0;
+        }
+        if (GameState.unlockedTalents.includes('evasion') && Math.random() < 0.25) {
+          this.addLog('💨 Dodged!', 'good');
+          eDmg = 0;
+        }
+        GameState.hp -= eDmg;
+        if (eDmg > 0) {
+          this.addLog(`${enemy.name} hits you for ${eDmg}!`, 'bad');
+          this.animateAttack(false, eDmg, false);
+        }
+      }
+
+      if (enemy.poisoned > 0) {
+        const pd = 8;
+        enemy.hp -= pd;
+        enemy.poisoned--;
+        this.addLog(`🐍 Poison deals ${pd}!`, 'good');
+      }
+
+      if (GameState.hp <= 0 && GameState.unlockedTalents.includes('undying') && !GameState.usedUndying) {
+        GameState.hp = 1;
+        GameState.usedUndying = true;
+        this.addLog('💪 Undying Will! Survived!', 'gold');
+      }
+
+      if (GameState.hp <= 0) {
+        GameState.hp = 0;
+        GameUI.updateUI();
+        this.end(false);
+        return;
+      }
+    }
+
+    if (enemy && enemy.hp <= 0) {
+      enemy.hp = 0;
+      this.updateEnemyBar();
+      this.end(true);
+      return;
+    }
+
+    this.updateEnemyBar();
+    GameUI.updateUI();
+  },
+
+  end(won) {
+  GameState.usedUndying = false;
+  if (won) {
+    const enemy = GameEngine.currentEnemy;
+    
+    // ✅ FIX: Ensure gold is a valid number
+    const minGold = parseInt(enemy.gold) || 0;
+    const maxGold = parseInt(enemy.gold) || minGold;
+    const g = Math.floor(Math.random() * (maxGold - minGold + 1)) + minGold;
+    
+    // Validate gold amount
+    if (isNaN(g) || g < 0) {
+      console.error('Invalid gold amount:', g);
+      GameState.gold += 0;
+    } else {
+      GameState.gold += g;
+    }
+    
+    GameState.xp += enemy.xp;
+    GameLog.add(`Defeated ${enemy.name}! +${enemy.xp} XP, +${isNaN(g) ? 0 : g} Gold`, 'good');
+
+      if (enemy.loot) {
+        enemy.loot().forEach(item => {
+          GameInventory.add(item);
+          GameLog.add(`Loot: ${item.name} [${RARITY[item.rarity]?.label || 'Normal'}]`, item.rarity === 'legendary' ? 'legendary' : item.rarity === 'epic' ? 'epic' : 'gold');
+          if (item.rarity === 'legendary') GameState.quests.legendary.done = true;
+        });
+      }
+
+      if (enemy.boss) GameState.quests.boss.done = true;
+      GameState.quests.kill1.done = true;
+      if (GameState.gold >= 50) GameState.quests.gold50.done = true;
+
+      GameInventory.autoSellAfterCombat();
+      GameProgression.checkLevelUp();
+      GameQuests.render();
+      GameEngine.currentEnemy = null;
+      document.getElementById('combat-box').style.display = 'none';
+      GameScenes.load('victory');
+    } else {
+      GameEngine.currentEnemy = null;
+      document.getElementById('combat-box').style.display = 'none';
+      GameScenes.load('defeat');
+    }
+    GameUI.updateUI();
+  },
+
+  updateEnemyBar() {
+    if (!GameEngine.currentEnemy) return;
+    const p = Math.max(0, (GameEngine.currentEnemy.hp / GameEngine.currentEnemy.maxHp) * 100);
+    document.getElementById('arena-enemy-hp').style.width = p + '%';
+    document.getElementById('enemy-hp-val').textContent = Math.max(0, GameEngine.currentEnemy.hp);
+  },
+
+  animateAttack(isPlayer, dmg, isCrit) {
+    if (isPlayer) {
+      const a = document.getElementById('char-avatar');
+      a.classList.remove('attacking');
+      void a.offsetWidth;
+      a.classList.add('attacking');
+      setTimeout(() => a.classList.remove('attacking'), 500);
+      const e = document.getElementById('arena-enemy');
+      e.classList.remove('enemy-shake', 'enemy-hit');
+      void e.offsetWidth;
+      e.classList.add('enemy-shake');
+      setTimeout(() => e.classList.remove('enemy-shake'), 500);
+    } else {
+      const p = document.getElementById('arena-player');
+      p.classList.remove('enemy-shake');
+      void p.offsetWidth;
+      p.classList.add('enemy-shake');
+      setTimeout(() => p.classList.remove('enemy-shake'), 400);
+      const c = document.getElementById('char-avatar');
+      c.classList.add('hit');
+      setTimeout(() => c.classList.remove('hit'), 400);
+    }
+    this.spawnDmgFloat(isCrit ? `💥${dmg}!` : String(dmg), !isPlayer, isCrit ? 'crit-dmg' : isPlayer ? 'enemy-dmg' : 'player-dmg');
+  },
+
+  spawnDmgFloat(text, onEnemy, cls = '') {
+    const arena = document.getElementById('arena');
+    if (!arena) return;
+    const rect = arena.getBoundingClientRect();
+    const div = document.createElement('div');
+    div.className = `dmg-float ${cls}`;
+    div.textContent = text;
+    div.style.left = (onEnemy ? rect.right - 80 : rect.left + 30) + 'px';
+    div.style.top = (rect.top + rect.height / 2 - 20) + 'px';
+    document.body.appendChild(div);
+    setTimeout(() => div.remove(), 950);
+  },
+
+  addLog(msg, type = '') {
+    const b = document.getElementById('combat-log');
+    const d = document.createElement('div');
+    d.className = `log-entry ${type ? 'log-' + type : ''}`;
+    d.textContent = msg;
+    b.appendChild(d);
+    b.scrollTop = b.scrollHeight;
+  },
+};
+
+// ════════════════════════════════════════════════════════════════
+// PROGRESSION MODULE
+// ════════════════════════════════════════════════════════════════
+
+const GameProgression = {
+  checkLevelUp() {
+    while (GameState.xp >= GameState.xpNext && GameState.level < GameState.maxLevel) {
+      GameState.xp -= GameState.xpNext;
+      GameState.level++;
+      GameState.xpNext = Math.floor(GameState.level * 100 * CONSTANTS.XP_MULTIPLIER);
+      GameState.maxHp += 20;
+      GameState.hp = GameState.maxHp;
+      GameState.maxMp += 10;
+      GameState.mp = GameState.maxMp;
+      GameState.str += 2;
+      GameState.agi += 2;
+      GameState.int += 2;
+      GameState.def += 1;
+      GameState.talentPoints += 2;
+
+      document.getElementById('char-level').textContent = `Level ${GameState.level} / 100`;
+      GameLog.add(`🎉 LEVEL UP! Level ${GameState.level}! +2 Talent Points!`, 'gold');
+      Utils.playSound('snd-levelup');
+      Utils.notify(`🎉 Level Up! Now Level ${GameState.level}!`, 'var(--gold)');
+
+      if (GameState.level >= 5) GameState.quests.level5.done = true;
+      if (GameState.level >= 10) {
+        GameState.quests.level10.done = true;
+        if (!GameState.class) GameUI.showClassSelection();
+      }
+      if (GameState.level >= 50) GameState.quests.level50.done = true;
+      if (GameState.level >= 100) GameState.quests.level100.done = true;
+
+      if (GameState.class) document.getElementById('talent-btn').style.display = 'inline-block';
+      GameUI.updateTalentBtn();
+    }
+
+    if (GameState.level >= GameState.maxLevel) {
+      GameLog.add('🌟 MAX LEVEL REACHED! You are a legend!', 'legendary');
+      GameState.xp = 0;
+    }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════
+// INVENTORY MODULE
+// ════════════════════════════════════════════════════════════════
+
+const GameInventory = {
+  add(item) {
+    if (item.stackable) {
+      const existing = GameState.inventory.find(
+        i => i.name === item.name && i.rarity === item.rarity && i.stackable && !i.equipped
+      );
+      if (existing) {
+        existing.qty = (existing.qty || 1) + (item.qty || 1);
+        this.render();
+        return;
+      }
+    }
+    GameState.inventory.push({ ...item, uid: item.uid || Utils.genUid() });
+    this.render();
+  },
+
+  switchTab(tab) {
+    GameState.invTab = tab;
+    document.querySelectorAll('#inv-tabs .tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(`inv-tab-${tab}`).classList.add('active');
+    this.render();
+  },
+
+  render() {
+    const list = document.getElementById('inventory-list');
+    const items = GameState.inventory.filter(i => i.category === GameState.invTab);
+
+    if (!items.length) {
+      list.innerHTML = '<div class="inv-empty">No items here</div>';
+      return;
+    }
+
+    const r_ = r => RARITY[r] || RARITY.normal;
+    list.innerHTML = items
+      .map(item => {
+        const r = r_(item.rarity);
+        const statsText = item.stats ? Object.entries(item.stats).map(([k, v]) => `+${v}${k.toUpperCase()}`).join(' ') : '';
+        const consText = item.effect ? `Restores ${item.val} ${item.effect === 'both' ? 'HP+MP' : item.effect.toUpperCase()}` : '';
+        const stackBadge = item.stackable && item.qty > 1 ? `<span class="inv-item-stack">×${item.qty}</span>` : '';
+
+        return `<div class="inv-item ${item.rarity}">
+          <div class="inv-item-top">
+            <div class="inv-item-name" style="color:${r.color}">${item.name}</div>
+            ${stackBadge}
+          </div>
+          <div style="font-size:.7em;color:${r.color};margin-top:1px;">${r.label}</div>
+          <div class="inv-item-stats">${statsText || consText}</div>
+          <div style="font-size:.7em;color:#555;margin-top:2px;">Sell: ${item.sellPrice || 0}g${item.stackable && item.qty > 1 ? ` (total: ${(item.sellPrice || 0) * item.qty}g)` : ''}</div>
+          <div class="inv-item-btns">
+            ${
+              item.category === 'equipment'
+                ? item.equipped
+                  ? `<button class="inv-btn btn-unequip" onclick="GameEquipment.unequip('${item.slot}')">Unequip</button>`
+                  : `<button class="inv-btn btn-equip" onclick="GameEquipment.equip(${item.uid})">Equip</button>`
+                : ''
+            }
+            ${item.category === 'consumable' ? `<button class="inv-btn btn-use" onclick="GameInventory.useItem(${item.uid})">Use</button>` : ''}
+            ${!item.equipped ? `<button class="inv-btn btn-sell" onclick="GameInventory.sellItem(${item.uid})">Sell${item.stackable && item.qty > 1 ? ' All' : ''}</button>` : ''}
+          </div>
+        </div>`;
+      })
+      .join('');
+  },
+
+  useItem(uid) {
+    const idx = GameState.inventory.findIndex(i => i.uid === uid);
+    if (idx === -1) return;
+    const item = GameState.inventory[idx];
+
+    if (item.category === 'consumable') {
+      if (item.effect === 'hp' || item.effect === 'both') {
+        GameState.hp = Math.min(GameState.maxHp, GameState.hp + (item.val || 40));
+        GameLog.add(`Used ${item.name}: +${item.val} HP`, 'good');
+        Utils.playSound('snd-heal');
+        GameCombat.spawnDmgFloat(`+${item.val}HP`, false, 'heal-float');
+      }
+      if (item.effect === 'mp' || item.effect === 'both') {
+        GameState.mp = Math.min(GameState.maxMp, GameState.mp + (item.val || 30));
+        GameLog.add(`Used ${item.name}: +${item.val} MP`, 'info');
+        GameCombat.spawnDmgFloat(`+${item.val}MP`, false, 'mp-float');
+      }
+
+      if (item.stackable && item.qty > 1) {
+        item.qty--;
+      } else {
+        GameState.inventory.splice(idx, 1);
+      }
+      this.render();
+      GameUI.updateUI();
+    }
+  },
+
+    sellItem(uid) {
+    const idx = GameState.inventory.findIndex(i => i.uid === uid);
+    if (idx === -1) return;
+    const item = GameState.inventory[idx];
+    if (item.equipped) return;
+
+    const sellPrice = parseInt(item.sellPrice) || 0;
+    const qty = parseInt(item.qty) || 1;
+    const total = sellPrice * (item.stackable ? qty : 1);
+    
+    if (isNaN(total) || total < 0) {
+      console.error('Invalid sell total:', total);
+      GameState.gold += 0;
+    } else {
+      GameState.gold += total;
+    }
+    
+    GameLog.add(`Sold ${item.name}${item.stackable && item.qty > 1 ? ` ×${item.qty}` : ''} for ${isNaN(total) ? 0 : total}g`, 'gold');
+    GameState.inventory.splice(idx, 1);
+    this.render();
+    GameUI.updateUI();
+
+    if (GameState.gold >= 50) GameState.quests.gold50.done = true;
+    GameQuests.render();
+  },
+
+  saveAutoSell() {
+    GameState.autoSell.normal = document.getElementById('as-normal').checked;
+    GameState.autoSell.uncommon = document.getElementById('as-uncommon').checked;
+  },
+
+  loadAutoSellUI() {
+    document.getElementById('as-normal').checked = GameState.autoSell?.normal || false;
+    document.getElementById('as-uncommon').checked = GameState.autoSell?.uncommon || false;
+  },
+
+  autoSellAfterCombat() {
+    if (!GameState.autoSell?.normal && !GameState.autoSell?.uncommon) return;
+
+    let totalGold = 0;
+    let count = 0;
+    const toSell = GameState.inventory.filter(i => {
+      if (i.equipped) return false;
+      if (i.category !== 'equipment' && i.category !== 'material') return false;
+      if (GameState.autoSell.normal && i.rarity === 'normal') return true;
+      if (GameState.autoSell.uncommon && i.rarity === 'uncommon') return true;
+      return false;
+    });
+
+    toSell.forEach(item => {
+      const total = (item.sellPrice || 0) * (item.stackable ? item.qty : 1);
+      totalGold += total;
+      count++;
+      const idx = GameState.inventory.findIndex(i => i.uid === item.uid);
+      if (idx !== -1) GameState.inventory.splice(idx, 1);
+    });
+
+    if (count > 0) {
+      GameLog.add(`🗑️ Auto-sold ${count} junk items for ${totalGold}g!`, 'gold');
+      GameState.gold += totalGold;
+      Utils.notify(`🗑️ Auto-sold ${count} items for ${totalGold}g`, 'var(--gold)');
+      this.render();
+      GameUI.updateUI();
+    }
+  },
+
+  autoSellNow() {
+    this.autoSellAfterCombat();
+    if (!document.getElementById('as-normal').checked && !document.getElementById('as-uncommon').checked) {
+      Utils.notify('Enable auto-sell toggles first!', 'var(--red)');
+    }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════
+// EQUIPMENT MODULE
+// ════════════════════════════════════════════════════════════════
+
+const GameEquipment = {
+  equip(uid) {
+    const item = GameState.inventory.find(i => i.uid === uid);
+    if (!item || item.category !== 'equipment') return;
+
+    if (GameState.equipped[item.slot]) this.unequip(item.slot, true);
+
+    Object.entries(item.stats || {}).forEach(([k, v]) => {
+      GameState[k] = (GameState[k] || 0) + v;
+    });
+
+    item.equipped = true;
+    GameState.equipped[item.slot] = uid;
+    GameState.quests.equip.done = true;
+    GameLog.add(`Equipped ${item.name}!`, 'good');
+    Utils.playSound('snd-craft');
+    GameInventory.render();
+    this.render();
+    GameUI.updateUI();
+    GameQuests.render();
+  },
+
+  unequip(slot, silent = false) {
+    const uid = GameState.equipped[slot];
+    if (!uid) return;
+
+    const item = GameState.inventory.find(i => i.uid === uid);
+    if (item) {
+      Object.entries(item.stats || {}).forEach(([k, v]) => {
+        GameState[k] = Math.max(0, (GameState[k] || 0) - v);
       });
+      item.equipped = false;
+      if (!silent) GameLog.add(`Unequipped ${item.name}!`, 'info');
     }
-    if(currentEnemy.boss)state.quests.boss.done=true;
-    state.quests.kill1.done=true;
-    if(state.gold>=50)state.quests.gold50.done=true;
-    // Auto sell after combat
-    autoSellAfterCombat();
-    checkLevelUp();renderQuests();
-    currentEnemy=null;document.getElementById('combat-box').style.display='none';
-    loadScene('victory');
-  } else {
-    currentEnemy=null;document.getElementById('combat-box').style.display='none';
-    loadScene('defeat');
-  }
-  updateUI();
-}
 
-function updateEnemyBar(){
-  if(!currentEnemy)return;
-  const p=Math.max(0,(currentEnemy.hp/currentEnemy.maxHp)*100);
-  document.getElementById('arena-enemy-hp').style.width=p+'%';
-  document.getElementById('enemy-hp-val').textContent=Math.max(0,currentEnemy.hp);
-}
+    GameState.equipped[slot] = null;
+    GameInventory.render();
+    this.render();
+    GameUI.updateUI();
+  },
 
-// ── LEVEL UP ──
-function checkLevelUp(){
-  while(state.xp>=state.xpNext&&state.level<state.maxLevel){
-    state.xp-=state.xpNext;state.level++;
-    state.xpNext=Math.floor(state.level*100*1.25);
-    state.maxHp+=20;state.hp=state.maxHp;
-    state.maxMp+=10;state.mp=state.maxMp;
-    state.str+=2;state.agi+=2;state.int+=2;state.def+=1;
-    state.talentPoints+=2;
-    document.getElementById('char-level').textContent=`Level ${state.level} / 100`;
-    addLog(`🎉 LEVEL UP! Level ${state.level}! +2 Talent Points!`,'gold');
-    playSound('snd-levelup');notify(`🎉 Level Up! Now Level ${state.level}!`,'var(--gold)');
-    if(state.level>=5)state.quests.level5.done=true;
-    if(state.level>=10){state.quests.level10.done=true;if(!state.class)showClassSelection();}
-    if(state.level>=50)state.quests.level50.done=true;
-    if(state.level>=100)state.quests.level100.done=true;
-    if(state.class)document.getElementById('talent-btn').style.display='inline-block';
-    updateTalentBtn();
-  }
-  if(state.level>=state.maxLevel){addLog('🌟 MAX LEVEL REACHED! You are a legend!','legendary');state.xp=0;}
-}
+  render() {
+    ['weapon', 'armor', 'helmet', 'boots', 'ring', 'amulet'].forEach(slot => {
+      const slotEl = document.querySelector(`[data-slot="${slot}"]`);
+      const nameEl = document.getElementById(`slot-${slot}-name`);
+      const uid = GameState.equipped[slot];
 
-// ── CLASS ──
-function showClassSelection(){
-  const grid=document.getElementById('class-grid');
-  grid.innerHTML=Object.entries(CLASSES).map(([id,c])=>`
-    <div class="class-card" onclick="selectClass('${id}')">
-      <div class="class-icon">${c.icon}</div>
-      <div class="class-name">${c.name}</div>
-      <div class="class-desc">${c.desc}</div>
-      ${Object.entries(c.bonuses).map(([k,v])=>`<div class="class-stat"><span>${k.toUpperCase()}</span><span>${v>0?'+':''}${v}</span></div>`).join('')}
-    </div>`).join('');
-  document.getElementById('class-screen').style.display='block';
-}
-function selectClass(classId){
-  const c=CLASSES[classId];state.class=classId;state.quests.class.done=true;
-  Object.entries(c.bonuses).forEach(([k,v])=>{
-    if(k==='maxHp'){state.maxHp+=v;state.hp=Math.min(state.hp+Math.max(0,v),state.maxHp);}
-    else if(k==='maxMp'){state.maxMp+=v;state.mp=Math.min(state.mp+Math.max(0,v),state.maxMp);}
-    else state[k]=(state[k]||0)+v;
-  });
-  state.skills=c.skills;
-  document.getElementById('char-class').textContent=`${c.icon} ${c.name}`;
-  document.getElementById('char-avatar').textContent=c.icon;
-  document.getElementById('arena-player').textContent=c.icon;
-  document.getElementById('class-screen').style.display='none';
-  document.getElementById('talent-btn').style.display='inline-block';
-  addLog(`🎉 You are now a ${c.name}!`,'purple');playSound('snd-levelup');updateUI();renderSkillBar();renderQuests();
-}
-
-// ── TALENTS ──
-function openTalents(){
-  if(!state.class){addLog('Choose a class first!','bad');return;}
-  const c=CLASSES[state.class];
-  document.getElementById('talent-title').textContent=`${c.icon} ${c.name} Talent Tree`;
-  document.getElementById('talent-pts-val').textContent=state.talentPoints;
-  document.getElementById('tree-grid').innerHTML=Object.entries(c.trees).map(([tid,tree])=>`
-    <div class="tree-col">
-      <div class="tree-name">${tree.name}</div>
-      ${tree.talents.map(t=>{
-        const rank=state.unlockedTalents.filter(u=>u===t.id).length;
-        const maxed=rank>=t.ranks;const locked=state.talentPoints<t.cost&&rank===0;
-        return `<div class="talent-node ${maxed?'unlocked':locked?'locked':''}" onclick="unlockTalent('${t.id}','${tid}')">
-          <span class="talent-node-rank">${rank}/${t.ranks}</span>
-          <div class="talent-node-name">${t.name}</div>
-          <div class="talent-node-desc">${t.desc}</div>
-          <div class="talent-node-cost">Cost: ${t.cost}pt ${maxed?'✅':''}</div>
-        </div>`;}).join('')}
-    </div>`).join('');
-  document.getElementById('talent-screen').style.display='block';
-}
-function unlockTalent(talentId,treeId){
-  const c=CLASSES[state.class];const tree=c.trees[treeId];
-  const talent=tree.talents.find(t=>t.id===talentId);if(!talent)return;
-  const rank=state.unlockedTalents.filter(u=>u===talentId).length;
-  if(rank>=talent.ranks){addLog(`${talent.name} already maxed!`,'bad');return;}
-  if(state.talentPoints<talent.cost){addLog('Not enough talent points!','bad');return;}
-  state.talentPoints-=talent.cost;state.unlockedTalents.push(talentId);talent.effect();
-  state.quests.talent.done=true;addLog(`🌟 Unlocked: ${talent.name}!`,'purple');playSound('snd-magic');
-  openTalents();updateUI();renderQuests();updateTalentBtn();
-}
-function closeTalents(){document.getElementById('talent-screen').style.display='none';}
-function updateTalentBtn(){
-  const btn=document.getElementById('talent-btn');
-  btn.textContent=state.talentPoints>0?`🌟 Talents (${state.talentPoints})`:'🌟 Talents';
-  btn.style.boxShadow=state.talentPoints>0?'0 0 10px rgba(136,68,255,.6)':'none';
-}
-
-// ── SKILLS BAR ──
-function renderSkillBar(){
-  if(!state.skills||!state.skills.length){document.getElementById('skills-bar').style.display='none';return;}
-  document.getElementById('skills-bar').style.display='block';
-  document.getElementById('skills-slot-row').innerHTML=state.skills.map(sid=>{
-    const sk=SKILLS[sid];if(!sk)return'';
-    const cd=state.skillCooldowns[sid]||0;
-    return `<div class="skill-slot" onclick="useSkillInCombat('${sid}')">
-      <div class="skill-icon-wrap ${cd>0?'on-cd':''}">${sk.icon}</div>
-      <div class="skill-lbl">${sk.name}</div>
-      <div class="skill-cd-lbl">${cd>0?`CD:${cd}`:`${sk.mp}MP`}</div>
-    </div>`;}).join('');
-}
-
-// ── EQUIPMENT ──
-function equipItem(uid){
-  const item=state.inventory.find(i=>i.uid===uid);if(!item||item.category!=='equipment')return;
-  if(state.equipped[item.slot])unequipSlot(item.slot,true);
-  Object.entries(item.stats||{}).forEach(([k,v])=>{state[k]=(state[k]||0)+v;});
-  item.equipped=true;state.equipped[item.slot]=uid;
-  state.quests.equip.done=true;addLog(`Equipped ${item.name}!`,'good');playSound('snd-craft');
-  renderInventory();renderEquipSlots();updateUI();renderQuests();
-}
-function unequipSlot(slot,silent=false){
-  const uid=state.equipped[slot];if(!uid)return;
-  const item=state.inventory.find(i=>i.uid===uid);
-  if(item){Object.entries(item.stats||{}).forEach(([k,v])=>{state[k]=Math.max(0,(state[k]||0)-v);});item.equipped=false;if(!silent)addLog(`Unequipped ${item.name}!`,'info');}
-  state.equipped[slot]=null;renderInventory();renderEquipSlots();updateUI();
-}
-function renderEquipSlots(){
-  ['weapon','armor','helmet','boots','ring','amulet'].forEach(slot=>{
-    const slotEl=document.getElementById(`slot-${slot}`);
-    const nameEl=document.getElementById(`slot-${slot}-name`);
-    const uid=state.equipped[slot];
-    slotEl.className='equip-slot';
-    if(uid){
-      const item=state.inventory.find(i=>i.uid===uid);
-      if(item){nameEl.textContent=item.name.replace(/^[^\s]+ /,'').substring(0,12);slotEl.classList.add('has-item',item.rarity);}
-    } else nameEl.textContent='Empty';
-  });
-}
-
-// ── INVENTORY (STACKING) ──
-function addToInventory(item){
-  // Stack stackable items with same name and rarity
-  if(item.stackable){
-    const existing=state.inventory.find(i=>i.name===item.name&&i.rarity===item.rarity&&i.stackable&&!i.equipped);
-    if(existing){existing.qty=(existing.qty||1)+(item.qty||1);renderInventory();return;}
-  }
-  state.inventory.push({...item,uid:item.uid||genUid()});renderInventory();
-}
-
-function switchInvTab(tab){
-  currentInvTab=tab;state.invTab=tab;
-  document.querySelectorAll('.inv-tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById(`inv-tab-${tab}`).classList.add('active');
-  renderInventory();
-}
-
-function renderInventory(){
-  const list=document.getElementById('inventory-list');
-  const items=state.inventory.filter(i=>i.category===currentInvTab);
-  if(!items.length){list.innerHTML='<div class="inv-empty">No items here</div>';return;}
-  const r_=r=>RARITY[r]||RARITY.normal;
-  list.innerHTML=items.map(item=>{
-    const r=r_(item.rarity);
-    const statsText=item.stats?Object.entries(item.stats).map(([k,v])=>`+${v}${k.toUpperCase()}`).join(' '):'';
-    const consText=item.effect?`Restores ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}`:'';
-    const stackBadge=item.stackable&&item.qty>1?`<span class="inv-item-stack">×${item.qty}</span>`:'';
-    return `<div class="inv-item ${item.rarity}">
-      <div class="inv-item-top">
-        <div class="inv-item-name" style="color:${r.color}">${item.name}</div>
-        ${stackBadge}
-      </div>
-      <div style="font-size:.7em;color:${r.color};margin-top:1px;">${r.label}</div>
-      <div class="inv-item-stats">${statsText||consText}</div>
-      <div style="font-size:.7em;color:#555;margin-top:2px;">Sell: ${item.sellPrice||0}g${item.stackable&&item.qty>1?` (total: ${(item.sellPrice||0)*item.qty}g)`:''}</div>
-      <div class="inv-item-btns">
-        ${item.category==='equipment'?(item.equipped?`<button class="inv-btn btn-unequip" onclick="unequipSlot('${item.slot}')">Unequip</button>`:`<button class="inv-btn btn-equip" onclick="equipItem(${item.uid})">Equip</button>`):''}
-        ${item.category==='consumable'?`<button class="inv-btn btn-use" onclick="useItem(${item.uid})">Use</button>`:''}
-        ${!item.equipped?`<button class="inv-btn btn-sell" onclick="sellItem(${item.uid})">Sell${item.stackable&&item.qty>1?' All':''}</button>`:''}
-      </div>
-    </div>`;}).join('');
-}
-
-function useItem(uid){
-  const idx=state.inventory.findIndex(i=>i.uid===uid);if(idx===-1)return;
-  const item=state.inventory[idx];
-  if(item.category==='consumable'){
-    if(item.effect==='hp'||item.effect==='both'){state.hp=Math.min(state.maxHp,state.hp+(item.val||40));addLog(`Used ${item.name}: +${item.val} HP`,'good');playSound('snd-heal');spawnDmgFloat(`+${item.val}HP`,false,'heal-float');}
-    if(item.effect==='mp'||item.effect==='both'){state.mp=Math.min(state.maxMp,state.mp+(item.val||30));addLog(`Used ${item.name}: +${item.val} MP`,'info');spawnDmgFloat(`+${item.val}MP`,false,'mp-float');}
-    if(item.stackable&&item.qty>1){item.qty--;}else{state.inventory.splice(idx,1);}
-    renderInventory();updateUI();
-  }
-}
-
-function sellItem(uid){
-  const idx=state.inventory.findIndex(i=>i.uid===uid);if(idx===-1)return;
-  const item=state.inventory[idx];
-  if(item.equipped)return;
-  const total=(item.sellPrice||0)*(item.stackable?item.qty:1);
-  state.gold+=total;addLog(`Sold ${item.name}${item.stackable&&item.qty>1?` ×${item.qty}`:''}for ${total}g`,'gold');
-  state.inventory.splice(idx,1);renderInventory();updateUI();
-  if(state.gold>=50)state.quests.gold50.done=true;renderQuests();
-}
-
-// ── AUTO SELL ──
-function saveAutoSell(){
-  state.autoSell.normal=document.getElementById('as-normal').checked;
-  state.autoSell.uncommon=document.getElementById('as-uncommon').checked;
-}
-function loadAutoSellUI(){
-  document.getElementById('as-normal').checked=state.autoSell?.normal||false;
-  document.getElementById('as-uncommon').checked=state.autoSell?.uncommon||false;
-}
-function autoSellAfterCombat(){
-  if(!state.autoSell?.normal&&!state.autoSell?.uncommon)return;
-  let totalGold=0;let count=0;
-  const toSell=state.inventory.filter(i=>{
-    if(i.equipped)return false;
-    if(i.category!=='equipment'&&i.category!=='material')return false;
-    if(state.autoSell.normal&&i.rarity==='normal')return true;
-    if(state.autoSell.uncommon&&i.rarity==='uncommon')return true;
-    return false;
-  });
-  toSell.forEach(item=>{
-    const total=(item.sellPrice||0)*(item.stackable?item.qty:1);
-    totalGold+=total;count++;
-    const idx=state.inventory.findIndex(i=>i.uid===item.uid);
-    if(idx!==-1)state.inventory.splice(idx,1);
-  });
-  if(count>0){addLog(`🗑️ Auto-sold ${count} junk items for ${totalGold}g!`,'gold');state.gold+=totalGold;notify(`🗑️ Auto-sold ${count} items for ${totalGold}g`,'var(--gold)');renderInventory();updateUI();}
-}
-function autoSellNow(){
-  autoSellAfterCombat();
-  if(!document.getElementById('as-normal').checked&&!document.getElementById('as-uncommon').checked){notify('Enable auto-sell toggles first!','var(--red)');}
-}
-
-// ── CRAFTING ──
-function openCrafting(){
-  document.getElementById('craft-screen').style.display='block';renderCrafting();
-}
-function closeCrafting(){document.getElementById('craft-screen').style.display='none';}
-function getMaterialQty(name){
-  const item=state.inventory.find(i=>i.name===name&&i.stackable);
-  return item?item.qty:0;
-}
-function renderCrafting(){
-  const grid=document.getElementById('craft-grid');
-  const r_=r=>RARITY[r]||RARITY.normal;
-  grid.innerHTML=CRAFTING.map(recipe=>{
-    const result=recipe.result;
-    const rColor=r_(result.rarity).color;
-    const reqHtml=recipe.req.map(r=>{
-      const have=r.name.includes('Crystal')||r.name.includes('Essence')||r.name.includes('Soul')||r.name.includes('Horn')||r.name.includes('Shard')||r.name.includes('Core')||r.name.includes('Feather')||r.name.includes('Flame')||r.name.includes('Fragment')||r.name.includes('Gem')||r.name.includes('Scale')||r.name.includes('Silk')||r.name.includes('Fang')||r.name.includes('Ink')||r.name.includes('Vial')||r.name.includes('Shard')||r.name.includes('Moon')||r.name.includes('Orc')||r.name.includes('Stone')||r.name.includes('Void')||r.name.includes('Chaos')||r.name.includes('Titan')||r.name.includes('Death')||r.name.includes('Divine')||r.name.includes('Dragon')||r.name.includes('Demon')||r.name.includes('Phoenix')||true?getMaterialQty(r.name):0;
-      const ok=have>=r.qty;
-      return `<div class="${ok?'ok':'no'}">• ${r.name}: ${have}/${r.qty} ${ok?'✅':'❌'}</div>`;
-    }).join('');
-    const canCraft=recipe.req.every(r=>getMaterialQty(r.name)>=r.qty);
-    return `<div class="craft-card">
-      <div class="craft-result" style="color:${rColor}">${result.name||result.slot} — <span style="color:${rColor}">${r_(result.rarity).label}</span></div>
-      <div style="font-size:.78em;color:#888;margin-bottom:5px;">${recipe.desc}</div>
-      <div class="craft-req">${reqHtml}</div>
-      <button class="craft-btn" onclick="craftItem('${recipe.id}')" ${canCraft?'':'disabled'}>⚗️ Craft</button>
-    </div>`;}).join('');
-}
-function craftItem(recipeId){
-  const recipe=CRAFTING.find(r=>r.id===recipeId);if(!recipe)return;
-  if(!recipe.req.every(r=>getMaterialQty(r.name)>=r.qty)){notify('Missing materials!','var(--red)');return;}
-  // Consume materials
-  recipe.req.forEach(req=>{
-    let need=req.qty;
-    state.inventory.forEach(item=>{
-      if(item.name===req.name&&item.stackable&&need>0){
-        const take=Math.min(item.qty,need);item.qty-=take;need-=take;
+      slotEl.className = 'equip-slot';
+      if (uid) {
+        const item = GameState.inventory.find(i => i.uid === uid);
+        if (item) {
+          nameEl.textContent = item.name.replace(/^[^\s]+ /, '').substring(0, 12);
+          slotEl.classList.add('has-item', item.rarity);
+        }
+      } else {
+        nameEl.textContent = 'Empty';
       }
     });
-    state.inventory=state.inventory.filter(i=>!i.stackable||(i.qty||0)>0);
-  });
-  // Create result
-  const result={...recipe.result,uid:genUid(),sellPrice:Math.round((RARITY[recipe.result.rarity]?.mult||1)*15*state.level*.5)};
-  if(result.stackable)result.qty=1;
-  if(result.category==='equipment')result.equipped=false;
-  addToInventory(result);
-  state.quests.craft.done=true;
-  addLog(`⚗️ Crafted: ${result.name}!`,result.rarity==='legendary'?'legendary':'purple');
-  notify(`⚗️ Crafted ${result.name}!`,'var(--purple)');
-  playSound('snd-craft');renderCrafting();renderInventory();renderQuests();
-}
+  },
+};
 
-// ── SHOP ──
-function switchShopTab(tab){
-  currentShopTab=tab;
-  document.querySelectorAll('.shop-tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById(`shop-tab-${tab}`).classList.add('active');
-  renderShop();
-}
-function renderShop(){
-  const items=currentShopTab==='equipment'?SHOP_EQUIP:SHOP_CONS;
-  const r_=r=>RARITY[r]||RARITY.normal;
-  document.getElementById('shop-content').innerHTML=items.map(item=>{
-    const r=r_(item.rarity);
-    const desc=item.stats?Object.entries(item.stats).map(([k,v])=>`+${v}${k.toUpperCase()}`).join(' '):item.effect?`Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}`:'';
-    return `<div class="shop-item ${item.rarity}">
-      <button class="shop-btn" onclick="buyShopItem('${item.id}')">Buy</button>
-      <div style="color:${r.color};font-size:.85em;font-weight:600;">${item.name}</div>
-      <div style="color:${r.color};font-size:.68em;">${r.label}</div>
-      <div style="color:#888;font-size:.78em;">💰${item.price}g — ${desc}</div>
-    </div>`;}).join('');
-}
-function buyShopItem(itemId){
-  const all=[...SHOP_EQUIP,...SHOP_CONS];const item=all.find(i=>i.id===itemId);if(!item)return;
-  if(state.gold<item.price){addLog(`Not enough gold!`,'bad');return;}
-  state.gold-=item.price;
-  if(item.slot){addToInventory({uid:genUid(),name:item.name,category:'equipment',slot:item.slot,rarity:item.rarity||'normal',stats:item.stats,equipped:false,sellPrice:Math.floor(item.price*.5)});}
-  else{addToInventory({uid:genUid(),name:item.name,category:'consumable',rarity:item.rarity||'normal',effect:item.effect,val:item.val,sellPrice:Math.floor(item.price*.4),stackable:true,qty:1});}
-  addLog(`Bought ${item.name} for ${item.price}g!`,'gold');updateUI();
-  if(state.gold>=50)state.quests.gold50.done=true;renderQuests();
-}
+// ════════════════════════════════════════════════════════════════
+// SHOP MODULE
+// ════════════════════════════════════════════════════════════════
 
-// ── QUESTS ──
-function renderQuests(){
-  document.getElementById('quest-list').innerHTML=Object.values(state.quests).map(q=>`
-    <div class="quest-item ${q.done?'quest-done':''}">${q.done?'✅':''} ${q.text}</div>`).join('');
-}
+const GameShop = {
+  switchTab(tab) {
+    GameState.shopTab = tab;
+    document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(`shop-tab-${tab}`).classList.add('active');
+    this.render();
+  },
 
-// ── LOGS ──
-function addLog(msg,type=''){const b=document.getElementById('log-box');const d=document.createElement('div');d.className=`log-entry ${type?'log-'+type:''}`;d.textContent=msg;b.appendChild(d);b.scrollTop=b.scrollHeight;}
-function addCombatLog(msg,type=''){const b=document.getElementById('combat-log');const d=document.createElement('div');d.className=`log-entry ${type?'log-'+type:''}`;d.textContent=msg;b.appendChild(d);b.scrollTop=b.scrollHeight;}
+  render() {
+    const items = GameState.shopTab === 'equipment' ? SHOP_EQUIP : SHOP_CONS;
+    const r_ = r => RARITY[r] || RARITY.normal;
 
-// ── UPDATE UI ──
-function updateUI(){
-  const hp=Math.max(0,state.hp),mp=Math.max(0,state.mp);
-  document.getElementById('hp-val').textContent=hp;document.getElementById('hp-max').textContent=state.maxHp;
-  document.getElementById('mp-val').textContent=mp;document.getElementById('mp-max').textContent=state.maxMp;
-  document.getElementById('xp-val').textContent=state.xp;document.getElementById('xp-next').textContent=state.xpNext;
-  document.getElementById('gold-val').textContent=state.gold;
-  document.getElementById('str-val').textContent=state.str;document.getElementById('agi-val').textContent=state.agi;
-  document.getElementById('int-val').textContent=state.int;document.getElementById('def-val').textContent=state.def;
-  document.getElementById('char-level').textContent=`Level ${state.level} / 100`;
-  document.getElementById('hp-bar').style.width=Math.max(0,(hp/state.maxHp)*100)+'%';
-  document.getElementById('mp-bar').style.width=Math.max(0,(mp/state.maxMp)*100)+'%';
-  document.getElementById('xp-bar').style.width=Math.min(100,(state.xp/state.xpNext)*100)+'%';
-  document.getElementById('arena-player-hp').style.width=Math.max(0,(hp/state.maxHp)*100)+'%';
-}
+    document.getElementById('shop-content').innerHTML = items
+      .map(item => {
+        const r = r_(item.rarity);
+        const desc = item.stats
+          ? Object.entries(item.stats).map(([k, v]) => `+${v}${k.toUpperCase()}`).join(' ')
+          : item.effect
+          ? `Restore ${item.val} ${item.effect === 'both' ? 'HP+MP' : item.effect.toUpperCase()}`
+          : '';
 
-// ── SAVE / LOAD ──
-function saveGame(){
-  try{localStorage.setItem('rpgSave5',JSON.stringify(state));addLog('💾 Game saved!','gold');alert('Game saved! ✅');}
-  catch(e){alert('Save failed — try clearing old save data!');}
-}
-function loadGame(){
-  const saved=localStorage.getItem('rpgSave5');if(!saved){alert('No save file found!');return;}
-  try{
-    const data=JSON.parse(saved);Object.assign(state,data);
-    currentInvTab=state.invTab||'equipment';currentShopTab=state.shopTab||'equipment';
-    showGame();loadScene(state.currentScene||'town');
-    if(state.class){
-      document.getElementById('char-class').textContent=`${CLASSES[state.class].icon} ${CLASSES[state.class].name}`;
-      document.getElementById('char-avatar').textContent=CLASSES[state.class].icon;
-      document.getElementById('arena-player').textContent=CLASSES[state.class].icon;
-      document.getElementById('talent-btn').style.display='inline-block';updateTalentBtn();
+        return `<div class="shop-item ${item.rarity}">
+          <button class="shop-btn" onclick="GameShop.buy('${item.id}')">Buy</button>
+          <div style="color:${r.color};font-size:.85em;font-weight:600;">${item.name}</div>
+          <div style="color:${r.color};font-size:.68em;">${r.label}</div>
+          <div style="color:#888;font-size:.78em;">💰${item.price}g — ${desc}</div>
+        </div>`;
+      })
+      .join('');
+  },
+
+  buy(itemId) {
+    const all = [...SHOP_EQUIP, ...SHOP_CONS];
+    const item = all.find(i => i.id === itemId);
+    if (!item) return;
+
+    if (GameState.gold < item.price) {
+      GameLog.add(`Not enough gold!`, 'bad');
+      return;
     }
-    addLog(`📂 Welcome back ${state.name}!`,'gold');fetchLeaderboard();alert(`Welcome back ${state.name}! ✅`);
-  }catch(e){alert('Load failed!');}
-}
-setInterval(()=>{if(state.name)try{localStorage.setItem('rpgSave5',JSON.stringify(state));}catch(e){}},120000);
 
-// ── LEADERBOARD ──
-const BIN_ID='69cfb2ac856a682189f75afe';
-const API_KEY='$2a$10$YF9VPNwKfgYqI4zh6NrrXOhYxRNaCiwM153V.Mbc5wcjEQXcZEAIu';
-const BIN_URL=`https://api.jsonbin.io/v3/b/${BIN_ID}`;
-async function fetchLeaderboard(){
-  try{document.getElementById('lb-list').innerHTML='<div class="lb-empty">Loading...</div>';
-    const res=await fetch(BIN_URL+'/latest',{headers:{'X-Master-Key':API_KEY}});
-    const data=await res.json();renderLeaderboard(data.record.scores||[]);
-  }catch(e){document.getElementById('lb-list').innerHTML='<div class="lb-empty">Could not load.</div>';}
-}
-async function submitScore(){
-  if(!state.name){alert('Start the game first!');return;}
-  try{
-    const res=await fetch(BIN_URL+'/latest',{headers:{'X-Master-Key':API_KEY}});
-    const data=await res.json();let scores=data.record.scores||[];
-    scores=scores.filter(s=>s.name.toLowerCase()!==state.name.toLowerCase());
-    scores.push({name:state.name,level:state.level,gold:state.gold,class:state.class?CLASSES[state.class].name:'Adventurer',date:new Date().toLocaleDateString()});
-    scores.sort((a,b)=>b.level-a.level||b.gold-a.gold);scores=scores.slice(0,20);
-    await fetch(BIN_URL,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':API_KEY},body:JSON.stringify({scores})});
-    renderLeaderboard(scores);addLog('🏆 Score submitted!','gold');alert('Submitted! 🏆');
-  }catch(e){alert('Could not submit. Check connection!');}
-}
-function renderLeaderboard(scores){
-  const list=document.getElementById('lb-list');
-  if(!scores||!scores.length){list.innerHTML='<div class="lb-empty">No scores yet! 🏆</div>';return;}
-  const medals=['🥇','🥈','🥉'];const cls=['gold','silver','bronze'];
-  list.innerHTML=scores.map((s,i)=>`
-    <div class="lb-row">
-      <div class="lb-rank ${cls[i]||''}">${medals[i]||'#'+(i+1)}</div>
-      <div class="lb-name">${s.name}</div>
-      <div class="lb-class">${s.class||'Adventurer'}</div>
-      <div class="lb-level">⭐ Lv.${s.level}</div>
-      <div class="lb-gold-col">💰 ${s.gold}g</div>
-    </div>`).join('');
-}
-fetchLeaderboard();
+        const priceAmount = parseInt(item.price) || 0;
+    GameState.gold -= priceAmount;
 
-// Click sound
-const clickSnd=document.getElementById('clickSound');
-document.addEventListener('click',e=>{if(['BUTTON','A'].includes(e.target.tagName)){if(clickSnd){clickSnd.currentTime=0;clickSnd.play().catch(()=>{});}}});
+    if (item.slot) {
+      GameInventory.add({
+        uid: Utils.genUid(),
+        name: item.name,
+        category: 'equipment',
+        slot: item.slot,
+        rarity: item.rarity || 'normal',
+        stats: item.stats,
+        equipped: false,
+        sellPrice: Math.floor(priceAmount * 0.5),
+      });
+    } else {
+      GameInventory.add({
+        uid: Utils.genUid(),
+        name: item.name,
+        category: 'consumable',
+        rarity: item.rarity || 'normal',
+        effect: item.effect,
+        val: item.val,
+        sellPrice: Math.floor(priceAmount * 0.4),
+        stackable: true,
+        qty: 1,
+      });
+    }
+
+    GameLog.add(`Bought ${item.name} for ${priceAmount}g!`, 'gold');
+    GameUI.updateUI();
+
+    if (GameState.gold >= 50) GameState.quests.gold50.done = true;
+    GameQuests.render();
+  },
+};
+
+// ════════════════════════════════════════════════════════════════
+// SKILLS MODULE
+// ════════════════════════════════════════════════════════════════
+
+const GameSkills = {
+  render() {
+    if (!GameState.skills || !GameState.skills.length) {
+      document.getElementById('skills-bar').style.display = 'none';
+      return;
+    }
+
+    document.getElementById('skills-bar').style.display = 'block';
+    document.getElementById('skills-slot-row').innerHTML = GameState.skills
+      .map(sid => {
+        const sk = SKILLS[sid];
+        if (!sk) return '';
+        const cd = GameState.skillCooldowns[sid] || 0;
+        return `<div class="skill-slot" onclick="GameSkills.use('${sid}')">
+          <div class="skill-icon-wrap ${cd > 0 ? 'on-cd' : ''}">${sk.icon}</div>
+          <div class="skill-lbl">${sk.name}</div>
+          <div class="skill-cd-lbl">${cd > 0 ? `CD:${cd}` : `${sk.mp}MP`}</div>
+        </div>`;
+      })
+      .join('');
+  },
+
+  use(skillId) {
+    if (!GameEngine.currentEnemy) return;
+    const sk = SKILLS[skillId];
+    if (!sk) return;
+
+    const cd = GameState.skillCooldowns[skillId] || 0;
+    if (cd > 0) {
+      GameCombat.addLog(`${sk.name} on cooldown! (${cd})`, 'bad');
+      return;
+    }
+
+    if (GameState.mp < sk.mp) {
+      GameCombat.addLog(`Not enough MP for ${sk.name}!`, 'bad');
+      return;
+    }
+
+    GameState.mp -= sk.mp;
+    GameState.skillCooldowns[skillId] = sk.cd;
+    sk.use(GameEngine.currentEnemy);
+
+    Object.keys(GameState.skillCooldowns).forEach(k => {
+      if (k !== skillId && GameState.skillCooldowns[k] > 0) GameState.skillCooldowns[k]--;
+    });
+
+    if (GameEngine.currentEnemy.hp <= 0) {
+      GameEngine.currentEnemy.hp = 0;
+      GameCombat.updateEnemyBar();
+      GameCombat.end(true);
+      return;
+    }
+
+    if (GameEngine.currentEnemy.hp > 0) {
+      const eDmg = Math.max(1, GameEngine.currentEnemy.atk + Math.floor(Math.random() * 6) - GameState.def);
+      GameState.hp -= eDmg;
+      GameCombat.addLog(`${GameEngine.currentEnemy.name} retaliates: ${eDmg}!`, 'bad');
+      GameCombat.animateAttack(false, eDmg, false);
+
+      if (GameState.hp <= 0) {
+        GameState.hp = 0;
+        GameUI.updateUI();
+        GameCombat.end(false);
+        return;
+      }
+    }
+
+    GameCombat.updateEnemyBar();
+    GameUI.updateUI();
+    this.render();
+  },
+};
+
+// ════════════════════════════════════════════════════════════════
+// CLASS & TALENTS MODULE
+// ════════════════════════════════════════════════════════════════
+
+const GameClasses = {
+  showSelection() {
+    const grid = document.getElementById('class-grid');
+    grid.innerHTML = Object.entries(CLASSES)
+      .map(([id, c]) => {
+        const bonusesHtml = Object.entries(c.bonuses)
+          .map(([k, v]) => `<div class="class-stat"><span>${k.toUpperCase()}</span><span>${v > 0 ? '+' : ''}${v}</span></div>`)
+          .join('');
+        return `<div class="class-card" onclick="GameClasses.select('${id}')">
+          <div class="class-icon">${c.icon}</div>
+          <div class="class-name">${c.name}</div>
+          <div class="class-desc">${c.desc}</div>
+          ${bonusesHtml}
+        </div>`;
+      })
+      .join('');
+    document.getElementById('class-screen').style.display = 'block';
+  },
+
+  select(classId) {
+    const c = CLASSES[classId];
+    GameState.class = classId;
+    GameState.quests.class.done = true;
+
+    Object.entries(c.bonuses).forEach(([k, v]) => {
+      if (k === 'maxHp') {
+        GameState.maxHp += v;
+        GameState.hp = Math.min(GameState.hp + Math.max(0, v), GameState.maxHp);
+      } else if (k === 'maxMp') {
+        GameState.maxMp += v;
+        GameState.mp = Math.min(GameState.mp + Math.max(0, v), GameState.maxMp);
+      } else {
+        GameState[k] = (GameState[k] || 0) + v;
+      }
+    });
+
+    GameState.skills = c.skills;
+    document.getElementById('char-class').textContent = `${c.icon} ${c.name}`;
+    document.getElementById('char-avatar').textContent = c.icon;
+    document.getElementById('arena-player').textContent = c.icon;
+    document.getElementById('class-screen').style.display = 'none';
+    document.getElementById('talent-btn').style.display = 'inline-block';
+
+    GameLog.add(`🎉 You are now a ${c.name}!`, 'purple');
+    Utils.playSound('snd-levelup');
+    GameUI.updateUI();
+    GameSkills.render();
+    GameQuests.render();
+  },
+};
+
+const GameTalents = {
+  open() {
+    if (!GameState.class) {
+      GameLog.add('Choose a class first!', 'bad');
+      return;
+    }
+
+    const c = CLASSES[GameState.class];
+    document.getElementById('talent-title').textContent = `${c.icon} ${c.name} Talent Tree`;
+    document.getElementById('talent-pts-val').textContent = GameState.talentPoints;
+
+    document.getElementById('tree-grid').innerHTML = Object.entries(c.trees)
+      .map(([tid, tree]) => {
+        const talentsHtml = tree.talents
+          .map(t => {
+            const rank = GameState.unlockedTalents.filter(u => u === t.id).length;
+            const maxed = rank >= t.ranks;
+            const locked = GameState.talentPoints < t.cost && rank === 0;
+
+            return `<div class="talent-node ${maxed ? 'unlocked' : locked ? 'locked' : ''}" onclick="GameTalents.unlock('${t.id}','${tid}')">
+              <span class="talent-node-rank">${rank}/${t.ranks}</span>
+              <div class="talent-node-name">${t.name}</div>
+              <div class="talent-node-desc">${t.desc}</div>
+              <div class="talent-node-cost">Cost: ${t.cost}pt ${maxed ? '✅' : ''}</div>
+            </div>`;
+          })
+          .join('');
+
+        return `<div class="tree-col">
+          <div class="tree-name">${tree.name}</div>
+          ${talentsHtml}
+        </div>`;
+      })
+      .join('');
+
+    document.getElementById('talent-screen').style.display = 'block';
+  },
+
+  unlock(talentId, treeId) {
+    const c = CLASSES[GameState.class];
+    const tree = c.trees[treeId];
+    const talent = tree.talents.find(t => t.id === talentId);
+    if (!talent) return;
+
+    const rank = GameState.unlockedTalents.filter(u => u === talentId).length;
+
+    if (rank >= talent.ranks) {
+      GameLog.add(`${talent.name} already maxed!`, 'bad');
+      return;
+    }
+
+    if (GameState.talentPoints < talent.cost) {
+      GameLog.add('Not enough talent points!', 'bad');
+      return;
+    }
+
+    GameState.talentPoints -= talent.cost;
+    GameState.unlockedTalents.push(talentId);
+    talent.effect();
+    GameState.quests.talent.done = true;
+
+    GameLog.add(`🌟 Unlocked: ${talent.name}!`, 'purple');
+    Utils.playSound('snd-magic');
+    this.open();
+    GameUI.updateUI();
+    GameQuests.render();
+    GameUI.updateTalentBtn();
+  },
+
+  close() {
+    document.getElementById('talent-screen').style.display = 'none';
+  },
+};
+
+// ════════════════════════════════════════════════════════════════
+// CRAFTING MODULE
+// ════════════════════════════════════════════════════════════════
+
+const GameCrafting = {
+  getMaterialQty(name) {
+    const item = GameState.inventory.find(i => i.name === name && i.stackable);
+    return item ? item.qty : 0;
+  },
+
+  render() {
+    const grid = document.getElementById('craft-grid');
+    const r_ = r => RARITY[r] || RARITY.normal;
+
+    grid.innerHTML = CRAFTING.map(recipe => {
+      const result = recipe.result;
+      const rColor = r_(result.rarity).color;
+
+      const reqHtml = recipe.req
+        .map(r => {
+          const have = this.getMaterialQty(r.name);
+          const ok = have >= r.qty;
+          return `<div class="${ok ? 'ok' : 'no'}">• ${r.name}: ${have}/${r.qty} ${ok ? '✅' : '❌'}</div>`;
+        })
+        .join('');
+
+      const canCraft = recipe.req.every(r => this.getMaterialQty(r.name) >= r.qty);
+
+      return `<div class="craft-card">
+        <div class="craft-result" style="color:${rColor}">${result.name || result.slot} — <span style="color:${rColor}">${r_(result.rarity).label}</span></div>
+        <div style="font-size:.78em;color:#888;margin-bottom:5px;">${recipe.desc}</div>
+        <div class="craft-req">${reqHtml}</div>
+        <button class="craft-btn" onclick="GameCrafting.craft('${recipe.id}')" ${canCraft ? '' : 'disabled'}>⚗️ Craft</button>
+      </div>`;
+    }).join('');
+  },
+
+  craft(recipeId) {
+    const recipe = CRAFTING.find(r => r.id === recipeId);
+    if (!recipe) return;
+
+    if (!recipe.req.every(r => this.getMaterialQty(r.name) >= r.qty)) {
+      Utils.notify('Missing materials!', 'var(--red)');
+      return;
+    }
+
+    // Consume materials
+    recipe.req.forEach(req => {
+      let need = req.qty;
+      GameState.inventory.forEach(item => {
+        if (item.name === req.name && item.stackable && need > 0) {
+          const take = Math.min(item.qty, need);
+          item.qty -= take;
+          need -= take;
+        }
+      });
+    });
+
+    GameState.inventory = GameState.inventory.filter(i => !i.stackable || (i.qty || 0) > 0);
+
+    // Create result
+    const result = {
+      ...recipe.result,
+      uid: Utils.genUid(),
+      sellPrice: Math.round((RARITY[recipe.result.rarity]?.mult || 1) * 15 * GameState.level * 0.5),
+    };
+
+    if (result.stackable) result.qty = 1;
+    if (result.category === 'equipment') result.equipped = false;
+
+    GameInventory.add(result);
+    GameState.quests.craft.done = true;
+
+    GameLog.add(`⚗️ Crafted: ${result.name}!`, result.rarity === 'legendary' ? 'legendary' : 'purple');
+    Utils.notify(`⚗️ Crafted ${result.name}!`, 'var(--purple)');
+    Utils.playSound('snd-craft');
+
+    this.render();
+    GameInventory.render();
+    GameQuests.render();
+  },
+};
+
+// ════════════════════════════════════════════════════════════════
+// QUESTS MODULE
+// ════════════════════════════════════════════════════════════════
+
+const GameQuests = {
+  render() {
+    document.getElementById('quest-list').innerHTML = Object.values(GameState.quests)
+      .map(q => `<div class="quest-item ${q.done ? 'quest-done' : ''}">${q.done ? '✅' : ''}
+         ${q.text}</div>`)
+      .join('');
+  },
+};
+
+// ════════════════════════════════════════════════════════════════
+// LOG MODULE
+// ════════════════════════════════════════════════════════════════
+
+const GameLog = {
+  add(msg, type = '') {
+    const b = document.getElementById('log-box');
+    const d = document.createElement('div');
+    d.className = `log-entry ${type ? 'log-' + type : ''}`;
+    d.textContent = msg;
+    b.appendChild(d);
+    b.scrollTop = b.scrollHeight;
+  },
+};
+
+// ════════════════════════════════════════════════════════════════
+// UI MODULE
+// ════════════════════════════════════════════════════════════════
+
+const GameUI = {
+  updateUI() {
+    const hp = Math.max(0, GameState.hp);
+    const mp = Math.max(0, GameState.mp);
+
+    document.getElementById('hp-val').textContent = hp;
+    document.getElementById('hp-max').textContent = GameState.maxHp;
+    document.getElementById('mp-val').textContent = mp;
+    document.getElementById('mp-max').textContent = GameState.maxMp;
+    document.getElementById('xp-val').textContent = GameState.xp;
+    document.getElementById('xp-next').textContent = GameState.xpNext;
+    document.getElementById('gold-val').textContent = GameState.gold;
+    document.getElementById('str-val').textContent = GameState.str;
+    document.getElementById('agi-val').textContent = GameState.agi;
+    document.getElementById('int-val').textContent = GameState.int;
+    document.getElementById('def-val').textContent = GameState.def;
+    document.getElementById('char-level').textContent = `Level ${GameState.level} / 100`;
+
+    document.getElementById('hp-bar').style.width = Math.max(0, (hp / GameState.maxHp) * 100) + '%';
+    document.getElementById('mp-bar').style.width = Math.max(0, (mp / GameState.maxMp) * 100) + '%';
+    document.getElementById('xp-bar').style.width = Math.min(100, (GameState.xp / GameState.xpNext) * 100) + '%';
+    document.getElementById('arena-player-hp').style.width = Math.max(0, (hp / GameState.maxHp) * 100) + '%';
+  },
+
+  showClassSelection() {
+    GameClasses.showSelection();
+  },
+
+  openTalents() {
+    GameTalents.open();
+  },
+
+  closeTalents() {
+    GameTalents.close();
+  },
+
+  openCrafting() {
+    document.getElementById('craft-screen').style.display = 'block';
+    GameCrafting.render();
+  },
+
+  closeCrafting() {
+    document.getElementById('craft-screen').style.display = 'none';
+  },
+
+  updateTalentBtn() {
+    const btn = document.getElementById('talent-btn');
+    btn.textContent = GameState.talentPoints > 0 ? `🌟 Talents (${GameState.talentPoints})` : '🌟 Talents';
+    btn.style.boxShadow = GameState.talentPoints > 0 ? '0 0 10px rgba(136,68,255,.6)' : 'none';
+  },
+};
+
+// ════════════════════════════════════════════════════════════════
+// LEADERBOARD MODULE
+// ════════════════════════════════════════════════════════════════
+
+const GameLeaderboard = {
+  // Using JSONBin for leaderboard - SECURE VERSION
+  // In production, replace with your own backend API endpoint
+  BACKEND_URL: 'https://your-backend.com/api/leaderboard', // Change this to your backend
+
+  async fetch() {
+    try {
+      document.getElementById('lb-list').innerHTML = '<div class="lb-empty">Loading...</div>';
+      const res = await fetch(`${this.BACKEND_URL}/get`);
+      const data = await res.json();
+      this.render(data.scores || []);
+    } catch (e) {
+      document.getElementById('lb-list').innerHTML = '<div class="lb-empty">Could not load leaderboard.</div>';
+    }
+  },
+
+  async submit() {
+    if (!GameState.name) {
+      alert('Start the game first!');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${this.BACKEND_URL}/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: Utils.sanitizeName(GameState.name),
+          level: GameState.level,
+          gold: GameState.gold,
+          class: GameState.class ? CLASSES[GameState.class].name : 'Adventurer',
+          date: new Date().toLocaleDateString(),
+        }),
+      });
+
+      const data = await response.json();
+      this.render(data.scores || []);
+      GameLog.add('🏆 Score submitted!', 'gold');
+      alert('Submitted! 🏆');
+    } catch (e) {
+      alert('Could not submit. Check connection!');
+    }
+  },
+
+  render(scores) {
+    const list = document.getElementById('lb-list');
+    if (!scores || !scores.length) {
+      list.innerHTML = '<div class="lb-empty">No scores yet! 🏆</div>';
+      return;
+    }
+
+    const medals = ['🥇', '🥈', '🥉'];
+    const cls = ['gold', 'silver', 'bronze'];
+
+    list.innerHTML = scores
+      .map(
+        (s, i) => `
+      <div class="lb-row">
+        <div class="lb-rank ${cls[i] || ''}">${medals[i] || '#' + (i + 1)}</div>
+        <div class="lb-name">${s.name}</div>
+        <div class="lb-class">${s.class || 'Adventurer'}</div>
+        <div class="lb-level">⭐ Lv.${s.level}</div>
+        <div class="lb-gold-col">💰 ${s.gold}g</div>
+      </div>`
+      )
+      .join('');
+  },
+};
+
+// ════════════════════════════════════════════════════════════════
+// INITIALIZATION & AUTO-SAVE
+// ════════════════════════════════════════════════════════════════
+
+window.addEventListener('load', () => {
+  const l = document.getElementById('loader');
+  l.style.opacity = '0';
+  setTimeout(() => (l.style.display = 'none'), 500);
+});
+
+// Auto-save every 2 minutes
+setInterval(() => {
+  if (GameState.name) {
+    try {
+      localStorage.setItem(CONSTANTS.SAVE_KEY, JSON.stringify(GameState));
+    } catch (e) {}
+  }
+}, CONSTANTS.AUTO_SAVE_INTERVAL);
+
+// Expose functions to global scope for onclick handlers
+window.GameEngine = GameEngine;
+window.GameUI = GameUI;
+window.GameInventory = GameInventory;
+window.GameEquipment = GameEquipment;
+window.GameShop = GameShop;
+window.GameCombat = GameCombat;
+window.GameCrafting = GameCrafting;
+window.GameClasses = GameClasses;
+window.GameTalents = GameTalents;
+window.GameLeaderboard = GameLeaderboard;
+window.GameScenes = GameScenes;
+window.GameSkills = GameSkills;
+window.GameLog = GameLog;
+window.GameProgression = GameProgression;
+window.GameQuests = GameQuests;
 </script>
 </body>
 </html>
