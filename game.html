@@ -266,7 +266,7 @@
 <div id="talent-screen">
   <div class="talent-container">
     <div class="talent-title" id="talent-title">Talent Tree</div>
-    <div class="talent-points-display">✨ Talent Points: <span id="talent-pts-val">0</span></div>
+    <div class="talent-points-display">✨ Talent Points: <span id="talent-pts-val">100</span></div>
     <div class="tree-grid" id="tree-grid"></div>
     <div style="text-align:center;margin-top:14px;"><button class="start-btn" onclick="closeTalents()">✅ Done</button></div>
   </div>
@@ -354,7 +354,7 @@
         </div>
         <div class="arena-vs">VS</div>
         <div class="arena-side" id="arena-enemy-side">
-          <div class="arena-char" id="arena-enemy">👹</div>
+          <div class="arena-char" id="arena-enemy">🐱</div>
           <div class="arena-hp-wrap"><div class="arena-hp-fill" id="arena-enemy-hp" style="width:100%"></div></div>
           <div class="arena-label" id="arena-enemy-label">Enemy</div>
         </div>
@@ -365,7 +365,7 @@
         <button class="combat-btn" onclick="combatAction('attack')">⚔️ Attack</button>
         <button class="combat-btn" onclick="combatAction('magic')">✨ Magic (10MP)</button>
         <button class="combat-btn" onclick="combatAction('defend')">🛡️ Defend</button>
-        <button class="combat-btn" onclick="combatAction('flee')">🏃 Flee</button>
+        <button class="combat-btn" onclick="combatAction('flee')">🐱 Flee</button>
       </div>
     </div>
     <div class="panel" id="choices-box" style="display:flex;flex-direction:column;gap:7px;"></div>
@@ -444,11 +444,11 @@ function rollRarity(){
 
 // ── STATE ──
 const state={
-  name:'',level:1,xp:0,xpNext:100,
+  name:'',level:9,xp:0,xpNext:100,
   hp:100,maxHp:100,mp:50,maxMp:50,
-  str:5,agi:5,int:5,def:2,gold:30,
+  str:10,agi:10,int:10,def:10,gold:300,maxlevel:100,
   inventory:[],equipped:{weapon:null,armor:null,helmet:null,boots:null,ring:null,amulet:null},
-  class:null,talentPoints:0,unlockedTalents:[],skills:[],skillCooldowns:{},
+  class:null,talentPoints:10,unlockedTalents:[],skills:[],skillCooldowns:{},
   defending:false,manaShield:false,usedUndying:false,
   currentScene:'town',invTab:'equipment',shopTab:'equipment',
   quests:{
