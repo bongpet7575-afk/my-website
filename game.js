@@ -5,7 +5,7 @@
 
 const CONSTANTS = {
   SAVE_KEY: 'rpgSave_v2',
-  AUTO_SAVE_INTERVAL: 120000, // 2 minutes
+  AUTO_SAVE_INTERVAL: 60000, // 1 minute
   MAX_LEVEL: 100,
   STARTING_GOLD: 300,
   STARTING_HP: 100,
