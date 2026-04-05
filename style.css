@@ -628,3 +628,267 @@ input:checked + .toggle-slider:before { transform: translateX(18px); }
 .modal-btn-confirm:hover { transform: scale(1.05); }
 .modal-btn-cancel { background: rgba(255,255,255,.1); color: var(--text); border: 1px solid var(--border); }
 .modal-btn-cancel:hover { background: rgba(255,255,255,.15); }
+/* ============================================================
+   EQUIPMENT ENHANCEMENT STYLES
+   Add these to the bottom of your style.css game page section
+   ============================================================ */
+
+/* Enhancement screen overlay */
+#enhance-screen {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.94);
+  z-index: 8000;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.enhance-container {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.enhance-title {
+  font-family: 'Cinzel', serif;
+  color: var(--gold);
+  font-size: 1.4em;
+  text-align: center;
+  margin-bottom: 16px;
+  text-shadow: 0 0 20px rgba(240, 192, 64, .5);
+}
+
+.enhance-item-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.enhance-item-name {
+  font-family: 'Cinzel', serif;
+  font-size: 1em;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+/* Enhancement level badge on item name */
+.enh-badge {
+  font-family: 'Cinzel', serif;
+  font-size: .8em;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.enh-low {
+  color: var(--gold);
+  background: rgba(240, 192, 64, .15);
+  border: 1px solid var(--dark-gold);
+}
+
+.enh-high {
+  color: #fff;
+  background: rgba(255, 140, 0, .25);
+  border: 1px solid var(--legendary);
+  text-shadow: 0 0 8px var(--legendary);
+}
+
+/* Stats comparison row */
+.enhance-stats-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.enhance-stats-col {
+  flex: 1;
+  background: rgba(255, 255, 255, .03);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  text-align: center;
+}
+
+.enhance-stats-title {
+  font-family: 'Cinzel', serif;
+  font-size: .68em;
+  color: var(--gold);
+  margin-bottom: 6px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.enhance-stat-line {
+  font-size: .82em;
+  color: var(--text);
+  padding: 1px 0;
+}
+
+.enhance-arrow {
+  font-size: 1.2em;
+  color: var(--gold);
+  flex: 0 0 20px;
+  text-align: center;
+}
+
+/* Enhancement level pip bar */
+.enhance-level-bar {
+  display: flex;
+  gap: 3px;
+  justify-content: center;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.enhance-pip {
+  width: 16px;
+  height: 8px;
+  border-radius: 3px;
+  transition: all .3s;
+}
+
+.pip-empty {
+  background: rgba(255, 255, 255, .08);
+  border: 1px solid #333;
+}
+
+.pip-filled {
+  background: var(--gold);
+  box-shadow: 0 0 4px rgba(240, 192, 64, .5);
+}
+
+.pip-high {
+  background: var(--legendary);
+  box-shadow: 0 0 6px rgba(255, 140, 0, .8);
+  animation: pipGlow .8s ease-in-out infinite alternate;
+}
+
+@keyframes pipGlow {
+  from { box-shadow: 0 0 4px rgba(255, 140, 0, .6); }
+  to   { box-shadow: 0 0 10px rgba(255, 140, 0, 1); }
+}
+
+/* Cost requirements box */
+.enhance-cost-box {
+  background: rgba(255, 255, 255, .03);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.enhance-cost-title {
+  font-family: 'Cinzel', serif;
+  color: var(--gold);
+  font-size: .72em;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.enhance-cost-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: .83em;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, .04);
+  color: #aaa;
+}
+
+.enhance-cost-row:last-child {
+  border-bottom: none;
+}
+
+/* Enhance button */
+.enhance-btn {
+  background: linear-gradient(135deg, #7a4a00, #c07820);
+  color: #fff8e0;
+  border: 1px solid var(--gold);
+  padding: 10px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: 'Cinzel', serif;
+  font-size: .9em;
+  font-weight: 700;
+  transition: all .3s;
+  letter-spacing: 1px;
+}
+
+.enhance-btn:hover {
+  background: linear-gradient(135deg, #a06010, #f0a030);
+  transform: scale(1.04);
+  box-shadow: 0 0 12px rgba(240, 192, 64, .4);
+}
+
+.enhance-btn-disabled {
+  opacity: .4;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Enhance button in inventory */
+.btn-enhance {
+  background: rgba(160, 120, 32, .4);
+  color: var(--gold);
+  border: 1px solid var(--dark-gold) !important;
+}
+
+.btn-enhance:hover {
+  background: rgba(160, 120, 32, .8);
+}
+
+/* +7 shine effect on inventory items */
+.inv-item.enhanced-high {
+  border-color: var(--legendary) !important;
+  box-shadow: 0 0 8px rgba(255, 140, 0, .5), 0 0 16px rgba(255, 140, 0, .2);
+  animation: itemShine 2s ease-in-out infinite alternate;
+}
+
+@keyframes itemShine {
+  from { box-shadow: 0 0 6px rgba(255, 140, 0, .4), 0 0 12px rgba(255, 140, 0, .1); }
+  to   { box-shadow: 0 0 12px rgba(255, 140, 0, .8), 0 0 24px rgba(255, 140, 0, .3); }
+}
+
+/* +15 max glow effect */
+.inv-item.enhanced-max {
+  border-color: #ffffff !important;
+  box-shadow:
+    0 0 8px rgba(255, 255, 255, .6),
+    0 0 20px rgba(255, 220, 100, .5),
+    0 0 40px rgba(255, 180, 0, .3);
+  animation: itemMaxGlow 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes itemMaxGlow {
+  from {
+    box-shadow:
+      0 0 6px rgba(255, 255, 255, .5),
+      0 0 16px rgba(255, 220, 100, .4),
+      0 0 32px rgba(255, 180, 0, .2);
+  }
+  to {
+    box-shadow:
+      0 0 14px rgba(255, 255, 255, .9),
+      0 0 28px rgba(255, 220, 100, .7),
+      0 0 56px rgba(255, 180, 0, .5);
+  }
+}
+
+/* Equipment slot glow when enhanced */
+.equip-slot.enhanced-high {
+  border-color: var(--legendary) !important;
+  box-shadow: 0 0 10px rgba(255, 140, 0, .6) !important;
+}
+
+.equip-slot.enhanced-max {
+  border-color: #ffffff !important;
+  box-shadow: 0 0 14px rgba(255, 255, 255, .8), 0 0 28px rgba(255, 220, 100, .5) !important;
+  animation: itemMaxGlow 1.5s ease-in-out infinite alternate;
+}

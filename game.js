@@ -1383,7 +1383,8 @@ const GameInventory = {
         const consText = item.effect ? `Restores ${item.val} ${item.effect === 'both' ? 'HP+MP' : item.effect.toUpperCase()}` : '';
         const stackBadge = item.stackable && item.qty > 1 ? `<span class="inv-item-stack">×${item.qty}</span>` : '';
 
-        return `<div class="inv-item ${item.rarity}">
+        const enhClass = item.enhanceLevel >= 15 ? 'enhanced-max' : item.enhanceLevel >= 7 ? 'enhanced-high' : '';
+       return `<div class="inv-item ${item.rarity} ${enhClass}">
           <div class="inv-item-top">
             <div class="inv-item-name" style="color:${r.color}">${item.name}</div>
             ${stackBadge}
@@ -1392,13 +1393,16 @@ const GameInventory = {
           <div class="inv-item-stats">${statsText || consText}</div>
           <div style="font-size:.7em;color:#555;margin-top:2px;">Sell: ${item.sellPrice || 0}g${item.stackable && item.qty > 1 ? ` (total: ${(item.sellPrice || 0) * item.qty}g)` : ''}</div>
           <div class="inv-item-btns">
-            ${
-              item.category === 'equipment'
-                ? item.equipped
-                  ? `<button class="inv-btn btn-unequip" onclick="GameEquipment.unequip('${item.slot}')">Unequip</button>`
-                  : `<button class="inv-btn btn-equip" onclick="GameEquipment.equip(${item.uid})">Equip</button>`
-                : ''
-            }
+           ${
+         item.category === 'equipment'
+           ? item.equipped
+             ? `<button class="inv-btn btn-unequip" onclick="GameEquipment.unequip('${item.slot}')">Unequip</button>`
+             : `<button class="inv-btn btn-equip" onclick="GameEquipment.equip(${item.uid})">Equip</button>`
+           : ''
+       }  
+          ${item.category === 'equipment'
+         ? `<button class="inv-btn btn-enhance" onclick="GameEnhancement.open(${item.uid})">⚒️ +${item.enhanceLevel || 0}</button>`
+         : ''}
             ${item.category === 'consumable' ? `<button class="inv-btn btn-use" onclick="GameInventory.useItem(${item.uid})">Use</button>` : ''}
             ${!item.equipped ? `<button class="inv-btn btn-sell" onclick="GameInventory.sellItem(${item.uid})">Sell${item.stackable && item.qty > 1 ? ' All' : ''}</button>` : ''}
           </div>
@@ -1564,8 +1568,11 @@ const GameEquipment = {
       if (uid) {
         const item = GameState.inventory.find(i => i.uid === uid);
         if (item) {
-          nameEl.textContent = item.name.replace(/^[^\s]+ /, '').substring(0, 12);
-          slotEl.classList.add('has-item', item.rarity);
+          const enhTag = item.enhanceLevel > 0 ? ` +${item.enhanceLevel}` : '';
+       nameEl.textContent = item.name.replace(/^[^\s]+ /, '').substring(0, 10) + enhTag;
+       const slotEnhClass = item.enhanceLevel >= 15 ? 'enhanced-max' : item.enhanceLevel >= 7 ? 'enhanced-high' : '';
+       slotEl.classList.add('has-item', item.rarity);
+       if (slotEnhClass) slotEl.classList.add(slotEnhClass);
         }
       } else {
         nameEl.textContent = 'Empty';
@@ -2016,6 +2023,13 @@ const GameUI = {
     document.getElementById('craft-screen').style.display = 'block';
     GameCrafting.render();
   },
+  openEnhancement() {
+         Utils.notify('Select an item from inventory to enhance!', 'var(--gold)');
+       },
+ 
+       closeEnhancement() {
+         GameEnhancement.close();
+       },
 
   closeCrafting() {
     document.getElementById('craft-screen').style.display = 'none';
@@ -2119,6 +2133,387 @@ setInterval(() => {
     } catch (e) {}
   }
 }, CONSTANTS.AUTO_SAVE_INTERVAL);
+
+// ════════════════════════════════════════════════════════════════
+// EQUIPMENT ENHANCEMENT MODULE
+// Add this entire block to your game.js
+// ════════════════════════════════════════════════════════════════
+
+// ── Enhancement materials required per level tier ──
+// Low level items (normal/uncommon) use early boss mats
+// High level items (rare/epic/legendary) use late boss mats
+
+const ENHANCE_MATS = {
+  normal:    { low: { name: '🪶 Wolf Fang',        qty: 2 }, high: { name: '🪓 Orc Fragment',    qty: 3 } },
+  uncommon:  { low: { name: '🕸️ Spider Silk',       qty: 2 }, high: { name: '🪨 Stone Core',      qty: 3 } },
+  rare:      { low: { name: '🐉 Dragon Scale',      qty: 2 }, high: { name: '💀 Death Essence',   qty: 2 } },
+  epic:      { low: { name: '😈 Demon Horn',        qty: 1 }, high: { name: '🌑 Void Crystal',    qty: 2 } },
+  legendary: { low: { name: '☄️ Divine Shard',      qty: 1 }, high: { name: '🌟 Eternal Crown',   qty: 1 } },
+};
+
+// Gold cost per enhancement level
+const ENHANCE_GOLD_COST = {
+  1: 50,   2: 80,   3: 120,  4: 160,  5: 200,
+  6: 250,  7: 400,  8: 500,  9: 600,  10: 750,
+  11: 900, 12: 1100, 13: 1300, 14: 1600, 15: 2000,
+};
+
+// Success rates per level
+const ENHANCE_RATES = {
+  1: 0.95, 2: 0.90, 3: 0.85, 4: 0.80, 5: 0.75,
+  6: 0.70, 7: 0.45, 8: 0.40, 9: 0.35, 10: 0.30,
+  11: 0.25, 12: 0.20, 13: 0.18, 14: 0.15, 15: 0.12,
+};
+
+const GameEnhancement = {
+
+  // Get the material needed based on item rarity and enhance level
+  getRequiredMat(item) {
+    const mats = ENHANCE_MATS[item.rarity] || ENHANCE_MATS.normal;
+    const enhLvl = item.enhanceLevel || 0;
+    // Use high tier mat from +7 onwards
+    return enhLvl >= 6 ? mats.high : mats.low;
+  },
+
+  // Get gold cost for next enhancement
+  getGoldCost(item) {
+    const nextLvl = (item.enhanceLevel || 0) + 1;
+    return ENHANCE_GOLD_COST[nextLvl] || 2000;
+  },
+
+  // Get success rate for next enhancement
+  getSuccessRate(item) {
+    const nextLvl = (item.enhanceLevel || 0) + 1;
+    return ENHANCE_RATES[nextLvl] || 0.10;
+  },
+
+  // Check how many of a material the player has
+  getMaterialQty(matName) {
+    const item = GameState.inventory.find(i => i.name === matName && i.stackable);
+    return item ? (item.qty || 0) : 0;
+  },
+
+  // Apply stat bonus based on enhance level
+  applyEnhanceBonus(item, level) {
+    if (!item.baseStats) {
+      // Save original stats first time
+      item.baseStats = { ...item.stats };
+    }
+
+    const base = item.baseStats;
+    const newStats = {};
+
+    Object.entries(base).forEach(([stat, baseVal]) => {
+      if (level <= 6) {
+        // Flat bonus: +1 per level for each stat
+        newStats[stat] = baseVal + level;
+      } else {
+        // Percentage bonus from +7: flat 6 + 1% per level above 6
+        const flatBonus = 6;
+        const pctBonus = (level - 6) * 0.01;
+        newStats[stat] = Math.floor(baseVal + flatBonus + (baseVal * pctBonus));
+      }
+    });
+
+    item.stats = newStats;
+  },
+
+  // Remove stat bonus when recalculating
+  removeEnhanceBonus(item) {
+    if (item.baseStats) {
+      item.stats = { ...item.baseStats };
+    }
+  },
+
+  // Open enhancement screen for a specific item
+  open(uid) {
+    const item = GameState.inventory.find(i => i.uid === uid);
+    if (!item || item.category !== 'equipment') return;
+
+    const screen = document.getElementById('enhance-screen');
+    const enhLvl = item.enhanceLevel || 0;
+    const maxed = enhLvl >= 15;
+    const mat = this.getRequiredMat(item);
+    const goldCost = this.getGoldCost(item);
+    const rate = Math.round(this.getSuccessRate(item) * 100);
+    const haveMat = this.getMaterialQty(mat.name);
+    const haveGold = GameState.gold >= goldCost;
+    const canEnhance = !maxed && haveMat >= mat.qty && haveGold;
+    const nextLvl = enhLvl + 1;
+
+    // Calculate what stats will look like after success
+    const previewStats = {};
+    if (!maxed && item.baseStats) {
+      Object.entries(item.baseStats).forEach(([stat, baseVal]) => {
+        if (nextLvl <= 6) {
+          previewStats[stat] = baseVal + nextLvl;
+        } else {
+          const flatBonus = 6;
+          const pctBonus = (nextLvl - 6) * 0.01;
+          previewStats[stat] = Math.floor(baseVal + flatBonus + (baseVal * pctBonus));
+        }
+      });
+    } else if (!maxed) {
+      Object.entries(item.stats || {}).forEach(([stat, val]) => {
+        if (nextLvl <= 6) {
+          previewStats[stat] = val + 1;
+        } else {
+          previewStats[stat] = Math.floor(val * 1.01);
+        }
+      });
+    }
+
+    const rarityColor = (RARITY[item.rarity] || RARITY.normal).color;
+    const enhSuffix = enhLvl > 0 ? ` <span class="enh-badge enh-${enhLvl >= 7 ? 'high' : 'low'}">+${enhLvl}</span>` : '';
+
+    screen.innerHTML = `
+      <div class="enhance-container">
+        <div class="enhance-title">⚒️ Enhancement Forge</div>
+
+        <div class="enhance-item-card">
+          <div class="enhance-item-name" style="color:${rarityColor}">${item.name}${enhSuffix}</div>
+          <div style="font-size:.75em;color:${rarityColor};margin-top:2px;">${(RARITY[item.rarity] || RARITY.normal).label}</div>
+
+          <div class="enhance-stats-row">
+            <div class="enhance-stats-col">
+              <div class="enhance-stats-title">Current Stats</div>
+              ${Object.entries(item.stats || {}).map(([k, v]) =>
+                `<div class="enhance-stat-line">+${v} ${k.toUpperCase()}</div>`
+              ).join('')}
+            </div>
+            ${!maxed ? `
+            <div class="enhance-arrow">→</div>
+            <div class="enhance-stats-col">
+              <div class="enhance-stats-title" style="color:var(--green)">After +${nextLvl}</div>
+              ${Object.entries(previewStats).map(([k, v]) =>
+                `<div class="enhance-stat-line" style="color:var(--green)">+${v} ${k.toUpperCase()}</div>`
+              ).join('')}
+            </div>` : ''}
+          </div>
+
+          <div class="enhance-level-bar">
+            ${Array.from({length: 15}, (_, i) => `
+              <div class="enhance-pip ${i < enhLvl ? (i >= 6 ? 'pip-high' : 'pip-filled') : 'pip-empty'}"></div>
+            `).join('')}
+          </div>
+          <div style="text-align:center;font-size:.75em;color:#888;margin-top:4px;">
+            Enhancement Level: <span style="color:var(--gold)">${enhLvl}/15</span>
+            ${enhLvl >= 7 ? `<span style="color:var(--legendary)"> ✨ Radiant</span>` : ''}
+          </div>
+        </div>
+
+        ${maxed ? `
+          <div style="text-align:center;color:var(--legendary);font-family:'Cinzel',serif;font-size:1.1em;margin:15px 0;">
+            🌟 MAX ENHANCEMENT REACHED! 🌟
+          </div>
+        ` : `
+          <div class="enhance-cost-box">
+            <div class="enhance-cost-title">Required to Enhance to +${nextLvl}</div>
+            <div class="enhance-cost-row">
+              <span>💰 Gold</span>
+              <span style="color:${haveGold ? 'var(--green)' : 'var(--red)'}">
+                ${GameState.gold} / ${goldCost} ${haveGold ? '✅' : '❌'}
+              </span>
+            </div>
+            <div class="enhance-cost-row">
+              <span>${mat.name} ×${mat.qty}</span>
+              <span style="color:${haveMat >= mat.qty ? 'var(--green)' : 'var(--red)'}">
+                ${haveMat} / ${mat.qty} ${haveMat >= mat.qty ? '✅' : '❌'}
+              </span>
+            </div>
+            <div class="enhance-cost-row">
+              <span>🎲 Success Rate</span>
+              <span style="color:${rate >= 70 ? 'var(--green)' : rate >= 40 ? 'var(--gold)' : 'var(--red)'}">
+                ${rate}%
+              </span>
+            </div>
+            ${nextLvl >= 8 ? `
+              <div style="font-size:.72em;color:var(--red);margin-top:5px;text-align:center;">
+                ⚠️ Failure at +${nextLvl} will reduce to +${nextLvl - 2}!
+              </div>
+            ` : nextLvl >= 7 ? `
+              <div style="font-size:.72em;color:var(--gold);margin-top:5px;text-align:center;">
+                ⚠️ Failure will reduce enhancement by 1!
+              </div>
+            ` : `
+              <div style="font-size:.72em;color:#888;margin-top:5px;text-align:center;">
+                Failure loses materials and gold only.
+              </div>
+            `}
+          </div>
+
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
+            <button class="enhance-btn ${canEnhance ? '' : 'enhance-btn-disabled'}"
+              onclick="GameEnhancement.attempt(${uid})"
+              ${canEnhance ? '' : 'disabled'}>
+              ⚒️ Enhance!
+            </button>
+            <button class="start-btn red-btn" style="font-size:.8em;padding:6px 16px;"
+              onclick="GameEnhancement.close()">
+              ✖ Close
+            </button>
+          </div>
+        `}
+
+        ${maxed ? `
+          <div style="text-align:center;margin-top:12px;">
+            <button class="start-btn red-btn" style="font-size:.8em;padding:6px 16px;"
+              onclick="GameEnhancement.close()">
+              ✖ Close
+            </button>
+          </div>
+        ` : ''}
+
+        <div id="enhance-result" style="min-height:30px;text-align:center;margin-top:10px;font-family:'Cinzel',serif;font-size:.9em;"></div>
+      </div>
+    `;
+
+    screen.style.display = 'block';
+    this._currentUid = uid;
+  },
+
+  // Attempt enhancement
+  attempt(uid) {
+    const item = GameState.inventory.find(i => i.uid === uid);
+    if (!item) return;
+
+    const enhLvl = item.enhanceLevel || 0;
+    if (enhLvl >= 15) return;
+
+    const mat = this.getRequiredMat(item);
+    const goldCost = this.getGoldCost(item);
+    const rate = this.getSuccessRate(item);
+    const nextLvl = enhLvl + 1;
+
+    // Check requirements
+    const haveMat = this.getMaterialQty(mat.name);
+    if (GameState.gold < goldCost) { Utils.notify('Not enough gold!', 'var(--red)'); return; }
+    if (haveMat < mat.qty) { Utils.notify(`Need ${mat.qty}x ${mat.name}!`, 'var(--red)'); return; }
+
+    // Consume gold and materials
+    GameState.gold -= goldCost;
+    let need = mat.qty;
+    GameState.inventory.forEach(i => {
+      if (i.name === mat.name && i.stackable && need > 0) {
+        const take = Math.min(i.qty, need);
+        i.qty -= take;
+        need -= take;
+      }
+    });
+    GameState.inventory = GameState.inventory.filter(i => !i.stackable || (i.qty || 0) > 0);
+
+    const resultEl = document.getElementById('enhance-result');
+    const success = Math.random() < rate;
+
+    // Unequip temporarily if equipped to recalculate stats safely
+    const wasEquipped = item.equipped;
+    if (wasEquipped) {
+      // Remove old stat contribution
+      Object.entries(item.stats || {}).forEach(([k, v]) => {
+        GameState[k] = Math.max(0, (GameState[k] || 0) - v);
+      });
+    }
+
+    if (success) {
+      item.enhanceLevel = nextLvl;
+      this.applyEnhanceBonus(item, nextLvl);
+
+      if (wasEquipped) {
+        // Re-apply new stats
+        Object.entries(item.stats || {}).forEach(([k, v]) => {
+          GameState[k] = (GameState[k] || 0) + v;
+        });
+      }
+
+      GameLog.add(`⚒️ Enhancement SUCCESS! ${item.name} is now +${nextLvl}!`, 'gold');
+      Utils.notify(`✨ +${nextLvl} SUCCESS!`, 'var(--green)');
+
+      if (resultEl) {
+        resultEl.style.color = 'var(--green)';
+        resultEl.textContent = `✨ SUCCESS! Enhanced to +${nextLvl}!`;
+        if (nextLvl >= 15) {
+          resultEl.textContent = '🌟 MAX LEVEL REACHED! Your item glows with eternal power!';
+          resultEl.style.color = 'var(--legendary)';
+        }
+      }
+
+    } else {
+      // Failure logic
+      let newLvl = enhLvl;
+      if (enhLvl >= 7) {
+        newLvl = Math.max(0, enhLvl - 1); // Drop 1 level
+      }
+      item.enhanceLevel = newLvl;
+      this.applyEnhanceBonus(item, newLvl);
+
+      if (wasEquipped) {
+        Object.entries(item.stats || {}).forEach(([k, v]) => {
+          GameState[k] = (GameState[k] || 0) + v;
+        });
+      }
+
+      if (enhLvl >= 7) {
+        GameLog.add(`💔 Enhancement FAILED! ${item.name} dropped to +${newLvl}!`, 'bad');
+        Utils.notify(`💔 Failed! Dropped to +${newLvl}`, 'var(--red)');
+        if (resultEl) {
+          resultEl.style.color = 'var(--red)';
+          resultEl.textContent = `💔 FAILED! Enhancement dropped to +${newLvl}!`;
+        }
+      } else {
+        GameLog.add(`💔 Enhancement FAILED! Materials and gold lost.`, 'bad');
+        Utils.notify('💔 Enhancement Failed!', 'var(--red)');
+        if (resultEl) {
+          resultEl.style.color = 'var(--red)';
+          resultEl.textContent = '💔 FAILED! Materials and gold lost.';
+        }
+      }
+    }
+
+    GameUI.updateUI();
+    GameInventory.render();
+    GameEquipment.render();
+
+    // Refresh the enhancement screen after a short delay
+    setTimeout(() => {
+      if (document.getElementById('enhance-screen').style.display === 'block') {
+        this.open(uid);
+      }
+    }, 1500);
+  },
+
+  close() {
+    document.getElementById('enhance-screen').style.display = 'none';
+  },
+};
+
+// ── Expose to global scope ──
+window.GameEnhancement = GameEnhancement;
+
+
+// ════════════════════════════════════════════════════════════════
+// CHANGES NEEDED IN EXISTING CODE
+// ════════════════════════════════════════════════════════════════
+
+// 1. In GameInventory.render(), find this line inside the equipment section:
+//
+//    : `<button class="inv-btn btn-equip" onclick="GameEquipment.equip(${item.uid})">Equip</button>`
+//
+// Replace it with:
+//
+//    : `<button class="inv-btn btn-equip" onclick="GameEquipment.equip(${item.uid})">Equip</button>
+//       <button class="inv-btn btn-enhance" onclick="GameEnhancement.open(${item.uid})">⚒️ +${item.enhanceLevel || 0}</button>`
+//
+// This adds an enhance button next to every equipment item in inventory.
+
+
+// 2. In GameEquipment.render(), find:
+//    nameEl.textContent = item.name.replace(/^[^\s]+ /, '').substring(0, 12);
+//
+// Replace with:
+//    const enhTag = item.enhanceLevel > 0 ? ` +${item.enhanceLevel}` : '';
+//    nameEl.textContent = item.name.replace(/^[^\s]+ /, '').substring(0, 10) + enhTag;
+//
+// This shows the +level on equipped item slots.
 
 // Expose functions to global scope for onclick handlers
 window.GameEngine = GameEngine;
