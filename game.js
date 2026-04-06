@@ -295,18 +295,18 @@ const BOSSES=[
 
 // ── NORMAL ENEMIES ──
 const NORMAL_ENEMIES=[
-  {id:'wolf',name:'🐺 Forest Wolf',icon:'🐺',hp:150,atk:80,armor:2,xp:125,gold:[5,15],loot:()=>[mkMat('🪶 Wolf Fang',rollRarity(),5)]},
-  {id:'spider',name:'🕷️ Giant Spider',icon:'🕷️',hp:280,atk:100,armor:1,xp:181,gold:[3,12],loot:()=>[mkMat('🕸️ Spider Silk',rollRarity(),6)]},
-  {id:'goblin',name:'👹 Dungeon Goblin',icon:'👹',hp:450,atk:120,armor:3,xp:381,gold:[10,25],loot:()=>[mkEquipDrop('weapon',rollRarity())]},
-  {id:'skeleton',name:'💀 Skeleton',icon:'💀',hp:600,atk:160,armor:5,xp:551,gold:[15,30],loot:()=>[mkEquipDrop('armor',rollRarity())]},
-  {id:'orc',name:'👊 Orc Warrior',icon:'👊',hp:800,atk:200,armor:7,xp:751,gold:[20,40],loot:()=>[mkEquipDrop('weapon',rollRarity()),mkMat('🪓 Orc Fragment','normal',8)]},
-  {id:'vampire',name:'🧛 Vampire',icon:'🧛',hp:900,atk:220,armor:8,xp:901,gold:[25,50],loot:()=>[mkEquipDrop('ring',rollRarity()),mkCons('🩸 Blood Vial','uncommon',35,8)]},
-  {id:'troll',name:'👾 Cave Troll',icon:'👾',hp:1100,atk:260,armor:10,xp:1001,gold:[30,55],loot:()=>[mkEquipDrop('armor',rollRarity()),mkMat('💎 Troll Gem','rare',30)]},
-  {id:'golem',name:'🗿 Stone Golem',icon:'🗿',hp:1300,atk:280,armor:14,xp:1201,gold:[35,60],loot:()=>[mkEquipDrop('helmet',rollRarity()),mkMat('🪨 Stone Core','uncommon',15)]},
-  {id:'demon_knight',name:'😈 Demon Knight',icon:'😈',hp:1500,atk:320,armor:12,xp:1451,gold:[40,70],loot:()=>[mkEquipDrop('weapon','rare'),mkEquipDrop('armor',rollRarity())]},
-  {id:'werewolf',name:'🐺 Werewolf',icon:'🐺',hp:1700,atk:360,armor:150,xp:1651,gold:[45,80],loot:()=>[mkEquipDrop('boots',rollRarity()),mkMat('🌕 Moon Shard','rare',25)]},
-  {id:'sea_monster',name:'🦑 Sea Monster',icon:'🦑',hp:2000,atk:420,armor:18,xp:1901,gold:[55,95],loot:()=>[mkEquipDrop('amulet',rollRarity()),mkMat('🦑 Kraken Ink','epic',45)]},
-  {id:'phoenix',name:'🦅 Phoenix',icon:'🦅',hp:2300,atk:500,armor:20,xp:2200,gold:[65,110],loot:()=>[mkEquipDrop('ring',rollRarity()),mkMat('🔥 Phoenix Feather','epic',60)]},
+  {id:'wolf',name:'🐺 Forest Wolf',icon:'wolf',hp:150,atk:80,armor:2,xp:125,gold:[5,15],loot:()=>[mkMat('🪶 Wolf Fang',rollRarity(),5)]},
+  {id:'spider',name:'🕷️ Giant Spider',icon:'spider',hp:280,atk:100,armor:1,xp:181,gold:[3,12],loot:()=>[mkMat('🕸️ Spider Silk',rollRarity(),6)]},
+  {id:'goblin',name:'👹 Dungeon Goblin',icon:'goblin',hp:450,atk:120,armor:3,xp:381,gold:[10,25],loot:()=>[mkEquipDrop('weapon',rollRarity())]},
+  {id:'skeleton',name:'💀 Skeleton',icon:'skeleton',hp:600,atk:160,armor:5,xp:551,gold:[15,30],loot:()=>[mkEquipDrop('armor',rollRarity())]},
+  {id:'orc',name:'👊 Orc Warrior',icon:'orc',hp:800,atk:200,armor:7,xp:751,gold:[20,40],loot:()=>[mkEquipDrop('weapon',rollRarity()),mkMat('🪓 Orc Fragment','normal',8)]},
+  {id:'vampire',name:'🧛 Vampire',icon:'vampire',hp:900,atk:220,armor:8,xp:901,gold:[25,50],loot:()=>[mkEquipDrop('ring',rollRarity()),mkCons('🩸 Blood Vial','uncommon',35,8)]},
+  {id:'troll',name:'👾 Cave Troll',icon:'troll',hp:1100,atk:260,armor:10,xp:1001,gold:[30,55],loot:()=>[mkEquipDrop('armor',rollRarity()),mkMat('💎 Troll Gem','rare',30)]},
+  {id:'golem',name:'🗿 Stone Golem',icon:'golem',hp:1300,atk:280,armor:14,xp:1201,gold:[35,60],loot:()=>[mkEquipDrop('helmet',rollRarity()),mkMat('🪨 Stone Core','uncommon',15)]},
+  {id:'demon_knight',name:'😈 Demon Knight',icon:'demon',hp:1500,atk:320,armor:12,xp:1451,gold:[40,70],loot:()=>[mkEquipDrop('weapon','rare'),mkEquipDrop('armor',rollRarity())]},
+  {id:'werewolf',name:'🐺 Werewolf',icon:'werewolf',hp:1700,atk:360,armor:150,xp:1651,gold:[45,80],loot:()=>[mkEquipDrop('boots',rollRarity()),mkMat('🌕 Moon Shard','rare',25)]},
+  {id:'sea_monster',name:'🦑 Sea Monster',icon:'kraken',hp:2000,atk:420,armor:18,xp:1901,gold:[55,95],loot:()=>[mkEquipDrop('amulet',rollRarity()),mkMat('🦑 Kraken Ink','epic',45)]},
+  {id:'phoenix',name:'🦅 Phoenix',icon:'phoenix',hp:2300,atk:500,armor:20,xp:2200,gold:[65,110],loot:()=>[mkEquipDrop('ring',rollRarity()),mkMat('🔥 Phoenix Feather','epic',60)]},
 ];
 
 // ── ITEM HELPERS ──
@@ -817,7 +817,12 @@ function startCombat(enemyId,isBoss){
 function startCombatWith(enemy){
   document.getElementById('enemy-hp-val').textContent=enemy.hp;
   document.getElementById('enemy-hp-max').textContent=enemy.maxHp;
-  document.getElementById('arena-enemy').textContent=enemy.icon;
+  const enemyEl=document.getElementById('arena-enemy');
+if(enemy.icon&&!enemy.icon.includes(' ')&&enemy.icon.length<20){
+  enemyEl.innerHTML=`<img src="${enemy.icon}.jpg" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:2px solid var(--red);">`;
+}else{
+  enemyEl.textContent=enemy.icon;
+}
   document.getElementById('arena-enemy-label').textContent=enemy.name;
   document.getElementById('arena-enemy-hp').style.width='100%';
   document.getElementById('combat-log').innerHTML='';
