@@ -327,7 +327,7 @@ tr:hover {
 }
 
 .game-page {
-  background-image: url('dungeon.jpg'); /* 👈 replace with your dungeon image */
+  background-image: url('dungeon.png'); /* 👈 replace with your dungeon image */
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
@@ -447,7 +447,7 @@ h1.game-title {
 .hp-bar { background: linear-gradient(90deg, #cc2200, #ff6644); }
 .mp-bar { background: linear-gradient(90deg, #2244cc, #6688ff); }
 .xp-bar { background: linear-gradient(90deg, #a07820, #f0c040); }
-.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 9px; }
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:9px;}
 .stat-box { background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: 5px; padding: 4px; text-align: center; }
 .stat-box .val { color: var(--gold); font-size: 1em; font-weight: 600; }
 .stat-box .lbl { color: #777; font-size: .65em; }
@@ -891,4 +891,47 @@ input:checked + .toggle-slider:before { transform: translateX(18px); }
   border-color: #ffffff !important;
   box-shadow: 0 0 14px rgba(255, 255, 255, .8), 0 0 28px rgba(255, 220, 100, .5) !important;
   animation: itemMaxGlow 1.5s ease-in-out infinite alternate;
+}
+.equip-slot {
+  position: relative;
+}
+
+.equip-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1a1a1a;
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 8px;
+  white-space: nowrap;
+  font-size: 0.85em;
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+}
+
+.equip-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--gold);
+}
+
+.equip-slot:hover .equip-tooltip {
+  display: block;
+}
+
+.equip-tooltip {
+  display: none;
+}
+
+.tooltip-stat {
+  color: var(--gold);
+  margin: 2px 0;
 }
