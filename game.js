@@ -54,7 +54,7 @@ const state={
   baseStr:5,baseAgi:5,baseInt:5,baseSta:5,baseArmor:5,baseHit:10,baseCrit:2,baseDodge:2,baseHpRegen:20,baseLifeSteal:0.01,
  
   // STAT MULTIPLIERS (class + talent % bonuses, starts at 1.0 = 100%)
-  strMult:1.0,agiMult:1.0,intMult:1.0,staMult:1.0,armorMult:1.0,hpRegenMult:1.0,mpMult:1.0,critMult:1.0,dodgeMult:1.0,mpRegenMult:1.0,hitMult:1.0,lifeStealMult:1.0,
+  strMult:1.0,agiMult:1.0,intMult:1.0,staMult:1.0,armorMult:1.0,hpRegenMult:1.0,mpMult:1.0,critMult:1.0,dodgeMult:1.0,mpRegenMult:1.0,hitMult:1.0,lifeStealMult:1.0,skillStrMult:1.0,skillStaMult:1.0,skillMaxHp:1.0,skillArmorMult:1.0,
  
   // EFFECTIVE STATS (calculated by calcStats from base * mult)
   str:5,agi:5,int:5,armor:2,sta:5,hit:5,crit:2,dodge:2,lifeSteal:0.01,
@@ -128,21 +128,21 @@ function setDifficulty(diff){
 }
 function calcStats(){
   // Apply multipliers to base stats → effective stats
-  state.str  = Math.floor(state.baseStr  * state.strMult) + (state.equipStr||0);
+  state.str  = Math.floor(state.baseStr  * state.strMult) + (state.skillStrMult) + (state.equipStr||0);
   state.agi  = Math.floor(state.baseAgi  * state.agiMult) + (state.equipAgi||0);
   state.int  = Math.floor(state.baseInt  * state.intMult) + (state.equipInt||0);
   state.sta  = Math.floor(state.baseSta  * state.staMult) + (state.equipSta||0);
   state.hit  = Math.floor(state.baseHit * state.hitMult) + (state.equipHit||0);
-
+  
   // STR + INT → Attack Power
   state.attackPower = Math.floor((state.str * 2 * state.attackMult)+(state.int * 2 * state.attackMult*0.5)) + (state.equipAttackPower||0);
 
   // STR + STA → Max HP
   state.maxHp = Math.floor(50 + (state.str * 10) + (state.sta * 15) + (state.level * 20)) + (state.equipMaxHp||0);
-
+  
   // AGI + baseArmor → Armor (with armorMult + equipment bonus)
   state.armor = Math.floor((state.agi * 3 + state.baseArmor) * state.armorMult) + (state.equipArmor||0);
-
+  
   // AGI → Crit% and Dodge%
   state.crit  = Math.floor((state.agi * 0.1 * state.baseDodge) * state.critMult) + (state.equipCrit||0);
   state.dodge = Math.floor((state.agi * 0.1 * state.baseDodge) * state.dodgeMult) + (state.equipDodge||0);
@@ -169,28 +169,28 @@ const CLASSES={
     skills:['power_strike','battle_cry','last_stand'],
     trees:{
       dps:{name:'🗡️ DPS',talents:[
-        {id:'berserker',name:'Berserker Rage',desc:'+1% STR, 10% CRIT, +1% HIT per rank',cost:5,ranks:10,
-          effect:()=>{state.baseStr+=10;state.baseCrit+=10;state.baseHit+=10}},
-        {id:'cleave',name:'Brute Force',desc:'+2% STR, 20% CRIT, +2% HIT per rank',cost:10,ranks:5,
-          effect:()=>{state.strkMult+=0.02;state.critMult+=0.2;state.baseHit+=20}},
-        {id:'execute',name:'Killing Blow',desc:'+3% STR, 30% CRIT, +3% HIT per rank',cost:20,ranks:3,
-          effect:()=>{state.strMult+=0.03;state.critMult+=0.3;state.baseHit+=30}},
+        {id:'berserker',name:'Berserker Rage',desc:'10% CRIT, +1% HIT per rank',cost:5,ranks:10,
+          effect:()=>{state.baseCrit+=10;state.baseHit+=10}},
+        {id:'cleave',name:'Brute Force',desc:'20% CRIT, +2% HIT per rank',cost:10,ranks:5,
+          effect:()=>{state.critMult+=0.2;state.baseHit+=20}},
+        {id:'execute',name:'Killing Blow',desc:'30% CRIT, +3% HIT per rank',cost:20,ranks:3,
+          effect:()=>{state.critMult+=0.3;state.baseHit+=30}},
       ]},
       tank:{name:'🛡️ Tank',talents:[
-        {id:'iron_skin',name:'Iron Skin',desc:'+1% STA, 10% ARMOR per rank',cost:5,ranks:10,
-          effect:()=>{state.staMult+=0.01;state.armorMult+=0.1;}},
-        {id:'fortress',name:'Iron Fortress',desc:'+2% STA, 20% ARMOR per rank',cost:10,ranks:5,
-          effect:()=>{state.staMult+=0.02;state.armorMult+=0.2;}},
-        {id:'shield_wall',name:'Hardened Skin',desc:'+3% STA and 30% ARMOR per rank',cost:20,ranks:3,
-          effect:()=>{state.staMult+=0.03;state.armorMult+=0.3;}},
+        {id:'iron_skin',name:'Iron Skin',desc:'10% ARMOR per rank',cost:5,ranks:10,
+          effect:()=>{state.armorMult+=0.1;}},
+        {id:'fortress',name:'Iron Fortress',desc:'20% ARMOR per rank',cost:10,ranks:5,
+          effect:()=>{state.armorMult+=0.2;}},
+        {id:'shield_wall',name:'Hardened Skin',desc:'30% ARMOR per rank',cost:20,ranks:3,
+          effect:()=>{state.armorMult+=0.3;}},
       ]},
       heal:{name:'💚 Self Heal',talents:[
-        {id:'second_wind',name:'Tough Body',desc:'+1% STA and 10% HP regen per rank',cost:5,ranks:10,
-          effect:()=>{state.staMult+=0.01;state.hpRegen+=0.1;}},
-        {id:'undying',name:'Endurance',desc:'+2% STA, +20% HP regen per rank',cost:10,ranks:5,
-          effect:()=>{state.staMult+=0.02;state.hpRegen+=0.2;}},
-        {id:'regeneration',name:'Vitality',desc:'+3% STA and + 30% HP regen per rank',cost:20,ranks:3,
-          effect:()=>{state.staMult+=0.03;state.hpRegen+=0.3;}},
+        {id:'second_wind',name:'Tough Body',desc:'10% HP regen per rank',cost:5,ranks:10,
+          effect:()=>{state.hpRegen+=0.1;}},
+        {id:'undying',name:'Endurance',desc:'20% HP regen per rank',cost:10,ranks:5,
+          effect:()=>{state.hpRegen+=0.2;}},
+        {id:'regeneration',name:'Vitality',desc:'30% HP regen per rank',cost:20,ranks:3,
+          effect:()=>{state.hpRegen+=0.3;}},
       ]}
     }
   },
@@ -199,28 +199,28 @@ const CLASSES={
     skills:['fireball','ice_lance','mana_shield'],
     trees:{
       fire:{name:'🔥 Fire',talents:[
-        {id:'fire_mastery',name:'Fire Mastery',desc:'+1% INT and +1% STR per rank',cost:5,ranks:5,
-          effect:()=>{state.intMult+=0.01;state.strMult+=0.01}},
-        {id:'ignite',name:'Burning Mind',desc:'+2% INT and +2% STR per rank',cost:10,ranks:5,
-          effect:()=>{state.intMult+=0.02;state.strMult+=0.02}},
-        {id:'meteor',name:'Arcane Intellect',desc:'+3% INT and +3% STR per rank',cost:20,ranks:3,
-          effect:()=>{state.intMult+=0.03;state.strMult+=0.03}},
+        {id:'fire_mastery',name:'Fire Mastery',desc:'1% CRT per rank',cost:5,ranks:5,
+          effect:()=>{state.critMult+=0.01}},
+        {id:'ignite',name:'Burning Mind',desc:'2% CRT per rank',cost:10,ranks:5,
+          effect:()=>{state.critMult+=0.02}},
+        {id:'meteor',name:'Arcane Intellect',desc:'+3% CRT per rank',cost:20,ranks:3,
+          effect:()=>{state.critMult+=0.03}},
       ]},
       ice:{name:'❄️ Ice',talents:[
-        {id:'frost',name:'Frost Barrier',desc:'+1% STA and +1% INT per rank',cost:5,ranks:10,
-          effect:()=>{state.staMult+=0.01;state.intMult+=0.01}},
-        {id:'ice_armor',name:'Ice Armor',desc:'+2% STA and +2% INT per rank',cost:10,ranks:5,
-          effect:()=>{state.staMult+=0.02;state.intMult+=0.02}},
-        {id:'blizzard',name:'Ice Mind',desc:'+3% STA and  +3% INT MP per rank',cost:20,ranks:3,
-          effect:()=>{state.staMult+=0.03;state.intMult+=0.03;}},
+        {id:'frost',name:'Frost Barrier',desc:'1% DGD per rank',cost:5,ranks:10,
+          effect:()=>{state.dodgeMult+=0.01}},
+        {id:'ice_armor',name:'Ice Armor',desc:'2% DGD per rank',cost:10,ranks:5,
+          effect:()=>{state.dodgeMult+=0.02}},
+        {id:'blizzard',name:'Ice Mind',desc:'3% DGD per rank',cost:20,ranks:3,
+          effect:()=>{state.dodgeMult+=0.03;}},
       ]},
       arcane:{name:'✨ Arcane',talents:[
-        {id:'mana_regen',name:'Mana Pool',desc:'+1% AGI and +1% INT per rank',cost:5,ranks:10,
-          effect:()=>{state.agiMult+=0.01;state.intMult+=0.01}},
-        {id:'spell_power',name:'Spellcraft',desc:'+2% AGI and +2% INT per rank',cost:10,ranks:5,
-          effect:()=>{state.agiMult+=0.02;state.intMult+=0.02;}},
-        {id:'arcane_surge',name:'Arcane Mastery',desc:'3% AGI and +3% INT, +2% MP per rank',cost:20,ranks:3,
-          effect:()=>{state.agiMult+=0.03;state.intMult+=0.03;}},
+        {id:'mana_regen',name:'Mana Pool',desc:'1% HP REGEN per rank',cost:5,ranks:10,
+          effect:()=>{state.hpRegen+=0.1}},
+        {id:'spell_power',name:'Spellcraft',desc:'2% HP REGEN per rank per rank',cost:10,ranks:5,
+          effect:()=>{state.hpRegen+=0.2;}},
+        {id:'arcane_surge',name:'Arcane Mastery',desc:'3% HP REGEN per rank per rank',cost:20,ranks:3,
+          effect:()=>{state.hpRegen+=0.3;}},
       ]}
     }
   },
@@ -229,28 +229,28 @@ const CLASSES={
     skills:['backstab','poison_blade','shadow_step'],
     trees:{
       assassination:{name:'☠️ Assassin',talents:[
-        {id:'crit',name:'Precision',desc:'+1% AGI, +1% CRIT per rank',cost:5,ranks:10,
-          effect:()=>{state.agiMult+=0.01;state.critMult+=0.5;}},
-        {id:'ambush',name:'Swift Strike',desc:'+2% AGI per rank',cost:10,ranks:5,
-          effect:()=>{state.agiMult+=0.02;}},
-        {id:'death_mark',name:'Lethal Focus',desc:'+3% AGI, +3% CRIT per rank',cost:20,ranks:3,
-          effect:()=>{state.agiMult+=0.03;state.critMult+=0.03;}},
+        {id:'crit',name:'Precision',desc:'1% CRIT per rank',cost:5,ranks:10,
+          effect:()=>{state.critMult+=0.01;}},
+        {id:'ambush',name:'Swift Strike',desc:'2% CRIT per rank',cost:10,ranks:5,
+          effect:()=>{state.critMult+=0.02;}},
+        {id:'death_mark',name:'Lethal Focus',desc:'3% CRIT per rank',cost:20,ranks:3,
+          effect:()=>{state.critMult+=0.03;}},
       ]},
       subtlety:{name:'🌑 Subtlety',talents:[
-        {id:'evasion',name:'Agility',desc:'+1% AGI, +1% DODGE per rank',cost:5,ranks:10,
-          effect:()=>{state.agiMult+=0.01;state.dodgeMult+=0.01;}},
-        {id:'smoke_bomb',name:'Nimble Feet',desc:'+2% DODGE per rank',cost:10,ranks:5,
+        {id:'evasion',name:'Agility',desc:'1% DODGE per rank',cost:5,ranks:10,
+          effect:()=>{state.dodgeMult+=0.01;}},
+        {id:'smoke_bomb',name:'Nimble Feet',desc:'2% DODGE per rank',cost:10,ranks:5,
           effect:()=>{state.dodgeMult+=0.02;}},
-        {id:'vanish',name:'Shadow Reflex',desc:'+3% AGI, +3% DODGE per rank',cost:20,ranks:3,
-          effect:()=>{state.agiMult+=0.03;state.dodgeMult+=0.03;}},
+        {id:'vanish',name:'Shadow Reflex',desc:'3% DODGE per rank',cost:20,ranks:3,
+          effect:()=>{state.dodgeMult+=0.03;}},
       ]},
       poison:{name:'🐍 Poison',talents:[
-        {id:'venom',name:'Toxic Edge',desc:'+1% AGI per rank',cost:5,ranks:10,
-          effect:()=>{state.agiMult+=0.01;}},
-        {id:'cripple',name:'Predator',desc:'+2% STR, +2% AGI per rank',cost:10,ranks:5,
-          effect:()=>{state.strMult+=0.02;state.agiMult+=0.02;}},
-        {id:'plague',name:'Virulence',desc:'+3% AGI, +3% CRIT per rank',cost:20,ranks:3,
-          effect:()=>{state.agiMult+=0.03;state.critMult+=0.03;}},
+        {id:'venom',name:'Toxic Edge',desc:'1% HP REGEN per rank',cost:5,ranks:10,
+          effect:()=>{state.hpRegen+=0.1;}},
+        {id:'cripple',name:'Predator',desc:'2% HP REGEN per rank',cost:10,ranks:5,
+          effect:()=>{state.hpRegen+=0.1;}},
+        {id:'plague',name:'Virulence',desc:'3% HP REGEN per rank',cost:20,ranks:3,
+          effect:()=>{state.hpRegen+=0.1;}},
       ]}
     }
   }
@@ -263,13 +263,13 @@ const SKILLS={
     e.hp-=d;addCombatLog(`💥 Power Strike! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
   
   battle_cry:{name:'Battle Cry',icon:'📯',mp:20,cd:2,use:(e)=>{
-    state.strMult*=1.3;state.armorMult*=1.2;
+    state.strMult*=2.3;state.armorMult*=2.2;
     addCombatLog('📯 Battle Cry! +30% STR, +20% ARMOR!','good');playSound('snd-magic');calcStats();return 0;}},
   
   last_stand:{name:'Last Stand',icon:'🛡️',mp:25,cd:3,use:(e)=>{
     const healAmt=Math.floor(state.maxHp*0.3);
     state.hp=Math.min(state.maxHp,state.hp+healAmt);
-    state.armorMult*=1.5;
+    state.armorMult*=2.2;
     addCombatLog(`🛡️ Last Stand! +${healAmt} HP, +50% ARMOR!`,'good');
     playSound('snd-heal');spawnDmgFloat(`+${healAmt}HP`,false,'heal-float');calcStats();return 0;}},
   
@@ -731,6 +731,11 @@ if(state.manaRegen>0){
     clearInterval(autoFightTimer);
     autoFightTimer=null;
     stopAutoFight();
+  // Reset all combat multipliers to base
+    state.str=1.0;
+    state.skillArmorMult=1.0;
+    state.skillMaxHp=1.0;
+
     addLog('💀 Auto Fight stopped — you died!','bad');
     notify('💀 Auto Fight stopped — you died!','var(--red)');
     endCombat(false);
@@ -755,14 +760,9 @@ function endCombat(won){
   // Reset all combat multipliers to base
   state.strMult=1.0;
   state.agiMult=1.0;
-  state.intMult=1.0;
-  state.staMult=1.0;
   state.armorMult=1.0;
-  state.attackMult=1.0;
-  state.critMult=1.0;
-  state.dodgeMult=1.0;
-  state.mpMult=1.0;
-  
+  state.maxHp=1.0;
+  state.staMult=1.0;
   // Reapply ONLY class bonuses (no talent stuff)
   if(state.class){
     const c=CLASSES[state.class];
