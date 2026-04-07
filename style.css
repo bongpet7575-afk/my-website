@@ -935,3 +935,9 @@ input:checked + .toggle-slider:before { transform: translateX(18px); }
   color: var(--gold);
   margin: 2px 0;
 }
+.heal-float {
+  color: #00ff88;
+  font-size: 1.2rem;
+  font-weight: bold;
+  text-shadow: 0 0 6px #00ff88;
+}

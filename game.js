@@ -14,10 +14,10 @@ function notify(msg,color='var(--gold)'){
 
 // ── RARITY ──
 const RARITY={
-  legendary:{label:'Legendary',color:'var(--legendary)',chance:.03,mult:3.5},
-  epic:{label:'Epic',color:'var(--epic)',chance:.08,mult:2.5},
-  rare:{label:'Rare',color:'var(--rare)',chance:.18,mult:1.8},
-  uncommon:{label:'Uncommon',color:'var(--uncommon)',chance:.35,mult:1.3},
+  legendary:{label:'Legendary',color:'var(--legendary)',chance:.03,mult:5.5},
+  epic:{label:'Epic',color:'var(--epic)',chance:.08,mult:4.5},
+  rare:{label:'Rare',color:'var(--rare)',chance:.18,mult:3.8},
+  uncommon:{label:'Uncommon',color:'var(--uncommon)',chance:.35,mult:2.3},
   normal:{label:'Normal',color:'#cccccc',chance:1,mult:1},
 };
 function rollRarity(){
@@ -126,6 +126,7 @@ function calcStats(){
   state.int  = Math.floor(state.baseInt  * state.intMult) + (state.equipInt||0);
   state.sta  = Math.floor(state.baseSta  * state.staMult) + (state.equipSta||0);
   state.hit  = state.baseHit;
+  state.lifeSteal = state.equipLifeSteal || 0;
 
   // STR → Attack Power
   state.attackPower = Math.floor(state.str * 2 * state.attackMult);
@@ -313,7 +314,7 @@ const NORMAL_ENEMIES=[
 const SLOT_ICONS={weapon:'⚔️',armor:'🛡️',helmet:'⛑️',boots:'👢',ring:'💍',amulet:'📿'};
 const EQUIP_PREFIXES={legendary:['Divine','Mythic','Godforged','Ancient','Eternal','Celestial'],epic:['Heroic','Valiant','Exalted','Magnificent','Radiant'],rare:['Polished','Reinforced','Enchanted','Gleaming'],uncommon:['Sturdy','Sharpened','Improved','Sturdy'],normal:['Iron','Wooden','Basic','Simple']};
 const EQUIP_NAMES={weapon:['Blade','Sword','Axe','Spear','Dagger','Staff','Bow'],armor:['Plate','Chainmail','Robe','Leather','Cuirass'],helmet:['Helm','Crown','Hood','Circlet','Visor'],boots:['Greaves','Sabatons','Boots','Treads'],ring:['Band','Seal','Loop','Signet'],amulet:['Pendant','Amulet','Talisman','Necklace']};
-const EQUIP_STATS={weapon:{str:[2,6]},armor:{armor:[2,5]},helmet:{armor:[1,3],int:[1,2]},boots:{agi:[2,5]},ring:{str:[1,3],int:[1,3]},amulet:{int:[2,4],maxMp:[10,20]}};
+const EQUIP_STATS={weapon:{str:[15,35], lifeSteal:[0.05, 0.15]},armor:{armor:[25,55]},helmet:{armor:[35,65],int:[15,35]},boots:{agi:[15,35]},ring:{str:[15,35],int:[15,35]},amulet:{int:[25,45],maxMp:[105,205]}};
 
 function mkEquipDrop(slot,rarity){
   const mult=RARITY[rarity].mult;
@@ -321,7 +322,7 @@ function mkEquipDrop(slot,rarity){
   const suffix=EQUIP_NAMES[slot][Math.floor(Math.random()*EQUIP_NAMES[slot].length)];
   const stats={};
   Object.entries(EQUIP_STATS[slot]).forEach(([k,[mn,mx]])=>{stats[k]=Math.round((Math.floor(Math.random()*(mx-mn+1))+mn)*mult);});
-  return {uid:genUid(),name:`${SLOT_ICONS[slot]} ${prefix} ${suffix}`,category:'equipment',slot,rarity,stats,equipped:false,sellPrice:Math.round(12*mult*(state.level||1)*.4)};
+  return {uid:genUid(),name:`${SLOT_ICONS[slot]} ${prefix} ${suffix}`,category:'equipment',slot,rarity,stats,equipped:false,sellPrice:Math.round(50*mult*(state.level||1)*.4)};
 }
 function mkMat(name,rarity,sellPrice){return {uid:genUid(),name,category:'material',rarity,sellPrice,stackable:true,qty:1};}
 function mkCons(name,rarity,sellPrice,hpVal){return {uid:genUid(),name,category:'consumable',rarity,sellPrice,stackable:true,qty:1,effect:'hp',val:hpVal};}
@@ -329,23 +330,23 @@ function genUid(){return Date.now()+Math.random();}
 
 // ── CRAFTING RECIPES ──
 const CRAFTING=[
-  {id:'craft_steel_sword',result:{name:'⚔️ Crafted Steel Sword',slot:'weapon',rarity:'rare',stats:{str:10},category:'equipment'},
+  {id:'craft_steel_sword',result:{name:'⚔️ Crafted Steel Sword',slot:'weapon',rarity:'rare',stats:{str:100},category:'equipment'},
    req:[{name:'🪓 Orc Fragment',qty:3},{name:'🪶 Wolf Fang',qty:2}],desc:'A powerful steel sword forged from orc metal'},
-  {id:'craft_shadow_blade',result:{name:'🗡️ Shadow Blade',slot:'weapon',rarity:'epic',stats:{str:8,agi:6},category:'equipment'},
+  {id:'craft_shadow_blade',result:{name:'🗡️ Shadow Blade',slot:'weapon',rarity:'epic',stats:{str:80,agi:60},category:'equipment'},
    req:[{name:'🌕 Moon Shard',qty:2},{name:'🪶 Wolf Fang',qty:3},{name:'🕸️ Spider Silk',qty:2}],desc:'A blade imbued with shadow energy'},
-  {id:'craft_dragon_armor',result:{name:'🛡️ Dragon Scale Armor',slot:'armor',rarity:'epic',stats:{armor:12},category:'equipment'},
+  {id:'craft_dragon_armor',result:{name:'🛡️ Dragon Scale Armor',slot:'armor',rarity:'epic',stats:{armor:320},category:'equipment'},
    req:[{name:'🐉 Dragon Scale',qty:3},{name:'🪨 Stone Core',qty:2}],desc:'Armor forged from dragon scales'},
-  {id:'craft_void_ring',result:{name:'💍 Void Ring',slot:'ring',rarity:'epic',stats:{str:5,int:5,agi:5},category:'equipment'},
+  {id:'craft_void_ring',result:{name:'💍 Void Ring',slot:'ring',rarity:'epic',stats:{str:150,int:150,agi:150},category:'equipment'},
    req:[{name:'🌑 Void Crystal',qty:2},{name:'💎 Troll Gem',qty:3}],desc:'A ring channeling the power of the void'},
-  {id:'craft_phoenix_amulet',result:{name:'📿 Phoenix Amulet',slot:'amulet',rarity:'legendary',stats:{int:15,maxMp:40},category:'equipment'},
+  {id:'craft_phoenix_amulet',result:{name:'📿 Phoenix Amulet',slot:'amulet',rarity:'legendary',stats:{int:150,maxMp:400},category:'equipment'},
    req:[{name:'🔥 Phoenix Feather',qty:2},{name:'🔥 Dragon Flame',qty:2},{name:'💎 Pure Crystal Core',qty:1}],desc:'Ultimate mage amulet — requires rare boss drops'},
-  {id:'craft_titan_helm',result:{name:'⛑️ Titan Helm',slot:'helmet',rarity:'legendary',stats:{armor:20,str:8},category:'equipment'},
+  {id:'craft_titan_helm',result:{name:'⛑️ Titan Helm',slot:'helmet',rarity:'legendary',stats:{armor:200,str:80},category:'equipment'},
    req:[{name:'⚡ Titan Soul',qty:1},{name:'💀 Death Essence',qty:2},{name:'🪨 Stone Core',qty:3}],desc:'A helmet of godlike defense'},
-  {id:'craft_chaos_boots',result:{name:'👢 Chaos Treads',slot:'boots',rarity:'legendary',stats:{agi:18,str:5},category:'equipment'},
+  {id:'craft_chaos_boots',result:{name:'👢 Chaos Treads',slot:'boots',rarity:'legendary',stats:{agi:180,str:50},category:'equipment'},
    req:[{name:'🌀 Chaos Essence',qty:2},{name:'🌕 Moon Shard',qty:3}],desc:'Boots that bend space with every step'},
-  {id:'craft_mega_potion',result:{name:'❤️ Mega Elixir',category:'consumable',rarity:'epic',effect:'hp',val:150,stackable:true,qty:1},
-   req:[{name:'🩸 Blood Vial',qty:3},{name:'🔥 Phoenix Feather',qty:1}],desc:'Restores 150 HP instantly'},
-  {id:'craft_divine_blade',result:{name:'⚔️ Divine Blade',slot:'weapon',rarity:'legendary',stats:{str:22},category:'equipment'},
+  {id:'craft_mega_potion',result:{name:'❤️ Mega Elixir',category:'consumable',rarity:'epic',effect:'hp',val:1500,stackable:true,qty:1},
+   req:[{name:'🩸 Blood Vial',qty:3},{name:'🔥 Phoenix Feather',qty:1}],desc:'Restores 1500 HP instantly'},
+  {id:'craft_divine_blade',result:{name:'⚔️ Divine Blade',slot:'weapon',rarity:'legendary',stats:{str:220},category:'equipment'},
    req:[{name:'☄️ Divine Shard',qty:2},{name:'🐉 Dragon Scale',qty:2},{name:'😈 Demon Horn',qty:1}],desc:'The ultimate weapon — forged from fallen god material'},
 ];
 
@@ -356,12 +357,12 @@ const SCENES={
       {text:'🌲 Dark Forest',next:'forest'},{text:'⛰️ Dungeon',next:'dungeon'},
       {text:'🏔️ Mountains',next:'mountains'},{text:'🌊 Coast',next:'coast'},
       {text:'🏜️ Wasteland',next:'wasteland'},{text:'🌋 Volcanic Rift',next:'volcanic'},
-      {text:'🏪 Shop',next:'shop_scene'},{text:'⛪ Inn (+500 HP and 100 MP, 5g)',next:'inn'},
+      {text:'🏪 Shop',next:'shop_scene'},{text:'⛪ Inn (+9999 HP and 100 MP, 5g)',next:'inn'},
     ]},
   forest:{title:'🌲 Dark Forest',text:'Ancient trees tower overhead. Creatures lurk in every shadow.',
     choices:[
       {text:'🐺 Fight Wolf',next:'combat',enemy:'wolf'},{text:'🕷️ Fight Spider',next:'combat',enemy:'spider'},
-      {text:'🔍 Search treasure',next:'forest_chest'},{text:'🌿 Gather herbs (+20 HP)',next:'gather_herbs'},
+      {text:'🔍 Search treasure',next:'forest_chest'},{text:'🌿 Gather herbs (+200 HP)',next:'gather_herbs'},
       {text:'🐉 Boss: Ancient Dragon (Lv10+)',next:'boss_fight',bossId:'boss_10'},
       {text:'🏘️ Town',next:'town'},
     ]},
@@ -377,7 +378,7 @@ const SCENES={
     },
     choices:[{text:'🌲 Continue',next:'forest'},{text:'🏘️ Town',next:'town'}]},
   gather_herbs:{title:'🌿 Herb Gathering',text:'You find healing herbs and feel refreshed!',
-    action:()=>{state.hp=Math.min(state.maxHp,state.hp+20);addLog('Gathered herbs: +20 HP','good');playSound('snd-heal');updateUI();},
+    action:()=>{state.hp=Math.min(state.maxHp,state.hp+200);addLog('Gathered herbs: +200 HP','good');playSound('snd-heal');updateUI();},
     choices:[{text:'🌲 Continue',next:'forest'},{text:'🏘️ Town',next:'town'}]},
   dungeon:{title:'⛰️ Dungeon Depths',text:'Dark stone corridors stretch before you. Multiple passages lead into darkness.',
     choices:[
@@ -428,7 +429,7 @@ const SCENES={
   shop_scene:{title:'🏪 General Shop',text:'The shopkeeper greets you warmly. Browse items on the right!',
     choices:[{text:'🏘️ Leave Shop',next:'town'}]},
   inn:{title:'⛪ The Rusty Flagon Inn',text:'You rest comfortably. Your wounds heal and energy is restored.',
-    action:()=>{if(state.gold>=5){state.gold-=5;state.hp=Math.min(state.maxHp,state.hp+9999);state.mp=Math.min(state.maxMp,state.mp+100);addLog('Rested: +500 HP, +100 MP. Cost 5g.','good');playSound('snd-heal');}else addLog('Need 5 gold to rest!','bad');updateUI();},
+    action:()=>{if(state.gold>=5){state.gold-=5;state.hp=Math.min(state.maxHp,state.hp+9999);state.mp=Math.min(state.maxMp,state.mp+100);addLog('Rested: +9999 HP, +100 MP. Cost 5g.','good');playSound('snd-heal');}else addLog('Need 5 gold to rest!','bad');updateUI();},
     choices:[{text:'🏘️ Return to Town',next:'town'}]},
   victory:{title:'🏆 Victory!',text:'You defeated the enemy and claimed your reward!',
     choices:[{text:'🌲 Forest',next:'forest'},{text:'⛰️ Dungeon',next:'dungeon'},{text:'🏔️ Mountains',next:'mountains'},{text:'🌊 Coast',next:'coast'},{text:'🏜️ Wasteland',next:'wasteland'},{text:'🌋 Volcanic Rift',next:'volcanic'},{text:'🏘️ Town',next:'town'}]},
@@ -439,10 +440,10 @@ const SCENES={
 
 // ── SHOP ITEMS ──
 const SHOP_EQUIP=[
-  {id:'s1',name:'⚔️ Iron Sword',price:200,slot:'weapon',rarity:'normal',stats:{str:30}},
-  {id:'s2',name:'⚔️ Steel Sword',price:500,slot:'weapon',rarity:'uncommon',stats:{str:70,strMult:0.05}},  
-  {id:'s3',name:'⚔️ Steel Long Sword',price:2200,slot:'weapon',rarity:'rare',stats:{str:100,strMult:0.1,critMult:0.5}},
-  {id:'s4',name:'⚔️ Damacus Sword',price:5500,slot:'weapon',rarity:'legendary',stats:{str:150,strMult:0.2,critMult:0.5,dodgeMult:0.5}},
+  {id:'s1',name:'⚔️ Iron Sword',price:200,slot:'weapon',rarity:'normal',stats:{str:30,lifeSteal:0.5}},
+  {id:'s2',name:'⚔️ Steel Sword',price:500,slot:'weapon',rarity:'uncommon',stats:{str:70,strMult:0.05,lifeSteal:0.9}},  
+  {id:'s3',name:'⚔️ Steel Long Sword',price:2200,slot:'weapon',rarity:'rare',stats:{str:100,strMult:0.1,critMult:0.5,lifeSteal:1.5}},
+  {id:'s4',name:'⚔️ Damacus Sword',price:5500,slot:'weapon',rarity:'legendary',stats:{str:150,strMult:0.2,critMult:0.5,dodgeMult:0.5,lifeSteal:3.9}},
   {id:'s5',name:'🛡️ Wooden Shield',price:200,slot:'armor',rarity:'normal',stats:{sta:20,agi:20,armor:20}},
   {id:'s6',name:'🛡️ Iron Plate',price:400,slot:'armor',rarity:'uncommon',stats:{sta:50,agi:50,armor:50}},
   {id:'s7',name:'🛡️ Iron Plate',price:2200,slot:'armor',rarity:'rare',stats:{sta:100,agi:100,armor:100,maxHp:500}},
@@ -465,11 +466,11 @@ const SHOP_EQUIP=[
   {id:'s24',name:'📿 Mage Amulet',price:5500,slot:'amulet',rarity:'legendary',stats:{int:150,maxMp:1500}},
 ];
 const SHOP_CONS=[
-  {id:'c1',name:'❤️ Health Potion',price:10,rarity:'normal',effect:'hp',val:40},
-  {id:'c2',name:'❤️ Mega Potion',price:22,rarity:'uncommon',effect:'hp',val:200},
-  {id:'c3',name:'💧 Mana Potion',price:8,rarity:'normal',effect:'mp',val:30},
-  {id:'c4',name:'💧 Mana Flask',price:18,rarity:'uncommon',effect:'mp',val:600},
-  {id:'c5',name:'✨ Elixir',price:40,rarity:'rare',effect:'both',val:2000},
+  {id:'c1',name:'❤️ Health Potion',price:100,rarity:'normal',effect:'hp',val:400},
+  {id:'c2',name:'❤️ Mega Potion',price:220,rarity:'uncommon',effect:'hp',val:2000},
+  {id:'c3',name:'💧 Mana Potion',price:80,rarity:'normal',effect:'mp',val:300},
+  {id:'c4',name:'💧 Mana Flask',price:180,rarity:'uncommon',effect:'mp',val:6000},
+  {id:'c5',name:'✨ Elixir',price:400,rarity:'rare',effect:'both',val:20000},
 ];
 let autoFightOn = false;
 let autoFightEnemyId = null;  // tracks last defeated enemy
@@ -597,8 +598,6 @@ function stopAutoFight(){
  
 function autoFightStep(){
   if(!currentEnemy||!autoFightOn)return;
- 
-  // Player basic attack only — no skills, no potions
   const enemyDodgeChance=Math.max(0,(currentEnemy.dodge||0)-state.hit)/100;
   if(Math.random()<enemyDodgeChance){
     addCombatLog(`💨 ${currentEnemy.name} dodged!`,'bad');
@@ -609,18 +608,24 @@ function autoFightStep(){
     if(state.unlockedTalents.includes('berserker')&&state.hp<state.maxHp*.5)dmg=Math.floor(dmg*1.35);
     if(state.unlockedTalents.includes('death_mark'))dmg=Math.floor(dmg*1.5);
     currentEnemy.hp-=dmg;
+    const lifeSteal=state.lifeSteal||0;
+    if(lifeSteal>0){
+      const healAmt=Math.floor(dmg*lifeSteal);
+      if(healAmt>0){
+        state.hp=Math.min(state.maxHp,state.hp+healAmt);
+        addCombatLog(`🩸 Life Steal heals ${healAmt} HP!`,'good');
+        spawnDmgFloat(`🩸+${healAmt}`,false,'heal-float');
+      }
+    }
     addCombatLog(`⚔️ ${isCrit?'💥CRIT! ':''}Auto: ${dmg} dmg!`,isCrit?'gold':'good');
     animateAttack(true,dmg,isCrit);
   }
- 
-  // Check enemy dead
   if(currentEnemy.hp<=0){
     currentEnemy.hp=0;
     updateEnemyBar();
     clearInterval(autoFightTimer);
     autoFightTimer=null;
     endCombat(true);
-    // restart next fight after short delay if still on
     if(autoFightOn){
       setTimeout(()=>{
         if(autoFightOn&&autoFightEnemyId){
@@ -634,13 +639,9 @@ function autoFightStep(){
     }
     return;
   }
- // Decrement all skill cooldowns after auto-attack
-Object.keys(state.skillCooldowns).forEach(k => {
-  if (state.skillCooldowns[k] > 0) {
-    state.skillCooldowns[k]--;
-  }
-});
-  // Enemy attacks player
+  Object.keys(state.skillCooldowns).forEach(k=>{
+    if(state.skillCooldowns[k]>0)state.skillCooldowns[k]--;
+  });
   if(currentEnemy.frozen){
     currentEnemy.frozen=false;
     addCombatLog(`${currentEnemy.name} is frozen!`,'info');
@@ -652,30 +653,26 @@ Object.keys(state.skillCooldowns).forEach(k => {
     state.hp-=eDmg;
     if(eDmg>0){addCombatLog(`${currentEnemy.name} hits you for ${eDmg}!`,'bad');animateAttack(false,eDmg,false);}
   }
- 
-  // Poison tick
   if(currentEnemy.poisoned>0){
     const pd=8;currentEnemy.hp-=pd;
     currentEnemy.poisoned--;
     addCombatLog(`🐍 Poison deals ${pd}!`,'good');
   }
- 
-  // Check player dead
   if(state.hp<=0){
     state.hp=0;
     updateUI();
     clearInterval(autoFightTimer);
     autoFightTimer=null;
-    stopAutoFight(); // stop auto fight on death
+    stopAutoFight();
     addLog('💀 Auto Fight stopped — you died!','bad');
     notify('💀 Auto Fight stopped — you died!','var(--red)');
     endCombat(false);
     return;
   }
- 
   updateEnemyBar();
   updateUI();
 }
+  // ... rest of your function stays the same
  
  
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -849,6 +846,16 @@ function combatAction(action){
       if(state.unlockedTalents.includes('death_mark'))dmg=Math.floor(dmg*1.5);
       if(state.unlockedTalents.includes('venom'))currentEnemy.poisoned=(currentEnemy.poisoned||0)+1;
       currentEnemy.hp-=dmg;
+      // Life steal
+    const lifeSteal = state.lifeSteal || 0;
+      if(lifeSteal > 0){
+      const healAmt = Math.floor(dmg * lifeSteal);
+      if(healAmt > 0){
+      state.hp = Math.min(state.maxHp, state.hp + healAmt);
+      addCombatLog(`🩸 Life Steal heals ${healAmt} HP!`, 'good');
+      spawnDmgFloat(`🩸+${healAmt}`, false, 'heal-float');
+  }
+    }
       addCombatLog(`⚔️ ${isCrit?'💥CRIT! ':''}You hit for ${dmg}!`,isCrit?'gold':'good');
       playSound('snd-attack');animateAttack(true,dmg,isCrit);
     }
@@ -1061,10 +1068,10 @@ function unlockTalent(talentId,treeId){
   const rank=state.unlockedTalents.filter(u=>u===talentId).length;
   if(rank>=talent.ranks){addLog(`${talent.name} already maxed!`,'bad');return;}
   if(state.talentPoints<talent.cost){addLog('Not enough talent points!','bad');return;}
-  
+
   state.talentPoints-=talent.cost;
   state.unlockedTalents.push(talentId);
-  
+
   // Mark as unlocked in the flag system
   const flagKey=`${state.class}_${talentId}`;
   state.talentUnlockedFlags[flagKey]=true;
