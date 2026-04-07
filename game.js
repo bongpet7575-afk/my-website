@@ -20,18 +20,20 @@ const RARITY={
   uncommon:{label:'Uncommon',color:'var(--uncommon)',chance:.35,mult:2.3},
   normal:{label:'Normal',color:'#cccccc',chance:1,mult:1},
 };
-function rollRarity(){
-  const bonus=(DIFFICULTY[state.difficulty||'normal']?.rarityBonus||0);
-  const legendaryChance=(DIFFICULTY[state.difficulty||'normal']?.legendaryChance||0.03);
+function rollRarity(isBoss=false){
   const r=Math.random();
-  // base tiers: legendary .03, epic .08, rare .18, uncommon .35, normal 1
-  // bonus shifts the cutoffs down so higher rarities appear more often
-  const shift=bonus*0.07;
-  if(r<legendaryChance)return'legendary';
-  if(r<0.08+shift)return'epic';
-  if(r<0.18+shift*2)return'rare';
-  if(r<0.35+shift*3)return'uncommon';
-  return'normal';
+  if(isBoss){
+    // Bosses: can drop epic and legendary
+    if(r<0.15)return'legendary';
+    if(r<0.40)return'epic';
+    if(r<0.70)return'rare';
+    return'uncommon';
+  } else {
+    // Normal monsters: max rare, small chance
+    if(r<0.05)return'rare';
+    if(r<0.20)return'uncommon';
+    return'normal';
+  }
 }
 
 
@@ -42,20 +44,25 @@ function rollRarity(){
 const state={
   // EQUIPMENT BONUSES (applied on top of base * mult)
   equipStr:0, equipAgi:0, equipInt:0, equipSta:0,
-  equipMaxMp:0, equipMaxHp:0, equipArmor:0, equipCrit:0, equipDodge:0,
-   // Track talent-based gold multiplier separately
+  equipMaxMp:0, equipMaxHp:0, equipArmor:0, equipCrit:0, equipDodge:0,equipLifeSteal:0,equipAttackPower:0,equipHpRegen:0,equipMpRegen:0,hpRegen:0,manaRegen:0,equipHit:0,lifeSteal:0,lifeStealMult:1.0,
+ 
+  // Track talent-based gold multiplier separately
   name:'',level:9,xp:0,xpNext:100,maxLevel:100,
-  hp:100,maxHp:100,mp:50,maxMp:50,
+  hp:100,maxHp:100,mp:50,maxMp:50,hit:10,crit:5,dodge:5,hpRegen:20,lifeSteal:0.01,
+ 
   // PRIMARY BASE STATS (raw - leveled up, never modified directly by class/talent)
-  baseStr:5,baseAgi:5,baseInt:5,baseSta:5,baseHit:5,baseArmor:5,
+  baseStr:5,baseAgi:5,baseInt:5,baseSta:5,baseArmor:5,baseHit:10,baseCrit:2,baseDodge:2,baseHpRegen:20,baseLifeSteal:0.01,
+ 
   // STAT MULTIPLIERS (class + talent % bonuses, starts at 1.0 = 100%)
-  strMult:1.0,agiMult:1.0,intMult:1.0,staMult:1.0,armorMult:1.0,
+  strMult:1.0,agiMult:1.0,intMult:1.0,staMult:1.0,armorMult:1.0,hpRegenMult:1.0,mpMult:1.0,critMult:1.0,dodgeMult:1.0,mpRegenMult:1.0,hitMult:1.0,lifeStealMult:1.0,
+ 
   // EFFECTIVE STATS (calculated by calcStats from base * mult)
-  str:5,agi:5,int:5,armor:2,sta:5,hit:5,
+  str:5,agi:5,int:5,armor:2,sta:5,hit:5,crit:2,dodge:2,lifeSteal:0.01,
   gold:300,goldMult:1.0,difficulty:'normal',
+ 
   // DERIVED STATS (calculated automatically by calcStats)
   attackPower:0,attackMult:1.0,armor:0,crit:0,critMult:1.0,
-  dodge:0,dodgeMult:1.0,hpRegen:0,manaRegen:0,mpMult:1.0,
+  dodge:0,dodgeMult:1.0,hpRegen:0,manaRegen:0,mpMult:1.0,hitMult:1.0,lifeSteal:0,lifeStealMult:1.0,
   inventory:[],equipped:{weapon:null,armor:null,helmet:null,boots:null,ring:null,amulet:null},
   class:null,talentPoints:0,unlockedTalents:[],talentUnlockedFlags:{},skills:[],skillCooldowns:{},
   defending:false,manaShield:false,usedUndying:false,
@@ -88,18 +95,18 @@ const DIFFICULTY={
   hard:{
     label:'Hard',icon:'🔥',color:'#ff8800',
     levelReq:20,
-    hpMult:2,atkMult:2,
-    goldMult:2,xpMult:2,
+    hpMult:5,atkMult:5,
+    goldMult:3,xpMult:3,
     rarityBonus:2,   // shifts rarity up by 2 tiers
     legendaryChance:0.07,
   },
   hell:{
     label:'Hell',icon:'💀',color:'#ff2222',
     levelReq:50,
-    hpMult:3,atkMult:3,
-    goldMult:3,xpMult:3,
+    hpMult:10,atkMult:10,
+    goldMult:5,xpMult:5,
     rarityBonus:3,   // shifts rarity up by 2 tiers
-    legendaryChance:0.5,
+    legendaryChance:0.9,
   },
 };
 function setDifficulty(diff){
@@ -125,11 +132,10 @@ function calcStats(){
   state.agi  = Math.floor(state.baseAgi  * state.agiMult) + (state.equipAgi||0);
   state.int  = Math.floor(state.baseInt  * state.intMult) + (state.equipInt||0);
   state.sta  = Math.floor(state.baseSta  * state.staMult) + (state.equipSta||0);
-  state.hit  = state.baseHit;
-  state.lifeSteal = state.equipLifeSteal || 0;
+  state.hit  = Math.floor(state.baseHit * state.hitMult) + (state.equipHit||0);
 
-  // STR → Attack Power
-  state.attackPower = Math.floor(state.str * 2 * state.attackMult);
+  // STR + INT → Attack Power
+  state.attackPower = Math.floor((state.str * 2 * state.attackMult)+(state.int * 2 * state.attackMult*0.5)) + (state.equipAttackPower||0);
 
   // STR + STA → Max HP
   state.maxHp = Math.floor(50 + (state.str * 10) + (state.sta * 15) + (state.level * 20)) + (state.equipMaxHp||0);
@@ -138,15 +144,18 @@ function calcStats(){
   state.armor = Math.floor((state.agi * 3 + state.baseArmor) * state.armorMult) + (state.equipArmor||0);
 
   // AGI → Crit% and Dodge%
-  state.crit  = Math.floor(state.agi * 0.1 * state.critMult);
-  state.dodge = Math.floor(state.agi * 0.1 * state.dodgeMult);
+  state.crit  = Math.floor((state.agi * 0.1 * state.baseDodge) * state.critMult) + (state.equipCrit||0);
+  state.dodge = Math.floor((state.agi * 0.1 * state.baseDodge) * state.dodgeMult) + (state.equipDodge||0);
 
-  // INT → Max MP
+  // INT → Max MP and Mana Regen
   state.maxMp     = Math.floor((50 + (state.int * 3)) * state.mpMult) + (state.equipMaxMp||0);
-  state.manaRegen = parseFloat((state.int * 0.5).toFixed(1));
+  state.manaRegen = Math.floor((0.5 + (state.int * 2)) * state.mpRegenMult) + (state.equipMpRegen||0);
 
   // STA → HP Regen
-  state.hpRegen = parseFloat((state.sta * 0.2).toFixed(1));
+  state.hpRegen = Math.floor((state.sta * 0.1 * (state.baseHpRegen)) * state.hpRegenMult) + (state.equipHpRegen||0);
+
+  // LifeSteal
+  state.lifeSteal = Math.floor(state.baseLifeSteal * state.lifeStealMult) + (state.equipLifeSteal||0);
 
   // Clamp hp/mp
   state.hp = Math.min(state.hp, state.maxHp);
@@ -160,17 +169,17 @@ const CLASSES={
     skills:['power_strike','battle_cry','last_stand'],
     trees:{
       dps:{name:'🗡️ DPS',talents:[
-        {id:'berserker',name:'Berserker Rage',desc:'+1% STR and 10% CRIT per rank',cost:5,ranks:10,
-          effect:()=>{state.strMult+=0.01;state.critMult+=0.1;}},
-        {id:'cleave',name:'Brute Force',desc:'+2% STR and 20% CRIT per rank',cost:10,ranks:5,
-          effect:()=>{state.strkMult+=0.02;state.critMult+=0.2;}},
-        {id:'execute',name:'Killing Blow',desc:'+3% STR and 30% CRIT per rank',cost:20,ranks:3,
-          effect:()=>{state.strMult+=0.03;state.critMult+=0.3;}},
+        {id:'berserker',name:'Berserker Rage',desc:'+1% STR, 10% CRIT, +1% HIT per rank',cost:5,ranks:10,
+          effect:()=>{state.baseStr+=10;state.baseCrit+=10;state.baseHit+=10}},
+        {id:'cleave',name:'Brute Force',desc:'+2% STR, 20% CRIT, +2% HIT per rank',cost:10,ranks:5,
+          effect:()=>{state.strkMult+=0.02;state.critMult+=0.2;state.baseHit+=20}},
+        {id:'execute',name:'Killing Blow',desc:'+3% STR, 30% CRIT, +3% HIT per rank',cost:20,ranks:3,
+          effect:()=>{state.strMult+=0.03;state.critMult+=0.3;state.baseHit+=30}},
       ]},
       tank:{name:'🛡️ Tank',talents:[
-        {id:'iron_skin',name:'Iron Skin',desc:'+1% STA and 10% ARMOR per rank',cost:5,ranks:10,
+        {id:'iron_skin',name:'Iron Skin',desc:'+1% STA, 10% ARMOR per rank',cost:5,ranks:10,
           effect:()=>{state.staMult+=0.01;state.armorMult+=0.1;}},
-        {id:'fortress',name:'Iron Fortress',desc:'+2% STA and 20% ARMOR per rank',cost:10,ranks:5,
+        {id:'fortress',name:'Iron Fortress',desc:'+2% STA, 20% ARMOR per rank',cost:10,ranks:5,
           effect:()=>{state.staMult+=0.02;state.armorMult+=0.2;}},
         {id:'shield_wall',name:'Hardened Skin',desc:'+3% STA and 30% ARMOR per rank',cost:20,ranks:3,
           effect:()=>{state.staMult+=0.03;state.armorMult+=0.3;}},
@@ -249,16 +258,52 @@ const CLASSES={
 
 // ── SKILLS ──
 const SKILLS={
-  power_strike:{name:'Power Strike',icon:'💥',mp:15,cd:1,use:(e)=>{const d=Math.floor(state.str*10.5);e.hp-=d;addCombatLog(`💥 Power Strike! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
-  battle_cry:{name:'Battle Cry',icon:'📯',mp:20,cd:2,use:(e)=>{state.strMult*=1.3;state.armorMult*=1.2;addCombatLog('📯 Battle Cry! +30% STR, +20% ARMOR!','good');playSound('snd-magic');calcStats();return 0;}},
-  last_stand:{name:'Last Stand',icon:'🛡️',mp:25,cd:3,use:(e)=>{state.hp=Math.min(state.maxHp,state.hp+400);state.armorMult*=1.5;addCombatLog('🛡️ Last Stand! +400 HP, +50% ARMOR!','good');playSound('snd-heal');spawnDmgFloat('+400HP',true,'heal-float');calcStats();return 0;}},
-  fireball:{name:'Fireball',icon:'🔥',mp:18,cd:1,use:(e)=>{const d=Math.floor(state.int*3+Math.random()*10);e.hp-=d;addCombatLog(`🔥 Fireball! ${d} dmg!`,'good');playSound('snd-magic');animateAttack(true,d,false);return d;}},
-  ice_lance:{name:'Ice Lance',icon:'❄️',mp:12,cd:2,use:(e)=>{const d=Math.floor(state.int*2);e.hp-=d;e.frozen=true;addCombatLog(`❄️ Ice Lance! ${d} dmg — Frozen!`,'info');playSound('snd-magic');animateAttack(true,d,false);return d;}},
-  mana_shield:{name:'Mana Shield',icon:'🔮',mp:30,cd:4,use:(e)=>{state.manaShield=true;addCombatLog('🔮 Mana Shield active!','info');playSound('snd-heal');return 0;}},
-  backstab:{name:'Backstab',icon:'🗡️',mp:10,cd:1,use:(e)=>{const d=Math.floor(state.agi*2.8);e.hp-=d;addCombatLog(`🗡️ Backstab! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
-  poison_blade:{name:'Poison Blade',icon:'🐍',mp:15,cd:2,use:(e)=>{e.poisoned=(e.poisoned||0)+3;addCombatLog('🐍 Poisoned for 3 turns!','good');playSound('snd-magic');return 0;}},
-  shadow_step:{name:'Shadow Step',icon:'🌑',mp:20,cd:3,use:(e)=>{const d=Math.floor(state.agi*3.5);e.hp-=d;addCombatLog(`🌑 Shadow Step! ${d} dmg!`,'purple');playSound('snd-magic');animateAttack(true,d,false);return d;}},
+  power_strike:{name:'Power Strike',icon:'💥',mp:15,cd:1,use:(e)=>{
+    const d=Math.floor(state.attackPower*1.8);
+    e.hp-=d;addCombatLog(`💥 Power Strike! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
+  
+  battle_cry:{name:'Battle Cry',icon:'📯',mp:20,cd:2,use:(e)=>{
+    state.strMult*=1.3;state.armorMult*=1.2;
+    addCombatLog('📯 Battle Cry! +30% STR, +20% ARMOR!','good');playSound('snd-magic');calcStats();return 0;}},
+  
+  last_stand:{name:'Last Stand',icon:'🛡️',mp:25,cd:3,use:(e)=>{
+    const healAmt=Math.floor(state.maxHp*0.3);
+    state.hp=Math.min(state.maxHp,state.hp+healAmt);
+    state.armorMult*=1.5;
+    addCombatLog(`🛡️ Last Stand! +${healAmt} HP, +50% ARMOR!`,'good');
+    playSound('snd-heal');spawnDmgFloat(`+${healAmt}HP`,false,'heal-float');calcStats();return 0;}},
+  
+  fireball:{name:'Fireball',icon:'🔥',mp:18,cd:1,use:(e)=>{
+    const d=Math.floor(state.int*5+Math.random()*state.int);
+    e.hp-=d;addCombatLog(`🔥 Fireball! ${d} dmg!`,'good');playSound('snd-magic');animateAttack(true,d,false);return d;}},
+  
+  ice_lance:{name:'Ice Lance',icon:'❄️',mp:12,cd:2,use:(e)=>{
+    const d=Math.floor(state.int*3.5);
+    e.hp-=d;e.frozen=true;addCombatLog(`❄️ Ice Lance! ${d} dmg — Frozen!`,'info');playSound('snd-magic');animateAttack(true,d,false);return d;}},
+  
+  mana_shield:{name:'Mana Shield',icon:'🔮',mp:30,cd:4,use:(e)=>{
+    state.manaShield=true;addCombatLog('🔮 Mana Shield active!','info');playSound('snd-heal');return 0;}},
+  
+  backstab:{name:'Backstab',icon:'🗡️',mp:10,cd:1,use:(e)=>{
+    const d=Math.floor(state.attackPower*2.0);
+    e.hp-=d;addCombatLog(`🗡️ Backstab! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
+  
+  poison_blade:{name:'Poison Blade',icon:'🐍',mp:15,cd:2,use:(e)=>{
+    e.poisoned=(e.poisoned||0)+5;
+    addCombatLog('🐍 Poisoned for 5 turns!','good');playSound('snd-magic');return 0;}},
+  
+  shadow_step:{name:'Shadow Step',icon:'🌑',mp:20,cd:3,use:(e)=>{
+    const d=Math.floor(state.attackPower*2.5);
+    e.hp-=d;addCombatLog(`🌑 Shadow Step! ${d} dmg!`,'purple');playSound('snd-magic');animateAttack(true,d,false);return d;}},
 };
+// Key changes: Power Strike — now uses attackPower instead of raw str
+// Key changes:Fireball — scales with int properly
+// Key changes:Ice Lance — stronger scaling with int
+// Key changes:Backstab — uses attackPower for proper scaling
+// Key changes:Shadow Step — uses attackPower, highest multiplier for rogue
+// Key changes:Poison Blade — 5 turns instead of 3
+// Now all skills stay useful at high levels! 💪
+
 
 // ── BOSSES (one every 10 levels, up to level 100) ──
 const BOSSES=[
@@ -296,25 +341,25 @@ const BOSSES=[
 
 // ── NORMAL ENEMIES ──
 const NORMAL_ENEMIES=[
-  {id:'wolf',name:'🐺 Forest Wolf',icon:'wolf',hp:150,atk:80,armor:2,xp:125,gold:[5,15],loot:()=>[mkMat('🪶 Wolf Fang',rollRarity(),5)]},
-  {id:'spider',name:'🕷️ Giant Spider',icon:'spider',hp:280,atk:100,armor:1,xp:181,gold:[3,12],loot:()=>[mkMat('🕸️ Spider Silk',rollRarity(),6)]},
-  {id:'goblin',name:'👹 Dungeon Goblin',icon:'goblin',hp:450,atk:120,armor:3,xp:381,gold:[10,25],loot:()=>[mkEquipDrop('weapon',rollRarity())]},
-  {id:'skeleton',name:'💀 Skeleton',icon:'skeleton',hp:600,atk:160,armor:5,xp:551,gold:[15,30],loot:()=>[mkEquipDrop('armor',rollRarity())]},
-  {id:'orc',name:'👊 Orc Warrior',icon:'orc',hp:800,atk:200,armor:7,xp:751,gold:[20,40],loot:()=>[mkEquipDrop('weapon',rollRarity()),mkMat('🪓 Orc Fragment','normal',8)]},
-  {id:'vampire',name:'🧛 Vampire',icon:'vampire',hp:900,atk:220,armor:8,xp:901,gold:[25,50],loot:()=>[mkEquipDrop('ring',rollRarity()),mkCons('🩸 Blood Vial','uncommon',35,8)]},
-  {id:'troll',name:'👾 Cave Troll',icon:'troll',hp:1100,atk:260,armor:10,xp:1001,gold:[30,55],loot:()=>[mkEquipDrop('armor',rollRarity()),mkMat('💎 Troll Gem','rare',30)]},
-  {id:'golem',name:'🗿 Stone Golem',icon:'golem',hp:1300,atk:280,armor:14,xp:1201,gold:[35,60],loot:()=>[mkEquipDrop('helmet',rollRarity()),mkMat('🪨 Stone Core','uncommon',15)]},
-  {id:'demon_knight',name:'😈 Demon Knight',icon:'demon',hp:1500,atk:320,armor:12,xp:1451,gold:[40,70],loot:()=>[mkEquipDrop('weapon','rare'),mkEquipDrop('armor',rollRarity())]},
-  {id:'werewolf',name:'🐺 Werewolf',icon:'werewolf',hp:1700,atk:360,armor:150,xp:1651,gold:[45,80],loot:()=>[mkEquipDrop('boots',rollRarity()),mkMat('🌕 Moon Shard','rare',25)]},
-  {id:'sea_monster',name:'🦑 Sea Monster',icon:'kraken',hp:2000,atk:420,armor:18,xp:1901,gold:[55,95],loot:()=>[mkEquipDrop('amulet',rollRarity()),mkMat('🦑 Kraken Ink','epic',45)]},
-  {id:'phoenix',name:'🦅 Phoenix',icon:'phoenix',hp:2300,atk:500,armor:20,xp:2200,gold:[65,110],loot:()=>[mkEquipDrop('ring',rollRarity()),mkMat('🔥 Phoenix Feather','epic',60)]},
+  {id:'wolf',name:'🐺 Forest Wolf',icon:'wolf',hp:150,atk:80,armor:2,xp:125,gold:[55,150],loot:()=>[mkMat('🐺Wolf Fang',rollRarity(),5)]},
+  {id:'spider',name:'🕷️ Giant Spider',icon:'spider',hp:380,atk:180,armor:10,xp:181,gold:[99,200],loot:()=>[mkMat('🕸️ Spider Silk',rollRarity(),6)]},
+  {id:'goblin',name:'👹 Dungeon Goblin',icon:'goblin',hp:750,atk:220,armor:30,xp:381,gold:[150,350],loot:()=>[mkEquipDrop('weapon',rollRarity()),mkEquipDrop('armor',rollRarity())]},
+  {id:'skeleton',name:'💀 Skeleton',icon:'skeleton',hp:1200,atk:360,armor:50,xp:551,gold:[300,550],loot:()=>[mkEquipDrop('armor',rollRarity()),mkEquipDrop('weapon',rollRarity())]},
+  {id:'orc',name:'👊 Orc Warrior',icon:'orc',hp:2200,atk:480,armor:70,xp:751,gold:[500,750],loot:()=>[mkEquipDrop('weapon',rollRarity()),mkMat('🪓 Orc Fragment','normal',8)]},
+  {id:'vampire',name:'🧛 Vampire',icon:'vampire',hp:3900,atk:620,armor:80,xp:901,gold:[700,950],loot:()=>[mkEquipDrop('ring',rollRarity()),mkCons('🩸 Blood Vial','uncommon',35,8)]},
+  {id:'troll',name:'👾 Cave Troll',icon:'troll',hp:5100,atk:860,armor:110,xp:1001,gold:[900,1250],loot:()=>[mkEquipDrop('armor',rollRarity()),mkMat('💎 Troll Gem','rare',30)]},
+  {id:'golem',name:'🗿 Stone Golem',icon:'golem',hp:7300,atk:1280,armor:140,xp:1201,gold:[1200,1550],loot:()=>[mkEquipDrop('helmet',rollRarity()),mkMat('🪨 Stone Core','uncommon',15)]},
+  {id:'demon_knight',name:'😈 Demon Knight',icon:'demon',hp:9500,atk:1500,armor:160,xp:1451,gold:[1500,1750],loot:()=>[mkEquipDrop('weapon','rare'),mkEquipDrop('armor',rollRarity())]},
+  {id:'werewolf',name:'🐺 Werewolf',icon:'werewolf',hp:13000,atk:2000,armor:1700,xp:1651,gold:[1700,1850],loot:()=>[mkEquipDrop('boots',rollRarity()),mkMat('🌕 Moon Shard','rare',25)]},
+  {id:'sea_monster',name:'🦑 Sea Monster',icon:'kraken',hp:15000,atk:3200,armor:2000,xp:1901,gold:[1800,1950],loot:()=>[mkEquipDrop('amulet',rollRarity()),mkMat('🦑 Kraken Ink','epic',45)]},
+  {id:'phoenix',name:'🦅 Phoenix',icon:'phoenix',hp:17300,atk:3000,armor:4200,xp:2200,gold:[1950,2250],loot:()=>[mkEquipDrop('ring',rollRarity()),mkMat('🔥 Phoenix Feather','epic',60)]},
 ];
 
 // ── ITEM HELPERS ──
 const SLOT_ICONS={weapon:'⚔️',armor:'🛡️',helmet:'⛑️',boots:'👢',ring:'💍',amulet:'📿'};
 const EQUIP_PREFIXES={legendary:['Divine','Mythic','Godforged','Ancient','Eternal','Celestial'],epic:['Heroic','Valiant','Exalted','Magnificent','Radiant'],rare:['Polished','Reinforced','Enchanted','Gleaming'],uncommon:['Sturdy','Sharpened','Improved','Sturdy'],normal:['Iron','Wooden','Basic','Simple']};
 const EQUIP_NAMES={weapon:['Blade','Sword','Axe','Spear','Dagger','Staff','Bow'],armor:['Plate','Chainmail','Robe','Leather','Cuirass'],helmet:['Helm','Crown','Hood','Circlet','Visor'],boots:['Greaves','Sabatons','Boots','Treads'],ring:['Band','Seal','Loop','Signet'],amulet:['Pendant','Amulet','Talisman','Necklace']};
-const EQUIP_STATS={weapon:{str:[15,35], lifeSteal:[0.05, 0.15]},armor:{armor:[25,55]},helmet:{armor:[35,65],int:[15,35]},boots:{agi:[15,35]},ring:{str:[15,35],int:[15,35]},amulet:{int:[25,45],maxMp:[105,205]}};
+const EQUIP_STATS={weapon:{str:[15,35], lifeSteal:[0.05, 0.09]},armor:{armor:[25,55], sta:[15,35],maxHp:[200,300],hpRegen:[25,75]},helmet:{armor:[35,65],int:[15,35]},boots:{agi:[15,35]},ring:{str:[15,35],int:[15,35]},amulet:{int:[25,45],maxMp:[105,205]}};
 
 function mkEquipDrop(slot,rarity){
   const mult=RARITY[rarity].mult;
@@ -370,8 +415,8 @@ const SCENES={
     choices:[{text:'📦 Open it',next:'chest_open'},{text:'🏘️ Return',next:'town'}]},
   chest_open:{title:'📦 Ancient Chest',text:'The chest opens revealing glittering treasures!',
     action:()=>{
-      const g=Math.floor(Math.random()*25)+15;state.gold+=g;
-      const drop=mkEquipDrop(['weapon','armor','ring','boots'][Math.floor(Math.random()*4)],rollRarity());
+      const g=Math.floor(Math.random()*15)+15;state.gold+=g;
+      const drop=mkEquipDrop(['weapon','armor','ring','boots'][Math.floor(Math.random()*2)],rollRarity());
       addToInventory(drop);addLog(`Found ${g} gold + ${drop.name}!`,'gold');
       if(drop.rarity==='legendary'){state.quests.legendary.done=true;}
       updateUI();renderInventory();
@@ -440,37 +485,43 @@ const SCENES={
 
 // ── SHOP ITEMS ──
 const SHOP_EQUIP=[
-  {id:'s1',name:'⚔️ Iron Sword',price:200,slot:'weapon',rarity:'normal',stats:{str:30,lifeSteal:0.5}},
-  {id:'s2',name:'⚔️ Steel Sword',price:500,slot:'weapon',rarity:'uncommon',stats:{str:70,strMult:0.05,lifeSteal:0.9}},  
-  {id:'s3',name:'⚔️ Steel Long Sword',price:2200,slot:'weapon',rarity:'rare',stats:{str:100,strMult:0.1,critMult:0.5,lifeSteal:1.5}},
-  {id:'s4',name:'⚔️ Damacus Sword',price:5500,slot:'weapon',rarity:'legendary',stats:{str:150,strMult:0.2,critMult:0.5,dodgeMult:0.5,lifeSteal:3.9}},
-  {id:'s5',name:'🛡️ Wooden Shield',price:200,slot:'armor',rarity:'normal',stats:{sta:20,agi:20,armor:20}},
-  {id:'s6',name:'🛡️ Iron Plate',price:400,slot:'armor',rarity:'uncommon',stats:{sta:50,agi:50,armor:50}},
-  {id:'s7',name:'🛡️ Iron Plate',price:2200,slot:'armor',rarity:'rare',stats:{sta:100,agi:100,armor:100,maxHp:500}},
-  {id:'s8',name:'🛡️ Iron Plate',price:4400,slot:'armor',rarity:'legendary',stats:{sta:150,agi:150,armor:150,maxHp:1000,hpRegen:500}},
-  {id:'s9',name:'👢 Leather Boots',price:220,slot:'boots',rarity:'normal',stats:{agi:30,dodge:10}},
-  {id:'s10',name:'👢 Leather Boots',price:550,slot:'boots',rarity:'uncommon',stats:{agi:50,dodge:20}},
-  {id:'s11',name:'👢 Leather Boots',price:2200,slot:'boots',rarity:'rare',stats:{agi:100,dodge:50}},
-  {id:'s12',name:'👢 Leather Boots',price:5500,slot:'boots',rarity:'legendary',stats:{agi:150,dodge:70}},
-  {id:'s13',name:'💍 Power Ring',price:350,slot:'ring',rarity:'normal',stats:{str:30,int:20}},
-  {id:'s14',name:'💍 Power Ring',price:550,slot:'ring',rarity:'uncommon',stats:{str:50,int:50}},
-  {id:'s15',name:'💍 Power Ring',price:2200,slot:'ring',rarity:'rare',stats:{str:100,int:100}},
-  {id:'s16',name:'💍 Power Ring',price:5500,slot:'ring',rarity:'legendary',stats:{str:150,int:150}},
-  {id:'s17',name:'⛑️ Iron Helm',price:280,slot:'helmet',rarity:'normal',stats:{armor:20,int:10}},
-  {id:'s18',name:'⛑️ Iron Helm',price:580,slot:'helmet',rarity:'uncommon',stats:{armor:50,int:50}},
-  {id:'s19',name:'⛑️ Iron Helm',price:2800,slot:'helmet',rarity:'rare',stats:{armor:100,int:80}},
-  {id:'s20',name:'⛑️ Iron Helm',price:6600,slot:'helmet',rarity:'legendary',stats:{armor:200,int:150}},
-  {id:'s21',name:'📿 Mage Amulet',price:250,slot:'amulet',rarity:'normal',stats:{int:30,maxMp:100}},
-  {id:'s22',name:'📿 Mage Amulet',price:550,slot:'amulet',rarity:'uncommon',stats:{int:60,maxMp:300}},
-  {id:'s23',name:'📿 Mage Amulet',price:2200,slot:'amulet',rarity:'rare',stats:{int:90,maxMp:600}},
-  {id:'s24',name:'📿 Mage Amulet',price:5500,slot:'amulet',rarity:'legendary',stats:{int:150,maxMp:1500}},
+  // ── WEAPONS ──
+  {id:'s1',name:'⚔️ Iron Sword',price:200,slot:'weapon',rarity:'normal',stats:{str:20,lifeSteal:0.05,hit:5}},
+  {id:'s2',name:'⚔️ Steel Sword',price:500,slot:'weapon',rarity:'uncommon',stats:{str:45,lifeSteal:0.06,hit:25}},
+  {id:'s3',name:'⚔️ War Blade',price:2200,slot:'weapon',rarity:'rare',stats:{str:90,lifeSteal:0.07,hit:50}},
+  {id:'s4',name:'⚔️ Sovereign Blade',price:5500,slot:'weapon',rarity:'legendary',stats:{str:180,lifeSteal:0.1,hit:150}},
+  // ── ARMOR ──
+  {id:'s5',name:'🛡️ Wooden Shield',price:200,slot:'armor',rarity:'normal',stats:{sta:15,armor:25,hpRegen:25}},
+  {id:'s6',name:'🛡️ Chain Mail',price:400,slot:'armor',rarity:'uncommon',stats:{sta:25,armor:55,hpRegen:50}},
+  {id:'s7',name:'🛡️ Knight Plate',price:2200,slot:'armor',rarity:'rare',stats:{sta:50,armor:110,maxHp:300,hpRegen:100}},
+  {id:'s8',name:'🛡️ Dragon Plate',price:4400,slot:'armor',rarity:'legendary',stats:{sta:90,armor:200,maxHp:800,hpRegen:300}},
+  // ── BOOTS ──
+  {id:'s9',name:'👢 Leather Boots',price:220,slot:'boots',rarity:'normal',stats:{agi:15}},
+  {id:'s10',name:'👢 Swift Treads',price:550,slot:'boots',rarity:'uncommon',stats:{agi:30}},
+  {id:'s11',name:'👢 Shadow Greaves',price:2200,slot:'boots',rarity:'rare',stats:{agi:60}},
+  {id:'s12',name:'👢 Void Sabatons',price:5500,slot:'boots',rarity:'legendary',stats:{agi:120}},
+  // ── RINGS ──
+  {id:'s13',name:'💍 Copper Band',price:350,slot:'ring',rarity:'normal',stats:{str:10,int:10}},
+  {id:'s14',name:'💍 Silver Seal',price:550,slot:'ring',rarity:'uncommon',stats:{str:25,int:25}},
+  {id:'s15',name:'💍 Enchanted Loop',price:2200,slot:'ring',rarity:'rare',stats:{str:50,int:50}},
+  {id:'s16',name:'💍 Eternal Signet',price:5500,slot:'ring',rarity:'legendary',stats:{str:100,int:100}},
+  // ── HELMETS ──
+  {id:'s17',name:'⛑️ Iron Helm',price:280,slot:'helmet',rarity:'normal',stats:{armor:25,int:10}},
+  {id:'s18',name:'⛑️ Steel Visor',price:580,slot:'helmet',rarity:'uncommon',stats:{armor:55,int:25}},
+  {id:'s19',name:'⛑️ Warlord Crown',price:2800,slot:'helmet',rarity:'rare',stats:{armor:110,int:55}},
+  {id:'s20',name:'⛑️ Divine Circlet',price:6600,slot:'helmet',rarity:'legendary',stats:{armor:220,int:110}},
+  // ── AMULETS ──
+  {id:'s21',name:'📿 Novice Pendant',price:250,slot:'amulet',rarity:'normal',stats:{int:15,maxMp:150}},
+  {id:'s22',name:'📿 Mage Talisman',price:550,slot:'amulet',rarity:'uncommon',stats:{int:35,maxMp:350}},
+  {id:'s23',name:'📿 Arcane Necklace',price:2200,slot:'amulet',rarity:'rare',stats:{int:70,maxMp:700}},
+  {id:'s24',name:'📿 Celestial Amulet',price:5500,slot:'amulet',rarity:'legendary',stats:{int:140,maxMp:1400}},
 ];
 const SHOP_CONS=[
   {id:'c1',name:'❤️ Health Potion',price:100,rarity:'normal',effect:'hp',val:400},
   {id:'c2',name:'❤️ Mega Potion',price:220,rarity:'uncommon',effect:'hp',val:2000},
   {id:'c3',name:'💧 Mana Potion',price:80,rarity:'normal',effect:'mp',val:300},
   {id:'c4',name:'💧 Mana Flask',price:180,rarity:'uncommon',effect:'mp',val:6000},
-  {id:'c5',name:'✨ Elixir',price:400,rarity:'rare',effect:'both',val:20000},
+  {id:'c5',name:'✨ Elixir',price:400,rarity:'rare',effect:'both',val:10000},
 ];
 let autoFightOn = false;
 let autoFightEnemyId = null;  // tracks last defeated enemy
@@ -642,6 +693,22 @@ function autoFightStep(){
   Object.keys(state.skillCooldowns).forEach(k=>{
     if(state.skillCooldowns[k]>0)state.skillCooldowns[k]--;
   });
+  // HP/MP regen per turn
+if(state.hpRegen>0){
+  const regen=Math.floor(state.hpRegen);
+  if(regen>0&&state.hp<state.maxHp){
+    state.hp=Math.min(state.maxHp,state.hp+regen);
+    spawnDmgFloat(`+${regen}HP`,false,'heal-float');
+    addCombatLog(`💚 Regen +${regen} HP`,'good'); // ← add this
+  }
+}
+if(state.manaRegen>0){
+  const mregen=Math.floor(state.manaRegen);
+  if(mregen>0&&state.mp<state.maxMp){
+    state.mp=Math.min(state.maxMp,state.mp+mregen);
+    addCombatLog(`💙 Mana Regen +${mregen} MP`,'info'); // ← add this
+  }
+}
   if(currentEnemy.frozen){
     currentEnemy.frozen=false;
     addCombatLog(`${currentEnemy.name} is frozen!`,'info');
@@ -775,7 +842,7 @@ function startBossFight(){
   if(!pendingBossId)return;
   const boss=BOSSES.find(b=>b.id===pendingBossId);if(!boss)return;
   // Scale boss HP/ATK slightly with player level above requirement
-  const scale=1+Math.max(0,(state.level-boss.levelReq))*0.03;
+  const scale=1+Math.max(0,(state.level-boss.levelReq))*0.5;
   currentEnemy={
     ...boss,hp:Math.floor(boss.hp*scale),maxHp:Math.floor(boss.hp*scale),
     atk:Math.floor(boss.atk*scale),armor:boss.armor,
@@ -788,8 +855,8 @@ function startBossFight(){
 function startCombat(enemyId,isBoss){
   const tmpl=NORMAL_ENEMIES.find(e=>e.id===enemyId);if(!tmpl)return;
   const diff=DIFFICULTY[state.difficulty||'normal'];
-  const scale=(1+Math.max(0,(state.level-1))*0.04)*diff.hpMult;
-  const atkScale=(1+Math.max(0,(state.level-1))*0.04)*diff.atkMult;
+  const scale=(1+Math.max(0,(state.level-1))*0.1)*diff.hpMult;
+  const atkScale=(1+Math.max(0,(state.level-1))*0.1)*diff.atkMult;
  
   // Add difficulty prefix to name
   const prefix=state.difficulty==='hell'?'💀 Hell ':state.difficulty==='hard'?'🔥 Hard ':'';
@@ -801,8 +868,8 @@ function startCombat(enemyId,isBoss){
     maxHp:Math.floor(tmpl.hp*scale),
     atk:Math.floor(tmpl.atk*atkScale),
     armor:tmpl.armor,
-    hit:Math.floor((tmpl.armor||0)*2), // enemies get a hit stat too
-    dodge:Math.floor((tmpl.armor||0)*1.5),
+    hit:Math.floor((tmpl.armor||0)*1), // enemies get a hit stat too
+    dodge:Math.floor((tmpl.armor||0)*0.5),
     poisoned:0,frozen:false,crippled:0,boss:false,
     // store gold/xp multipliers on enemy for endCombat
     
@@ -885,8 +952,26 @@ function combatAction(action){
   }
   
   // Apply talent healing
-  if(state.unlockedTalents.includes('second_wind'))state.hp=Math.min(state.maxHp,state.hp+10);
-  if(state.unlockedTalents.includes('mana_regen'))state.mp=Math.min(state.maxMp,state.mp+5);
+  // Apply talent healing
+if(state.unlockedTalents.includes('second_wind'))state.hp=Math.min(state.maxHp,state.hp+10);
+if(state.unlockedTalents.includes('mana_regen'))state.mp=Math.min(state.maxMp,state.mp+5);
+
+// HP/MP regen per turn
+if(state.hpRegen>0){
+  const regen=Math.floor(state.hpRegen + state.equipHpRegen);
+  if(regen>0&&state.hp<state.maxHp){
+    state.hp=Math.min(state.maxHp,state.hp+regen);
+    spawnDmgFloat(`+${regen}HP`,false,'heal-float');
+    addCombatLog(`💚 Regen +${regen} HP`,'good'); // ← add this
+  }
+}
+if(state.manaRegen>0){
+  const mregen=Math.floor(state.manaRegen);
+  if(mregen>0&&state.mp<state.maxMp){
+    state.mp=Math.min(state.maxMp,state.mp+mregen);
+    addCombatLog(`💙 Mana Regen +${mregen} MP`,'info'); // ← add this
+  }
+}
   
   // Decrement all skill cooldowns after player action
   Object.keys(state.skillCooldowns).forEach(k => {
@@ -945,8 +1030,33 @@ function useSkillInCombat(skillId){
   state.mp-=sk.mp;state.skillCooldowns[skillId]=sk.cd;
   sk.use(currentEnemy);
   Object.keys(state.skillCooldowns).forEach(k=>{if(k!==skillId&&state.skillCooldowns[k]>0)state.skillCooldowns[k]--;});
-  if(currentEnemy.hp<=0){currentEnemy.hp=0;updateEnemyBar();endCombat(true);return;}
-  if(currentEnemy.hp>0){const eDmg=Math.max(1,currentEnemy.atk+Math.floor(Math.random()*6)-state.armor);state.hp-=eDmg;addCombatLog(`${currentEnemy.name} retaliates: ${eDmg}!`,'bad');animateAttack(false,eDmg,false);if(state.hp<=0){state.hp=0;updateUI();endCombat(false);return;}}
+  if(currentEnemy.hp<=0){
+    currentEnemy.hp=0;
+    updateEnemyBar();
+    clearInterval(autoFightTimer);
+    autoFightTimer=null;
+    endCombat(true);
+    // Restart auto fight if it's on
+    if(autoFightOn){
+      setTimeout(()=>{
+        if(autoFightOn&&autoFightEnemyId){
+          startCombat(autoFightEnemyId,false);
+          autoFightTimer=setInterval(()=>{
+            if(!autoFightOn||!currentEnemy){clearInterval(autoFightTimer);return;}
+            autoFightStep();
+          },1000);
+        }
+      },1200);
+    }
+    return;
+  }
+  if(currentEnemy.hp>0){
+    const eDmg=Math.max(1,currentEnemy.atk+Math.floor(Math.random()*6)-state.armor);
+    state.hp-=eDmg;
+    addCombatLog(`${currentEnemy.name} retaliates: ${eDmg}!`,'bad');
+    animateAttack(false,eDmg,false);
+    if(state.hp<=0){state.hp=0;updateUI();endCombat(false);return;}
+  }
   updateEnemyBar();updateUI();renderSkillBar();
 }
 
@@ -964,8 +1074,8 @@ function checkLevelUp(){
     state.xpNext=Math.floor(state.level*100*1.25);
     // Level up BASE stats
     state.baseStr+=2;state.baseAgi+=2;state.baseInt+=2;
-    state.baseArmor+=1;state.baseSta+=2;state.baseHit+=1;
-    state.talentPoints+=5;
+    state.baseArmor+=1;state.baseSta+=2;state.baseHit+=5;
+    state.talentPoints+=5;state.baseLifeSteal+=0.01;
     calcStats();
     state.hp=state.maxHp;state.mp=state.maxMp;
     document.getElementById('char-level').textContent=`Level ${state.level} / 100`;
@@ -1199,31 +1309,210 @@ function switchInvTab(tab){
   document.getElementById(`inv-tab-${tab}`).classList.add('active');
   renderInventory();
 }
+function showItemPopup(source, id){
+  const r_=r=>RARITY[r]||RARITY.normal;
+  let item, btns='';
 
+  if(source==='shop'){
+    const all=[...SHOP_EQUIP,...SHOP_CONS];
+    item=all.find(i=>i.id===id);
+    if(!item)return;
+    const desc=item.stats?Object.entries(item.stats).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join(''):
+      item.effect?`<div class="tooltip-stat">Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}</div>`:'';
+    btns=`<button class="start-btn" onclick="buyShopItem('${item.id}');closeItemPopup()">💰 Buy (${item.price}g)</button>`;
+    showPopup(item, desc, btns);
+  } else {
+    item=state.inventory.find(i=>i.uid===id);
+    if(!item)return;
+    const statsHtml=item.stats?Object.entries(item.stats).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join(''):
+      item.effect?`<div class="tooltip-stat">Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}</div>`:'';
+    if(item.category==='equipment'){
+  btns=item.equipped
+    ?`<button class="start-btn red-btn" onclick="unequipSlot('${item.slot}');closeItemPopup()">Unequip</button>`
+    :`<button class="start-btn blue-btn" onclick="equipItem(${item.uid});closeItemPopup()">Equip</button>`;
+  btns+=`<button class="start-btn purple-btn" onclick="closeItemPopup();openEnhance(${item.uid})">⚒️ Enhance</button>`;
+}
+    if(item.category==='consumable'){
+      btns+=`<button class="start-btn" onclick="useItem(${item.uid});closeItemPopup()">Use</button>`;
+    }
+    if(!item.equipped){
+      btns+=`<button class="start-btn red-btn" onclick="sellItem(${item.uid});closeItemPopup()">Sell ${item.stackable&&item.qty>1?'All':''} (${(item.sellPrice||0)*(item.stackable?item.qty:1)}g)</button>`;
+    }
+    showPopup(item, statsHtml, btns);
+  }
+}
+
+function showPopup(item, statsHtml, btns){
+  const r=RARITY[item.rarity]||RARITY.normal;
+  document.getElementById('item-popup-content').innerHTML=`
+    <div style="text-align:center;margin-bottom:10px;">
+      <div style="font-size:2.5em;">${item.name.split(' ')[0]}</div>
+      <div style="color:${r.color};font-family:'Cinzel',serif;font-size:1em;font-weight:600;">${item.name}</div>
+      <div style="color:${r.color};font-size:.78em;">${r.label}</div>
+    </div>
+    <div style="margin:10px 0;">${statsHtml}</div>
+    <div style="color:#888;font-size:.75em;margin-bottom:12px;">Sell: ${item.sellPrice||0}g</div>
+    <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">${btns}</div>
+    <div style="margin-top:8px;text-align:center;">
+      <button class="start-btn" style="background:rgba(255,255,255,.1);color:#aaa;" onclick="closeItemPopup()">✖ Close</button>
+    </div>`;
+  document.getElementById('item-popup').style.display='flex';
+}
+
+function closeItemPopup(){
+  document.getElementById('item-popup').style.display='none';
+}
 function renderInventory(){
   const list=document.getElementById('inventory-list');
   const items=state.inventory.filter(i=>i.category===currentInvTab);
   if(!items.length){list.innerHTML='<div class="inv-empty">No items here</div>';return;}
-  const r_=r=>RARITY[r]||RARITY.normal;
-  list.innerHTML=items.map(item=>{
-    const r=r_(item.rarity);
-    const statsText=item.stats?Object.entries(item.stats).map(([k,v])=>`+${v}${k.toUpperCase()}`).join(' '):'';
-    const consText=item.effect?`Restores ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}`:'';
-    const stackBadge=item.stackable&&item.qty>1?`<span class="inv-item-stack">×${item.qty}</span>`:'';
-    return `<div class="inv-item ${item.rarity}">
-      <div class="inv-item-top">
-        <div class="inv-item-name" style="color:${r.color}">${item.name}</div>
-        ${stackBadge}
+  list.innerHTML=`
+    <div class="item-grid">
+      ${items.map(item=>{
+        const stackBadge=item.stackable&&item.qty>1?`<div class="item-icon-stack">×${item.qty}</div>`:'';
+        const equippedBadge=item.equipped?`<div class="item-icon-equipped">E</div>`:'';
+        return `<div class="item-icon-box ${item.rarity}" onclick="showItemPopup('inv',${item.uid})" title="${item.name}">
+          <div class="item-icon-emoji">${item.name.split(' ')[0]}</div>
+          ${stackBadge}${equippedBadge}
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+// ── ENHANCEMENT ──
+const ENHANCE_COST=[0,500,1000,2000,3500,5000,8000,12000,18000,25000,35000,50000,70000,100000,150000,200000];
+const ENHANCE_RATE=[0,80,80,80,80,80,50,50,50,50,50,25,25,25,25,25];
+
+function openEnhance(uid){
+  const item=state.inventory.find(i=>i.uid===uid);
+  if(!item||item.category!=='equipment')return;
+  document.getElementById('enhance-screen').style.display='block';
+  renderEnhanceScreen(uid);
+}
+
+function closeEnhance(){
+  document.getElementById('enhance-screen').style.display='none';
+}
+
+function renderEnhanceScreen(uid){
+  const item=state.inventory.find(i=>i.uid===uid);
+  if(!item)return;
+  const r=RARITY[item.rarity]||RARITY.normal;
+  const enh=item.enhLevel||0;
+  const maxed=enh>=15;
+  const cost=ENHANCE_COST[enh+1]||0;
+  const rate=ENHANCE_RATE[enh+1]||0;
+
+  // Build pips
+  const pips=Array.from({length:15},(_,i)=>{
+    let cls='pip-empty';
+    if(i<enh)cls=enh>=11?'pip-high':'pip-filled';
+    return `<div class="enhance-pip ${cls}"></div>`;
+  }).join('');
+
+  // Build stats
+  const statsHtml=Object.entries(item.stats||{})
+    .map(([k,v])=>`<div class="enhance-stat-line">+${v} ${k.toUpperCase()}</div>`)
+    .join('');
+
+  // Preview next stats
+  const nextStatsHtml=Object.entries(item.stats||{})
+    .map(([k,v])=>`<div class="enhance-stat-line" style="color:var(--green)">+${Math.floor(v*1.15)} ${k.toUpperCase()}</div>`)
+    .join('');
+
+  document.getElementById('enhance-screen').innerHTML=`
+    <div class="enhance-container">
+      <div class="enhance-title">⚒️ Enhancement</div>
+      <div class="enhance-item-card">
+        <div class="enhance-item-name" style="color:${r.color}">
+          ${item.name} 
+          ${enh>0?`<span class="enh-badge ${enh>=7?'enh-high':'enh-low'}">+${enh}</span>`:''}
+        </div>
+        <div style="color:${r.color};font-size:.75em;text-align:center;margin-bottom:8px;">${r.label}</div>
+        
+        <!-- Pip bar -->
+        <div class="enhance-level-bar">${pips}</div>
+        <div style="text-align:center;font-size:.72em;color:#888;margin-top:4px;">Level ${enh} / 15</div>
+
+        <!-- Stats comparison -->
+        ${!maxed?`
+        <div class="enhance-stats-row">
+          <div class="enhance-stats-col">
+            <div class="enhance-stats-title">Current</div>
+            ${statsHtml}
+          </div>
+          <div class="enhance-arrow">→</div>
+          <div class="enhance-stats-col">
+            <div class="enhance-stats-title" style="color:var(--green)">After +${enh+1}</div>
+            ${nextStatsHtml}
+          </div>
+        </div>`:'<div style="text-align:center;color:var(--legendary);font-family:Cinzel,serif;margin:12px 0;">✨ MAX ENHANCED!</div>'}
+
+        <!-- Cost box -->
+        ${!maxed?`
+        <div class="enhance-cost-box">
+          <div class="enhance-cost-title">Enhancement +${enh+1}</div>
+          <div class="enhance-cost-row"><span>💰 Cost</span><span style="color:${state.gold>=cost?'var(--green)':'var(--red)'}">${cost.toLocaleString()}g</span></div>
+          <div class="enhance-cost-row"><span>✅ Success Rate</span><span style="color:${rate>=80?'var(--green)':rate>=50?'var(--gold)':'var(--red)'}">${rate}%</span></div>
+          <div class="enhance-cost-row"><span>❌ Fail Effect</span><span style="color:var(--red)">${enh>0?`Drop to +${enh-1}`:'Nothing'}</span></div>
+          <div class="enhance-cost-row"><span>💰 Your Gold</span><span>${state.gold.toLocaleString()}g</span></div>
+        </div>
+        <div style="text-align:center;margin-top:12px;">
+          <button class="enhance-btn ${state.gold<cost?'enhance-btn-disabled':''}" 
+            onclick="doEnhance(${uid})" ${state.gold<cost?'disabled':''}>
+            ⚒️ Enhance +${enh+1}
+          </button>
+        </div>`:''}
       </div>
-      <div style="font-size:.7em;color:${r.color};margin-top:1px;">${r.label}</div>
-      <div class="inv-item-stats">${statsText||consText}</div>
-      <div style="font-size:.7em;color:#555;margin-top:2px;">Sell: ${item.sellPrice||0}g${item.stackable&&item.qty>1?` (total: ${(item.sellPrice||0)*item.qty}g)`:''}</div>
-      <div class="inv-item-btns">
-        ${item.category==='equipment'?(item.equipped?`<button class="inv-btn btn-unequip" onclick="unequipSlot('${item.slot}')">Unequip</button>`:`<button class="inv-btn btn-equip" onclick="equipItem(${item.uid})">Equip</button>`):''}
-        ${item.category==='consumable'?`<button class="inv-btn btn-use" onclick="useItem(${item.uid})">Use</button>`:''}
-        ${!item.equipped?`<button class="inv-btn btn-sell" onclick="sellItem(${item.uid})">Sell${item.stackable&&item.qty>1?' All':''}</button>`:''}
+      <div style="text-align:center;margin-top:12px;">
+        <button class="start-btn" onclick="closeEnhance()">✅ Close</button>
       </div>
-    </div>`;}).join('');
+    </div>`;
+}
+
+function doEnhance(uid){
+  const item=state.inventory.find(i=>i.uid===uid);
+  if(!item)return;
+  const enh=item.enhLevel||0;
+  if(enh>=15){notify('Already max enhanced!','var(--gold)');return;}
+  const cost=ENHANCE_COST[enh+1];
+  const rate=ENHANCE_RATE[enh+1];
+  if(state.gold<cost){notify('Not enough gold!','var(--red)');return;}
+
+  state.gold-=cost;
+  const success=Math.random()*100<rate;
+
+  if(success){
+    // Boost all stats by 15%
+    Object.keys(item.stats||{}).forEach(k=>{
+      item.stats[k]=Math.floor(item.stats[k]*1.15);
+    });
+    item.enhLevel=(enh+1);
+    addLog(`⚒️ Enhancement SUCCESS! ${item.name} is now +${item.enhLevel}!`,'gold');
+    notify(`✨ SUCCESS! +${item.enhLevel}!`,'var(--gold)');
+    playSound('snd-levelup');
+  } else {
+    // Drop 1 level
+    if(enh>0){
+      // Reverse last boost
+      Object.keys(item.stats||{}).forEach(k=>{
+        item.stats[k]=Math.floor(item.stats[k]/1);
+      });
+      item.enhLevel=enh-1;
+      addLog(`💔 Enhancement FAILED! ${item.name} dropped to +${item.enhLevel}!`,'bad');
+      notify(`💔 FAILED! Dropped to +${item.enhLevel}!`,'var(--red)');
+    } else {
+      addLog(`💔 Enhancement FAILED! Nothing happened.`,'bad');
+      notify('💔 FAILED! Nothing happened.','var(--red)');
+    }
+    playSound('snd-death');
+  }
+
+  // If item is equipped, recalculate stats
+  if(item.equipped)calcStats();
+  updateUI();
+  renderInventory();
+  renderEnhanceScreen(uid);
 }
 
 function useItem(uid){
@@ -1251,19 +1540,25 @@ function sellItem(uid){
 function saveAutoSell(){
   state.autoSell.normal=document.getElementById('as-normal').checked;
   state.autoSell.uncommon=document.getElementById('as-uncommon').checked;
+  state.autoSell.rare=document.getElementById('as-rare').checked;
+  state.autoSell.epic=document.getElementById('as-epic').checked;
 }
 function loadAutoSellUI(){
   document.getElementById('as-normal').checked=state.autoSell?.normal||false;
   document.getElementById('as-uncommon').checked=state.autoSell?.uncommon||false;
+  document.getElementById('as-rare').checked=state.autoSell?.rare||false;
+  document.getElementById('as-epic').checked=state.autoSell?.epic||false;
 }
 function autoSellAfterCombat(){
-  if(!state.autoSell?.normal&&!state.autoSell?.uncommon)return;
+  if(!state.autoSell?.normal&&!state.autoSell?.uncommon&&!state.autoSell?.rare&&!state.autoSell?.epic)return;
   let totalGold=0;let count=0;
   const toSell=state.inventory.filter(i=>{
     if(i.equipped)return false;
     if(i.category!=='equipment'&&i.category!=='material')return false;
     if(state.autoSell.normal&&i.rarity==='normal')return true;
     if(state.autoSell.uncommon&&i.rarity==='uncommon')return true;
+    if(state.autoSell.rare&&i.rarity==='rare')return true;
+    if(state.autoSell.epic&&i.rarity==='epic')return true;
     return false;
   });
   toSell.forEach(item=>{
@@ -1341,15 +1636,16 @@ function switchShopTab(tab){
 function renderShop(){
   const items=currentShopTab==='equipment'?SHOP_EQUIP:SHOP_CONS;
   const r_=r=>RARITY[r]||RARITY.normal;
-  document.getElementById('shop-content').innerHTML=items.map(item=>{
-    const r=r_(item.rarity);
-    const desc=item.stats?Object.entries(item.stats).map(([k,v])=>`+${v}${k.toUpperCase()}`).join(' '):item.effect?`Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}`:'';
-    return `<div class="shop-item ${item.rarity}">
-      <button class="shop-btn" onclick="buyShopItem('${item.id}')">Buy</button>
-      <div style="color:${r.color};font-size:.85em;font-weight:600;">${item.name}</div>
-      <div style="color:${r.color};font-size:.68em;">${r.label}</div>
-      <div style="color:#888;font-size:.78em;">💰${item.price}g — ${desc}</div>
-    </div>`;}).join('');
+  document.getElementById('shop-content').innerHTML=`
+    <div class="item-grid">
+      ${items.map(item=>{
+        const r=r_(item.rarity);
+        return `<div class="item-icon-box ${item.rarity}" onclick="showItemPopup('shop','${item.id}')" title="${item.name}">
+          <div class="item-icon-emoji">${item.name.split(' ')[0]}</div>
+          <div class="item-icon-price">💰${item.price}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
 }
 function buyShopItem(itemId){
   const all=[...SHOP_EQUIP,...SHOP_CONS];const item=all.find(i=>i.id===itemId);if(!item)return;
@@ -1385,10 +1681,10 @@ function updateUI(){
   document.getElementById('gold-val').textContent=state.gold;
  
   // Primary stats
-  document.getElementById('str-val').textContent=state.str+'('+state.baseStr+')';
-  document.getElementById('agi-val').textContent=state.agi+'('+state.baseAgi+')';
-  document.getElementById('int-val').textContent=state.int+'('+state.baseInt+')';
-  document.getElementById('sta-val').textContent=state.sta+'('+state.baseSta+')';
+  document.getElementById('str-val').textContent=state.str;
+  document.getElementById('agi-val').textContent=state.agi;
+  document.getElementById('int-val').textContent=state.int;
+  document.getElementById('sta-val').textContent=state.sta;
   document.getElementById('hit-val').textContent=state.hit;
  
   // Derived stats
@@ -1398,6 +1694,7 @@ function updateUI(){
   document.getElementById('dodge-val').textContent=state.dodge+'%';
   document.getElementById('hpregen-val').textContent=state.hpRegen;
   document.getElementById('mpregen-val').textContent=state.manaRegen;
+  document.getElementById('lifesteal-val').textContent=state.lifeSteal+'%';
  
   document.getElementById('char-level').textContent=`Level ${state.level} / 100`;
   document.getElementById('hp-bar').style.width=Math.max(0,(hp/state.maxHp)*100)+'%';

@@ -941,3 +941,60 @@ input:checked + .toggle-slider:before { transform: translateX(18px); }
   font-weight: bold;
   text-shadow: 0 0 6px #00ff88;
 }
+.item-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(52px,1fr));
+  gap:6px;
+  padding:4px;
+}
+.item-icon-box{
+  position:relative;
+  width:52px;height:52px;
+  background:rgba(255,255,255,.04);
+  border:2px solid var(--border);
+  border-radius:8px;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  cursor:pointer;
+  transition:all .2s;
+}
+.item-icon-box:hover{transform:scale(1.1);border-color:var(--gold);}
+.item-icon-box.legendary{border-color:var(--legendary);box-shadow:0 0 6px rgba(255,140,0,.4);}
+.item-icon-box.epic{border-color:var(--epic);box-shadow:0 0 6px rgba(163,53,238,.4);}
+.item-icon-box.rare{border-color:var(--rare);}
+.item-icon-box.uncommon{border-color:var(--uncommon);}
+.item-icon-emoji{font-size:1.6em;line-height:1;}
+.item-icon-price{font-size:.55em;color:var(--gold);margin-top:2px;}
+.item-icon-stack{position:absolute;bottom:1px;right:3px;font-size:.6em;color:var(--gold);font-family:'Cinzel',serif;}
+.item-icon-equipped{position:absolute;top:1px;right:3px;font-size:.6em;color:var(--green);font-family:'Cinzel',serif;font-weight:700;}
+
+.item-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:5px;
+  margin-top:4px;
+}
+.item-icon-box{
+  position:relative;
+  background:rgba(255,255,255,.03);
+  border:1px dashed #333;
+  border-radius:6px;
+  padding:5px;
+  text-align:center;
+  cursor:pointer;
+  transition:all .2s;
+  min-height:52px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+}
+.item-icon-box:hover{border-color:var(--gold);background:rgba(240,192,64,.06);}
+.item-icon-box.legendary{border-style:solid;border-color:var(--legendary);box-shadow:0 0 8px rgba(255,140,0,.3);}
+.item-icon-box.epic{border-style:solid;border-color:var(--epic);box-shadow:0 0 8px rgba(163,53,238,.3);}
+.item-icon-box.rare{border-style:solid;border-color:var(--rare);}
+.item-icon-box.uncommon{border-style:solid;border-color:var(--uncommon);}
+.item-icon-emoji{font-size:1.4em;line-height:1;}
+.item-icon-price{font-size:.55em;color:var(--gold);margin-top:2px;}
+.item-icon-stack{position:absolute;bottom:2px;right:3px;font-size:.58em;color:var(--gold);font-family:'Cinzel',serif;font-weight:700;}
+.item-icon-equipped{position:absolute;top:2px;right:3px;font-size:.58em;color:var(--green);font-family:'Cinzel',serif;font-weight:700;}

@@ -6,6 +6,30 @@
   <title>Rotana's RPG</title>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
   <style>
+    .enhance-container{max-width:500px;margin:0 auto;}
+.enhance-title{font-family:'Cinzel',serif;color:var(--gold);font-size:1.4em;text-align:center;margin-bottom:16px;}
+.enhance-item-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;}
+.enhance-item-name{font-family:'Cinzel',serif;font-size:1em;font-weight:600;text-align:center;margin-bottom:4px;}
+.enh-badge{font-family:'Cinzel',serif;font-size:.8em;padding:1px 6px;border-radius:4px;font-weight:700;}
+.enh-low{color:var(--gold);background:rgba(240,192,64,.15);border:1px solid var(--dark-gold);}
+.enh-high{color:#fff;background:rgba(255,140,0,.25);border:1px solid var(--legendary);text-shadow:0 0 8px var(--legendary);}
+.enhance-stats-row{display:flex;align-items:center;justify-content:center;gap:12px;margin:12px 0;}
+.enhance-stats-col{flex:1;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center;}
+.enhance-stats-title{font-family:'Cinzel',serif;font-size:.68em;color:var(--gold);margin-bottom:6px;letter-spacing:1px;text-transform:uppercase;}
+.enhance-stat-line{font-size:.82em;color:var(--text);padding:1px 0;}
+.enhance-arrow{font-size:1.2em;color:var(--gold);flex:0 0 20px;text-align:center;}
+.enhance-level-bar{display:flex;gap:3px;justify-content:center;margin-top:10px;flex-wrap:wrap;}
+.enhance-pip{width:16px;height:8px;border-radius:3px;transition:all .3s;}
+.pip-empty{background:rgba(255,255,255,.08);border:1px solid #333;}
+.pip-filled{background:var(--gold);box-shadow:0 0 4px rgba(240,192,64,.5);}
+.pip-high{background:var(--legendary);box-shadow:0 0 6px rgba(255,140,0,.8);}
+.enhance-cost-box{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;padding:12px;}
+.enhance-cost-title{font-family:'Cinzel',serif;color:var(--gold);font-size:.72em;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;text-align:center;}
+.enhance-cost-row{display:flex;justify-content:space-between;align-items:center;font-size:.83em;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04);color:#aaa;}
+.enhance-cost-row:last-child{border-bottom:none;}
+.enhance-btn{background:linear-gradient(135deg,#7a4a00,#c07820);color:#fff8e0;border:1px solid var(--gold);padding:10px 24px;border-radius:8px;cursor:pointer;font-family:'Cinzel',serif;font-size:.9em;font-weight:700;transition:all .3s;letter-spacing:1px;}
+.enhance-btn:hover{background:linear-gradient(135deg,#a06010,#f0a030);transform:scale(1.04);}
+.enhance-btn-disabled{opacity:.4;cursor:not-allowed;}
     :root{
       --gold:#f0c040;--dark-gold:#a07820;--panel:rgba(8,8,40,0.95);--border:#3a2a0a;
       --text:#e8d5a0;--green:#00ff88;--red:#ff4444;--blue:#4488ff;--purple:#bb44ff;--orange:#ff8800;
@@ -214,8 +238,21 @@
     /* NOTIFICATION */
     #notification{position:fixed;top:20px;right:20px;background:var(--panel);border:1px solid var(--gold);border-radius:8px;padding:12px 18px;font-family:'Cinzel',serif;font-size:.85em;color:var(--gold);z-index:9800;display:none;animation:slideIn .3s ease;}
     @keyframes slideIn{from{opacity:0;transform:translateX(50px);}to{opacity:1;transform:translateX(0);}}
+    .item-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:4px;}
+.item-icon-box{background:rgba(255,255,255,.03);border:1px dashed #333;border-radius:6px;padding:5px;text-align:center;cursor:pointer;transition:all .2s;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;}
+.item-icon-box:hover{border-color:var(--gold);background:rgba(240,192,64,.06);}
+.item-icon-box.legendary{border-style:solid;border-color:var(--legendary);box-shadow:0 0 8px rgba(255,140,0,.3);}
+.item-icon-box.epic{border-style:solid;border-color:var(--epic);box-shadow:0 0 8px rgba(163,53,238,.3);}
+.item-icon-box.rare{border-style:solid;border-color:var(--rare);}
+.item-icon-box.uncommon{border-style:solid;border-color:var(--uncommon);}
+.item-icon-emoji{font-size:1.4em;line-height:1;}
+.item-icon-price{font-size:.55em;color:var(--gold);margin-top:2px;}
+.item-icon-stack{position:absolute;bottom:2px;right:3px;font-size:.58em;color:var(--gold);font-family:'Cinzel',serif;font-weight:700;}
+.item-icon-equipped{position:absolute;top:2px;right:3px;font-size:.58em;color:var(--green);font-family:'Cinzel',serif;font-weight:700;}
+.heal-float{color:#00ff88;font-size:1.2rem;font-weight:bold;text-shadow:0 0 6px #00ff88;}
   </style>
 </head>
+
 <body>
 
 <div id="loader"><div class="spinner"></div><p>Loading Game...</p></div>
@@ -338,6 +375,7 @@
   <div class="stat-box"><div class="val" id="dodge-val">0%</div><div class="lbl">🌀DODGE</div></div>
   <div class="stat-box"><div class="val" id="hpregen-val">0</div><div class="lbl">❤️REGEN</div></div>
   <div class="stat-box"><div class="val" id="mpregen-val">0</div><div class="lbl">💧MREGEN</div></div>
+  <div class="stat-box"><div class="val" id="lifesteal-val">0%</div><div class="lbl">🩸LIFESTEAL</div></div>
 </div>
     </div>
     <div class="panel">
@@ -417,6 +455,8 @@
         <div style="font-family:'Cinzel',serif;color:var(--gold);font-size:.72em;margin-bottom:5px;">⚙️ AUTO SELL JUNK</div>
         <div class="toggle-row">Normal <label class="toggle"><input type="checkbox" id="as-normal" onchange="saveAutoSell()"><span class="toggle-slider"></span></label></div>
         <div class="toggle-row">Uncommon <label class="toggle"><input type="checkbox" id="as-uncommon" onchange="saveAutoSell()"><span class="toggle-slider"></span></label></div>
+        <div class="toggle-row">Rare <label class="toggle"><input type="checkbox" id="as-rare" onchange="saveAutoSell()"><span class="toggle-slider"></span></label></div>
+        <div class="toggle-row">Epic <label class="toggle"><input type="checkbox" id="as-epic" onchange="saveAutoSell()"><span class="toggle-slider"></span></label></div>
         <button class="start-btn red-btn" onclick="autoSellNow()" style="font-size:.72em;padding:4px 12px;margin-top:5px;width:100%;">🗑️ Sell Junk Now</button>
       </div>
       <div class="tabs" id="inv-tabs">
@@ -448,5 +488,10 @@
 <audio id="clickSound" src="click.mp3"></audio>
 
 <script src="game.js"></script>
+<div id="enhance-screen" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:8500;overflow-y:auto;padding:20px;"></div>
+<div id="item-popup" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9900;align-items:center;justify-content:center;" onclick="if(event.target===this)closeItemPopup()">
+  <div id="item-popup-content" style="background:var(--panel);border:2px solid var(--gold);border-radius:12px;padding:20px;max-width:320px;width:90%;max-height:80vh;overflow-y:auto;"></div>
+</div>
+<div id="enhance-screen" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:8500;overflow-y:auto;padding:20px;"></div>
 </body>
 </html>
