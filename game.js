@@ -42,6 +42,18 @@ function rollRarity(isBoss=false){
 // STEP 1: Replace your const state={...} with this
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const state={
+  // BONUS TRACKING (NEW)
+  classBonuses: {
+    strMult: 0, agiMult: 0, intMult: 0, staMult: 0,
+    hitMult: 0, critMult: 0, dodgeMult: 0, hpRegenMult: 0,
+    mpRegenMult: 0, armorMult: 0, mpMult: 0, lifeStealMult: 0
+  },
+  talentBonuses: {
+    strMult: 0, agiMult: 0, intMult: 0, staMult: 0,
+    hitMult: 0, critMult: 0, dodgeMult: 0, hpRegenMult: 0,
+    mpRegenMult: 0, armorMult: 0, mpMult: 0, lifeStealMult: 0
+  },
+
   // EQUIPMENT BONUSES (applied on top of base * mult)
   equipStr:0, equipAgi:0, equipInt:0, equipSta:0,
   equipMaxMp:0, equipMaxHp:0, equipArmor:0, equipCrit:0, equipDodge:0,equipLifeSteal:0,equipAttackPower:0,equipHpRegen:0,equipMpRegen:0,hpRegen:0,manaRegen:0,equipHit:0,lifeSteal:0,lifeStealMult:1.0,
@@ -128,7 +140,7 @@ function setDifficulty(diff){
 }
 function calcStats(){
   // Apply multipliers to base stats → effective stats
-  state.str  = Math.floor(state.baseStr  * state.strMult) + (state.skillStrMult) + (state.equipStr||0);
+  state.str  = Math.floor(state.baseStr  * state.strMult) + (state.equipStr||0);
   state.agi  = Math.floor(state.baseAgi  * state.agiMult) + (state.equipAgi||0);
   state.int  = Math.floor(state.baseInt  * state.intMult) + (state.equipInt||0);
   state.sta  = Math.floor(state.baseSta  * state.staMult) + (state.equipSta||0);
@@ -169,28 +181,47 @@ const CLASSES={
     skills:['power_strike','battle_cry','last_stand'],
     trees:{
       dps:{name:'🗡️ DPS',talents:[
-        {id:'berserker',name:'Berserker Rage',desc:'10% CRIT, +1% HIT per rank',cost:5,ranks:10,
-          effect:()=>{state.baseCrit+=10;state.baseHit+=10}},
-        {id:'cleave',name:'Brute Force',desc:'20% CRIT, +2% HIT per rank',cost:10,ranks:5,
-          effect:()=>{state.critMult+=0.2;state.baseHit+=20}},
-        {id:'execute',name:'Killing Blow',desc:'30% CRIT, +3% HIT per rank',cost:20,ranks:3,
-          effect:()=>{state.critMult+=0.3;state.baseHit+=30}},
+        {id:'berserker',name:'Berserker Rage',desc:'10% CRIT per rank',cost:5,ranks:10,
+          effect:()=>{
+            state.baseCrit+=10;
+            state.talentBonuses.critMult = (state.talentBonuses.critMult || 0) + 0.1;
+          }},
+        {id:'cleave',name:'Brute Force',desc:'20% CRIT per rank',cost:10,ranks:5,
+          effect:()=>{
+            state.talentBonuses.critMult = (state.talentBonuses.critMult || 0) + 0.2;
+          }},
+        {id:'execute',name:'Killing Blow',desc:'30% CRIT per rank',cost:20,ranks:3,
+          effect:()=>{
+            state.talentBonuses.critMult = (state.talentBonuses.critMult || 0) + 0.3;
+          }},
       ]},
       tank:{name:'🛡️ Tank',talents:[
         {id:'iron_skin',name:'Iron Skin',desc:'10% ARMOR per rank',cost:5,ranks:10,
-          effect:()=>{state.armorMult+=0.1;}},
+          effect:()=>{
+            state.talentBonuses.armorMult = (state.talentBonuses.armorMult || 0) + 0.1;
+          }},
         {id:'fortress',name:'Iron Fortress',desc:'20% ARMOR per rank',cost:10,ranks:5,
-          effect:()=>{state.armorMult+=0.2;}},
+          effect:()=>{
+            state.talentBonuses.armorMult = (state.talentBonuses.armorMult || 0) + 0.2;
+          }},
         {id:'shield_wall',name:'Hardened Skin',desc:'30% ARMOR per rank',cost:20,ranks:3,
-          effect:()=>{state.armorMult+=0.3;}},
+          effect:()=>{
+            state.talentBonuses.armorMult = (state.talentBonuses.armorMult || 0) + 0.3;
+          }},
       ]},
       heal:{name:'💚 Self Heal',talents:[
         {id:'second_wind',name:'Tough Body',desc:'10% HP regen per rank',cost:5,ranks:10,
-          effect:()=>{state.hpRegen+=0.1;}},
+          effect:()=>{
+            state.talentBonuses.hpRegenMult = (state.talentBonuses.hpRegenMult || 0) + 0.1;
+          }},
         {id:'undying',name:'Endurance',desc:'20% HP regen per rank',cost:10,ranks:5,
-          effect:()=>{state.hpRegen+=0.2;}},
+          effect:()=>{
+            state.talentBonuses.hpRegenMult = (state.talentBonuses.hpRegenMult || 0) + 0.2;
+          }},
         {id:'regeneration',name:'Vitality',desc:'30% HP regen per rank',cost:20,ranks:3,
-          effect:()=>{state.hpRegen+=0.3;}},
+          effect:()=>{
+            state.talentBonuses.hpRegenMult = (state.talentBonuses.hpRegenMult || 0) + 0.3;
+          }},
       ]}
     }
   },
@@ -199,28 +230,46 @@ const CLASSES={
     skills:['fireball','ice_lance','mana_shield'],
     trees:{
       fire:{name:'🔥 Fire',talents:[
-        {id:'fire_mastery',name:'Fire Mastery',desc:'1% CRT per rank',cost:5,ranks:5,
-          effect:()=>{state.critMult+=0.01}},
-        {id:'ignite',name:'Burning Mind',desc:'2% CRT per rank',cost:10,ranks:5,
-          effect:()=>{state.critMult+=0.02}},
-        {id:'meteor',name:'Arcane Intellect',desc:'+3% CRT per rank',cost:20,ranks:3,
-          effect:()=>{state.critMult+=0.03}},
+        {id:'fire_mastery',name:'Fire Mastery',desc:'1% CRIT per rank',cost:5,ranks:5,
+          effect:()=>{
+            state.talentBonuses.critMult = (state.talentBonuses.critMult || 0) + 0.01;
+          }},
+        {id:'ignite',name:'Burning Mind',desc:'2% CRIT per rank',cost:10,ranks:5,
+          effect:()=>{
+            state.talentBonuses.critMult = (state.talentBonuses.critMult || 0) + 0.02;
+          }},
+        {id:'meteor',name:'Arcane Intellect',desc:'3% CRIT per rank',cost:20,ranks:3,
+          effect:()=>{
+            state.talentBonuses.critMult = (state.talentBonuses.critMult || 0) + 0.03;
+          }},
       ]},
       ice:{name:'❄️ Ice',talents:[
-        {id:'frost',name:'Frost Barrier',desc:'1% DGD per rank',cost:5,ranks:10,
-          effect:()=>{state.dodgeMult+=0.01}},
-        {id:'ice_armor',name:'Ice Armor',desc:'2% DGD per rank',cost:10,ranks:5,
-          effect:()=>{state.dodgeMult+=0.02}},
-        {id:'blizzard',name:'Ice Mind',desc:'3% DGD per rank',cost:20,ranks:3,
-          effect:()=>{state.dodgeMult+=0.03;}},
+        {id:'frost',name:'Frost Barrier',desc:'1% DODGE per rank',cost:5,ranks:10,
+          effect:()=>{
+            state.talentBonuses.dodgeMult = (state.talentBonuses.dodgeMult || 0) + 0.01;
+          }},
+        {id:'ice_armor',name:'Ice Armor',desc:'2% DODGE per rank',cost:10,ranks:5,
+          effect:()=>{
+            state.talentBonuses.dodgeMult = (state.talentBonuses.dodgeMult || 0) + 0.02;
+          }},
+        {id:'blizzard',name:'Ice Mind',desc:'3% DODGE per rank',cost:20,ranks:3,
+          effect:()=>{
+            state.talentBonuses.dodgeMult = (state.talentBonuses.dodgeMult || 0) + 0.03;
+          }},
       ]},
       arcane:{name:'✨ Arcane',talents:[
         {id:'mana_regen',name:'Mana Pool',desc:'1% HP REGEN per rank',cost:5,ranks:10,
-          effect:()=>{state.hpRegen+=0.1}},
-        {id:'spell_power',name:'Spellcraft',desc:'2% HP REGEN per rank per rank',cost:10,ranks:5,
-          effect:()=>{state.hpRegen+=0.2;}},
-        {id:'arcane_surge',name:'Arcane Mastery',desc:'3% HP REGEN per rank per rank',cost:20,ranks:3,
-          effect:()=>{state.hpRegen+=0.3;}},
+          effect:()=>{
+            state.talentBonuses.hpRegenMult = (state.talentBonuses.hpRegenMult || 0) + 0.1;
+          }},
+        {id:'spell_power',name:'Spellcraft',desc:'2% HP REGEN per rank',cost:10,ranks:5,
+          effect:()=>{
+            state.talentBonuses.hpRegenMult = (state.talentBonuses.hpRegenMult || 0) + 0.2;
+          }},
+        {id:'arcane_surge',name:'Arcane Mastery',desc:'3% HP REGEN per rank',cost:20,ranks:3,
+          effect:()=>{
+            state.talentBonuses.hpRegenMult = (state.talentBonuses.hpRegenMult || 0) + 0.3;
+          }},
       ]}
     }
   },
@@ -230,27 +279,45 @@ const CLASSES={
     trees:{
       assassination:{name:'☠️ Assassin',talents:[
         {id:'crit',name:'Precision',desc:'1% CRIT per rank',cost:5,ranks:10,
-          effect:()=>{state.critMult+=0.01;}},
+          effect:()=>{
+            state.talentBonuses.critMult = (state.talentBonuses.critMult || 0) + 0.01;
+          }},
         {id:'ambush',name:'Swift Strike',desc:'2% CRIT per rank',cost:10,ranks:5,
-          effect:()=>{state.critMult+=0.02;}},
+          effect:()=>{
+            state.talentBonuses.critMult = (state.talentBonuses.critMult || 0) + 0.02;
+          }},
         {id:'death_mark',name:'Lethal Focus',desc:'3% CRIT per rank',cost:20,ranks:3,
-          effect:()=>{state.critMult+=0.03;}},
+          effect:()=>{
+            state.talentBonuses.critMult = (state.talentBonuses.critMult || 0) + 0.03;
+          }},
       ]},
       subtlety:{name:'🌑 Subtlety',talents:[
         {id:'evasion',name:'Agility',desc:'1% DODGE per rank',cost:5,ranks:10,
-          effect:()=>{state.dodgeMult+=0.01;}},
+          effect:()=>{
+            state.talentBonuses.dodgeMult = (state.talentBonuses.dodgeMult || 0) + 0.01;
+          }},
         {id:'smoke_bomb',name:'Nimble Feet',desc:'2% DODGE per rank',cost:10,ranks:5,
-          effect:()=>{state.dodgeMult+=0.02;}},
+          effect:()=>{
+            state.talentBonuses.dodgeMult = (state.talentBonuses.dodgeMult || 0) + 0.02;
+          }},
         {id:'vanish',name:'Shadow Reflex',desc:'3% DODGE per rank',cost:20,ranks:3,
-          effect:()=>{state.dodgeMult+=0.03;}},
+          effect:()=>{
+            state.talentBonuses.dodgeMult = (state.talentBonuses.dodgeMult || 0) + 0.03;
+          }},
       ]},
       poison:{name:'🐍 Poison',talents:[
         {id:'venom',name:'Toxic Edge',desc:'1% HP REGEN per rank',cost:5,ranks:10,
-          effect:()=>{state.hpRegen+=0.1;}},
+          effect:()=>{
+            state.talentBonuses.hpRegenMult = (state.talentBonuses.hpRegenMult || 0) + 0.1;
+          }},
         {id:'cripple',name:'Predator',desc:'2% HP REGEN per rank',cost:10,ranks:5,
-          effect:()=>{state.hpRegen+=0.1;}},
+          effect:()=>{
+            state.talentBonuses.hpRegenMult = (state.talentBonuses.hpRegenMult || 0) + 0.2;
+          }},
         {id:'plague',name:'Virulence',desc:'3% HP REGEN per rank',cost:20,ranks:3,
-          effect:()=>{state.hpRegen+=0.1;}},
+          effect:()=>{
+            state.talentBonuses.hpRegenMult = (state.talentBonuses.hpRegenMult || 0) + 0.3;
+          }},
       ]}
     }
   }
@@ -264,21 +331,26 @@ const SKILLS={
     e.hp-=d;addCombatLog(`💥 Power Strike! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
   
   battle_cry:{name:'Battle Cry',icon:'📯',mp:()=>Math.floor(state.maxMp*0.15),cd:3,use:(e)=>{
-    const strBoost=Math.floor(state.str*0.5);
-    const armorBoost=Math.floor(state.armor*0.4);
-    state.equipStr=(state.equipStr||0)+strBoost;
-    state.equipArmor=(state.equipArmor||0)+armorBoost;
-    addCombatLog(`📯 Battle Cry! +${strBoost} STR, +${armorBoost} ARMOR for this fight!`,'good');
-    playSound('snd-magic');calcStats();return 0;}},
-  
-  last_stand:{name:'Last Stand',icon:'🛡️',mp:()=>Math.floor(state.maxMp*0.20),cd:4,use:(e)=>{
-    const healAmt=Math.floor(state.maxHp*0.35);
-    state.hp=Math.min(state.maxHp,state.hp+healAmt);
-    const armorBoost=Math.floor(state.armor*0.5);
-    state.equipArmor=(state.equipArmor||0)+armorBoost;
-    addCombatLog(`🛡️ Last Stand! +${healAmt} HP, +${armorBoost} ARMOR!`,'good');
-    playSound('snd-heal');spawnDmgFloat(`+${healAmt}HP`,false,'heal-float');calcStats();return 0;}},
-  
+  // ✅ Use multipliers instead of equipment bonuses
+  state.strMult *= 1.5;
+  state.armorMult *= 1.4;
+  addCombatLog(`📯 Battle Cry! +50% STR, +40% ARMOR for this fight!`,'good');
+  playSound('snd-magic');
+  calcStats();
+  return 0;
+}},
+
+last_stand:{name:'Last Stand',icon:'🛡️',mp:()=>Math.floor(state.maxMp*0.20),cd:4,use:(e)=>{
+  const healAmt=Math.floor(state.maxHp*0.35);
+  state.hp=Math.min(state.maxHp,state.hp+healAmt);
+  // ✅ Use multiplier instead of equipment bonus
+  state.armorMult *= 1.5;
+  addCombatLog(`🛡️ Last Stand! +${healAmt} HP, +50% ARMOR!`,'good');
+  playSound('snd-heal');
+  spawnDmgFloat(`+${healAmt}HP`,false,'heal-float');
+  calcStats();
+  return 0;
+}},
   // 🔥 MAGE SKILLS — scale with INT
   fireball:{name:'Fireball',icon:'🔥',mp:()=>Math.floor(state.maxMp*0.12),cd:1,use:(e)=>{
     const d=Math.floor(state.int*6+Math.random()*state.int*2);
@@ -518,33 +590,33 @@ const SHOP_EQUIP=[
   // ── WEAPONS ──
   {id:'s1',name:'⚔️ Iron Sword',price:200,slot:'weapon',rarity:'normal',stats:{str:20,lifeSteal:0.05,hit:5}},
   {id:'s2',name:'⚔️ Steel Sword',price:500,slot:'weapon',rarity:'uncommon',stats:{str:45,lifeSteal:0.06,hit:25}},
-  {id:'s3',name:'⚔️ War Blade',price:2200,slot:'weapon',rarity:'rare',stats:{str:90,lifeSteal:0.07,hit:50}},
-  {id:'s4',name:'⚔️ Sovereign Blade',price:5500,slot:'weapon',rarity:'legendary',stats:{str:180,lifeSteal:0.1,hit:150}},
+  //{id:'s3',name:'⚔️ War Blade',price:2200,slot:'weapon',rarity:'rare',stats:{str:90,lifeSteal:0.07,hit:50}},
+  //{id:'s4',name:'⚔️ Sovereign Blade',price:5500,slot:'weapon',rarity:'legendary',stats:{str:180,lifeSteal:0.1,hit:150}},
   // ── ARMOR ──
   {id:'s5',name:'🛡️ Wooden Shield',price:200,slot:'armor',rarity:'normal',stats:{sta:15,armor:25,hpRegen:25}},
   {id:'s6',name:'🛡️ Chain Mail',price:400,slot:'armor',rarity:'uncommon',stats:{sta:25,armor:55,hpRegen:50}},
-  {id:'s7',name:'🛡️ Knight Plate',price:2200,slot:'armor',rarity:'rare',stats:{sta:50,armor:110,maxHp:300,hpRegen:100}},
-  {id:'s8',name:'🛡️ Dragon Plate',price:4400,slot:'armor',rarity:'legendary',stats:{sta:90,armor:200,maxHp:800,hpRegen:300}},
+  //{id:'s7',name:'🛡️ Knight Plate',price:2200,slot:'armor',rarity:'rare',stats:{sta:50,armor:110,maxHp:300,hpRegen:100}},
+  //{id:'s8',name:'🛡️ Dragon Plate',price:4400,slot:'armor',rarity:'legendary',stats:{sta:90,armor:200,maxHp:800,hpRegen:300}},
   // ── BOOTS ──
   {id:'s9',name:'👢 Leather Boots',price:220,slot:'boots',rarity:'normal',stats:{agi:15}},
   {id:'s10',name:'👢 Swift Treads',price:550,slot:'boots',rarity:'uncommon',stats:{agi:30}},
-  {id:'s11',name:'👢 Shadow Greaves',price:2200,slot:'boots',rarity:'rare',stats:{agi:60}},
-  {id:'s12',name:'👢 Void Sabatons',price:5500,slot:'boots',rarity:'legendary',stats:{agi:120}},
+  //{id:'s11',name:'👢 Shadow Greaves',price:2200,slot:'boots',rarity:'rare',stats:{agi:60}},
+  //{id:'s12',name:'👢 Void Sabatons',price:5500,slot:'boots',rarity:'legendary',stats:{agi:120}},
   // ── RINGS ──
   {id:'s13',name:'💍 Copper Band',price:350,slot:'ring',rarity:'normal',stats:{str:10,int:10}},
   {id:'s14',name:'💍 Silver Seal',price:550,slot:'ring',rarity:'uncommon',stats:{str:25,int:25}},
-  {id:'s15',name:'💍 Enchanted Loop',price:2200,slot:'ring',rarity:'rare',stats:{str:50,int:50}},
-  {id:'s16',name:'💍 Eternal Signet',price:5500,slot:'ring',rarity:'legendary',stats:{str:100,int:100}},
+  //{id:'s15',name:'💍 Enchanted Loop',price:2200,slot:'ring',rarity:'rare',stats:{str:50,int:50}},
+  //{id:'s16',name:'💍 Eternal Signet',price:5500,slot:'ring',rarity:'legendary',stats:{str:100,int:100}},
   // ── HELMETS ──
   {id:'s17',name:'⛑️ Iron Helm',price:280,slot:'helmet',rarity:'normal',stats:{armor:25,int:10}},
   {id:'s18',name:'⛑️ Steel Visor',price:580,slot:'helmet',rarity:'uncommon',stats:{armor:55,int:25}},
-  {id:'s19',name:'⛑️ Warlord Crown',price:2800,slot:'helmet',rarity:'rare',stats:{armor:110,int:55}},
-  {id:'s20',name:'⛑️ Divine Circlet',price:6600,slot:'helmet',rarity:'legendary',stats:{armor:220,int:110}},
+ // {id:'s19',name:'⛑️ Warlord Crown',price:2800,slot:'helmet',rarity:'rare',stats:{armor:110,int:55}},
+  //{id:'s20',name:'⛑️ Divine Circlet',price:6600,slot:'helmet',rarity:'legendary',stats:{armor:220,int:110}},
   // ── AMULETS ──
   {id:'s21',name:'📿 Novice Pendant',price:250,slot:'amulet',rarity:'normal',stats:{int:15,maxMp:150}},
   {id:'s22',name:'📿 Mage Talisman',price:550,slot:'amulet',rarity:'uncommon',stats:{int:35,maxMp:350}},
-  {id:'s23',name:'📿 Arcane Necklace',price:2200,slot:'amulet',rarity:'rare',stats:{int:70,maxMp:700}},
-  {id:'s24',name:'📿 Celestial Amulet',price:5500,slot:'amulet',rarity:'legendary',stats:{int:140,maxMp:1400}},
+  //{id:'s23',name:'📿 Arcane Necklace',price:2200,slot:'amulet',rarity:'rare',stats:{int:70,maxMp:700}},
+ // {id:'s24',name:'📿 Celestial Amulet',price:5500,slot:'amulet',rarity:'legendary',stats:{int:140,maxMp:1400}},
 ];
 const SHOP_CONS=[
   {id:'c1',name:'❤️ Health Potion',price:100,rarity:'normal',effect:'hp',val:400},
@@ -798,28 +870,37 @@ function endCombat(won){
   state.usedUndying=false;
   state.skillCooldowns={};
   
-  // Reset all combat multipliers to base
-  state.strMult=1.0;
-  state.agiMult=1.0;
-  state.intMult=1.0;
-  state.staMult=1.0;
-  state.hitMult=1.0;
-  state.critMult=1.0;
-  state.dodgeMult=1.0;
-  state.hpRegenMult=1.0;
-  state.mpRegenMult=1.0;
-  state.armorMult=1.0;
-  state.maxHp=1.0;
-  state.manaShield=1.0;
-  state.maxMp=1.0;
-  // Reapply ONLY class bonuses (no talent stuff)
+  // ✅ Reset ALL multipliers to 1.0 FIRST
+  state.strMult = 1.0;
+  state.agiMult = 1.0;
+  state.intMult = 1.0;
+  state.staMult = 1.0;
+  state.hitMult = 1.0;
+  state.critMult = 1.0;
+  state.dodgeMult = 1.0;
+  state.hpRegenMult = 1.0;
+  state.mpRegenMult = 1.0;
+  state.armorMult = 1.0;
+  state.maxHp = 1.0;
+  state.manaShield = 1.0;
+  state.maxMp = 1.0;
+  
+  // ✅ Reapply permanent bonuses (class + talent)
   if(state.class){
-    const c=CLASSES[state.class];
+    const c = CLASSES[state.class];
     Object.entries(c.bonuses).forEach(([k,v])=>{
-      state[k]=(state[k]||1)+v;
+      if(k in state) {
+        state[k] = 1.0 + v;
+      }
     });
   }
-  
+
+  Object.keys(state.talentBonuses).forEach(k => {
+    if(k in state && k.includes('Mult')) {
+      state[k] += state.talentBonuses[k];
+    }
+  });
+
   calcStats();
 
   if(won){
@@ -827,20 +908,23 @@ function endCombat(won){
       autoFightEnemyId=currentEnemy.id;
     }
 
-    // Simple gold: base amount only, no multipliers
-    console.log('currentEnemy:', currentEnemy);
-console.log('currentEnemy.gold:', currentEnemy.gold);
-console.log('gold:', currentEnemy.gold);
-console.log('gold:', currentEnemy.gold);
+    // ✅ Safe gold calculation
+    let baseGold = [50, 150];
+    if(currentEnemy.gold && Array.isArray(currentEnemy.gold)) {
+      baseGold = currentEnemy.gold;
+    }
     
-    const baseGold = currentEnemy.gold || [5, 15];
-const goldMult = currentEnemy._goldMult || 1;
-const xpMult = currentEnemy._xpMult || 1;
-const g = Math.floor((Math.random() * (baseGold[1] - baseGold[0]) + baseGold[0]) * goldMult);
-const xp = Math.floor(currentEnemy.xp * xpMult);
-state.gold += g;
-state.xp += xp;
-addLog(`Defeated ${currentEnemy.name}! +${xp} XP, +${g} Gold`, 'good');
+    const min = Number(baseGold) || 50;
+    const max = Number(baseGold) || 150;
+    const goldMult = Number(currentEnemy._goldMult) || 1;
+    const xpMult = Number(currentEnemy._xpMult) || 1;
+    
+    const g = Math.floor((Math.random() * (max - min) + min) * goldMult);
+    const xp = Math.floor(currentEnemy.xp * xpMult);
+    
+    state.gold += g;
+    state.xp += xp;
+    addLog(`Defeated ${currentEnemy.name}! +${xp} XP, +${g} Gold`, 'good');
 
     if(currentEnemy.loot){
       currentEnemy.loot().forEach(item=>{
@@ -981,7 +1065,9 @@ function startBossFight(){
 
 // ── COMBAT ──
 function startCombat(enemyId,isBoss){
-  const tmpl=NORMAL_ENEMIES.find(e=>e.id===enemyId);if(!tmpl)return;
+  const tmpl=NORMAL_ENEMIES.find(e=>e.id===enemyId);
+  if(!tmpl)return;
+  
   const diff=DIFFICULTY[state.difficulty||'normal'];
   const scale=(1+Math.max(0,(state.level-1))*0.1)*diff.hpMult;
   const atkScale=(1+Math.max(0,(state.level-1))*0.1)*diff.atkMult;
@@ -996,11 +1082,12 @@ function startCombat(enemyId,isBoss){
     maxHp:Math.floor(tmpl.hp*scale),
     atk:Math.floor(tmpl.atk*atkScale),
     armor:tmpl.armor,
-    hit:Math.floor((tmpl.armor||0)*1), // enemies get a hit stat too
+    hit:Math.floor((tmpl.armor||0)*1),
     dodge:Math.floor((tmpl.armor||0)*0.5),
-    poisoned:0,frozen:false,crippled:0,boss:false,
-    // store gold/xp multipliers on enemy for endCombat
-    
+    poisoned:0,
+    frozen:false,
+    crippled:0,
+    boss:false,
     _xpMult:diff.xpMult,
     _goldMult:diff.goldMult,
   };
@@ -1188,6 +1275,18 @@ function useSkillInCombat(skillId){
   updateEnemyBar();updateUI();renderSkillBar();
 }
 
+function addCombatLog(msg,type=''){
+  // Format large numbers in combat messages
+  msg = msg.replace(/(\d+)/g, (match) => formatNumber(parseInt(match)));
+  
+  const b=document.getElementById('combat-log');
+  const d=document.createElement('div');
+  d.className=`log-entry ${type?'log-'+type:''}`;
+  d.textContent=msg;
+  b.appendChild(d);
+  b.scrollTop=b.scrollHeight;
+}
+
 function updateEnemyBar(){
   if(!currentEnemy)return;
   const p=Math.max(0,(currentEnemy.hp/currentEnemy.maxHp)*100);
@@ -1198,31 +1297,62 @@ function updateEnemyBar(){
 // ── LEVEL UP ──
 function checkLevelUp(){
   while(state.xp>=state.xpNext&&state.level<state.maxLevel){
-    state.xp-=state.xpNext;state.level++;
+    state.xp-=state.xpNext;
+    state.level++;
     state.xpNext=Math.floor(state.level*100*1.25);
+    
     // Level up BASE stats
-    state.baseStr+=2;state.baseAgi+=2;state.baseInt+=2;
-    state.baseArmor+=1;state.baseSta+=2;state.baseHit+=5;
-    state.talentPoints+=5;state.baseLifeSteal+=0.01;
+    state.baseStr+=2;
+    state.baseAgi+=2;
+    state.baseInt+=2;
+    state.baseArmor+=1;
+    state.baseSta+=2;
+    state.baseHit+=5;
+    state.talentPoints+=5;
+    state.baseLifeSteal+=0.01;
+    
     calcStats();
-    state.hp=state.maxHp;state.mp=state.maxMp;
+    state.hp=state.maxHp;
+    state.mp=state.maxMp;
     document.getElementById('char-level').textContent=`Level ${state.level} / 100`;
     addLog(`🎉 LEVEL UP! Level ${state.level}! +5 Talent Points!`,'gold');
-    playSound('snd-levelup');notify(`🎉 Level Up! Now Level ${state.level}!`,'var(--gold)');
+    playSound('snd-levelup');
+    notify(`🎉 Level Up! Now Level ${state.level}!`,'var(--gold)');
+    
     if(state.level>=5)state.quests.level5.done=true;
     if(state.level>=10){
-  state.quests.level10.done=true;
-  if(!state.class)showClassSelection();
-  
-  // ← ADD THIS: Check for talent unlocks (only once per level-up)
-  checkTalentUnlocks();
-}
+      state.quests.level10.done=true;
+      if(!state.class)showClassSelection();
+      checkTalentUnlocks();
+    }
     if(state.level>=50)state.quests.level50.done=true;
     if(state.level>=100)state.quests.level100.done=true;
     if(state.class)document.getElementById('talent-btn').style.display='inline-block';
     updateTalentBtn();
   }
-  if(state.level>=state.maxLevel){addLog('🌟 MAX LEVEL REACHED! You are a legend!','legendary');state.xp=0;}
+  if(state.level>=state.maxLevel){
+    addLog('🌟 MAX LEVEL REACHED! You are a legend!','legendary');
+    state.xp=0;
+  }
+}
+
+function checkTalentUnlocks(){
+  if(!state.class)return;
+  const c=CLASSES[state.class];
+  
+  Object.entries(c.trees).forEach(([treeId,tree])=>{
+    tree.talents.forEach(talent=>{
+      const flagKey=`${state.class}_${talent.id}`;
+      
+      // Only unlock once per talent, ever
+      if(!state.talentUnlockedFlags[flagKey]){
+        state.talentUnlockedFlags[flagKey]=true;
+        state.unlockedTalents.push(talent.id);
+        talent.effect();
+        addLog(`🌟 Unlocked: ${talent.name}!`,'purple');
+      }
+    });
+  });
 }
 
 function checkTalentUnlocks(){
@@ -1258,25 +1388,35 @@ function showClassSelection(){
   document.getElementById('class-screen').style.display='block';
 }
 function selectClass(classId){
-  const c=CLASSES[classId];state.class=classId;state.quests.class.done=true;
-  // Apply multiplier bonuses
+  const c=CLASSES[classId];
+  state.class=classId;
+  state.quests.class.done=true;
+  
+  // ✅ Store class bonuses
   Object.entries(c.bonuses).forEach(([k,v])=>{
+    state.classBonuses[k] = v;
     state[k]=(state[k]||1)+v;
   });
+  
   state.skills=c.skills;
   document.getElementById('char-class').textContent=`${c.icon} ${c.name}`;
   document.getElementById('arena-player').innerHTML='<img src="warrior.jpg" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:2px solid var(--dark-gold);">';
   document.getElementById('arena-player').textContent=c.icon;
   document.getElementById('class-screen').style.display='none';
   document.getElementById('talent-btn').style.display='inline-block';
+  
   Object.entries(c.trees).forEach(([treeId,tree])=>{
-  tree.talents.forEach(talent=>{
-    const flagKey=`${classId}_${talent.id}`;
-    state.talentUnlockedFlags[flagKey]=false;
+    tree.talents.forEach(talent=>{
+      const flagKey=`${classId}_${talent.id}`;
+      state.talentUnlockedFlags[flagKey]=false;
+    });
   });
-});
+  
   addLog(`🎉 You are now a ${c.name}!`,'purple');
-  playSound('snd-levelup');updateUI();renderSkillBar();renderQuests();
+  playSound('snd-levelup');
+  updateUI();
+  renderSkillBar();
+  renderQuests();
 }
 
 // ── TALENTS ──
@@ -1301,24 +1441,37 @@ function openTalents(){
   document.getElementById('talent-screen').style.display='block';
 }
 function unlockTalent(talentId,treeId){
-  const c=CLASSES[state.class];const tree=c.trees[treeId];
-  const talent=tree.talents.find(t=>t.id===talentId);if(!talent)return;
+  const c=CLASSES[state.class];
+  const tree=c.trees[treeId];
+  const talent=tree.talents.find(t=>t.id===talentId);
+  if(!talent)return;
+  
   const rank=state.unlockedTalents.filter(u=>u===talentId).length;
-  if(rank>=talent.ranks){addLog(`${talent.name} already maxed!`,'bad');return;}
-  if(state.talentPoints<talent.cost){addLog('Not enough talent points!','bad');return;}
+  if(rank>=talent.ranks){
+    addLog(`${talent.name} already maxed!`,'bad');
+    return;
+  }
+  if(state.talentPoints<talent.cost){
+    addLog('Not enough talent points!','bad');
+    return;
+  }
 
   state.talentPoints-=talent.cost;
   state.unlockedTalents.push(talentId);
 
-  // Mark as unlocked in the flag system
   const flagKey=`${state.class}_${talentId}`;
   state.talentUnlockedFlags[flagKey]=true;
   
+  // ✅ Call effect to update talentBonuses
   talent.effect();
+  
   state.quests.talent.done=true;
   addLog(`🌟 Unlocked: ${talent.name}!`,'purple');
   playSound('snd-magic');
-  openTalents();updateUI();renderQuests();updateTalentBtn();
+  openTalents();
+  updateUI();
+  renderQuests();
+  updateTalentBtn();
 }
 function closeTalents(){document.getElementById('talent-screen').style.display='none';}
 function updateTalentBtn(){
@@ -1513,9 +1666,18 @@ function renderInventory(){
     </div>`;
 }
 
+function formatNumber(num) {
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1) + 'M';
+  } else if (num >= 1000) {
+    return (num / 1000).toFixed(1) + 'K';
+  }
+  return num;
+}
+
 // ── ENHANCEMENT ──
 const ENHANCE_COST=[0,500,1000,2000,3500,5000,8000,12000,18000,25000,35000,50000,70000,100000,150000,200000];
-const ENHANCE_RATE=[0,80,80,80,80,80,50,50,50,50,50,25,25,25,25,25];
+const ENHANCE_RATE=[0,100,95,85,75,65,55,45,35,25,25,25,25,25,25,25];
 
 function openEnhance(uid){
   const item=state.inventory.find(i=>i.uid===uid);
@@ -1606,6 +1768,15 @@ function doEnhance(uid){
   if(state.gold<cost){notify('Not enough gold!','var(--red)');return;}
 
   state.gold-=cost;
+  
+  // ✅ If equipped, REMOVE old bonuses first
+  if(item.equipped){
+    Object.entries(item.stats||{}).forEach(([k,v])=>{
+      const equipKey='equip'+k.charAt(0).toUpperCase()+k.slice(1);
+      state[equipKey]=Math.max(0,(state[equipKey]||0)-v);
+    });
+  }
+  
   const success=Math.random()*100<rate;
 
   if(success){
@@ -1637,6 +1808,14 @@ function doEnhance(uid){
       notify('💔 FAILED! Nothing happened.','var(--red)');
     }
     playSound('snd-death');
+  }
+
+  // ✅ If equipped, ADD new bonuses back
+  if(item.equipped){
+    Object.entries(item.stats||{}).forEach(([k,v])=>{
+      const equipKey='equip'+k.charAt(0).toUpperCase()+k.slice(1);
+      state[equipKey]=(state[equipKey]||0)+v;
+    });
   }
 
   if(item.equipped)calcStats();
@@ -1799,31 +1978,31 @@ function addCombatLog(msg,type=''){const b=document.getElementById('combat-log')
 
 // ── UPDATE UI ──
 function updateUI(){
-  calcStats(); // ← recalculate derived stats every time UI updates
+  calcStats();
  
   const hp=Math.max(0,state.hp),mp=Math.max(0,state.mp);
-  document.getElementById('hp-val').textContent=hp;
-  document.getElementById('hp-max').textContent=state.maxHp;
-  document.getElementById('mp-val').textContent=mp;
-  document.getElementById('mp-max').textContent=state.maxMp;
-  document.getElementById('xp-val').textContent=state.xp;
-  document.getElementById('xp-next').textContent=state.xpNext;
-  document.getElementById('gold-val').textContent=state.gold;
+  document.getElementById('hp-val').textContent=formatNumber(hp);
+  document.getElementById('hp-max').textContent=formatNumber(state.maxHp);
+  document.getElementById('mp-val').textContent=formatNumber(mp);
+  document.getElementById('mp-max').textContent=formatNumber(state.maxMp);
+  document.getElementById('xp-val').textContent=formatNumber(state.xp);
+  document.getElementById('xp-next').textContent=formatNumber(state.xpNext);
+  document.getElementById('gold-val').textContent=formatNumber(state.gold);
  
   // Primary stats
-  document.getElementById('str-val').textContent=state.str;
-  document.getElementById('agi-val').textContent=state.agi;
-  document.getElementById('int-val').textContent=state.int;
-  document.getElementById('sta-val').textContent=state.sta;
-  document.getElementById('hit-val').textContent=state.hit;
+  document.getElementById('str-val').textContent=formatNumber(state.str);
+  document.getElementById('agi-val').textContent=formatNumber(state.agi);
+  document.getElementById('int-val').textContent=formatNumber(state.int);
+  document.getElementById('sta-val').textContent=formatNumber(state.sta);
+  document.getElementById('hit-val').textContent=formatNumber(state.hit);
  
   // Derived stats
-  document.getElementById('atk-val').textContent=state.attackPower;
-  document.getElementById('armor-val').textContent=state.armor;
+  document.getElementById('atk-val').textContent=formatNumber(state.attackPower);
+  document.getElementById('armor-val').textContent=formatNumber(state.armor);
   document.getElementById('crit-val').textContent=state.crit+'%';
   document.getElementById('dodge-val').textContent=state.dodge+'%';
-  document.getElementById('hpregen-val').textContent=state.hpRegen;
-  document.getElementById('mpregen-val').textContent=state.manaRegen;
+  document.getElementById('hpregen-val').textContent=formatNumber(state.hpRegen);
+  document.getElementById('mpregen-val').textContent=formatNumber(state.manaRegen);
   document.getElementById('lifesteal-val').textContent=(state.lifeSteal*100).toFixed(1)+'%';
  
   document.getElementById('char-level').textContent=`Level ${state.level} / 100`;
