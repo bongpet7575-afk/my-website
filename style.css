@@ -998,3 +998,69 @@ input:checked + .toggle-slider:before { transform: translateX(18px); }
 .item-icon-price{font-size:.55em;color:var(--gold);margin-top:2px;}
 .item-icon-stack{position:absolute;bottom:2px;right:3px;font-size:.58em;color:var(--gold);font-family:'Cinzel',serif;font-weight:700;}
 .item-icon-equipped{position:absolute;top:2px;right:3px;font-size:.58em;color:var(--green);font-family:'Cinzel',serif;font-weight:700;}
+
+.auto-slot {
+  width: 70px;
+  height: 70px;
+  border: 2px dashed var(--dark-gold);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.3);
+  position: relative;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.auto-slot:hover { border-color: var(--gold); }
+.auto-slot.filled { border-style: solid; border-color: var(--gold); }
+.slot-label {
+  position: absolute;
+  top: 3px;
+  left: 6px;
+  font-size: 0.7em;
+  color: var(--dark-gold);
+}
+.slot-content { font-size: 1.6em; text-align: center; }
+.slot-clear {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  background: none;
+  border: none;
+  color: #ff4444;
+  font-size: 0.7em;
+  cursor: pointer;
+  display: none;
+  padding: 0;
+}
+.auto-slot.filled .slot-clear { display: block; }
+
+.enh-glow-7{
+  animation: glow7 1.5s ease-in-out infinite alternate;
+  border-color: var(--gold) !important;
+}
+.enh-glow-15{
+  animation: glow15 1s ease-in-out infinite alternate;
+  border-color: var(--legendary) !important;
+}
+@keyframes glow7{
+  from{box-shadow: 0 0 6px rgba(240,192,64,0.6), 0 0 12px rgba(240,192,64,0.3);}
+  to{box-shadow: 0 0 14px rgba(240,192,64,0.9), 0 0 25px rgba(240,192,64,0.5);}
+}
+@keyframes glow15{
+  from{box-shadow: 0 0 10px rgba(255,140,0,0.8), 0 0 20px rgba(255,140,0,0.5), 0 0 35px rgba(255,140,0,0.3);}
+  to{box-shadow: 0 0 20px rgba(255,140,0,1), 0 0 40px rgba(255,140,0,0.7), 0 0 60px rgba(255,255,0,0.4);}
+}
+
+div.item-icon-box.enh-glow-7{
+  animation: glow7 1.5s ease-in-out infinite alternate !important;
+  border-color: var(--gold) !important;
+  border-style: solid !important;
+}
+div.item-icon-box.enh-glow-15{
+  animation: glow15 1s ease-in-out infinite alternate !important;
+  border-color: var(--legendary) !important;
+  border-style: solid !important;
+}

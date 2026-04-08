@@ -155,7 +155,7 @@ function calcStats(){
   state.hpRegen = Math.floor((state.sta * 0.1 * (state.baseHpRegen)) * state.hpRegenMult) + (state.equipHpRegen||0);
 
   // LifeSteal
-  state.lifeSteal = Math.floor(state.baseLifeSteal * state.lifeStealMult) + (state.equipLifeSteal||0);
+  state.lifeSteal = (state.equipLifeSteal||0);
 
   // Clamp hp/mp
   state.hp = Math.min(state.hp, state.maxHp);
@@ -258,43 +258,61 @@ const CLASSES={
 
 // ── SKILLS ──
 const SKILLS={
-  power_strike:{name:'Power Strike',icon:'💥',mp:15,cd:1,use:(e)=>{
-    const d=Math.floor(state.attackPower*1.8);
+  // ⚔️ WARRIOR SKILLS — scale with STR / attackPower
+  power_strike:{name:'Power Strike',icon:'💥',mp:()=>Math.floor(state.maxMp*0.10),cd:1,use:(e)=>{
+    const d=Math.floor(state.attackPower*2.2);
     e.hp-=d;addCombatLog(`💥 Power Strike! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
   
-  battle_cry:{name:'Battle Cry',icon:'📯',mp:20,cd:2,use:(e)=>{
-    state.strMult*=2.3;state.armorMult*=2.2;
-    addCombatLog('📯 Battle Cry! +30% STR, +20% ARMOR!','good');playSound('snd-magic');calcStats();return 0;}},
+  battle_cry:{name:'Battle Cry',icon:'📯',mp:()=>Math.floor(state.maxMp*0.15),cd:3,use:(e)=>{
+    const strBoost=Math.floor(state.str*0.5);
+    const armorBoost=Math.floor(state.armor*0.4);
+    state.equipStr=(state.equipStr||0)+strBoost;
+    state.equipArmor=(state.equipArmor||0)+armorBoost;
+    addCombatLog(`📯 Battle Cry! +${strBoost} STR, +${armorBoost} ARMOR for this fight!`,'good');
+    playSound('snd-magic');calcStats();return 0;}},
   
-  last_stand:{name:'Last Stand',icon:'🛡️',mp:25,cd:3,use:(e)=>{
-    const healAmt=Math.floor(state.maxHp*0.3);
+  last_stand:{name:'Last Stand',icon:'🛡️',mp:()=>Math.floor(state.maxMp*0.20),cd:4,use:(e)=>{
+    const healAmt=Math.floor(state.maxHp*0.35);
     state.hp=Math.min(state.maxHp,state.hp+healAmt);
-    state.armorMult*=2.2;
-    addCombatLog(`🛡️ Last Stand! +${healAmt} HP, +50% ARMOR!`,'good');
+    const armorBoost=Math.floor(state.armor*0.5);
+    state.equipArmor=(state.equipArmor||0)+armorBoost;
+    addCombatLog(`🛡️ Last Stand! +${healAmt} HP, +${armorBoost} ARMOR!`,'good');
     playSound('snd-heal');spawnDmgFloat(`+${healAmt}HP`,false,'heal-float');calcStats();return 0;}},
   
-  fireball:{name:'Fireball',icon:'🔥',mp:18,cd:1,use:(e)=>{
-    const d=Math.floor(state.int*5+Math.random()*state.int);
+  // 🔥 MAGE SKILLS — scale with INT
+  fireball:{name:'Fireball',icon:'🔥',mp:()=>Math.floor(state.maxMp*0.12),cd:1,use:(e)=>{
+    const d=Math.floor(state.int*6+Math.random()*state.int*2);
     e.hp-=d;addCombatLog(`🔥 Fireball! ${d} dmg!`,'good');playSound('snd-magic');animateAttack(true,d,false);return d;}},
   
-  ice_lance:{name:'Ice Lance',icon:'❄️',mp:12,cd:2,use:(e)=>{
-    const d=Math.floor(state.int*3.5);
-    e.hp-=d;e.frozen=true;addCombatLog(`❄️ Ice Lance! ${d} dmg — Frozen!`,'info');playSound('snd-magic');animateAttack(true,d,false);return d;}},
+  ice_lance:{name:'Ice Lance',icon:'❄️',mp:()=>Math.floor(state.maxMp*0.10),cd:2,use:(e)=>{
+    const d=Math.floor(state.int*4.5);
+    e.hp-=d;e.frozen=true;
+    addCombatLog(`❄️ Ice Lance! ${d} dmg — Enemy Frozen!`,'info');
+    playSound('snd-magic');animateAttack(true,d,false);return d;}},
   
-  mana_shield:{name:'Mana Shield',icon:'🔮',mp:30,cd:4,use:(e)=>{
-    state.manaShield=true;addCombatLog('🔮 Mana Shield active!','info');playSound('snd-heal');return 0;}},
+  mana_shield:{name:'Mana Shield',icon:'🔮',mp:()=>Math.floor(state.maxMp*0.25),cd:4,use:(e)=>{
+    state.manaShield=true;
+    const shieldStr=Math.floor(state.int*2);
+    addCombatLog(`🔮 Mana Shield active! (absorbs ~${shieldStr} dmg)`,'info');
+    playSound('snd-heal');return 0;}},
   
-  backstab:{name:'Backstab',icon:'🗡️',mp:10,cd:1,use:(e)=>{
-    const d=Math.floor(state.attackPower*2.0);
+  // 🗡️ ROGUE SKILLS — scale with AGI / attackPower
+  backstab:{name:'Backstab',icon:'🗡️',mp:()=>Math.floor(state.maxMp*0.08),cd:1,use:(e)=>{
+    const d=Math.floor(state.attackPower*1.5 + state.agi*3);
     e.hp-=d;addCombatLog(`🗡️ Backstab! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
   
-  poison_blade:{name:'Poison Blade',icon:'🐍',mp:15,cd:2,use:(e)=>{
-    e.poisoned=(e.poisoned||0)+5;
-    addCombatLog('🐍 Poisoned for 5 turns!','good');playSound('snd-magic');return 0;}},
+  poison_blade:{name:'Poison Blade',icon:'🐍',mp:()=>Math.floor(state.maxMp*0.12),cd:2,use:(e)=>{
+    const stacks=5;
+    const tickDmg=Math.floor(state.agi*0.8 + state.attackPower*0.3);
+    e.poisoned=(e.poisoned||0)+stacks;
+    e.poisonDmg=tickDmg;
+    addCombatLog(`🐍 Poisoned! ${tickDmg} dmg/tick for ${stacks} turns!`,'good');
+    playSound('snd-magic');return 0;}},
   
-  shadow_step:{name:'Shadow Step',icon:'🌑',mp:20,cd:3,use:(e)=>{
-    const d=Math.floor(state.attackPower*2.5);
-    e.hp-=d;addCombatLog(`🌑 Shadow Step! ${d} dmg!`,'purple');playSound('snd-magic');animateAttack(true,d,false);return d;}},
+  shadow_step:{name:'Shadow Step',icon:'🌑',mp:()=>Math.floor(state.maxMp*0.15),cd:3,use:(e)=>{
+    const d=Math.floor(state.attackPower*2.0 + state.agi*4);
+    e.hp-=d;addCombatLog(`🌑 Shadow Step! ${d} dmg!`,'purple');
+    playSound('snd-magic');animateAttack(true,d,false);return d;}},
 };
 // Key changes: Power Strike — now uses attackPower instead of raw str
 // Key changes:Fireball — scales with int properly
@@ -359,20 +377,32 @@ const NORMAL_ENEMIES=[
 const SLOT_ICONS={weapon:'⚔️',armor:'🛡️',helmet:'⛑️',boots:'👢',ring:'💍',amulet:'📿'};
 const EQUIP_PREFIXES={legendary:['Divine','Mythic','Godforged','Ancient','Eternal','Celestial'],epic:['Heroic','Valiant','Exalted','Magnificent','Radiant'],rare:['Polished','Reinforced','Enchanted','Gleaming'],uncommon:['Sturdy','Sharpened','Improved','Sturdy'],normal:['Iron','Wooden','Basic','Simple']};
 const EQUIP_NAMES={weapon:['Blade','Sword','Axe','Spear','Dagger','Staff','Bow'],armor:['Plate','Chainmail','Robe','Leather','Cuirass'],helmet:['Helm','Crown','Hood','Circlet','Visor'],boots:['Greaves','Sabatons','Boots','Treads'],ring:['Band','Seal','Loop','Signet'],amulet:['Pendant','Amulet','Talisman','Necklace']};
-const EQUIP_STATS={weapon:{str:[15,35], lifeSteal:[0.05, 0.09]},armor:{armor:[25,55], sta:[15,35],maxHp:[200,300],hpRegen:[25,75]},helmet:{armor:[35,65],int:[15,35]},boots:{agi:[15,35]},ring:{str:[15,35],int:[15,35]},amulet:{int:[25,45],maxMp:[105,205]}};
+const EQUIP_STATS={weapon:{str:[15,35], lifeSteal:[0.01, 0.09]},armor:{armor:[25,55], sta:[15,35],maxHp:[200,300],hpRegen:[25,75]},helmet:{armor:[35,65],int:[15,35]},boots:{agi:[15,35]},ring:{str:[15,35],int:[15,35]},amulet:{int:[25,45],maxMp:[105,205]}};
 
-function mkEquipDrop(slot,rarity){
+function mkEquipDrop(slot, rarity){
+  rarity = applyRarityBonus(rarity);
   const mult=RARITY[rarity].mult;
   const prefix=EQUIP_PREFIXES[rarity][Math.floor(Math.random()*EQUIP_PREFIXES[rarity].length)];
   const suffix=EQUIP_NAMES[slot][Math.floor(Math.random()*EQUIP_NAMES[slot].length)];
   const stats={};
-  Object.entries(EQUIP_STATS[slot]).forEach(([k,[mn,mx]])=>{stats[k]=Math.round((Math.floor(Math.random()*(mx-mn+1))+mn)*mult);});
-  return {uid:genUid(),name:`${SLOT_ICONS[slot]} ${prefix} ${suffix}`,category:'equipment',slot,rarity,stats,equipped:false,sellPrice:Math.round(50*mult*(state.level||1)*.4)};
+  Object.entries(EQUIP_STATS[slot]).forEach(([k,[mn,mx]])=>{
+    const raw=(Math.random()*(mx-mn)+mn)*mult;
+    // If the stat range is decimals, keep 3 decimal places
+    stats[k]=mx<1?Math.round(raw*1000)/1000:Math.round(raw);
+  });
+  return {uid:genUid(),name:`${SLOT_ICONS[slot]} ${prefix} ${suffix}`,category:'equipment',slot,rarity,stats,equipped:false,sellPrice:Math.round(50*mult*(state.level||1)*.10)};
 }
 function mkMat(name,rarity,sellPrice){return {uid:genUid(),name,category:'material',rarity,sellPrice,stackable:true,qty:1};}
 function mkCons(name,rarity,sellPrice,hpVal){return {uid:genUid(),name,category:'consumable',rarity,sellPrice,stackable:true,qty:1,effect:'hp',val:hpVal};}
 function genUid(){return Date.now()+Math.random();}
-
+function applyRarityBonus(rarity){
+  const order=['normal','uncommon','rare','epic','legendary'];
+  const diff=DIFFICULTY[state.difficulty||'normal'];
+  const bonus=diff.rarityBonus||0;
+  const idx=order.indexOf(rarity);
+  const newIdx=Math.min(order.length-1, idx+bonus);
+  return order[newIdx];
+}
 // ── CRAFTING RECIPES ──
 const CRAFTING=[
   {id:'craft_steel_sword',result:{name:'⚔️ Crafted Steel Sword',slot:'weapon',rarity:'rare',stats:{str:100},category:'equipment'},
@@ -542,15 +572,23 @@ function animateAttack(isPlayer,dmg,isCrit){
   }
   spawnDmgFloat(isCrit?`💥${dmg}!`:String(dmg),!isPlayer,isCrit?'crit-dmg':isPlayer?'enemy-dmg':'player-dmg');
 }
-function spawnDmgFloat(text,onEnemy,cls=''){
+function spawnDmgFloat(text, onEnemy, cls=''){
   const arena=document.getElementById('arena');
   if(!arena)return;
   const rect=arena.getBoundingClientRect();
   const div=document.createElement('div');
-  div.className=`dmg-float ${cls}`;div.textContent=text;
-  div.style.left=(onEnemy?rect.right-80:rect.left+30)+'px';
-  div.style.top=(rect.top+rect.height/2-20)+'px';
-  document.body.appendChild(div);setTimeout(()=>div.remove(),950);
+  div.className=`dmg-float ${cls}`;
+  div.textContent=text;
+  
+  // Random offset so they don't stack
+  const randomX = Math.floor(Math.random()*40)-20;
+  const randomY = Math.floor(Math.random()*30)-15;
+  
+  div.style.left=(onEnemy ? rect.right-80 : rect.left+30) + randomX +'px';
+  div.style.top=(rect.top + rect.height/2 - 20) + randomY +'px';
+  
+  document.body.appendChild(div);
+  setTimeout(()=>div.remove(),950);
 }
 
 // ── START ──
@@ -668,6 +706,7 @@ function autoFightStep(){
         spawnDmgFloat(`🩸+${healAmt}`,false,'heal-float');
       }
     }
+    useNextAutoSkill(currentEnemy);
     addCombatLog(`⚔️ ${isCrit?'💥CRIT! ':''}Auto: ${dmg} dmg!`,isCrit?'gold':'good');
     animateAttack(true,dmg,isCrit);
   }
@@ -698,7 +737,7 @@ if(state.hpRegen>0){
   const regen=Math.floor(state.hpRegen);
   if(regen>0&&state.hp<state.maxHp){
     state.hp=Math.min(state.maxHp,state.hp+regen);
-    spawnDmgFloat(`+${regen}HP`,false,'heal-float');
+    //spawnDmgFloat(`+${regen}HP`,false,'heal-float');
     addCombatLog(`💚 Regen +${regen} HP`,'good'); // ← add this
   }
 }
@@ -721,10 +760,12 @@ if(state.manaRegen>0){
     if(eDmg>0){addCombatLog(`${currentEnemy.name} hits you for ${eDmg}!`,'bad');animateAttack(false,eDmg,false);}
   }
   if(currentEnemy.poisoned>0){
-    const pd=8;currentEnemy.hp-=pd;
-    currentEnemy.poisoned--;
-    addCombatLog(`🐍 Poison deals ${pd}!`,'good');
-  }
+  const pd = currentEnemy.poisonDmg || Math.floor(state.agi*0.8 + state.attackPower*0.3);
+  currentEnemy.hp-=pd;
+  currentEnemy.poisoned--;
+  addCombatLog(`🐍 Poison deals ${pd}!`,'good');
+  spawnDmgFloat(`🐍${pd}`,true,'enemy-dmg');
+}
   if(state.hp<=0){
     state.hp=0;
     updateUI();
@@ -760,9 +801,17 @@ function endCombat(won){
   // Reset all combat multipliers to base
   state.strMult=1.0;
   state.agiMult=1.0;
+  state.intMult=1.0;
+  state.staMult=1.0;
+  state.hitMult=1.0;
+  state.critMult=1.0;
+  state.dodgeMult=1.0;
+  state.hpRegenMult=1.0;
+  state.mpRegenMult=1.0;
   state.armorMult=1.0;
   state.maxHp=1.0;
-  state.staMult=1.0;
+  state.manaShield=1.0;
+  state.maxMp=1.0;
   // Reapply ONLY class bonuses (no talent stuff)
   if(state.class){
     const c=CLASSES[state.class];
@@ -785,11 +834,13 @@ console.log('gold:', currentEnemy.gold);
 console.log('gold:', currentEnemy.gold);
     
     const baseGold = currentEnemy.gold || [5, 15];
-    const g = Math.floor(Math.random() * (baseGold[1] - baseGold[0]) + baseGold[0]) ;
-    const xp=Math.floor(currentEnemy.xp);
-    state.gold+=g;
-    state.xp+=xp;
-    addLog(`Defeated ${currentEnemy.name}! +${xp} XP, +${g} Gold`,'good');
+const goldMult = currentEnemy._goldMult || 1;
+const xpMult = currentEnemy._xpMult || 1;
+const g = Math.floor((Math.random() * (baseGold[1] - baseGold[0]) + baseGold[0]) * goldMult);
+const xp = Math.floor(currentEnemy.xp * xpMult);
+state.gold += g;
+state.xp += xp;
+addLog(`Defeated ${currentEnemy.name}! +${xp} XP, +${g} Gold`, 'good');
 
     if(currentEnemy.loot){
       currentEnemy.loot().forEach(item=>{
@@ -824,6 +875,72 @@ console.log('gold:', currentEnemy.gold);
   updateAutoFightBtn();
 }
 
+// Auto skill slots state
+let autoSkillSlots = [null, null, null];
+let autoSkillIndex = 0;
+
+function dropSkillToSlot(event, slotIndex) {
+  const skillId = event.dataTransfer.getData('skillId');
+  if (!skillId || !SKILLS[skillId]) return;
+  autoSkillSlots[slotIndex] = skillId;
+  renderAutoSlots();
+}
+
+function clearSlot(slotIndex) {
+  autoSkillSlots[slotIndex] = null;
+  renderAutoSlots();
+}
+
+function renderAutoSlots() {
+  autoSkillSlots.forEach((skillId, i) => {
+    const content = document.getElementById(`auto-slot-content-${i}`);
+    const slot = document.getElementById(`auto-slot-${i}`);
+    if (!content || !slot) return;
+    if (skillId && SKILLS[skillId]) {
+      const skill = SKILLS[skillId];
+      content.innerHTML = skill.icon;
+      content.style.borderColor = 'var(--gold)';
+      slot.querySelector('.skill-lbl').textContent = skill.name;
+    } else {
+      content.innerHTML = '➕';
+      content.style.borderColor = '';
+      slot.querySelector('.skill-lbl').textContent = `Slot ${i+1}`;
+    }
+  });
+}
+
+function useNextAutoSkill(enemy) {
+  const filledSlots = autoSkillSlots.filter(s => s !== null);
+  if (filledSlots.length === 0) return false;
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const idx = autoSkillIndex % 3;
+    const skillId = autoSkillSlots[idx];
+    autoSkillIndex++;
+
+    if (!skillId || !SKILLS[skillId]) continue;
+
+    const skill = SKILLS[skillId];
+    const cd = state.skillCooldowns[skillId] || 0;
+    const mpCost = typeof skill.mp === 'function' ? skill.mp() : skill.mp;
+
+    if (cd > 0) {
+      addCombatLog(`⏳ ${skill.name} on cooldown (${cd})`, 'info');
+      continue;
+    }
+    if (state.mp < mpCost) {
+      addCombatLog(`💙 Not enough MP for ${skill.name}!`, 'bad');
+      continue;
+    }
+
+    // Use the skill!
+    state.mp -= mpCost;
+    state.skillCooldowns[skillId] = skill.cd;
+    skill.use(enemy);
+    return true;
+  }
+  return false;
+}
 // ── BOSS ──
 function triggerBoss(bossId){
   const boss=BOSSES.find(b=>b.id===bossId);if(!boss)return;
@@ -841,12 +958,23 @@ function startBossFight(){
   document.getElementById('boss-cutscene').style.display='none';
   if(!pendingBossId)return;
   const boss=BOSSES.find(b=>b.id===pendingBossId);if(!boss)return;
-  // Scale boss HP/ATK slightly with player level above requirement
-  const scale=1+Math.max(0,(state.level-boss.levelReq))*0.5;
+
+  const diff=DIFFICULTY[state.difficulty||'normal'];
+  const scale=1+Math.max(0,(state.level-boss.levelReq))*0.05;
+
+  // Add difficulty prefix to boss name
+  const prefix=state.difficulty==='hell'?'💀 Hell ':state.difficulty==='hard'?'🔥 Hard ':'';
+
   currentEnemy={
-    ...boss,hp:Math.floor(boss.hp*scale),maxHp:Math.floor(boss.hp*scale),
-    atk:Math.floor(boss.atk*scale),armor:boss.armor,
+    ...boss,
+    name:prefix+boss.name,
+    hp:Math.floor(boss.hp*scale*diff.hpMult),
+    maxHp:Math.floor(boss.hp*scale*diff.hpMult),
+    atk:Math.floor(boss.atk*scale*diff.atkMult),
+    armor:boss.armor,
     poisoned:0,frozen:false,crippled:0,boss:true,
+    _xpMult:diff.xpMult,
+    _goldMult:diff.goldMult,
   };
   startCombatWith(currentEnemy);
 }
@@ -953,15 +1081,15 @@ function combatAction(action){
   
   // Apply talent healing
   // Apply talent healing
-if(state.unlockedTalents.includes('second_wind'))state.hp=Math.min(state.maxHp,state.hp+10);
-if(state.unlockedTalents.includes('mana_regen'))state.mp=Math.min(state.maxMp,state.mp+5);
+//if(state.unlockedTalents.includes('second_wind'))state.hp=Math.min(state.maxHp,state.hp+50);
+//if(state.unlockedTalents.includes('mana_regen'))state.mp=Math.min(state.maxMp,state.mp+50);
 
 // HP/MP regen per turn
 if(state.hpRegen>0){
   const regen=Math.floor(state.hpRegen + state.equipHpRegen);
   if(regen>0&&state.hp<state.maxHp){
     state.hp=Math.min(state.maxHp,state.hp+regen);
-    spawnDmgFloat(`+${regen}HP`,false,'heal-float');
+    //spawnDmgFloat(`+${regen}HP`,false,'heal-float');
     addCombatLog(`💚 Regen +${regen} HP`,'good'); // ← add this
   }
 }
@@ -1025,9 +1153,10 @@ function useSkillInCombat(skillId){
   if(!currentEnemy)return;
   const sk=SKILLS[skillId];if(!sk)return;
   const cd=state.skillCooldowns[skillId]||0;
+  const mpCost=typeof sk.mp==='function'?sk.mp():sk.mp;
   if(cd>0){addCombatLog(`${sk.name} on cooldown! (${cd})`,'bad');return;}
-  if(state.mp<sk.mp){addCombatLog(`Not enough MP for ${sk.name}!`,'bad');return;}
-  state.mp-=sk.mp;state.skillCooldowns[skillId]=sk.cd;
+  if(state.mp<mpCost){addCombatLog(`Not enough MP for ${sk.name}!`,'bad');return;}
+  state.mp-=mpCost;state.skillCooldowns[skillId]=sk.cd;
   sk.use(currentEnemy);
   Object.keys(state.skillCooldowns).forEach(k=>{if(k!==skillId&&state.skillCooldowns[k]>0)state.skillCooldowns[k]--;});
   if(currentEnemy.hp<=0){
@@ -1036,7 +1165,6 @@ function useSkillInCombat(skillId){
     clearInterval(autoFightTimer);
     autoFightTimer=null;
     endCombat(true);
-    // Restart auto fight if it's on
     if(autoFightOn){
       setTimeout(()=>{
         if(autoFightOn&&autoFightEnemyId){
@@ -1206,11 +1334,14 @@ function renderSkillBar(){
   document.getElementById('skills-slot-row').innerHTML=state.skills.map(sid=>{
     const sk=SKILLS[sid];if(!sk)return'';
     const cd=state.skillCooldowns[sid]||0;
-    return `<div class="skill-slot" onclick="useSkillInCombat('${sid}')">
+    return `<div class="skill-slot" draggable="true" 
+      ondragstart="event.dataTransfer.setData('skillId','${sid}')"
+      onclick="useSkillInCombat('${sid}')">
       <div class="skill-icon-wrap ${cd>0?'on-cd':''}">${sk.icon}</div>
       <div class="skill-lbl">${sk.name}</div>
-      <div class="skill-cd-lbl">${cd>0?`CD:${cd}`:`${sk.mp}MP`}</div>
-    </div>`;}).join('');
+      <div class="skill-cd-lbl">${cd>0?`CD:${cd}`:`${typeof sk.mp==='function'?sk.mp():sk.mp}MP`}</div>
+    </div>`;
+  }).join('');
 }
 
 // ── EQUIPMENT ──
@@ -1371,9 +1502,12 @@ function renderInventory(){
       ${items.map(item=>{
         const stackBadge=item.stackable&&item.qty>1?`<div class="item-icon-stack">×${item.qty}</div>`:'';
         const equippedBadge=item.equipped?`<div class="item-icon-equipped">E</div>`:'';
-        return `<div class="item-icon-box ${item.rarity}" onclick="showItemPopup('inv',${item.uid})" title="${item.name}">
+        const enh=item.enhLevel||0;
+        const enhBadge=enh>0?`<div class="item-icon-stack" style="top:2px;left:3px;right:auto;color:${enh>=7?'var(--legendary)':'var(--gold)'}">+${enh}</div>`:'';
+        const glowClass=enh>=15?'enh-glow-15':enh>=7?'enh-glow-7':'';
+        return `<div class="item-icon-box ${item.rarity} ${glowClass}" onclick="showItemPopup('inv',${item.uid})" title="${item.name}">
           <div class="item-icon-emoji">${item.name.split(' ')[0]}</div>
-          ${stackBadge}${equippedBadge}
+          ${stackBadge}${equippedBadge}${enhBadge}
         </div>`;
       }).join('')}
     </div>`;
@@ -1393,7 +1527,6 @@ function openEnhance(uid){
 function closeEnhance(){
   document.getElementById('enhance-screen').style.display='none';
 }
-
 function renderEnhanceScreen(uid){
   const item=state.inventory.find(i=>i.uid===uid);
   if(!item)return;
@@ -1403,38 +1536,33 @@ function renderEnhanceScreen(uid){
   const cost=ENHANCE_COST[enh+1]||0;
   const rate=ENHANCE_RATE[enh+1]||0;
 
-  // Build pips
   const pips=Array.from({length:15},(_,i)=>{
     let cls='pip-empty';
     if(i<enh)cls=enh>=11?'pip-high':'pip-filled';
     return `<div class="enhance-pip ${cls}"></div>`;
   }).join('');
 
-  // Build stats
   const statsHtml=Object.entries(item.stats||{})
-    .map(([k,v])=>`<div class="enhance-stat-line">+${v} ${k.toUpperCase()}</div>`)
+    .map(([k,v])=>`<div class="enhance-stat-line">+${v<1?v.toFixed(3):v} ${k.toUpperCase()}</div>`)
     .join('');
 
-  // Preview next stats
   const nextStatsHtml=Object.entries(item.stats||{})
-    .map(([k,v])=>`<div class="enhance-stat-line" style="color:var(--green)">+${Math.floor(v*1.15)} ${k.toUpperCase()}</div>`)
-    .join('');
+    .map(([k,v])=>{
+      const next=v<1?Math.round(v*1.15*1000)/1000:Math.floor(v*1.15);
+      return `<div class="enhance-stat-line" style="color:var(--green)">+${v<1?next.toFixed(3):next} ${k.toUpperCase()}</div>`;
+    }).join('');
 
   document.getElementById('enhance-screen').innerHTML=`
     <div class="enhance-container">
       <div class="enhance-title">⚒️ Enhancement</div>
       <div class="enhance-item-card">
         <div class="enhance-item-name" style="color:${r.color}">
-          ${item.name} 
+          ${item.name}
           ${enh>0?`<span class="enh-badge ${enh>=7?'enh-high':'enh-low'}">+${enh}</span>`:''}
         </div>
         <div style="color:${r.color};font-size:.75em;text-align:center;margin-bottom:8px;">${r.label}</div>
-        
-        <!-- Pip bar -->
         <div class="enhance-level-bar">${pips}</div>
         <div style="text-align:center;font-size:.72em;color:#888;margin-top:4px;">Level ${enh} / 15</div>
-
-        <!-- Stats comparison -->
         ${!maxed?`
         <div class="enhance-stats-row">
           <div class="enhance-stats-col">
@@ -1447,8 +1575,6 @@ function renderEnhanceScreen(uid){
             ${nextStatsHtml}
           </div>
         </div>`:'<div style="text-align:center;color:var(--legendary);font-family:Cinzel,serif;margin:12px 0;">✨ MAX ENHANCED!</div>'}
-
-        <!-- Cost box -->
         ${!maxed?`
         <div class="enhance-cost-box">
           <div class="enhance-cost-title">Enhancement +${enh+1}</div>
@@ -1458,7 +1584,7 @@ function renderEnhanceScreen(uid){
           <div class="enhance-cost-row"><span>💰 Your Gold</span><span>${state.gold.toLocaleString()}g</span></div>
         </div>
         <div style="text-align:center;margin-top:12px;">
-          <button class="enhance-btn ${state.gold<cost?'enhance-btn-disabled':''}" 
+          <button class="enhance-btn ${state.gold<cost?'enhance-btn-disabled':''}"
             onclick="doEnhance(${uid})" ${state.gold<cost?'disabled':''}>
             ⚒️ Enhance +${enh+1}
           </button>
@@ -1483,20 +1609,25 @@ function doEnhance(uid){
   const success=Math.random()*100<rate;
 
   if(success){
-    // Boost all stats by 15%
     Object.keys(item.stats||{}).forEach(k=>{
-      item.stats[k]=Math.floor(item.stats[k]*1.15);
+      if(item.stats[k]<1){
+        item.stats[k]=Math.round(item.stats[k]*1.15*1000)/1000;
+      } else {
+        item.stats[k]=Math.floor(item.stats[k]*1.15);
+      }
     });
     item.enhLevel=(enh+1);
     addLog(`⚒️ Enhancement SUCCESS! ${item.name} is now +${item.enhLevel}!`,'gold');
     notify(`✨ SUCCESS! +${item.enhLevel}!`,'var(--gold)');
     playSound('snd-levelup');
   } else {
-    // Drop 1 level
     if(enh>0){
-      // Reverse last boost
       Object.keys(item.stats||{}).forEach(k=>{
-        item.stats[k]=Math.floor(item.stats[k]/1);
+        if(item.stats[k]<1){
+          item.stats[k]=Math.round(item.stats[k]/1.15*1000)/1000;
+        } else {
+          item.stats[k]=Math.floor(item.stats[k]/1.15);
+        }
       });
       item.enhLevel=enh-1;
       addLog(`💔 Enhancement FAILED! ${item.name} dropped to +${item.enhLevel}!`,'bad');
@@ -1508,7 +1639,6 @@ function doEnhance(uid){
     playSound('snd-death');
   }
 
-  // If item is equipped, recalculate stats
   if(item.equipped)calcStats();
   updateUI();
   renderInventory();
@@ -1651,7 +1781,7 @@ function buyShopItem(itemId){
   const all=[...SHOP_EQUIP,...SHOP_CONS];const item=all.find(i=>i.id===itemId);if(!item)return;
   if(state.gold<item.price){addLog(`Not enough gold!`,'bad');return;}
   state.gold-=item.price;
-  if(item.slot){addToInventory({uid:genUid(),name:item.name,category:'equipment',slot:item.slot,rarity:item.rarity||'normal',stats:item.stats,equipped:false,sellPrice:Math.floor(item.price*.5)});}
+  if(item.slot){addToInventory({uid:genUid(),name:item.name,category:'equipment',slot:item.slot,rarity:item.rarity||'normal',stats:{...item.stats},equipped:false,sellPrice:Math.floor(item.price*.5)});}
   else{addToInventory({uid:genUid(),name:item.name,category:'consumable',rarity:item.rarity||'normal',effect:item.effect,val:item.val,sellPrice:Math.floor(item.price*.4),stackable:true,qty:1});}
   addLog(`Bought ${item.name} for ${item.price}g!`,'gold');updateUI();
   if(state.gold>=50)state.quests.gold50.done=true;renderQuests();
@@ -1694,7 +1824,7 @@ function updateUI(){
   document.getElementById('dodge-val').textContent=state.dodge+'%';
   document.getElementById('hpregen-val').textContent=state.hpRegen;
   document.getElementById('mpregen-val').textContent=state.manaRegen;
-  document.getElementById('lifesteal-val').textContent=state.lifeSteal+'%';
+  document.getElementById('lifesteal-val').textContent=(state.lifeSteal*100).toFixed(1)+'%';
  
   document.getElementById('char-level').textContent=`Level ${state.level} / 100`;
   document.getElementById('hp-bar').style.width=Math.max(0,(hp/state.maxHp)*100)+'%';
