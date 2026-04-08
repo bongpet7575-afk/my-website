@@ -1704,63 +1704,94 @@ function updateUI(){
 }
 
 // ── SAVE / LOAD ──
-function saveGame(){
-  try{localStorage.setItem('rpgSave5',JSON.stringify(state));addLog('💾 Game saved!','gold');alert('Game saved! ✅');}
-  catch(e){alert('Save failed — try clearing old save data!');}
+async function saveGame(){
+  await saveToCloud();
 }
-function loadGame(){
-  const saved=localStorage.getItem('rpgSave5');if(!saved){alert('No save file found!');return;}
-  try{
-    const data=JSON.parse(saved);Object.assign(state,data);
-    currentInvTab=state.invTab||'equipment';currentShopTab=state.shopTab||'equipment';
-    showGame();loadScene(state.currentScene||'town');
-    if(state.class){
-      document.getElementById('char-class').textContent=`${CLASSES[state.class].icon} ${CLASSES[state.class].name}`;
-      document.getElementById('arena-player').innerHTML='<img src="warrior.jpg" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:2px solid var(--dark-gold);">';
-      document.getElementById('arena-player').textContent=CLASSES[state.class].icon;
-      document.getElementById('talent-btn').style.display='inline-block';updateTalentBtn();
-    }
-    addLog(`📂 Welcome back ${state.name}!`,'gold');fetchLeaderboard();alert(`Welcome back ${state.name}! ✅`);
-  }catch(e){alert('Load failed!');}
+async function loadGame(){
+  await loadFromCloud();
 }
-setInterval(()=>{if(state.name)try{localStorage.setItem('rpgSave5',JSON.stringify(state));}catch(e){}},120000);
+// Save game to Supabase
+async function saveToCloud() {
+  if (!state.name) {
+    alert("No character found! Please start a game first.");
+    return;
+  }
+
+  const { error } = await dbClient
+    .from("game_saves")
+    .upsert({ player_name: state.name, game_state: state, updated_at: new Date() },
+             { onConflict: "player_name" });
+
+  if (error) {
+    alert("❌ Cloud save failed: " + error.message);
+  } else {
+    addLog('💾 Game saved to cloud!', 'gold');
+    alert("✅ Game saved to cloud!");
+  }
+}
+
+// Load game from Supabase
+async function loadFromCloud() {
+  const playerName = prompt("Enter your character name to load:");
+  if (!playerName) return;
+
+  console.log("Trying to load:", playerName);
+
+  const { data, error } = await dbClient
+    .from("game_saves")
+    .select("game_state")
+    .eq("player_name", playerName)
+    .single();
+
+  console.log("Data:", data);
+  console.log("Error:", error);
+
+  if (error || !data) {
+    alert("❌ No cloud save found for: " + playerName);
+  } else {
+    // Load directly into state instead of reloading
+    Object.assign(state, data.game_state);
+    localStorage.setItem("rpgSave5", JSON.stringify(state));
+    showGame();
+    loadScene(state.currentScene || 'town');
+    addLog(`☁️ Cloud save loaded! Welcome back ${state.name}!`, 'gold');
+    alert("✅ Game loaded from cloud!");
+  }
+}
+
+async function registerUser() {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value.trim();
+  const name = document.getElementById('name-input').value.trim();
+  const msg = document.getElementById('auth-msg');
+
+  if (!email || !password || !name) { msg.textContent = 'Please fill in all fields!'; return; }
+
+  const { error } = await dbClient.auth.signUp({ email, password });
+  if (error) { msg.textContent = '❌ ' + error.message; return; }
+
+  state.name = name;
+  await saveToCloud();
+  msg.style.color = '#44ff44';
+  msg.textContent = '✅ Registered! Starting game...';
+  setTimeout(() => startGame(), 1000);
+}
+
+async function loginUser() {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value.trim();
+  const msg = document.getElementById('auth-msg');
+
+  if (!email || !password) { msg.textContent = 'Please enter email and password!'; return; }
+
+  const { error } = await dbClient.auth.signInWithPassword({ email, password });
+  if (error) { msg.textContent = '❌ ' + error.message; return; }
+
+  await loadFromCloud();
+}
 
 // ── LEADERBOARD ──
-const BIN_ID='69cfae7036566621a876bd4a';
-const API_KEY='$2a$10$VqfRwJTvyV1S/3nK1vd81.02tVHLXJ573oQPUH4Mvu5V7d3vtKjq.';
-const BIN_URL=`https://api.jsonbin.io/v3/b/${BIN_ID}`;
-async function fetchLeaderboard(){
-  try{document.getElementById('lb-list').innerHTML='<div class="lb-empty">Loading...</div>';
-    const res=await fetch(BIN_URL+'/latest',{headers:{'X-Master-Key':API_KEY}});
-    const data=await res.json();renderLeaderboard(data.record.scores||[]);
-  }catch(e){document.getElementById('lb-list').innerHTML='<div class="lb-empty">Could not load.</div>';}
-}
-async function submitScore(){
-  if(!state.name){alert('Start the game first!');return;}
-  try{
-    const res=await fetch(BIN_URL+'/latest',{headers:{'X-Master-Key':API_KEY}});
-    const data=await res.json();let scores=data.record.scores||[];
-    scores=scores.filter(s=>s.name.toLowerCase()!==state.name.toLowerCase());
-    scores.push({name:state.name,level:state.level,gold:state.gold,class:state.class?CLASSES[state.class].name:'Adventurer',date:new Date().toLocaleDateString()});
-    scores.sort((a,b)=>b.level-a.level||b.gold-a.gold);scores=scores.slice(0,20);
-    await fetch(BIN_URL,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':API_KEY},body:JSON.stringify({scores})});
-    renderLeaderboard(scores);addLog('🏆 Score submitted!','gold');alert('Submitted! 🏆');
-  }catch(e){alert('Could not submit. Check connection!');}
-}
-function renderLeaderboard(scores){
-  const list=document.getElementById('lb-list');
-  if(!scores||!scores.length){list.innerHTML='<div class="lb-empty">No scores yet! 🏆</div>';return;}
-  const medals=['🥇','🥈','🥉'];const cls=['gold','silver','bronze'];
-  list.innerHTML=scores.map((s,i)=>`
-    <div class="lb-row">
-      <div class="lb-rank ${cls[i]||''}">${medals[i]||'#'+(i+1)}</div>
-      <div class="lb-name">${s.name}</div>
-      <div class="lb-class">${s.class||'Adventurer'}</div>
-      <div class="lb-level">⭐ Lv.${s.level}</div>
-      <div class="lb-gold-col">💰 ${s.gold}g</div>
-    </div>`).join('');
-}
-fetchLeaderboard();
+
 
 // Click sound
 const clickSnd=document.getElementById('clickSound');
