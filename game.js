@@ -12,6 +12,40 @@ function notify(msg,color='var(--gold)'){
   clearTimeout(n._t);n._t=setTimeout(()=>n.style.display='none',3000);
 }
 
+// Particicle
+
+function spawnParticles(x, y, color='#f0c040', count=12){
+  for(let i=0;i<count;i++){
+    const p=document.createElement('div');
+    p.className='particle';
+    const angle=Math.random()*360;
+    const dist=Math.random()*80+30;
+    const tx=Math.cos(angle*Math.PI/180)*dist+'px';
+    const ty=Math.sin(angle*Math.PI/180)*dist+'px';
+    p.style.cssText=`left:${x}px;top:${y}px;width:${Math.random()*6+3}px;height:${Math.random()*6+3}px;background:${color};--tx:${tx};--ty:${ty};animation-duration:${Math.random()*0.5+0.5}s;`;
+    document.body.appendChild(p);
+    setTimeout(()=>p.remove(),1000);
+  }
+}
+
+function showLevelUpEffect(){
+  const div=document.createElement('div');
+  div.className='levelup-text';
+  div.textContent='⭐ LEVEL UP! ⭐';
+  document.body.appendChild(div);
+  setTimeout(()=>div.remove(),2000);
+  // Gold particles burst from center
+  spawnParticles(window.innerWidth/2, window.innerHeight/2,'#f0c040',20);
+}
+
+function showCritEffect(){
+  const div=document.createElement('div');
+  div.className='crit-text';
+  div.textContent='💥 CRITICAL HIT!';
+  document.body.appendChild(div);
+  setTimeout(()=>div.remove(),800);
+}
+
 // ── RARITY ──
 const RARITY={
   legendary:{label:'Legendary',color:'var(--legendary)',chance:.03,mult:5.5},
@@ -677,7 +711,7 @@ function showGame(){
   document.getElementById('char-name').textContent=state.name;
   document.getElementById('arena-player').innerHTML='<img src="warrior.jpg" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:2px solid var(--dark-gold);">';
   document.getElementById('arena-player-label').textContent=state.name;
-  loadAutoSellUI();updateUI();renderShop();renderQuests();renderInventory();renderSkillBar();renderEquipSlots();
+  loadAutoSellUI();updateUI();renderShop();renderQuests();renderInventory();renderSkillBar();renderEquipSlots();fetchLeaderboard();
   setDifficulty('normal');
 }
 
@@ -768,6 +802,7 @@ function autoFightStep(){
     if(Math.random()<state.crit/100){dmg=Math.floor(dmg*2);isCrit=true;}
     if(state.unlockedTalents.includes('berserker')&&state.hp<state.maxHp*.5)dmg=Math.floor(dmg*1.35);
     if(state.unlockedTalents.includes('death_mark'))dmg=Math.floor(dmg*1.5);
+    if(isCrit) showCritEffect();
     currentEnemy.hp-=dmg;
     const lifeSteal=state.lifeSteal||0;
     if(lifeSteal>0){
@@ -1125,6 +1160,7 @@ function combatAction(action){
       let isCrit=false;
       if(state.unlockedTalents.includes('berserker')&&state.hp<state.maxHp*.5)dmg=Math.floor(dmg*1.35);
       if(Math.random() < state.crit/100){dmg=Math.floor(dmg*2);isCrit=true;}
+      if(isCrit) showCritEffect();
       if(state.unlockedTalents.includes('death_mark'))dmg=Math.floor(dmg*1.5);
       if(state.unlockedTalents.includes('venom'))currentEnemy.poisoned=(currentEnemy.poisoned||0)+1;
       currentEnemy.hp-=dmg;
@@ -1317,6 +1353,7 @@ function checkLevelUp(){
     document.getElementById('char-level').textContent=`Level ${state.level} / 100`;
     addLog(`🎉 LEVEL UP! Level ${state.level}! +5 Talent Points!`,'gold');
     playSound('snd-levelup');
+    showLevelUpEffect();
     notify(`🎉 Level Up! Now Level ${state.level}!`,'var(--gold)');
     
     if(state.level>=5)state.quests.level5.done=true;
@@ -2089,6 +2126,7 @@ async function registerUser() {
 async function loginUser() {
   const email = document.getElementById('auth-email').value.trim();
   const password = document.getElementById('auth-password').value.trim();
+  const name = document.getElementById('name-input').value.trim();
   const msg = document.getElementById('auth-msg');
 
   if (!email || !password) { msg.textContent = 'Please enter email and password!'; return; }
@@ -2096,11 +2134,80 @@ async function loginUser() {
   const { error } = await dbClient.auth.signInWithPassword({ email, password });
   if (error) { msg.textContent = '❌ ' + error.message; return; }
 
-  await loadFromCloud();
+  // Use name from input if provided, otherwise prompt
+  if (name) {
+    const { data, error: loadError } = await dbClient
+      .from("game_saves")
+      .select("game_state")
+      .eq("player_name", name)
+      .single();
+
+    if (loadError || !data) {
+      msg.textContent = '❌ No save found for: ' + name;
+    } else {
+      Object.assign(state, data.game_state);
+      showGame();
+      loadScene(state.currentScene || 'town');
+      addLog(`☁️ Welcome back ${state.name}!`, 'gold');
+    }
+  } else {
+    await loadFromCloud();
+  }
 }
 
 // ── LEADERBOARD ──
+async function fetchLeaderboard(){
+  try{
+    document.getElementById('lb-list').innerHTML='<div class="lb-empty">Loading...</div>';
+    const { data, error } = await dbClient
+      .from('leaderboard')
+      .select('*')
+      .order('level', { ascending: false })
+      .order('gold', { ascending: false })
+      .limit(20);
+    if(error)throw error;
+    renderLeaderboard(data||[]);
+  }catch(e){
+    document.getElementById('lb-list').innerHTML='<div class="lb-empty">Could not load leaderboard.</div>';
+  }
+}
 
+async function submitScore(){
+  if(!state.name){alert('Start the game first!');return;}
+  try{
+    const { error } = await dbClient
+      .from('leaderboard')
+      .upsert({
+        player_name: state.name,
+        level: state.level,
+        gold: state.gold,
+        class: state.class ? CLASSES[state.class].name : 'Adventurer',
+        date: new Date().toLocaleDateString(),
+        updated_at: new Date()
+      }, { onConflict: 'player_name' });
+    if(error)throw error;
+    addLog('🏆 Score submitted!','gold');
+    notify('🏆 Score submitted!','var(--gold)');
+    fetchLeaderboard();
+  }catch(e){
+    alert('Could not submit score: ' + e.message);
+  }
+}
+
+function renderLeaderboard(scores){
+  const list=document.getElementById('lb-list');
+  if(!scores||!scores.length){list.innerHTML='<div class="lb-empty">No scores yet! 🏆</div>';return;}
+  const medals=['🥇','🥈','🥉'];
+  const cls=['gold','silver','bronze'];
+  list.innerHTML=scores.map((s,i)=>`
+    <div class="lb-row">
+      <div class="lb-rank ${cls[i]||''}">${medals[i]||'#'+(i+1)}</div>
+      <div class="lb-name">${s.player_name}</div>
+      <div class="lb-class">${s.class||'Adventurer'}</div>
+      <div class="lb-level">⭐ Lv.${s.level}</div>
+      <div class="lb-gold-col">💰 ${formatNumber(s.gold)}g</div>
+    </div>`).join('');
+}
 
 // Click sound
 const clickSnd=document.getElementById('clickSound');
