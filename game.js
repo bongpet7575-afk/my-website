@@ -97,7 +97,7 @@ const state={
   hp:100,maxHp:100,mp:50,maxMp:50,hit:10,crit:5,dodge:5,hpRegen:20,lifeSteal:0.01,
  
   // PRIMARY BASE STATS (raw - leveled up, never modified directly by class/talent)
-  baseStr:5,baseAgi:5,baseInt:5,baseSta:5,baseArmor:5,baseHit:10,baseCrit:2,baseDodge:2,baseHpRegen:20,baseLifeSteal:0.01,
+  baseStr:5,baseAgi:5,baseInt:5,baseSta:5,baseArmor:5,baseHit:10,baseCrit:0,baseDodge:2,baseHpRegen:20,baseLifeSteal:0.01,
  
   // STAT MULTIPLIERS (class + talent % bonuses, starts at 1.0 = 100%)
   strMult:1.0,agiMult:1.0,intMult:1.0,staMult:1.0,armorMult:1.0,hpRegenMult:1.0,mpMult:1.0,critMult:1.0,dodgeMult:1.0,mpRegenMult:1.0,hitMult:1.0,lifeStealMult:1.0,skillStrMult:1.0,skillStaMult:1.0,skillMaxHp:1.0,skillArmorMult:1.0,
@@ -134,25 +134,28 @@ const DIFFICULTY={
     label:'Normal',icon:'⚔️',color:'#cccccc',
     levelReq:0,
     hpMult:1,atkMult:1,
+    hitMul:1,dodgeMult:1,
     goldMult:1,xpMult:1,
     rarityBonus:0,   // no bonus
-    legendaryChance:0.03,
+    legendaryChance:0.003,
   },
   hard:{
     label:'Hard',icon:'🔥',color:'#ff8800',
     levelReq:20,
-    hpMult:5,atkMult:5,
+    hpMult:3,atkMult:3,
+    hitMul:3,dodgeMult:3,
     goldMult:3,xpMult:3,
     rarityBonus:2,   // shifts rarity up by 2 tiers
-    legendaryChance:0.07,
+    legendaryChance:0.007,
   },
   hell:{
     label:'Hell',icon:'💀',color:'#ff2222',
     levelReq:50,
-    hpMult:10,atkMult:10,
+    hpMult:5,atkMult:5,    
+    hitMul:5,dodgeMult:5,
     goldMult:5,xpMult:5,
     rarityBonus:3,   // shifts rarity up by 2 tiers
-    legendaryChance:0.9,
+    legendaryChance:0.009,
   },
 };
 function setDifficulty(diff){
@@ -178,7 +181,6 @@ function calcStats(){
   state.agi  = Math.floor(state.baseAgi  * state.agiMult) + (state.equipAgi||0);
   state.int  = Math.floor(state.baseInt  * state.intMult) + (state.equipInt||0);
   state.sta  = Math.floor(state.baseSta  * state.staMult) + (state.equipSta||0);
-  state.hit  = Math.floor(state.baseHit * state.hitMult) + (state.equipHit||0);
   
   // STR + INT → Attack Power
   state.attackPower = Math.floor((state.str * 2 * state.attackMult)+(state.int * 2 * state.attackMult*0.5)) + (state.equipAttackPower||0);
@@ -187,11 +189,14 @@ function calcStats(){
   state.maxHp = Math.floor(50 + (state.str * 10) + (state.sta * 15) + (state.level * 20)) + (state.equipMaxHp||0);
   
   // AGI + baseArmor → Armor (with armorMult + equipment bonus)
-  state.armor = Math.floor((state.agi * 3 + state.baseArmor) * state.armorMult) + (state.equipArmor||0);
+  state.armor = Math.floor((state.agi * 0.5 + state.baseArmor) * state.armorMult) + (state.equipArmor||0);
   
-  // AGI → Crit% and Dodge%
-  state.crit  = Math.floor((state.agi * 0.1 * state.baseDodge) * state.critMult) + (state.equipCrit||0);
+  // AGI → Crit% Hit% and Dodge%
+//  state.crit  = Math.floor((state.agi * 0.1 * state.baseCrit) * state.critMult) + (state.equipCrit||0);
+  state.crit  = Math.floor(state.critMult) + (state.equipCrit);
   state.dodge = Math.floor((state.agi * 0.1 * state.baseDodge) * state.dodgeMult) + (state.equipDodge||0);
+//  state.hit = Math.floor(state.equipHit);
+  state.hit = Math.floor((state.agi * 0.1 * state.baseHit) * state.hitMult) + (state.equipHit||0);
 
   // INT → Max MP and Mana Regen
   state.maxMp     = Math.floor((50 + (state.int * 3)) * state.mpMult) + (state.equipMaxMp||0);
@@ -217,16 +222,16 @@ const CLASSES={
       dps:{name:'🗡️ DPS',talents:[
         {id:'berserker',name:'Berserker Rage',desc:'10% CRIT per rank',cost:5,ranks:10,
           effect:()=>{
-            state.baseCrit+=10;
-            state.talentBonuses.critMult = (state.talentBonuses.critMult || 0) + 0.1;
+            state.baseCrit+=0;
+            state.talentBonuses.critMult = (state.talentBonuses.critMult || 0) + 0.01;
           }},
         {id:'cleave',name:'Brute Force',desc:'20% CRIT per rank',cost:10,ranks:5,
           effect:()=>{
-            state.talentBonuses.critMult = (state.talentBonuses.critMult || 0) + 0.2;
+            state.talentBonuses.critMult = (state.talentBonuses.critMult || 0) + 0.02;
           }},
         {id:'execute',name:'Killing Blow',desc:'30% CRIT per rank',cost:20,ranks:3,
           effect:()=>{
-            state.talentBonuses.critMult = (state.talentBonuses.critMult || 0) + 0.3;
+            state.talentBonuses.critMult = (state.talentBonuses.critMult || 0) + 0.03;
           }},
       ]},
       tank:{name:'🛡️ Tank',talents:[
@@ -364,21 +369,21 @@ const SKILLS={
     const d=Math.floor(state.attackPower*2.2);
     e.hp-=d;addCombatLog(`💥 Power Strike! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
   
-  battle_cry:{name:'Battle Cry',icon:'📯',mp:()=>Math.floor(state.maxMp*0.15),cd:3,use:(e)=>{
+  battle_cry:{name:'Battle Cry',icon:'📯',mp:()=>Math.floor(state.maxMp*0.15),cd:999,use:(e)=>{
   // ✅ Use multipliers instead of equipment bonuses
   state.strMult *= 1.5;
   state.armorMult *= 1.4;
+  state.critMult *= 10;
   addCombatLog(`📯 Battle Cry! +50% STR, +40% ARMOR for this fight!`,'good');
   playSound('snd-magic');
   calcStats();
   return 0;
 }},
 
-last_stand:{name:'Last Stand',icon:'🛡️',mp:()=>Math.floor(state.maxMp*0.20),cd:4,use:(e)=>{
+last_stand:{name:'Last Stand',icon:'🛡️',mp:()=>Math.floor(state.maxMp*0.20),cd:2,use:(e)=>{
   const healAmt=Math.floor(state.maxHp*0.35);
   state.hp=Math.min(state.maxHp,state.hp+healAmt);
   // ✅ Use multiplier instead of equipment bonus
-  state.armorMult *= 1.5;
   addCombatLog(`🛡️ Last Stand! +${healAmt} HP, +50% ARMOR!`,'good');
   playSound('snd-heal');
   spawnDmgFloat(`+${healAmt}HP`,false,'heal-float');
@@ -431,59 +436,67 @@ last_stand:{name:'Last Stand',icon:'🛡️',mp:()=>Math.floor(state.maxMp*0.20)
 
 // ── BOSSES (one every 10 levels, up to level 100) ──
 const BOSSES=[
-  {id:'boss_10',levelReq:10,name:'🐉 Ancient Dragon',icon:'🐉',hp:2500,atk:380,armor:14,xp:400,gold:[800,1600],
+  {id:'boss_10',levelReq:10,name:'🐉 Ancient Dragon',icon:'🐉',hp:2500,atk:250,armor:150,hit:200,dodge:200,xp:400,gold:[800,1600],
    cs:{title:'Ancient Dragon',req:'Required: Level 10',text:'The earth trembles as the Ancient Dragon awakens from its century-long slumber! Fire and fury await you, hero!'},
    loot:()=>[mkEquipDrop('weapon','epic'),mkMat('🐉 Dragon Scale','epic',60),mkMat('🔥 Dragon Flame','rare',40)]},
-  {id:'boss_20',levelReq:20,name:'💀 Lich King',icon:'💀',hp:4500,atk:550,armor:20,xp:700,gold:[1500,2500],
+  {id:'boss_20',levelReq:20,name:'💀 Lich King',icon:'💀',hp:11000,atk:1100,armor:800,hit:400,dodge:400,xp:700,gold:[1500,2500],
    cs:{title:'Lich King',req:'Required: Level 20',text:'The Lich King rises from the underworld! His death magic corrupts everything it touches. Face him only if you dare!'},
    loot:()=>[mkEquipDrop('armor','epic'),mkEquipDrop('ring','rare'),mkMat('💀 Death Essence','epic',80)]},
-  {id:'boss_30',levelReq:30,name:'😈 Demon Lord',icon:'😈',hp:6500,atk:700,armor:26,xp:1000,gold:[2200,3500],
+  {id:'boss_30',levelReq:30,name:'😈 Demon Lord',icon:'😈',hp:22000,atk:3000,armor:2600,hit:800,dodge:800,xp:1000,gold:[2200,3500],
    cs:{title:'Demon Lord',req:'Required: Level 30',text:'The sky tears open! The Demon Lord descends with hellfire in his wake. This battle will echo through eternity!'},
    loot:()=>[mkEquipDrop('weapon','legendary'),mkEquipDrop('amulet','epic'),mkMat('😈 Demon Horn','legendary',150)]},
-  {id:'boss_40',levelReq:40,name:'⚡ Ancient Titan',icon:'⚡',hp:9000,atk:880,armor:34,xp:1400,gold:[3000,4500],
+  {id:'boss_40',levelReq:40,name:'⚡ Ancient Titan',icon:'⚡',hp:35000,atk:6600,armor:5700,hit:1600,dodge:1600,xp:1400,gold:[3000,4500],
    cs:{title:'Ancient Titan',req:'Required: Level 40',text:'A god among monsters! The Ancient Titan towers over mountains. Its every step causes earthquakes. Can you really stand against it?'},
    loot:()=>[mkEquipDrop('armor','legendary'),mkEquipDrop('helmet','epic'),mkMat('⚡ Titan Soul','legendary',200)]},
-  {id:'boss_50',levelReq:50,name:'🌑 Void Dragon',icon:'🌑',hp:12000,atk:1050,armor:42,xp:2000,gold:[4000,6000],
+  {id:'boss_50',levelReq:50,name:'🌑 Void Dragon',icon:'🌑',hp:44000,atk:6600,armor:5400,hit:2200,dodge:2200,xp:2000,gold:[4000,6000],
    cs:{title:'Void Dragon',req:'Required: Level 50',text:'From the void between worlds emerges the Void Dragon! A creature of pure darkness and chaos. Even gods fear this name!'},
    loot:()=>[mkEquipDrop('weapon','legendary'),mkEquipDrop('ring','legendary'),mkMat('🌑 Void Crystal','legendary',300)]},
-  {id:'boss_60',levelReq:60,name:'🔱 Sea Leviathan',icon:'🔱',hp:16000,atk:1250,armor:50,xp:2800,gold:[5000,7500],
+  {id:'boss_60',levelReq:60,name:'🔱 Sea Leviathan',icon:'🔱',hp:80000,atk:9000,armor:8000,hit:4400,dodge:4400,xp:2800,gold:[5000,7500],
    cs:{title:'Sea Leviathan',req:'Required: Level 60',text:'The ancient seas churn as the Leviathan erupts from the deep! Sailors have feared this beast for centuries. Today you face it alone!'},
    loot:()=>[mkEquipDrop('armor','legendary'),mkEquipDrop('boots','legendary'),mkMat('🔱 Leviathan Scale','legendary',350)]},
-  {id:'boss_70',levelReq:70,name:'☄️ Fallen God',icon:'☄️',hp:22000,atk:1480,armor:60,xp:3800,gold:[6500,9500],
+  {id:'boss_70',levelReq:70,name:'☄️ Fallen God',icon:'☄️',hp:160000,atk:16000,armor:10000,hit:8800,dodge:8800,xp:3800,gold:[6500,9500],
    cs:{title:'Fallen God',req:'Required: Level 70',text:'A god cast down from the heavens — bitter and powerful beyond imagination! The Fallen God wants revenge on all living things. Stand firm, hero!'},
    loot:()=>[mkEquipDrop('weapon','legendary'),mkEquipDrop('amulet','legendary'),mkMat('☄️ Divine Shard','legendary',450)]},
-  {id:'boss_80',levelReq:80,name:'🌀 Chaos Serpent',icon:'🌀',hp:30000,atk:1750,armor:72,xp:5000,gold:[8000,12000],
+  {id:'boss_80',levelReq:80,name:'🌀 Chaos Serpent',icon:'🌀',hp:300000,atk:22000,armor:20000,hit:16000,dodge:16000,xp:5000,gold:[8000,12000],
    cs:{title:'Chaos Serpent',req:'Required: Level 80',text:'Reality warps and tears as the Chaos Serpent slithers from between dimensions! It feeds on destruction and grows stronger from chaos itself!'},
    loot:()=>[mkEquipDrop('armor','legendary'),mkEquipDrop('ring','legendary'),mkMat('🌀 Chaos Essence','legendary',550)]},
-  {id:'boss_90',levelReq:90,name:'💎 Crystal Colossus',icon:'💎',hp:40000,atk:2050,armor:88,xp:7000,gold:[10000,15000],
+  {id:'boss_90',levelReq:90,name:'💎 Crystal Colossus',icon:'💎',hp:600000,atk:44000,armor:40000,hit:22000,dodge:22000,xp:7000,gold:[10000,15000],
    cs:{title:'Crystal Colossus',req:'Required: Level 90',text:'The Crystal Colossus — forged from the hardest material in existence, animated by ancient magic. Its crystalline body reflects your own attacks back at you!'},
    loot:()=>[mkEquipDrop('helmet','legendary'),mkEquipDrop('boots','legendary'),mkMat('💎 Pure Crystal Core','legendary',700)]},
-  {id:'boss_100',levelReq:100,name:'🌟 Eternal King',icon:'🌟',hp:60000,atk:2500,armor:110,xp:15000,gold:[20000,30000],
+  {id:'boss_100',levelReq:100,name:'🌟 Eternal King',icon:'🌟',hp:1200000,atk:88000,armor:80000,hit:44000,dodge:44000,xp:15000,gold:[20000,30000],
    cs:{title:'Eternal King',req:'Required: Level 100 — FINAL BOSS',text:'The Eternal King — ruler of all realms, immortal and all-powerful. Defeating him is the ultimate achievement. Heroes who have reached this far are legends. Are you ready for your final battle?'},
    loot:()=>[mkEquipDrop('weapon','legendary'),mkEquipDrop('armor','legendary'),mkEquipDrop('ring','legendary'),mkMat('🌟 Eternal Crown','legendary',1000)]},
 ];
 
 // ── NORMAL ENEMIES ──
 const NORMAL_ENEMIES=[
-  {id:'wolf',name:'🐺 Forest Wolf',icon:'wolf',hp:150,atk:80,armor:2,xp:125,gold:[55,150],loot:()=>[mkMat('🐺Wolf Fang',rollRarity(),5)]},
-  {id:'spider',name:'🕷️ Giant Spider',icon:'spider',hp:380,atk:180,armor:10,xp:181,gold:[99,200],loot:()=>[mkMat('🕸️ Spider Silk',rollRarity(),6)]},
-  {id:'goblin',name:'👹 Dungeon Goblin',icon:'goblin',hp:750,atk:220,armor:30,xp:381,gold:[150,350],loot:()=>[mkEquipDrop('weapon',rollRarity()),mkEquipDrop('armor',rollRarity())]},
-  {id:'skeleton',name:'💀 Skeleton',icon:'skeleton',hp:1200,atk:360,armor:50,xp:551,gold:[300,550],loot:()=>[mkEquipDrop('armor',rollRarity()),mkEquipDrop('weapon',rollRarity())]},
-  {id:'orc',name:'👊 Orc Warrior',icon:'orc',hp:2200,atk:480,armor:70,xp:751,gold:[500,750],loot:()=>[mkEquipDrop('weapon',rollRarity()),mkMat('🪓 Orc Fragment','normal',8)]},
-  {id:'vampire',name:'🧛 Vampire',icon:'vampire',hp:3900,atk:620,armor:80,xp:901,gold:[700,950],loot:()=>[mkEquipDrop('ring',rollRarity()),mkCons('🩸 Blood Vial','uncommon',35,8)]},
-  {id:'troll',name:'👾 Cave Troll',icon:'troll',hp:5100,atk:860,armor:110,xp:1001,gold:[900,1250],loot:()=>[mkEquipDrop('armor',rollRarity()),mkMat('💎 Troll Gem','rare',30)]},
-  {id:'golem',name:'🗿 Stone Golem',icon:'golem',hp:7300,atk:1280,armor:140,xp:1201,gold:[1200,1550],loot:()=>[mkEquipDrop('helmet',rollRarity()),mkMat('🪨 Stone Core','uncommon',15)]},
-  {id:'demon_knight',name:'😈 Demon Knight',icon:'demon',hp:9500,atk:1500,armor:160,xp:1451,gold:[1500,1750],loot:()=>[mkEquipDrop('weapon','rare'),mkEquipDrop('armor',rollRarity())]},
-  {id:'werewolf',name:'🐺 Werewolf',icon:'werewolf',hp:13000,atk:2000,armor:1700,xp:1651,gold:[1700,1850],loot:()=>[mkEquipDrop('boots',rollRarity()),mkMat('🌕 Moon Shard','rare',25)]},
-  {id:'sea_monster',name:'🦑 Sea Monster',icon:'kraken',hp:15000,atk:3200,armor:2000,xp:1901,gold:[1800,1950],loot:()=>[mkEquipDrop('amulet',rollRarity()),mkMat('🦑 Kraken Ink','epic',45)]},
-  {id:'phoenix',name:'🦅 Phoenix',icon:'phoenix',hp:17300,atk:3000,armor:4200,xp:2200,gold:[1950,2250],loot:()=>[mkEquipDrop('ring',rollRarity()),mkMat('🔥 Phoenix Feather','epic',60)]},
+  {id:'wolf',name:'🐺 Forest Wolf',icon:'wolf',hp:150,atk:100,armor:10,hit:10,dodge:10,xp:125,gold:[55,150],loot:()=>[mkMat('🐺Wolf Fang',rollRarity(),5)]},
+  {id:'spider',name:'🕷️ Giant Spider',icon:'spider',hp:380,atk:180,armor:10,hit:15,dodge:15,xp:181,gold:[99,200],loot:()=>[mkMat('🕸️ Spider Silk',rollRarity(),6)]},
+ 
+  {id:'goblin',name:'👹 Dungeon Goblin',icon:'goblin',hp:750,atk:220,armor:30,hit:30,dodge:30,xp:381,gold:[150,350],loot:()=>[mkEquipDrop('weapon',rollRarity()),mkEquipDrop('armor',rollRarity())]},
+  {id:'skeleton',name:'💀 Skeleton',icon:'skeleton',hp:1200,atk:360,armor:50,hit:50,dodge:50,xp:551,gold:[300,550],loot:()=>[mkEquipDrop('armor',rollRarity()),mkEquipDrop('weapon',rollRarity())]},
+  {id:'orc',name:'👊 Orc Warrior',icon:'orc',hp:2200,atk:480,armor:400,hit:80,dodge:80,xp:751,gold:[500,750],loot:()=>[mkEquipDrop('weapon',rollRarity()),mkMat('🪓 Orc Fragment','normal',8)]},
+  {id:'golem',name:'🗿 Stone Golem',icon:'golem',hp:2900,atk:580,armor:500,xp:1201,hit:160,dodge:160,gold:[800,950],loot:()=>[mkEquipDrop('helmet',rollRarity()),mkMat('🪨 Stone Core','uncommon',15)]},
+ 
+  {id:'vampire',name:'🧛 Vampire',icon:'vampire',hp:3900,atk:620,armor:600,hit:100,dodge:100,xp:1501,gold:[900,1250],loot:()=>[mkEquipDrop('ring',rollRarity()),mkCons('🩸 Blood Vial','uncommon',35)]},
+  {id:'troll',name:'👾 Cave Troll',icon:'troll',hp:6900,atk:860,armor:110,xp:1701,hit:130,dodge:130,gold:[1200,1450],loot:()=>[mkEquipDrop('armor',rollRarity()),mkMat('💎 Troll Gem','rare',40)]},
+  {id:'werewolf',name:'🐺 Werewolf',icon:'werewolf',hp:13000,atk:2000,armor:1700,hit:250,dodge:250,xp:2051,gold:[1700,1850],loot:()=>[mkEquipDrop('boots',rollRarity()),mkMat('🌕 Moon Shard','rare',45)]},
+
+  {id:'demon_knight',name:'😈 Demon Knight',icon:'demon',hp:19500,atk:3500,armor:2600,xp:3251,hit:210,dodge:210,gold:[2100,3150],loot:()=>[mkEquipDrop('weapon','rare'),mkEquipDrop('armor',rollRarity())]},
+  {id:'sea_monster',name:'🦑 Sea Monster',icon:'kraken',hp:25000,atk:5200,armor:4000,hit:300,dodge:300,xp:4501,gold:[3800,5950],loot:()=>[mkEquipDrop('amulet',rollRarity()),mkMat('🦑 Kraken Ink','epic',55)]},
+  
+  {id:'king_kong',name:' King Kong',icon:'kingkong',hp:33300,atk:7200,armor:5200,hit:500,dodge:500,xp:5200,gold:[7950,9250],loot:()=>[mkEquipDrop('ring',rollRarity()),mkMat('🔥 Phoenix Feather','epic',60)]},
+{id:'Krud',name:' Krud',icon:'krud',hp:43300,atk:6600,armor:5500,hit:600,dodge:600,xp:7200,gold:[12050,14250],loot:()=>[mkEquipDrop('ring',rollRarity()),mkMat('🔥 Phoenix Feather','epic',70)]},
+{id:'hanuman',name:' Hanuman',icon:'hanumn',hp:67300,atk:7900,armor:6500,hit:700,dodge:700,xp:9200,gold:[15950,16250],loot:()=>[mkEquipDrop('ring',rollRarity()),mkMat('🔥 Phoenix Feather','epic',80)]},
+  
+  {id:'phoenix',name:'🦅 Phoenix',icon:'phoenix',hp:87300,atk:9900,armor:7500,hit:900,dodge:900,xp:12200,gold:[19050,22250],loot:()=>[mkEquipDrop('ring',rollRarity()),mkMat('🔥 Phoenix Feather','epic',90)]},
 ];
 
 // ── ITEM HELPERS ──
 const SLOT_ICONS={weapon:'⚔️',armor:'🛡️',helmet:'⛑️',boots:'👢',ring:'💍',amulet:'📿'};
 const EQUIP_PREFIXES={legendary:['Divine','Mythic','Godforged','Ancient','Eternal','Celestial'],epic:['Heroic','Valiant','Exalted','Magnificent','Radiant'],rare:['Polished','Reinforced','Enchanted','Gleaming'],uncommon:['Sturdy','Sharpened','Improved','Sturdy'],normal:['Iron','Wooden','Basic','Simple']};
 const EQUIP_NAMES={weapon:['Blade','Sword','Axe','Spear','Dagger','Staff','Bow'],armor:['Plate','Chainmail','Robe','Leather','Cuirass'],helmet:['Helm','Crown','Hood','Circlet','Visor'],boots:['Greaves','Sabatons','Boots','Treads'],ring:['Band','Seal','Loop','Signet'],amulet:['Pendant','Amulet','Talisman','Necklace']};
-const EQUIP_STATS={weapon:{str:[15,35], lifeSteal:[0.01, 0.09]},armor:{armor:[25,55], sta:[15,35],maxHp:[200,300],hpRegen:[25,75]},helmet:{armor:[35,65],int:[15,35]},boots:{agi:[15,35]},ring:{str:[15,35],int:[15,35]},amulet:{int:[25,45],maxMp:[105,205]}};
+const EQUIP_STATS={weapon:{str:[15,35], equipLifeSteal:[0.01, 0.09]},armor:{armor:[25,55], sta:[15,35],maxHp:[200,300],hpRegen:[25,75]},helmet:{armor:[35,65],int:[15,35]},boots:{agi:[15,35]},ring:{str:[15,35],int:[15,35]},amulet:{int:[25,45],maxMp:[105,205]}};
 
 function mkEquipDrop(slot, rarity){
   rarity = applyRarityBonus(rarity);
@@ -542,7 +555,8 @@ const SCENES={
     ]},
   forest:{title:'🌲 Dark Forest',text:'Ancient trees tower overhead. Creatures lurk in every shadow.',
     choices:[
-      {text:'🐺 Fight Wolf',next:'combat',enemy:'wolf'},{text:'🕷️ Fight Spider',next:'combat',enemy:'spider'},
+      {text:'🐺 Fight Wolf',next:'combat',enemy:'wolf'},
+      {text:'🕷️ Fight Spider',next:'combat',enemy:'spider'},
       {text:'🔍 Search treasure',next:'forest_chest'},{text:'🌿 Gather herbs (+200 HP)',next:'gather_herbs'},
       {text:'🐉 Boss: Ancient Dragon (Lv10+)',next:'boss_fight',bossId:'boss_10'},
       {text:'🏘️ Town',next:'town'},
@@ -563,14 +577,17 @@ const SCENES={
     choices:[{text:'🌲 Continue',next:'forest'},{text:'🏘️ Town',next:'town'}]},
   dungeon:{title:'⛰️ Dungeon Depths',text:'Dark stone corridors stretch before you. Multiple passages lead into darkness.',
     choices:[
-      {text:'👹 Fight Goblin',next:'combat',enemy:'goblin'},{text:'💀 Fight Skeleton',next:'combat',enemy:'skeleton'},
-      {text:'👊 Fight Orc',next:'combat',enemy:'orc'},{text:'🗿 Fight Stone Golem',next:'combat',enemy:'golem'},
+      {text:'👹 Fight Goblin',next:'combat',enemy:'goblin'},
+      {text:'💀 Fight Skeleton',next:'combat',enemy:'skeleton'},
+      {text:'👊 Fight Orc',next:'combat',enemy:'orc'},
+      {text:'🗿 Fight Stone Golem',next:'combat',enemy:'golem'},
       {text:'💀 Boss: Lich King (Lv20+)',next:'boss_fight',bossId:'boss_20'},
       {text:'🏘️ Town',next:'town'},
     ]},
   mountains:{title:'🏔️ Frozen Mountains',text:'Cold winds cut through the air. Dangerous creatures prowl the peaks.',
     choices:[
-      {text:'🧛 Fight Vampire',next:'combat',enemy:'vampire'},{text:'👾 Fight Cave Troll',next:'combat',enemy:'troll'},
+      {text:'🧛 Fight Vampire',next:'combat',enemy:'vampire'},
+      {text:'👾 Fight Cave Troll',next:'combat',enemy:'troll'},
       {text:'🐺 Fight Werewolf',next:'combat',enemy:'werewolf'},{text:'⛏️ Mine gems',next:'mine_gems'},
       {text:'😈 Boss: Demon Lord (Lv30+)',next:'boss_fight',bossId:'boss_30'},
       {text:'🏘️ Town',next:'town'},
@@ -580,7 +597,8 @@ const SCENES={
     choices:[{text:'🏔️ Continue',next:'mountains'},{text:'🏘️ Town',next:'town'}]},
   coast:{title:'🌊 Stormy Coast',text:'Dark waves crash against jagged rocks. Pirates and sea monsters lurk here.',
     choices:[
-      {text:'😈 Fight Demon Knight',next:'combat',enemy:'demon_knight'},{text:'🦑 Fight Sea Monster',next:'combat',enemy:'sea_monster'},
+      {text:'😈 Fight Demon Knight',next:'combat',enemy:'demon_knight'},
+      {text:'🦑 Fight Sea Monster',next:'combat',enemy:'sea_monster'},
       {text:'🏴‍☠️ Pirate treasure',next:'pirate_treasure'},
       {text:'⚡ Boss: Ancient Titan (Lv40+)',next:'boss_fight',bossId:'boss_40'},
       {text:'🌑 Boss: Void Dragon (Lv50+)',next:'boss_fight',bossId:'boss_50'},
@@ -591,7 +609,9 @@ const SCENES={
     choices:[{text:'🌊 Continue',next:'coast'},{text:'🏘️ Town',next:'town'}]},
   wasteland:{title:'🏜️ Barren Wasteland',text:'A desolate landscape stretches endlessly. Ancient ruins dot the horizon.',
     choices:[
-      {text:'🦅 Fight Phoenix',next:'combat',enemy:'phoenix'},{text:'🗿 Fight Stone Golem',next:'combat',enemy:'golem'},
+      {text:'🗿 Fight King Kong',next:'combat',enemy:'king_kong'},
+      {text:'🗿 Fight Krud',next:'combat',enemy:'krud'},
+      {text:'🗿 Fight Hanuman',next:'combat',enemy:'hanuman'},
       {text:'🔍 Ancient ruins',next:'ancient_ruins'},
       {text:'🔱 Boss: Sea Leviathan (Lv60+)',next:'boss_fight',bossId:'boss_60'},
       {text:'🏘️ Town',next:'town'},
@@ -601,8 +621,7 @@ const SCENES={
     choices:[{text:'🏜️ Continue',next:'wasteland'},{text:'🏘️ Town',next:'town'}]},
   volcanic:{title:'🌋 Volcanic Rift',text:'Rivers of lava flow through cracked earth. The most dangerous creatures live here.',
     choices:[
-      {text:'🦅 Fight Phoenix',next:'combat',enemy:'phoenix'},{text:'😈 Fight Demon Knight',next:'combat',enemy:'demon_knight'},
-      {text:'🦑 Fight Sea Monster',next:'combat',enemy:'sea_monster'},
+      {text:'🦅 Fight Phoenix',next:'combat',enemy:'phoenix'},
       {text:'☄️ Boss: Fallen God (Lv70+)',next:'boss_fight',bossId:'boss_70'},
       {text:'🌀 Boss: Chaos Serpent (Lv80+)',next:'boss_fight',bossId:'boss_80'},
       {text:'🏘️ Town',next:'town'},
@@ -622,8 +641,8 @@ const SCENES={
 // ── SHOP ITEMS ──
 const SHOP_EQUIP=[
   // ── WEAPONS ──
-  {id:'s1',name:'⚔️ Iron Sword',price:200,slot:'weapon',rarity:'normal',stats:{str:20,lifeSteal:0.05,hit:5}},
-  {id:'s2',name:'⚔️ Steel Sword',price:500,slot:'weapon',rarity:'uncommon',stats:{str:45,lifeSteal:0.06,hit:25}},
+  {id:'s1',name:'⚔️ Iron Sword',price:200,slot:'weapon',rarity:'normal',stats:{str:20,equipLifeSteal:0.05,hit:5}},
+  {id:'s2',name:'⚔️ Steel Sword',price:500,slot:'weapon',rarity:'uncommon',stats:{str:45,equipLifeSteal:0.06,hit:25}},
   //{id:'s3',name:'⚔️ War Blade',price:2200,slot:'weapon',rarity:'rare',stats:{str:90,lifeSteal:0.07,hit:50}},
   //{id:'s4',name:'⚔️ Sovereign Blade',price:5500,slot:'weapon',rarity:'legendary',stats:{str:180,lifeSteal:0.1,hit:150}},
   // ── ARMOR ──
@@ -1104,8 +1123,9 @@ function startCombat(enemyId,isBoss){
   if(!tmpl)return;
   
   const diff=DIFFICULTY[state.difficulty||'normal'];
-  const scale=(1+Math.max(0,(state.level-1))*0.1)*diff.hpMult;
-  const atkScale=(1+Math.max(0,(state.level-1))*0.1)*diff.atkMult;
+  const scale=(1+Math.max(0,(state.level-1))*0.01)*diff.hpMult;
+  const atkScale=(1+Math.max(0,(state.level-1))*0.01)*diff.atkMult;
+
  
   // Add difficulty prefix to name
   const prefix=state.difficulty==='hell'?'💀 Hell ':state.difficulty==='hard'?'🔥 Hard ':'';
@@ -1117,8 +1137,8 @@ function startCombat(enemyId,isBoss){
     maxHp:Math.floor(tmpl.hp*scale),
     atk:Math.floor(tmpl.atk*atkScale),
     armor:tmpl.armor,
-    hit:Math.floor((tmpl.armor||0)*1),
-    dodge:Math.floor((tmpl.armor||0)*0.5),
+    hit:Math.floor((tmpl.hit||0)*5),
+    dodge:Math.floor((tmpl.dodge||0)*5),
     poisoned:0,
     frozen:false,
     crippled:0,
@@ -1341,11 +1361,8 @@ function checkLevelUp(){
     state.baseStr+=2;
     state.baseAgi+=2;
     state.baseInt+=2;
-    state.baseArmor+=1;
     state.baseSta+=2;
-    state.baseHit+=5;
     state.talentPoints+=5;
-    state.baseLifeSteal+=0.01;
     
     calcStats();
     state.hp=state.maxHp;
@@ -2031,13 +2048,13 @@ function updateUI(){
   document.getElementById('agi-val').textContent=formatNumber(state.agi);
   document.getElementById('int-val').textContent=formatNumber(state.int);
   document.getElementById('sta-val').textContent=formatNumber(state.sta);
-  document.getElementById('hit-val').textContent=formatNumber(state.hit);
  
   // Derived stats
   document.getElementById('atk-val').textContent=formatNumber(state.attackPower);
   document.getElementById('armor-val').textContent=formatNumber(state.armor);
   document.getElementById('crit-val').textContent=state.crit+'%';
-  document.getElementById('dodge-val').textContent=state.dodge+'%';
+  document.getElementById('dodge-val').textContent=formatNumber(state.dodge);
+  document.getElementById('hit-val').textContent=formatNumber(state.hit);
   document.getElementById('hpregen-val').textContent=formatNumber(state.hpRegen);
   document.getElementById('mpregen-val').textContent=formatNumber(state.manaRegen);
   document.getElementById('lifesteal-val').textContent=(state.lifeSteal*100).toFixed(1)+'%';
