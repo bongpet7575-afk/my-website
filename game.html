@@ -729,14 +729,14 @@ nav a:hover{
   <p style="color:#888;font-size:.93em;text-align:center;margin-bottom:16px;">Login or Register to begin your adventure!</p>
 
   <div style="display:flex;flex-direction:column;gap:8px;max-width:280px;margin:0 auto;">
-    <div style="font-family:'Cinzel',serif;font-size:.7em;color:var(--dark-gold);letter-spacing:1px;">📧 EMAIL</div>
+    <div style="background:rgba(0,0,0,.4);border:1px solid var(--dark-gold);color:var(--text);padding:9px 12px;border-radius:6px;font-family:'Crimson Text',serif;font-size:1em;width:100%;outline:none;">📧 EMAIL</div>
     <input type="email" id="auth-email" placeholder="Enter your email..." maxlength="50" style="background:rgba(0,0,0,.4);border:1px solid var(--dark-gold);color:var(--text);padding:9px 12px;border-radius:6px;font-family:'Crimson Text',serif;font-size:1em;width:100%;outline:none;">
 
-    <div style="font-family:'Cinzel',serif;font-size:.7em;color:var(--dark-gold);letter-spacing:1px;">🔒 PASSWORD</div>
+    <div style="background:rgba(0,0,0,.4);border:1px solid var(--dark-gold);color:var(--text);padding:9px 12px;border-radius:6px;font-family:'Crimson Text',serif;font-size:1em;width:100%;outline:none;">🔒 PASSWORD</div>
     <input type="password" id="auth-password" placeholder="Enter your password..." maxlength="50" style="background:rgba(0,0,0,.4);border:1px solid var(--dark-gold);color:var(--text);padding:9px 12px;border-radius:6px;font-family:'Crimson Text',serif;font-size:1em;width:100%;outline:none;">
 
-    <div style="font-family:'Cinzel',serif;font-size:.7em;color:var(--dark-gold);letter-spacing:1px;">⚔️ CHARACTER NAME <span style="color:#555;">(Register only)</span></div>
-    <input type="text" id="name-input" placeholder="Enter your character name..." maxlength="20" style="background:rgba(0,0,0,.4);border:1px solid var(--dark-gold);color:var(--text);padding:9px 12px;border-radius:6px;font-family:'Crimson Text',serif;font-size:1em;width:100%;outline:none;">
+    <div style="background:rgba(0,0,0,.4);border:1px solid var(--dark-gold);color:var(--text);padding:9px 12px;border-radius:6px;font-family:'Crimson Text',serif;font-size:1em;width:100%;outline:none;">⚔️ CHARACTER NAME <span style="color:#555;"></span></div>
+    <input type="text" id="name-input" placeholder="Enter your character name..." maxlength="15" style="background:rgba(0,0,0,.4);border:1px solid var(--dark-gold);color:var(--text);padding:9px 12px;border-radius:6px;font-family:'Crimson Text',serif;font-size:1em;width:100%;outline:none;">
 
     <div style="display:flex;gap:8px;margin-top:6px;">
       <button class="start-btn" onclick="registerUser()" style="flex:1;">📝 Register</button>
