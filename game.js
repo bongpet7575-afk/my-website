@@ -116,7 +116,7 @@ activeDebuffs: {
   hp:100,maxHp:100,mp:50,maxMp:50,hit:10,crit:5,dodge:5,hpRegen:20,lifeSteal:0.01,attackPower:10,armor:10,mpRegen:20,
  
   // PRIMARY BASE STATS (raw - leveled up, never modified directly by class/talent)
-  baseStr:5,baseAgi:5,baseInt:5,baseSta:5,baseArmor:5,baseHit:2,baseCrit:0.1,baseDodge:2,baseHpRegen:20,baseLifeSteal:0.01,baseAttackPower:10,
+  baseStr:5,baseAgi:5,baseInt:5,baseSta:5,baseArmor:5,baseHit:2,baseCrit:0.1,baseDodge:2,baseHpRegen:20,baseLifeSteal:0.05,baseAttackPower:10,
  
   // STAT MULTIPLIERS (class + talent % bonuses, starts at 1.0 = 100%)
   strMult:1.0,agiMult:1.0,intMult:1.0,staMult:1.0,armorMult:1.0,maxHpMult:1.0,hpRegenMult:1.0,maxMpMult:1.0,mpMult:1.0,critMult:1.0,dodgeMult:1.0,mpRegenMult:1.0,hitMult:1.0,lifeStealMult:1.0,skillStrMult:1.0,skillStaMult:1.0,skillMaxHp:1.0,skillArmorMult:1.0,attackPowerMult:1.0,
@@ -1049,7 +1049,7 @@ function dungeonComplete() {
 const SLOT_ICONS={weapon:'⚔️',armor:'🛡️',helmet:'⛑️',boots:'👢',ring:'💍',amulet:'📿'};
 const EQUIP_PREFIXES={legendary:['Divine','Mythic','Godforged','Ancient','Eternal','Celestial'],epic:['Heroic','Valiant','Exalted','Magnificent','Radiant'],rare:['Polished','Reinforced','Enchanted','Gleaming'],uncommon:['Sturdy','Sharpened','Improved','Sturdy'],normal:['Iron','Wooden','Basic','Simple']};
 const EQUIP_NAMES={weapon:['Blade','Sword','Axe','Spear','Dagger','Staff','Bow'],armor:['Plate','Chainmail','Robe','Leather','Cuirass'],helmet:['Helm','Crown','Hood','Circlet','Visor'],boots:['Greaves','Sabatons','Boots','Treads'],ring:['Band','Seal','Loop','Signet'],amulet:['Pendant','Amulet','Talisman','Necklace']};
-const EQUIP_STATS={weapon:{str:[15,35], equipLifeSteal:[0.01, 0.09]},armor:{armor:[25,55], sta:[15,35],maxHp:[200,300],hpRegen:[25,75]},helmet:{armor:[35,65],int:[15,35]},boots:{agi:[15,35]},ring:{str:[15,35],int:[15,35]},amulet:{int:[25,45],maxMp:[105,205]}};
+const EQUIP_STATS={weapon:{str:[15,35], lifeSteal:[0.09, 0.59]},armor:{armor:[25,55], sta:[15,35],maxHp:[200,300],hpRegen:[25,75]},helmet:{armor:[35,65],int:[15,35]},boots:{agi:[15,35]},ring:{str:[15,35],int:[15,35]},amulet:{int:[25,45],maxMp:[105,205]}};
 
 function mkEquipDrop(slot, rarity){
   rarity = applyRarityBonus(rarity);
@@ -1114,7 +1114,7 @@ const SCENES={
     {text:'🌑 Shadow Realm (Lv 80+)',   next:'dungeon_9'},
     {text:'🌟 Eternal Kingdom (Lv 90+)',next:'dungeon_10'},
     {text:'🏪 Shop',                    next:'shop_scene'},
-    {text:'⛪ Inn (+9999 HP, 5g)',       next:'inn'},
+    {text:'⛪ Inn (+50% HP and MP, 5g)',       next:'inn'},
   ]
 },
 
@@ -1171,13 +1171,15 @@ dungeon_10:{title:'🌟 Eternal Kingdom',text:'The final challenge. The Eternal 
 
 inn:{
   title:'⛪ The Rusty Flagon Inn',
-  text:'You rest comfortably. Your wounds heal!',
+  text:'You rest comfortably. Your wounds heal and energy is restored.',
   action:()=>{
     if(state.gold>=5){
       state.gold-=5;
-      state.hp=Math.min(state.maxHp,state.hp+9999);
-      state.mp=Math.min(state.maxMp,state.mp+100);
-      addLog('Rested: +9999 HP, +100 MP. Cost 5g.','good');
+      const hpHeal = Math.floor(state.maxHp * 0.5);
+      const mpHeal = Math.floor(state.maxMp * 0.5);
+      state.hp=Math.min(state.maxHp, state.hp + hpHeal);
+      state.mp=Math.min(state.maxMp, state.mp + mpHeal);
+      addLog(`Rested: +${formatNumber(hpHeal)} HP, +${formatNumber(mpHeal)} MP. Cost 5g.`,'good');
       playSound('snd-heal');
     } else {
       addLog('Need 5 gold to rest!','bad');
@@ -1191,7 +1193,7 @@ inn:{
 // ── SHOP ITEMS ──
 const SHOP_EQUIP=[
   // ── WEAPONS ──
-  {id:'s1',name:'⚔️ Iron Sword',price:200,slot:'weapon',rarity:'normal',stats:{str:20,equipLifeSteal:0.05,hit:5,crit:0.1}},
+  {id:'s1',name:'⚔️ Iron Sword',price:200,slot:'weapon',rarity:'normal',stats:{str:20,lifeSteal:0.05,hit:5,crit:0.1}},
   {id:'s2',name:'⚔️ Steel Sword',price:500,slot:'weapon',rarity:'uncommon',stats:{str:45,equipLifeSteal:0.06,hit:25,crit:0.2}},
   //{id:'s3',name:'⚔️ War Blade',price:2200,slot:'weapon',rarity:'rare',stats:{str:90,lifeSteal:0.07,hit:50}},
   //{id:'s4',name:'⚔️ Sovereign Blade',price:5500,slot:'weapon',rarity:'legendary',stats:{str:180,lifeSteal:0.1,hit:150}},
@@ -1995,17 +1997,45 @@ function updateEnemyBar(){
 
 // ── TREASURE CHEST LOOT TABLES ──
 const TREASURE_TABLES = {
-  1:  { rolls: 2, rarities: ['normal','uncommon'],           goldMult: 1 },
-  2:  { rolls: 2, rarities: ['uncommon','rare'],             goldMult: 1.5 },
-  3:  { rolls: 3, rarities: ['uncommon','rare'],             goldMult: 2 },
-  4:  { rolls: 3, rarities: ['rare','epic'],                 goldMult: 3 },
-  5:  { rolls: 3, rarities: ['rare','epic'],                 goldMult: 4 },
-  6:  { rolls: 4, rarities: ['epic','legendary'],            goldMult: 5 },
-  7:  { rolls: 4, rarities: ['epic','legendary'],            goldMult: 6 },
-  8:  { rolls: 4, rarities: ['legendary','legendary'],       goldMult: 8 },
-  9:  { rolls: 5, rarities: ['legendary','legendary'],       goldMult: 10 },
-  10: { rolls: 5, rarities: ['legendary','legendary'],       goldMult: 15 },
+  1:  { rolls: 2, tier: 'normal' },
+  2:  { rolls: 2, tier: 'uncommon' },
+  3:  { rolls: 3, tier: 'uncommon' },
+  4:  { rolls: 3, tier: 'rare' },
+  5:  { rolls: 3, tier: 'rare' },
+  6:  { rolls: 4, tier: 'epic' },
+  7:  { rolls: 4, tier: 'epic' },
+  8:  { rolls: 4, tier: 'epic' },
+  9:  { rolls: 5, tier: 'legendary' },
+  10: { rolls: 5, tier: 'legendary' },
 };
+
+function rollTreasureRarity(tier){
+  const r = Math.random();
+  switch(tier){
+    case 'normal':
+      // normal 70%, uncommon 30%
+      return r < 0.30 ? 'uncommon' : 'normal';
+    
+    case 'uncommon':
+      // uncommon 70%, rare 30%
+      return r < 0.30 ? 'rare' : 'uncommon';
+    
+    case 'rare':
+      // rare 70%, epic 30%
+      return r < 0.30 ? 'epic' : 'rare';
+    
+    case 'epic':
+      // epic 90%, legendary 10%
+      return r < 0.10 ? 'legendary' : 'epic';
+    
+    case 'legendary':
+      // epic 90%, legendary 10%
+      return r < 0.10 ? 'legendary' : 'epic';
+    
+    default:
+      return 'normal';
+  }
+}
 
 // ── OPEN TREASURE CHEST ──
 // ── DROP TREASURE BOX INTO INVENTORY ──
@@ -2599,23 +2629,24 @@ function openTreasureBox(box) {
   const table = TREASURE_TABLES[stageId];
   if (!table) return;
 
-  // Override difficulty with the one when box was earned
   const diff = DIFFICULTY[box.difficulty || 'normal'];
   const slots = ['weapon','armor','helmet','boots','ring','amulet'];
   const items = [];
 
   for (let i = 0; i < table.rolls; i++) {
-    let rarity = table.rarities[Math.floor(Math.random() * table.rarities.length)];
+    // Roll rarity based on box tier
+    let rarity = rollTreasureRarity(table.tier);
+    // Apply difficulty bonus on top
     rarity = applyRarityBonus(rarity);
     const slot = slots[Math.floor(Math.random() * slots.length)];
     const item = mkEquipDrop(slot, rarity);
     addToInventory(item);
     items.push(item);
-    if (item.rarity === 'legendary') state.quests.legendary.done = true;
+    if(item.rarity === 'legendary') state.quests.legendary.done = true;
   }
 
-  // Gold reward
-  const bonusGold = Math.floor(1000 * stageId * table.goldMult * diff.goldMult);
+  // Gold reward scales with stage and difficulty
+  const bonusGold = Math.floor(1000 * stageId * diff.goldMult);
   state.gold += bonusGold;
 
   // Show results
@@ -2623,7 +2654,9 @@ function openTreasureBox(box) {
   notify(`📦 Chest opened! ${items.length} items found!`, 'var(--gold)');
   addLog(`📦 ${box.name} opened!`, 'legendary');
   items.forEach(item => {
-    addLog(`  ${item.name} [${r_(item.rarity).label}]`, item.rarity==='legendary'?'legendary':item.rarity==='epic'?'epic':'gold');
+    addLog(`  ${item.name} [${r_(item.rarity).label}]`,
+      item.rarity==='legendary'?'legendary':
+      item.rarity==='epic'?'epic':'gold');
   });
   addLog(`💰 +${formatNumber(bonusGold)} Gold!`, 'gold');
 
