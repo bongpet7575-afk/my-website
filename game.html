@@ -3,176 +3,94 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Rotana's RPG</title>
+  <title>Dungeon Warrior RPG</title>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
   <style>
-    /* PARTICLE EFFECTS */
-@keyframes particleBurst{
-  0%{opacity:1;transform:translate(0,0) scale(1);}
-  100%{opacity:0;transform:translate(var(--tx),var(--ty)) scale(0);}
-}
-.particle{
-  position:fixed;
-  pointer-events:none;
-  z-index:9999;
-  border-radius:50%;
-  animation:particleBurst 0.8s ease forwards;
-}
-
-/* LEVEL UP FLASH */
-@keyframes levelUpFlash{
-  0%{opacity:0;transform:translate(-50%,-50%) scale(0.5);}
-  30%{opacity:1;transform:translate(-50%,-50%) scale(1.2);}
-  70%{opacity:1;transform:translate(-50%,-50%) scale(1);}
-  100%{opacity:0;transform:translate(-50%,-50%) scale(1.5);}
-}
-.levelup-text{
-  position:fixed;
-  top:50%;
-  left:50%;
-  transform:translate(-50%,-50%);
-  font-family:'Cinzel',serif;
-  font-size:2.5em;
-  color:var(--gold);
-  text-shadow:0 0 30px rgba(240,192,64,1),0 0 60px rgba(240,192,64,0.8);
-  pointer-events:none;
-  z-index:9999;
-  animation:levelUpFlash 2s ease forwards;
-  white-space:nowrap;
-}
-
-/* CRIT FLASH */
-@keyframes critFlash{
-  0%{opacity:0;transform:translate(-50%,-50%) scale(0.5) rotate(-10deg);}
-  20%{opacity:1;transform:translate(-50%,-50%) scale(1.4) rotate(5deg);}
-  80%{opacity:1;transform:translate(-50%,-50%) scale(1.2) rotate(-3deg);}
-  100%{opacity:0;transform:translate(-50%,-50%) scale(1.5) rotate(0deg);}
-}
-.crit-text{
-  position:fixed;
-  top:40%;
-  left:50%;
-  font-family:'Cinzel',serif;
-  font-size:2em;
-  color:#ffff00;
-  text-shadow:0 0 20px rgba(255,255,0,1),0 0 40px rgba(255,200,0,0.8);
-  pointer-events:none;
-  z-index:9999;
-  animation:critFlash 0.8s ease forwards;
-  white-space:nowrap;
-}
-    .enhance-container{max-width:500px;margin:0 auto;}
-.enhance-title{font-family:'Cinzel',serif;color:var(--gold);font-size:1.4em;text-align:center;margin-bottom:16px;}
-.enhance-item-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;}
-.enhance-item-name{font-family:'Cinzel',serif;font-size:1em;font-weight:600;text-align:center;margin-bottom:4px;}
-.enh-badge{font-family:'Cinzel',serif;font-size:.8em;padding:1px 6px;border-radius:4px;font-weight:700;}
-.enh-low{color:var(--gold);background:rgba(240,192,64,.15);border:1px solid var(--dark-gold);}
-.enh-high{color:#fff;background:rgba(255,140,0,.25);border:1px solid var(--legendary);text-shadow:0 0 8px var(--legendary);}
-.enhance-stats-row{display:flex;align-items:center;justify-content:center;gap:12px;margin:12px 0;}
-.enhance-stats-col{flex:1;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center;}
-.enhance-stats-title{font-family:'Cinzel',serif;font-size:.68em;color:var(--gold);margin-bottom:6px;letter-spacing:1px;text-transform:uppercase;}
-.enhance-stat-line{font-size:.82em;color:var(--text);padding:1px 0;}
-.enhance-arrow{font-size:1.2em;color:var(--gold);flex:0 0 20px;text-align:center;}
-.enhance-level-bar{display:flex;gap:3px;justify-content:center;margin-top:10px;flex-wrap:wrap;}
-.enhance-pip{width:16px;height:8px;border-radius:3px;transition:all .3s;}
-.pip-empty{background:rgba(255,255,255,.08);border:1px solid #333;}
-.pip-filled{background:var(--gold);box-shadow:0 0 4px rgba(240,192,64,.5);}
-.pip-high{background:var(--legendary);box-shadow:0 0 6px rgba(255,140,0,.8);}
-.enhance-cost-box{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;padding:12px;}
-.enhance-cost-title{font-family:'Cinzel',serif;color:var(--gold);font-size:.72em;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;text-align:center;}
-.enhance-cost-row{display:flex;justify-content:space-between;align-items:center;font-size:.83em;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04);color:#aaa;}
-.enhance-cost-row:last-child{border-bottom:none;}
-.enhance-btn{background:linear-gradient(135deg,#7a4a00,#c07820);color:#fff8e0;border:1px solid var(--gold);padding:10px 24px;border-radius:8px;cursor:pointer;font-family:'Cinzel',serif;font-size:.9em;font-weight:700;transition:all .3s;letter-spacing:1px;}
-.enhance-btn:hover{background:linear-gradient(135deg,#a06010,#f0a030);transform:scale(1.04);}
-.enhance-btn-disabled{opacity:.4;cursor:not-allowed;}
+    /* ── ROOT VARIABLES ── */
     :root{
       --gold:#f0c040;--dark-gold:#a07820;--panel:rgba(8,8,40,0.95);--border:#3a2a0a;
-      --text:#e8d5a0;--green:#00ff88;--red:#ff4444;--blue:#4488ff;--purple:#bb44ff;--orange:#ff8800;
+      --text:#e8d5a0;--green:#00ff88;--red:#ff4444;--blue:#4488ff;--purple:#bb44ff;
       --legendary:#ff8c00;--epic:#a335ee;--rare:#0070dd;--uncommon:#1eff00;--normal:#cccccc;
     }
+
+    /* ── RESET ── */
     *{box-sizing:border-box;margin:0;padding:0;}
-    body{background:#060612;background-image:url('dungeon.png');background-size:cover;background-position:center;background-attachment:fixed;font-family:'Crimson Text',serif;color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:15px;}
-  ::-webkit-scrollbar{width:40px;}
-  ::-webkit-scrollbar-thumb{
-  background:linear-gradient(180deg,var(--dark-gold),var(--gold));
-  border-radius:10px;
-  box-shadow:0 0 6px rgba(240,192,64,0.4);
-}
-  ::-webkit-scrollbar-track{
-  background:rgba(0,0,0,0.2);
-}
-    nav{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;justify-content:center;}
-nav a{
-  color:var(--gold);
-  background:linear-gradient(135deg,rgba(8,8,40,0.9),rgba(20,10,50,0.8));
-  border:1px solid rgba(240,192,64,0.3);
-  padding:6px 13px;
-  border-radius:6px;
-  text-decoration:none;
-  font-family:'Cinzel',serif;
-  font-size:11px;
-  transition:all 0.3s;
-  text-shadow:0 0 8px rgba(240,192,64,0.3);
-}
-nav a:hover{
-  background:linear-gradient(135deg,rgba(60,40,0,0.8),rgba(80,50,0,0.7));
-  border-color:var(--gold);
-  color:#fff;
-  box-shadow:0 0 12px rgba(240,192,64,0.3);
-  transform:translateY(-2px);
-}
+
+    /* ── BODY ── */
+    body{
+      background:#060612;
+      background-image:url('dungeon.png');
+      background-size:cover;
+      background-position:center;
+      background-attachment:fixed;
+      font-family:'Crimson Text',serif;
+      color:var(--text);
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      padding:15px;
+      padding-bottom:80px;
+    }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar{width:8px;}
+    ::-webkit-scrollbar-thumb{background:linear-gradient(180deg,var(--dark-gold),var(--gold));border-radius:4px;}
+    ::-webkit-scrollbar-track{background:rgba(0,0,0,0.2);}
+
+    /* ── LOADER ── */
     #loader{position:fixed;inset:0;background:#060612;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;font-family:'Cinzel',serif;color:var(--gold);font-size:18px;gap:20px;transition:opacity .5s;}
     .spinner{width:55px;height:55px;border:4px solid var(--dark-gold);border-top-color:var(--gold);border-radius:50%;animation:spin 1s linear infinite;}
     @keyframes spin{to{transform:rotate(360deg);}}
-    h1.game-title{
-  font-family:'Cinzel',serif;
-  font-size:1.9em;
-  color:var(--gold);
-  text-shadow:0 0 25px rgba(240,192,64,.8), 0 0 50px rgba(240,192,64,.4), 0 0 100px rgba(240,192,64,.2);
-  text-align:center;
-  margin-bottom:3px;
-  letter-spacing:3px;
-  animation:titlePulse 3s ease-in-out infinite;
-}
-@keyframes titlePulse{
-  0%,100%{text-shadow:0 0 25px rgba(240,192,64,.8),0 0 50px rgba(240,192,64,.4);}
-  50%{text-shadow:0 0 35px rgba(240,192,64,1),0 0 70px rgba(240,192,64,.6),0 0 100px rgba(240,192,64,.3);}
-}
-    .subtitle{
-  text-align:center;
-  color:var(--dark-gold);
-  font-style:italic;
-  margin-bottom:12px;
-  font-size:.95em;
-  text-shadow:0 0 10px rgba(160,120,32,0.5);
-  letter-spacing:1px;
-}
-    .panel{
-  background:rgba(8,8,40,0.85);
-  border:1px solid #3a2a0a;
-  border-radius:10px;
-  padding:14px;
-  box-shadow:0 4px 20px rgba(0,0,0,.6), 0 0 15px rgba(240,192,64,0.05), inset 0 1px 0 rgba(240,192,64,0.1);
-  backdrop-filter:blur(4px);
-  transition:box-shadow 0.3s;
-}
-.panel:hover{
-  box-shadow:0 4px 25px rgba(0,0,0,.8), 0 0 20px rgba(240,192,64,0.12), inset 0 1px 0 rgba(240,192,64,0.15);
-}
-    .panel-title{
-  font-family:'Cinzel',serif;
-  color:var(--gold);
-  font-size:.78em;
-  letter-spacing:2px;
-  text-transform:uppercase;
-  border-bottom:1px solid rgba(240,192,64,0.2);
-  padding-bottom:7px;
-  margin-bottom:11px;
-  text-align:center;
-  text-shadow:0 0 10px rgba(240,192,64,0.4);
-}
-    #game-wrapper{display:grid;grid-template-columns:230px 1fr 250px;gap:11px;width:100%;max-width:1080px;}
-    @media(max-width:750px){#game-wrapper{grid-template-columns:1fr;}}
+
+    /* ── NOTIFICATION ── */
+    #notification{position:fixed;top:20px;right:20px;background:var(--panel);border:1px solid var(--gold);border-radius:8px;padding:12px 18px;font-family:'Cinzel',serif;font-size:.85em;color:var(--gold);z-index:9800;display:none;animation:slideIn .3s ease;}
+    @keyframes slideIn{from{opacity:0;transform:translateX(50px);}to{opacity:1;transform:translateX(0);}}
+
+    /* ── NAV ── */
+    nav{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;justify-content:center;}
+    nav a{color:var(--gold);background:linear-gradient(135deg,rgba(8,8,40,0.9),rgba(20,10,50,0.8));border:1px solid rgba(240,192,64,0.3);padding:6px 13px;border-radius:6px;text-decoration:none;font-family:'Cinzel',serif;font-size:11px;transition:all .3s;text-shadow:0 0 8px rgba(240,192,64,0.3);}
+    nav a:hover{background:linear-gradient(135deg,rgba(60,40,0,0.8),rgba(80,50,0,0.7));border-color:var(--gold);color:#fff;box-shadow:0 0 12px rgba(240,192,64,0.3);transform:translateY(-2px);}
+
+    /* ── TITLE ── */
+    h1.game-title{font-family:'Cinzel',serif;font-size:1.9em;color:var(--gold);text-align:center;margin-bottom:3px;letter-spacing:3px;animation:titlePulse 3s ease-in-out infinite;}
+    @keyframes titlePulse{0%,100%{text-shadow:0 0 25px rgba(240,192,64,.8),0 0 50px rgba(240,192,64,.4);}50%{text-shadow:0 0 35px rgba(240,192,64,1),0 0 70px rgba(240,192,64,.6);}}
+    .subtitle{text-align:center;color:var(--dark-gold);font-style:italic;margin-bottom:12px;font-size:.95em;text-shadow:0 0 10px rgba(160,120,32,0.5);letter-spacing:1px;}
+
+    /* ── TOP BUTTONS ── */
+    .top-btns{display:flex;gap:7px;margin-bottom:11px;justify-content:center;flex-wrap:wrap;}
+
+    /* ── PANEL ── */
+    .panel{background:rgba(8,8,40,0.85);border:1px solid #3a2a0a;border-radius:10px;padding:14px;box-shadow:0 4px 20px rgba(0,0,0,.6),0 0 15px rgba(240,192,64,0.05),inset 0 1px 0 rgba(240,192,64,0.1);backdrop-filter:blur(4px);transition:box-shadow 0.3s;}
+    .panel:hover{box-shadow:0 4px 25px rgba(0,0,0,.8),0 0 20px rgba(240,192,64,0.12),inset 0 1px 0 rgba(240,192,64,0.15);}
+    .panel-title{font-family:'Cinzel',serif;color:var(--gold);font-size:.78em;letter-spacing:2px;text-transform:uppercase;border-bottom:1px solid rgba(240,192,64,0.2);padding-bottom:7px;margin-bottom:11px;text-align:center;text-shadow:0 0 10px rgba(240,192,64,0.4);}
+
+    /* ── BOTTOM NAV ── */
+    .bottom-nav{position:fixed;bottom:0;left:0;right:0;display:none;background:linear-gradient(135deg,#0a0a1a,#080810);border-top:1px solid #3a2a0a;z-index:1000;box-shadow:0 -4px 20px rgba(0,0,0,0.8);}
+    .nav-btn{flex:1;padding:10px 4px 6px;text-align:center;cursor:pointer;border:none;background:transparent;color:#666;font-family:'Cinzel',serif;font-size:.7em;transition:all 0.2s;border-top:2px solid transparent;}
+    .nav-btn.active{color:#f0c040;border-top-color:#f0c040;background:rgba(240,192,64,0.05);text-shadow:0 0 8px rgba(240,192,64,0.4);}
+    .nav-btn:hover{color:#a07820;}
+    .nav-icon{font-size:1.4em;display:block;margin-bottom:2px;}
+
+    /* ── MAIN SCENES ── */
+    .main-scene{display:none;width:100%;max-width:1080px;}
+    .main-scene.active{display:block;}
+    .scene-grid{display:grid;grid-template-columns:230px 1fr 250px;gap:11px;width:100%;}
+    @media(max-width:750px){.scene-grid{grid-template-columns:1fr;}}
+
+    /* ── NAME SCREEN ── */
+    #name-screen{text-align:center;padding:22px;max-width:400px;width:100%;}
+    #name-input{background:rgba(0,0,0,.4);border:1px solid var(--dark-gold);color:var(--text);padding:10px 14px;border-radius:8px;font-family:'Crimson Text',serif;font-size:1.1em;width:100%;max-width:260px;margin:4px 0;text-align:center;outline:none;}
+    #auth-email,#auth-password{background:rgba(0,0,0,.4);border:1px solid var(--dark-gold);color:var(--text);padding:10px 14px;border-radius:8px;font-family:'Crimson Text',serif;font-size:1em;width:100%;max-width:280px;margin:4px 0;outline:none;display:block;margin-left:auto;margin-right:auto;}
+
+    /* ── BUTTONS ── */
+    .start-btn{background:linear-gradient(135deg,var(--dark-gold),var(--gold));color:#1a0a00;border:none;padding:10px 25px;border-radius:8px;font-family:'Cinzel',serif;font-size:.9em;cursor:pointer;font-weight:700;transition:all .3s;letter-spacing:1px;margin:3px;}
+    .start-btn:hover{transform:scale(1.04);}
+    .blue-btn{background:linear-gradient(135deg,#1a3a6a,#2a5aaa);color:white;}
+    .purple-btn{background:linear-gradient(135deg,#4400aa,#8844ff);color:white;}
+    .red-btn{background:linear-gradient(135deg,#6a0000,#aa2222);color:white;}
+
+    /* ── BARS ── */
     .stat-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:.88em;}
     .stat-label{color:#999;font-size:.8em;}.stat-value{color:var(--gold);font-weight:600;}
     .bar-wrap{width:100%;height:7px;background:rgba(255,255,255,.1);border-radius:4px;margin-top:2px;overflow:hidden;}
@@ -180,31 +98,15 @@ nav a:hover{
     .hp-bar{background:linear-gradient(90deg,#cc2200,#ff6644);}
     .mp-bar{background:linear-gradient(90deg,#2244cc,#6688ff);}
     .xp-bar{background:linear-gradient(90deg,#a07820,#f0c040);}
+
+    /* ── STAT GRID ── */
     .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:9px;}
-    .stat-box{
-  background:linear-gradient(135deg,rgba(240,192,64,0.05),rgba(8,8,40,0.8));
-  border:1px solid rgba(240,192,64,0.15);
-  border-radius:5px;
-  padding:4px;
-  text-align:center;
-  transition:all 0.2s;
-}
-.stat-box:hover{
-  background:linear-gradient(135deg,rgba(240,192,64,0.12),rgba(8,8,40,0.9));
-  border-color:rgba(240,192,64,0.4);
-  transform:scale(1.05);
-}
-.stat-box .val{
-  color:var(--gold);
-  font-size:1em;
-  font-weight:600;
-  text-shadow:0 0 8px rgba(240,192,64,0.4);
-}
-.stat-box .lbl{
-  color:#666;
-  font-size:.65em;
-}
-    /* CHARACTER */
+    .stat-box{background:linear-gradient(135deg,rgba(240,192,64,0.05),rgba(8,8,40,0.8));border:1px solid rgba(240,192,64,0.15);border-radius:5px;padding:4px;text-align:center;transition:all 0.2s;}
+    .stat-box:hover{background:linear-gradient(135deg,rgba(240,192,64,0.12),rgba(8,8,40,0.9));border-color:rgba(240,192,64,0.4);transform:scale(1.05);}
+    .stat-box .val{color:var(--gold);font-size:1em;font-weight:600;text-shadow:0 0 8px rgba(240,192,64,0.4);}
+    .stat-box .lbl{color:#666;font-size:.65em;}
+
+    /* ── CHARACTER AVATAR ── */
     .char-display{position:relative;text-align:center;padding:8px 0;margin-bottom:7px;}
     .char-avatar{font-size:3em;display:inline-block;animation:idle 3s ease-in-out infinite;}
     @keyframes idle{0%,100%{transform:translateY(0);}50%{transform:translateY(-4px);}}
@@ -212,269 +114,142 @@ nav a:hover{
     @keyframes attack-anim{0%{transform:translateX(0);}30%{transform:translateX(18px) scale(1.15);}60%{transform:translateX(-5px);}100%{transform:translateX(0);}}
     .char-avatar.hit{animation:player-hit .4s ease;}
     @keyframes player-hit{0%,100%{filter:none;}50%{filter:brightness(3) sepia(1) hue-rotate(300deg);transform:translateX(-8px);}}
-    /* EQUIP SLOTS */
+
+    /* ── EQUIP SLOTS ── */
     .equip-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:8px;}
-    .equip-slot{
-  background:linear-gradient(135deg,rgba(255,255,255,0.02),rgba(8,8,40,0.7));
-  border:1px dashed rgba(240,192,64,0.15);
-  border-radius:6px;
-  padding:5px;
-  text-align:center;
-  cursor:pointer;
-  transition:all 0.2s;
-  min-height:52px;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-}
-.equip-slot:hover{
-  border-color:var(--gold);
-  border-style:solid;
-  background:linear-gradient(135deg,rgba(240,192,64,0.08),rgba(8,8,40,0.9));
-  box-shadow:0 0 10px rgba(240,192,64,0.15);
-}
-.equip-slot.has-item{border-style:solid;}
-.equip-slot.legendary{border-color:var(--legendary);box-shadow:0 0 10px rgba(255,140,0,0.35);}
-.equip-slot.epic{border-color:var(--epic);box-shadow:0 0 10px rgba(163,53,238,0.3);}
-.equip-slot.rare{border-color:var(--rare);box-shadow:0 0 6px rgba(0,112,221,0.25);}
-.equip-slot.uncommon{border-color:var(--uncommon);}
+    .equip-slot{background:linear-gradient(135deg,rgba(255,255,255,0.02),rgba(8,8,40,0.7));border:1px dashed rgba(240,192,64,0.15);border-radius:6px;padding:5px;text-align:center;cursor:pointer;transition:all 0.2s;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+    .equip-slot:hover{border-color:var(--gold);border-style:solid;background:linear-gradient(135deg,rgba(240,192,64,0.08),rgba(8,8,40,0.9));box-shadow:0 0 10px rgba(240,192,64,0.15);}
+    .equip-slot.has-item{border-style:solid;}
+    .equip-slot.legendary{border-color:var(--legendary);box-shadow:0 0 10px rgba(255,140,0,0.35);}
+    .equip-slot.epic{border-color:var(--epic);box-shadow:0 0 10px rgba(163,53,238,0.3);}
+    .equip-slot.rare{border-color:var(--rare);}
+    .equip-slot.uncommon{border-color:var(--uncommon);}
     .equip-slot-label{font-size:.58em;color:#555;margin-bottom:2px;}
     .equip-slot-icon{font-size:1.2em;}
     .equip-slot-name{font-size:.58em;color:var(--text);margin-top:2px;max-width:55px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    /* STORY */
+
+    /* ── TABS ── */
+    .tabs{display:flex;gap:4px;margin-bottom:8px;}
+    .tab{flex:1;padding:5px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-family:'Cinzel',serif;font-size:.62em;text-align:center;color:#888;transition:all .2s;}
+    .tab.active{background:rgba(240,192,64,.12);border-color:var(--dark-gold);color:var(--gold);}
+
+    /* ── GOLD DISPLAY ── */
+    .gold-display{display:flex;align-items:center;gap:6px;font-family:'Cinzel',serif;color:var(--gold);font-size:.95em;margin-bottom:8px;padding:6px;background:linear-gradient(135deg,rgba(240,192,64,0.1),rgba(8,8,40,0.8));border-radius:5px;border:1px solid rgba(240,192,64,0.3);justify-content:center;text-shadow:0 0 8px rgba(240,192,64,0.4);}
+
+    /* ── INVENTORY ── */
+    .item-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:4px;}
+    .item-icon-box{background:linear-gradient(135deg,rgba(255,255,255,0.03),rgba(8,8,40,0.6));border:1px dashed rgba(240,192,64,0.2);border-radius:8px;padding:6px;text-align:center;cursor:pointer;transition:all 0.25s;min-height:55px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;}
+    .item-icon-box:hover{border-color:var(--gold);border-style:solid;background:linear-gradient(135deg,rgba(240,192,64,0.1),rgba(8,8,40,0.8));transform:translateY(-2px);box-shadow:0 4px 12px rgba(240,192,64,0.2);}
+    .item-icon-box.legendary{border-style:solid;border-color:var(--legendary);box-shadow:0 0 12px rgba(255,140,0,0.4);background:linear-gradient(135deg,rgba(255,140,0,0.08),rgba(8,8,40,0.8));}
+    .item-icon-box.epic{border-style:solid;border-color:var(--epic);box-shadow:0 0 10px rgba(163,53,238,0.35);background:linear-gradient(135deg,rgba(163,53,238,0.08),rgba(8,8,40,0.8));}
+    .item-icon-box.rare{border-style:solid;border-color:var(--rare);box-shadow:0 0 8px rgba(0,112,221,0.3);background:linear-gradient(135deg,rgba(0,112,221,0.06),rgba(8,8,40,0.8));}
+    .item-icon-box.uncommon{border-style:solid;border-color:var(--uncommon);}
+    .item-icon-emoji{font-size:1.5em;line-height:1;}
+    .item-icon-price{font-size:.55em;color:var(--gold);margin-top:2px;}
+    .item-icon-stack{position:absolute;bottom:2px;right:3px;font-size:.58em;color:var(--gold);font-family:'Cinzel',serif;font-weight:700;text-shadow:0 0 4px rgba(240,192,64,0.6);}
+    .item-icon-equipped{position:absolute;top:2px;right:3px;font-size:.58em;color:var(--green);font-family:'Cinzel',serif;font-weight:700;}
+    .inv-empty{color:#444;font-style:italic;font-size:.85em;text-align:center;padding:12px;}
+
+    /* ── ENHANCEMENT GLOW ── */
+    .enh-glow-7{animation:glow7 1.5s ease-in-out infinite alternate !important;border-color:var(--gold) !important;border-style:solid !important;}
+    .enh-glow-15{animation:glow15 1s ease-in-out infinite alternate !important;border-color:var(--legendary) !important;border-style:solid !important;}
+    @keyframes glow7{from{box-shadow:0 0 6px rgba(240,192,64,0.6),0 0 12px rgba(240,192,64,0.3);}to{box-shadow:0 0 14px rgba(240,192,64,0.9),0 0 25px rgba(240,192,64,0.5);}}
+    @keyframes glow15{from{box-shadow:0 0 10px rgba(255,140,0,0.8),0 0 20px rgba(255,140,0,0.5);}to{box-shadow:0 0 20px rgba(255,140,0,1),0 0 40px rgba(255,140,0,0.7),0 0 60px rgba(255,255,0,0.4);}}
+
+    /* ── AUTO SELL TOGGLE ── */
+    .toggle-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:.82em;color:#aaa;}
+    .toggle{position:relative;display:inline-block;width:36px;height:18px;}
+    .toggle input{opacity:0;width:0;height:0;}
+    .toggle-slider{position:absolute;cursor:pointer;inset:0;background:#333;border-radius:18px;transition:.3s;}
+    .toggle-slider:before{position:absolute;content:'';height:14px;width:14px;left:2px;bottom:2px;background:white;border-radius:50%;transition:.3s;}
+    input:checked+.toggle-slider{background:var(--dark-gold);}
+    input:checked+.toggle-slider:before{transform:translateX(18px);}
+
+    /* ── DUNGEON CHOICE BUTTONS ── */
+    .choice-btn{background:linear-gradient(135deg,rgba(8,8,40,0.9),rgba(20,10,50,0.8));border:1px solid rgba(160,120,32,0.3);border-left:3px solid var(--dark-gold);color:var(--text);padding:10px 14px;border-radius:6px;cursor:pointer;font-family:'Crimson Text',serif;font-size:.97em;text-align:left;transition:all 0.22s;width:100%;}
+    .choice-btn:hover{background:linear-gradient(135deg,rgba(60,40,0,0.6),rgba(80,50,0,0.5));border-left-color:var(--gold);color:var(--gold);transform:translateX(4px);box-shadow:0 0 12px rgba(240,192,64,0.15);}
+
+    /* ── STORY BOX ── */
     #story-box{background:rgba(0,0,0,.45);border:1px solid var(--border);border-radius:8px;padding:16px;min-height:130px;font-size:1em;line-height:1.75;}
     .scene-title{font-family:'Cinzel',serif;color:var(--gold);font-size:.92em;margin-bottom:9px;}
-    .choice-btn{
-  background:linear-gradient(135deg,rgba(8,8,40,0.9),rgba(20,10,50,0.8));
-  border:1px solid rgba(160,120,32,0.3);
-  border-left:3px solid var(--dark-gold);
-  color:var(--text);
-  padding:10px 14px;
-  border-radius:6px;
-  cursor:pointer;
-  font-family:'Crimson Text',serif;
-  font-size:.97em;
-  text-align:left;
-  transition:all 0.22s;
-  width:100%;
-}
-.choice-btn:hover{
-  background:linear-gradient(135deg,rgba(60,40,0,0.6),rgba(80,50,0,0.5));
-  border-left-color:var(--gold);
-  border-color:rgba(240,192,64,0.3);
-  color:var(--gold);
-  transform:translateX(4px);
-  box-shadow:0 0 12px rgba(240,192,64,0.15);
-}
-    /* ARENA */
-    #combat-box{
-  display:none;
-  background:linear-gradient(160deg,rgba(80,0,0,0.4),rgba(40,0,0,0.6));
-  border:1px solid #8a0000;
-  border-radius:10px;
-  padding:14px;
-  box-shadow:0 0 30px rgba(180,0,0,0.2), inset 0 1px 0 rgba(255,100,100,0.1);
-}
-.arena{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:10px 5px;
-  margin-bottom:10px;
-  background:linear-gradient(135deg,rgba(0,0,0,0.5),rgba(60,0,0,0.4));
-  border-radius:8px;
-  border:1px solid rgba(180,0,0,0.4);
-  position:relative;
-  overflow:hidden;
-}
-.arena::before{
-  content:'';
-  position:absolute;
-  inset:0;
-  background:radial-gradient(ellipse at center,rgba(255,0,0,0.05),transparent 70%);
-  pointer-events:none;
-}
+
+    /* ── SKILLS ── */
+    #skills-bar{display:none;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:9px;margin-bottom:9px;}
+    .skill-slot{display:inline-flex;flex-direction:column;align-items:center;margin:0 4px;cursor:pointer;}
+    .skill-icon-wrap{width:44px;height:44px;background:linear-gradient(135deg,rgba(255,255,255,0.04),rgba(8,8,40,0.8));border:2px solid rgba(240,192,64,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.3em;transition:all 0.2s;}
+    .skill-icon-wrap:hover{border-color:var(--gold);transform:scale(1.08);box-shadow:0 0 12px rgba(240,192,64,0.4);}
+    .skill-icon-wrap.on-cd{opacity:.35;border-color:#333;box-shadow:none;}
+    .skill-lbl{font-size:.62em;color:#888;margin-top:2px;max-width:46px;text-align:center;}
+    .skill-cd-lbl{font-size:.6em;color:var(--red);text-shadow:0 0 4px rgba(255,68,68,0.5);}
+
+    /* ── COMBAT BOX ── */
+    #combat-box{display:none;background:linear-gradient(160deg,rgba(80,0,0,0.4),rgba(40,0,0,0.6));border:1px solid #8a0000;border-radius:10px;padding:14px;box-shadow:0 0 30px rgba(180,0,0,0.2);}
+    .arena{display:flex;align-items:center;justify-content:space-between;padding:10px 5px;margin-bottom:10px;background:linear-gradient(135deg,rgba(0,0,0,0.5),rgba(60,0,0,0.4));border-radius:8px;border:1px solid rgba(180,0,0,0.4);position:relative;overflow:hidden;}
+    .arena::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(255,0,0,0.05),transparent 70%);pointer-events:none;}
     .arena-side{text-align:center;flex:1;}
     .arena-vs{font-family:'Cinzel',serif;color:#555;font-size:1.1em;flex:0 0 28px;}
     .arena-char{font-size:2.8em;display:inline-block;}
     .arena-char.enemy-shake{animation:enemy-shake .4s ease;}
     @keyframes enemy-shake{0%,100%{transform:translateX(0);}20%{transform:translateX(12px);}40%{transform:translateX(-8px);}60%{transform:translateX(6px);}80%{transform:translateX(-4px);}}
-    .arena-char.enemy-hit{animation:enemy-hit-flash .4s ease;}
-    @keyframes enemy-hit-flash{0%,100%{filter:none;}40%{filter:brightness(4);transform:scale(1.1);}}
-    .arena-hp-wrap{
-  width:80%;
-  margin:4px auto 0;
-  height:8px;
-  background:rgba(255,255,255,.08);
-  border-radius:4px;
-  overflow:hidden;
-  box-shadow:inset 0 1px 3px rgba(0,0,0,0.5);
-}
-.arena-hp-fill{
-  height:100%;
-  background:linear-gradient(90deg,#cc0000,#ff4444);
-  transition:width .5s;
-  border-radius:4px;
-  box-shadow:0 0 8px rgba(255,68,68,0.6);
-}
-.arena-player-fill{
-  background:linear-gradient(90deg,#cc2200,#ff6644);
-  box-shadow:0 0 8px rgba(255,102,68,0.6);
-}
+    .arena-hp-wrap{width:80%;margin:4px auto 0;height:8px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;}
+    .arena-hp-fill{height:100%;background:linear-gradient(90deg,#cc0000,#ff4444);transition:width .5s;border-radius:4px;box-shadow:0 0 8px rgba(255,68,68,0.6);}
+    .arena-player-fill{background:linear-gradient(90deg,#cc2200,#ff6644);box-shadow:0 0 8px rgba(255,102,68,0.6);}
     .arena-label{font-size:.7em;color:#aaa;margin-top:3px;}
+    .combat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:9px;}
+    .combat-btn{background:linear-gradient(135deg,rgba(8,8,40,0.9),rgba(20,10,50,0.9));border:1px solid rgba(240,192,64,0.2);color:var(--text);padding:8px;border-radius:6px;cursor:pointer;font-family:'Crimson Text',serif;font-size:.9em;transition:all 0.2s;}
+    .combat-btn:hover{background:linear-gradient(135deg,rgba(60,40,0,0.6),rgba(80,50,0,0.6));border-color:var(--gold);color:var(--gold);box-shadow:0 0 10px rgba(240,192,64,0.2);transform:translateY(-1px);}
+    #combat-log{background:linear-gradient(135deg,rgba(0,0,0,0.4),rgba(40,0,0,0.4));border-radius:6px;padding:8px;font-size:.85em;min-height:50px;margin-top:8px;color:#ccc;max-height:70px;overflow-y:auto;border:1px solid rgba(180,0,0,0.2);}
+
+    /* ── DAMAGE FLOATS ── */
     .dmg-float{position:fixed;font-family:'Cinzel',serif;font-size:1.3em;font-weight:700;pointer-events:none;animation:floatUp .9s ease forwards;z-index:9000;}
     @keyframes floatUp{0%{opacity:1;transform:translateY(0);}100%{opacity:0;transform:translateY(-55px);}}
     .dmg-float.player-dmg{color:#ff4444;}.dmg-float.enemy-dmg{color:#00ff88;}.dmg-float.crit-dmg{color:#ffff00;font-size:1.7em;}.dmg-float.heal-float{color:#00ff88;}.dmg-float.mp-float{color:#4488ff;}
-    #combat-log{
-  background:linear-gradient(135deg,rgba(0,0,0,0.4),rgba(40,0,0,0.4));
-  border-radius:6px;
-  padding:8px;
-  font-size:.85em;
-  min-height:50px;
-  margin-top:8px;
-  color:#ccc;
-  max-height:70px;
-  overflow-y:auto;
-  border:1px solid rgba(180,0,0,0.2);
-}
-    .combat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:9px;}
-    .combat-btn{
-  background:linear-gradient(135deg,rgba(8,8,40,0.9),rgba(20,10,50,0.9));
-  border:1px solid rgba(240,192,64,0.2);
-  color:var(--text);
-  padding:8px;
-  border-radius:6px;
-  cursor:pointer;
-  font-family:'Crimson Text',serif;
-  font-size:.9em;
-  transition:all 0.2s;
-}
-.combat-btn:hover{
-  background:linear-gradient(135deg,rgba(60,40,0,0.6),rgba(80,50,0,0.6));
-  border-color:var(--gold);
-  color:var(--gold);
-  box-shadow:0 0 10px rgba(240,192,64,0.2);
-  transform:translateY(-1px);
-}
-    /* SKILLS */
-    #skills-bar{display:none;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:9px;margin-bottom:9px;}
-    .skill-slot{display:inline-flex;flex-direction:column;align-items:center;margin:0 4px;cursor:pointer;}
-    .skill-icon-wrap{
-  width:44px;
-  height:44px;
-  background:linear-gradient(135deg,rgba(255,255,255,0.04),rgba(8,8,40,0.8));
-  border:2px solid rgba(240,192,64,0.2);
-  border-radius:8px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:1.3em;
-  transition:all 0.2s;
-}
-.skill-icon-wrap:hover{
-  border-color:var(--gold);
-  transform:scale(1.08);
-  box-shadow:0 0 12px rgba(240,192,64,0.4);
-  background:linear-gradient(135deg,rgba(240,192,64,0.1),rgba(8,8,40,0.9));
-}
-.skill-icon-wrap.on-cd{
-  opacity:.35;
-  border-color:#333;
-  box-shadow:none;
-}
-.skill-lbl{
-  font-size:.62em;
-  color:#888;
-  margin-top:2px;
-  max-width:46px;
-  text-align:center;
-}
-.skill-cd-lbl{
-  font-size:.6em;
-  color:var(--red);
-  text-shadow:0 0 4px rgba(255,68,68,0.5);
-}
-    #log-box{
-  background:linear-gradient(135deg,rgba(0,0,0,0.4),rgba(8,8,40,0.6));
-  border:1px solid rgba(240,192,64,0.15);
-  border-radius:8px;
-  padding:9px;
-  max-height:85px;
-  overflow-y:auto;
-  font-size:.82em;
-  color:#aaa;
-  line-height:1.6;
-}
+
+    /* ── PARTICLE / LEVEL UP / CRIT ── */
+    @keyframes particleBurst{0%{opacity:1;transform:translate(0,0) scale(1);}100%{opacity:0;transform:translate(var(--tx),var(--ty)) scale(0);}}
+    .particle{position:fixed;pointer-events:none;z-index:9999;border-radius:50%;animation:particleBurst 0.8s ease forwards;}
+    @keyframes levelUpFlash{0%{opacity:0;transform:translate(-50%,-50%) scale(0.5);}30%{opacity:1;transform:translate(-50%,-50%) scale(1.2);}70%{opacity:1;transform:translate(-50%,-50%) scale(1);}100%{opacity:0;transform:translate(-50%,-50%) scale(1.5);}}
+    .levelup-text{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Cinzel',serif;font-size:2.5em;color:var(--gold);text-shadow:0 0 30px rgba(240,192,64,1);pointer-events:none;z-index:9999;animation:levelUpFlash 2s ease forwards;white-space:nowrap;}
+    @keyframes critFlash{0%{opacity:0;transform:translate(-50%,-50%) scale(0.5) rotate(-10deg);}20%{opacity:1;transform:translate(-50%,-50%) scale(1.4) rotate(5deg);}80%{opacity:1;transform:translate(-50%,-50%) scale(1.2) rotate(-3deg);}100%{opacity:0;transform:translate(-50%,-50%) scale(1.5) rotate(0deg);}}
+    .crit-text{position:fixed;top:40%;left:50%;font-family:'Cinzel',serif;font-size:2em;color:#ffff00;text-shadow:0 0 20px rgba(255,255,0,1);pointer-events:none;z-index:9999;animation:critFlash 0.8s ease forwards;white-space:nowrap;}
+
+    /* ── LOGS ── */
+    #log-box{background:linear-gradient(135deg,rgba(0,0,0,0.4),rgba(8,8,40,0.6));border:1px solid rgba(240,192,64,0.15);border-radius:8px;padding:9px;max-height:85px;overflow-y:auto;font-size:.82em;color:#aaa;line-height:1.6;}
     .log-good{color:var(--green);}.log-bad{color:var(--red);}.log-info{color:var(--blue);}.log-gold{color:var(--gold);}.log-purple{color:var(--purple);}.log-legendary{color:var(--legendary);}.log-epic{color:var(--epic);}
-    /* NAME */
-    #name-screen{text-align:center;padding:22px;max-width:400px;width:100%;}
-    #name-input{background:rgba(0,0,0,.4);border:1px solid var(--dark-gold);color:var(--text);padding:10px 14px;border-radius:8px;font-family:'Crimson Text',serif;font-size:1.1em;width:100%;max-width:260px;margin:12px 0;text-align:center;outline:none;}
-    #name-input:focus{border-color:var(--gold);}
-    .start-btn{background:linear-gradient(135deg,var(--dark-gold),var(--gold));color:#1a0a00;border:none;padding:10px 25px;border-radius:8px;font-family:'Cinzel',serif;font-size:.9em;cursor:pointer;font-weight:700;transition:all .3s;letter-spacing:1px;margin:3px;}
-    .start-btn:hover{transform:scale(1.04);}
-    .blue-btn{background:linear-gradient(135deg,#1a3a6a,#2a5aaa);color:white;}
-    .purple-btn{background:linear-gradient(135deg,#4400aa,#8844ff);color:white;}
-    .red-btn{background:linear-gradient(135deg,#6a0000,#aa2222);color:white;}
-    /* TABS */
-    .tabs{display:flex;gap:4px;margin-bottom:8px;}
-    .tab{flex:1;padding:5px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-family:'Cinzel',serif;font-size:.62em;text-align:center;color:#888;transition:all .2s;}
-    .tab.active{background:rgba(240,192,64,.12);border-color:var(--dark-gold);color:var(--gold);}
-    /* INVENTORY */
-    .gold-display{
-  display:flex;
-  align-items:center;
-  gap:6px;
-  font-family:'Cinzel',serif;
-  color:var(--gold);
-  font-size:.95em;
-  margin-bottom:8px;
-  padding:6px;
-  background:linear-gradient(135deg,rgba(240,192,64,0.1),rgba(8,8,40,0.8));
-  border-radius:5px;
-  border:1px solid rgba(240,192,64,0.3);
-  justify-content:center;
-  text-shadow:0 0 8px rgba(240,192,64,0.4);
-}
-    /* STACKED ITEM */
-    .inv-item{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;padding:6px 8px;margin-bottom:5px;font-size:.83em;position:relative;}
-    .inv-item.legendary{border-color:var(--legendary);box-shadow:0 0 5px rgba(255,140,0,.2);}
-    .inv-item.epic{border-color:var(--epic);box-shadow:0 0 5px rgba(163,53,238,.2);}
-    .inv-item.rare{border-color:var(--rare);}
-    .inv-item.uncommon{border-color:var(--uncommon);}
-    .inv-item-top{display:flex;justify-content:space-between;align-items:flex-start;gap:4px;}
-    .inv-item-name{font-weight:600;flex:1;}
-    .inv-item-stack{background:rgba(240,192,64,.2);color:var(--gold);border-radius:10px;padding:1px 6px;font-size:.75em;font-family:'Cinzel',serif;white-space:nowrap;}
-    .inv-item-stats{font-size:.74em;color:#888;margin-top:2px;}
-    .inv-item-btns{display:flex;gap:3px;margin-top:4px;flex-wrap:wrap;}
-    .inv-btn{padding:2px 7px;border-radius:4px;cursor:pointer;font-size:.72em;border:none;font-family:'Crimson Text',serif;transition:all .2s;}
-    .btn-equip{background:rgba(0,80,200,.5);color:#88aaff;border:1px solid #0044aa !important;}
-    .btn-equip:hover{background:rgba(0,80,200,.8);}
-    .btn-unequip{background:rgba(100,60,0,.5);color:var(--gold);border:1px solid #664400 !important;}
-    .btn-use{background:rgba(0,100,0,.5);color:var(--green);border:1px solid #005500 !important;}
-    .btn-sell{background:rgba(100,0,0,.4);color:var(--red);border:1px solid #550000 !important;}
-    .btn-craft{background:rgba(80,0,150,.5);color:var(--purple);border:1px solid #440088 !important;}
-    .inv-empty{color:#444;font-style:italic;font-size:.85em;text-align:center;padding:12px;}
-    /* SHOP */
-    .shop-item{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;padding:7px;margin-bottom:5px;font-size:.82em;}
-    .shop-item.legendary{border-color:var(--legendary);}.shop-item.epic{border-color:var(--epic);}.shop-item.rare{border-color:var(--rare);}
+
+    /* ── QUESTS ── */
+    .quest-item{padding:5px 0;border-bottom:1px solid var(--border);font-size:.8em;}
+    .quest-done{color:var(--green);text-decoration:line-through;opacity:.55;}
+
+    /* ── SHOP ── */
     .shop-btn{background:var(--dark-gold);color:#1a0a00;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:.75em;float:right;transition:all .2s;font-family:'Cinzel',serif;}
     .shop-btn:hover{background:var(--gold);}
-    /* CRAFTING */
-    #craft-screen{display:none;position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:8000;overflow-y:auto;padding:20px;}
-    .craft-container{max-width:850px;margin:0 auto;}
-    .craft-title{font-family:'Cinzel',serif;color:var(--purple);font-size:1.5em;text-align:center;margin-bottom:5px;text-shadow:0 0 20px rgba(187,68,255,.5);}
-    .craft-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:15px;}
-    @media(max-width:600px){.craft-grid{grid-template-columns:1fr;}}
-    .craft-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;transition:all .3s;}
-    .craft-card:hover{border-color:var(--purple);}
-    .craft-result{font-weight:600;font-size:.95em;margin-bottom:5px;}
-    .craft-req{font-size:.8em;color:#888;margin-bottom:8px;line-height:1.5;}
-    .craft-req .ok{color:var(--green);}.craft-req .no{color:var(--red);}
-    .craft-btn{background:linear-gradient(135deg,#4400aa,#8844ff);color:white;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:'Cinzel',serif;font-size:.8em;transition:all .3s;}
-    .craft-btn:hover{transform:scale(1.04);}
-    .craft-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
-    /* CLASS */
+
+    /* ── LEADERBOARD ── */
+    .lb-row{display:flex;align-items:center;gap:11px;padding:8px 12px;border-bottom:1px solid var(--border);font-size:.88em;}
+    .lb-rank{font-family:'Cinzel',serif;color:var(--gold);width:26px;text-align:center;}
+    .lb-rank.gold{color:#ffd700;font-size:1.1em;}.lb-rank.silver{color:#c0c0c0;}.lb-rank.bronze{color:#cd7f32;}
+    .lb-name{flex:1;color:var(--text);font-weight:600;}.lb-class{color:var(--purple);font-size:.78em;width:75px;}
+    .lb-level{color:var(--blue);font-size:.78em;width:60px;text-align:center;}.lb-gold-col{color:var(--gold);font-size:.78em;width:70px;text-align:right;}
+    .lb-empty{color:#444;font-style:italic;text-align:center;padding:16px;}
+    .submit-btn{background:linear-gradient(135deg,var(--dark-gold),var(--gold));color:#1a0a00;border:none;padding:8px 20px;border-radius:7px;font-family:'Cinzel',serif;font-size:.85em;cursor:pointer;font-weight:700;transition:all .3s;margin-right:6px;}
+    .refresh-btn{background:rgba(8,8,40,.8);color:var(--text);border:1px solid var(--border);padding:8px 20px;border-radius:7px;font-family:'Cinzel',serif;font-size:.85em;cursor:pointer;transition:all .3s;}
+    .refresh-btn:hover{border-color:var(--gold);color:var(--gold);}
+
+    /* ── BOSS CUTSCENE ── */
+    #boss-cutscene{display:none;position:fixed;inset:0;background:#000;z-index:9500;overflow:hidden;}
+    .boss-bg{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(120,0,0,.7),#000 70%);animation:bossAura 2s ease-in-out infinite alternate;}
+    @keyframes bossAura{from{opacity:.7;}to{opacity:1;}}
+    .boss-content{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:30px;text-align:center;}
+    .boss-icon{font-size:6em;animation:bossFloat 2s ease-in-out infinite;margin-bottom:18px;}
+    @keyframes bossFloat{0%,100%{transform:translateY(0) scale(1);}50%{transform:translateY(-15px) scale(1.05);}}
+    .boss-cs-name{font-family:'Cinzel',serif;color:#ff2200;font-size:2.2em;text-shadow:0 0 35px rgba(255,0,0,.8);margin-bottom:6px;}
+    .boss-cs-req{color:var(--gold);font-family:'Cinzel',serif;font-size:.9em;margin-bottom:6px;}
+    .boss-cs-text{color:#ddd;font-size:1.05em;max-width:520px;line-height:1.7;margin-bottom:20px;}
+    .boss-start-btn{background:linear-gradient(135deg,#8b0000,#cc0000);color:white;border:2px solid #ff4444;padding:13px 32px;border-radius:8px;font-family:'Cinzel',serif;font-size:.97em;cursor:pointer;transition:all .3s;letter-spacing:1px;}
+    .boss-start-btn:hover{transform:scale(1.05);}
+
+    /* ── CLASS SCREEN ── */
     #class-screen{display:none;position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:8000;overflow-y:auto;padding:20px;}
     .class-container{max-width:900px;margin:0 auto;text-align:center;}
     .class-title{font-family:'Cinzel',serif;color:var(--gold);font-size:1.7em;margin-bottom:6px;}
@@ -487,7 +262,8 @@ nav a:hover{
     .class-desc{color:#aaa;font-size:.85em;line-height:1.5;margin-bottom:8px;}
     .class-stat{display:flex;justify-content:space-between;font-size:.8em;padding:2px 0;border-bottom:1px solid rgba(255,255,255,.05);}
     .class-stat span:last-child{color:var(--gold);}
-    /* TALENT */
+
+    /* ── TALENT SCREEN ── */
     #talent-screen{display:none;position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:8000;overflow-y:auto;padding:20px;}
     .talent-container{max-width:950px;margin:0 auto;}
     .talent-title{font-family:'Cinzel',serif;color:var(--gold);font-size:1.4em;text-align:center;margin-bottom:4px;}
@@ -504,152 +280,67 @@ nav a:hover{
     .talent-node-desc{font-size:.76em;color:#999;margin-top:3px;}
     .talent-node-cost{font-size:.72em;color:var(--gold);margin-top:3px;}
     .talent-node-rank{font-size:.7em;color:var(--green);float:right;}
-    /* BOSS CUTSCENE */
-    #boss-cutscene{display:none;position:fixed;inset:0;background:#000;z-index:9500;overflow:hidden;}
-    .boss-bg{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(120,0,0,.7),#000 70%);animation:bossAura 2s ease-in-out infinite alternate;}
-    @keyframes bossAura{from{opacity:.7;}to{opacity:1;}}
-    .boss-content{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:30px;text-align:center;}
-    .boss-icon{font-size:6em;animation:bossFloat 2s ease-in-out infinite;margin-bottom:18px;}
-    @keyframes bossFloat{0%,100%{transform:translateY(0) scale(1);}50%{transform:translateY(-15px) scale(1.05);}}
-    .boss-cs-name{font-family:'Cinzel',serif;color:#ff2200;font-size:2.2em;text-shadow:0 0 35px rgba(255,0,0,.8);margin-bottom:6px;}
-    .boss-cs-req{color:var(--gold);font-family:'Cinzel',serif;font-size:.9em;margin-bottom:6px;}
-    .boss-cs-text{color:#ddd;font-size:1.05em;max-width:520px;line-height:1.7;margin-bottom:20px;}
-    .boss-start-btn{background:linear-gradient(135deg,#8b0000,#cc0000);color:white;border:2px solid #ff4444;padding:13px 32px;border-radius:8px;font-family:'Cinzel',serif;font-size:.97em;cursor:pointer;transition:all .3s;letter-spacing:1px;}
-    .boss-start-btn:hover{transform:scale(1.05);}
-    /* LEADERBOARD */
-    #leaderboard-panel{width:100%;max-width:1080px;margin-top:13px;}
-    .lb-row{display:flex;align-items:center;gap:11px;padding:8px 12px;border-bottom:1px solid var(--border);font-size:.88em;}
-    .lb-rank{font-family:'Cinzel',serif;color:var(--gold);width:26px;text-align:center;}
-    .lb-rank.gold{color:#ffd700;font-size:1.1em;}.lb-rank.silver{color:#c0c0c0;}.lb-rank.bronze{color:#cd7f32;}
-    .lb-name{flex:1;color:var(--text);font-weight:600;}.lb-class{color:var(--purple);font-size:.78em;width:75px;}
-    .lb-level{color:var(--blue);font-size:.78em;width:60px;text-align:center;}.lb-gold-col{color:var(--gold);font-size:.78em;width:70px;text-align:right;}
-    .lb-empty{color:#444;font-style:italic;text-align:center;padding:16px;}
-    .submit-btn{background:linear-gradient(135deg,var(--dark-gold),var(--gold));color:#1a0a00;border:none;padding:8px 20px;border-radius:7px;font-family:'Cinzel',serif;font-size:.85em;cursor:pointer;font-weight:700;transition:all .3s;margin-right:6px;}
-    .submit-btn:hover{transform:scale(1.04);}
-    .refresh-btn{background:rgba(8,8,40,.8);color:var(--text);border:1px solid var(--border);padding:8px 20px;border-radius:7px;font-family:'Cinzel',serif;font-size:.85em;cursor:pointer;transition:all .3s;}
-    .refresh-btn:hover{border-color:var(--gold);color:var(--gold);}
+
+    /* ── CRAFTING SCREEN ── */
+    #craft-screen{display:none;position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:8000;overflow-y:auto;padding:20px;}
+    .craft-container{max-width:850px;margin:0 auto;}
+    .craft-title{font-family:'Cinzel',serif;color:var(--purple);font-size:1.5em;text-align:center;margin-bottom:5px;text-shadow:0 0 20px rgba(187,68,255,.5);}
+    .craft-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:15px;}
+    @media(max-width:600px){.craft-grid{grid-template-columns:1fr;}}
+    .craft-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;transition:all .3s;}
+    .craft-card:hover{border-color:var(--purple);}
+    .craft-result{font-weight:600;font-size:.95em;margin-bottom:5px;}
+    .craft-req{font-size:.8em;color:#888;margin-bottom:8px;line-height:1.5;}
+    .craft-req .ok{color:var(--green);}.craft-req .no{color:var(--red);}
+    .craft-btn{background:linear-gradient(135deg,#4400aa,#8844ff);color:white;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:'Cinzel',serif;font-size:.8em;transition:all .3s;}
+    .craft-btn:hover{transform:scale(1.04);}
+    .craft-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+
+    /* ── ENHANCE SCREEN ── */
+    .enhance-container{max-width:500px;margin:0 auto;}
+    .enhance-title{font-family:'Cinzel',serif;color:var(--gold);font-size:1.4em;text-align:center;margin-bottom:16px;}
+    .enhance-item-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;}
+    .enhance-item-name{font-family:'Cinzel',serif;font-size:1em;font-weight:600;text-align:center;margin-bottom:4px;}
+    .enh-badge{font-family:'Cinzel',serif;font-size:.8em;padding:1px 6px;border-radius:4px;font-weight:700;}
+    .enh-low{color:var(--gold);background:rgba(240,192,64,.15);border:1px solid var(--dark-gold);}
+    .enh-high{color:#fff;background:rgba(255,140,0,.25);border:1px solid var(--legendary);text-shadow:0 0 8px var(--legendary);}
+    .enhance-stats-row{display:flex;align-items:center;justify-content:center;gap:12px;margin:12px 0;}
+    .enhance-stats-col{flex:1;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center;}
+    .enhance-stats-title{font-family:'Cinzel',serif;font-size:.68em;color:var(--gold);margin-bottom:6px;letter-spacing:1px;text-transform:uppercase;}
+    .enhance-stat-line{font-size:.82em;color:var(--text);padding:1px 0;}
+    .enhance-arrow{font-size:1.2em;color:var(--gold);flex:0 0 20px;text-align:center;}
+    .enhance-level-bar{display:flex;gap:3px;justify-content:center;margin-top:10px;flex-wrap:wrap;}
+    .enhance-pip{width:16px;height:8px;border-radius:3px;transition:all .3s;}
+    .pip-empty{background:rgba(255,255,255,.08);border:1px solid #333;}
+    .pip-filled{background:var(--gold);box-shadow:0 0 4px rgba(240,192,64,.5);}
+    .pip-high{background:var(--legendary);box-shadow:0 0 6px rgba(255,140,0,.8);}
+    .enhance-cost-box{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;padding:12px;}
+    .enhance-cost-title{font-family:'Cinzel',serif;color:var(--gold);font-size:.72em;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;text-align:center;}
+    .enhance-cost-row{display:flex;justify-content:space-between;align-items:center;font-size:.83em;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04);color:#aaa;}
+    .enhance-cost-row:last-child{border-bottom:none;}
+    .enhance-btn{background:linear-gradient(135deg,#7a4a00,#c07820);color:#fff8e0;border:1px solid var(--gold);padding:10px 24px;border-radius:8px;cursor:pointer;font-family:'Cinzel',serif;font-size:.9em;font-weight:700;transition:all .3s;letter-spacing:1px;}
+    .enhance-btn:hover{background:linear-gradient(135deg,#a06010,#f0a030);transform:scale(1.04);}
+    .enhance-btn-disabled{opacity:.4;cursor:not-allowed;}
+
+    /* ── MISC ── */
     @keyframes fadeInUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
     .fade-in{animation:fadeInUp .35s ease forwards;}
-    .quest-item{padding:5px 0;border-bottom:1px solid var(--border);font-size:.8em;}
-    .quest-done{color:var(--green);text-decoration:line-through;opacity:.55;}
-    /* AUTO SELL TOGGLE */
-    .toggle-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:.82em;color:#aaa;}
-    .toggle{position:relative;display:inline-block;width:36px;height:18px;}
-    .toggle input{opacity:0;width:0;height:0;}
-    .toggle-slider{position:absolute;cursor:pointer;inset:0;background:#333;border-radius:18px;transition:.3s;}
-    .toggle-slider:before{position:absolute;content:'';height:14px;width:14px;left:2px;bottom:2px;background:white;border-radius:50%;transition:.3s;}
-    input:checked+.toggle-slider{background:var(--dark-gold);}
-    input:checked+.toggle-slider:before{transform:translateX(18px);}
-    /* NOTIFICATION */
-    #notification{position:fixed;top:20px;right:20px;background:var(--panel);border:1px solid var(--gold);border-radius:8px;padding:12px 18px;font-family:'Cinzel',serif;font-size:.85em;color:var(--gold);z-index:9800;display:none;animation:slideIn .3s ease;}
-    @keyframes slideIn{from{opacity:0;transform:translateX(50px);}to{opacity:1;transform:translateX(0);}}
-    .item-grid{
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:6px;
-  margin-top:4px;
-}
-.item-icon-box{
-  background:linear-gradient(135deg,rgba(255,255,255,0.03),rgba(8,8,40,0.6));
-  border:1px dashed rgba(240,192,64,0.2);
-  border-radius:8px;
-  padding:6px;
-  text-align:center;
-  cursor:pointer;
-  transition:all 0.25s;
-  min-height:55px;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  position:relative;
-}
-.item-icon-box:hover{
-  border-color:var(--gold);
-  border-style:solid;
-  background:linear-gradient(135deg,rgba(240,192,64,0.1),rgba(8,8,40,0.8));
-  transform:translateY(-2px);
-  box-shadow:0 4px 12px rgba(240,192,64,0.2);
-}
-.item-icon-box.legendary{
-  border-style:solid;
-  border-color:var(--legendary);
-  box-shadow:0 0 12px rgba(255,140,0,0.4);
-  background:linear-gradient(135deg,rgba(255,140,0,0.08),rgba(8,8,40,0.8));
-}
-.item-icon-box.epic{
-  border-style:solid;
-  border-color:var(--epic);
-  box-shadow:0 0 10px rgba(163,53,238,0.35);
-  background:linear-gradient(135deg,rgba(163,53,238,0.08),rgba(8,8,40,0.8));
-}
-.item-icon-box.rare{
-  border-style:solid;
-  border-color:var(--rare);
-  box-shadow:0 0 8px rgba(0,112,221,0.3);
-  background:linear-gradient(135deg,rgba(0,112,221,0.06),rgba(8,8,40,0.8));
-}
-.item-icon-box.uncommon{
-  border-style:solid;
-  border-color:var(--uncommon);
-  box-shadow:0 0 6px rgba(30,255,0,0.2);
-  background:linear-gradient(135deg,rgba(30,255,0,0.04),rgba(8,8,40,0.8));
-}
-.item-icon-emoji{font-size:1.5em;line-height:1;}
-.item-icon-price{font-size:.55em;color:var(--gold);margin-top:2px;}
-.item-icon-stack{
-  position:absolute;
-  bottom:2px;
-  right:3px;
-  font-size:.58em;
-  color:var(--gold);
-  font-family:'Cinzel',serif;
-  font-weight:700;
-  text-shadow:0 0 4px rgba(240,192,64,0.6);
-}
-.item-icon-equipped{
-  position:absolute;
-  top:2px;
-  right:3px;
-  font-size:.58em;
-  color:var(--green);
-  font-family:'Cinzel',serif;
-  font-weight:700;
-  text-shadow:0 0 4px rgba(0,255,136,0.6);
-}
-.heal-float{color:#00ff88;font-size:1.2rem;font-weight:bold;text-shadow:0 0 6px #00ff88;}
- .enh-glow-7{
-  animation:glow7 1.5s ease-in-out infinite alternate !important;
-  border-color:var(--gold) !important;
-  border-style:solid !important;
-}
-.enh-glow-15{
-  animation:glow15 1s ease-in-out infinite alternate !important;
-  border-color:var(--legendary) !important;
-  border-style:solid !important;
-}
-@keyframes glow7{
-  from{box-shadow:0 0 6px rgba(240,192,64,0.6),0 0 12px rgba(240,192,64,0.3);}
-  to{box-shadow:0 0 14px rgba(240,192,64,0.9),0 0 25px rgba(240,192,64,0.5);}
-}
-@keyframes glow15{
-  from{box-shadow:0 0 10px rgba(255,140,0,0.8),0 0 20px rgba(255,140,0,0.5),0 0 35px rgba(255,140,0,0.3);}
-  to{box-shadow:0 0 20px rgba(255,140,0,1),0 0 40px rgba(255,140,0,0.7),0 0 60px rgba(255,255,0,0.4);}
-}
- </style>
+    .heal-float{color:#00ff88;font-size:1.2rem;font-weight:bold;text-shadow:0 0 6px #00ff88;}
+  </style>
 </head>
-
 <body>
-<!-- overlay -->
-  <div style="position:fixed;inset:0;background:rgba(4,4,15,0.75);z-index:0;pointer-events:none;"></div>
-  
-  <!-- ALL game content wrapped here -->
-  <div style="position:relative;z-index:1;width:100%;display:flex;flex-direction:column;align-items:center;">
 
+<!-- Dark overlay -->
+<div style="position:fixed;inset:0;background:rgba(4,4,15,0.75);z-index:0;pointer-events:none;"></div>
+
+<!-- All content wrapper -->
+<div style="position:relative;z-index:1;width:100%;display:flex;flex-direction:column;align-items:center;">
+
+<!-- ── LOADER ── -->
 <div id="loader"><div class="spinner"></div><p>Loading Game...</p></div>
 <div id="notification"></div>
 
-<!-- BOSS CUTSCENE -->
+<!-- ── BOSS CUTSCENE ── -->
 <div id="boss-cutscene">
   <div class="boss-bg"></div>
   <div class="boss-content">
@@ -661,7 +352,7 @@ nav a:hover{
   </div>
 </div>
 
-<!-- CLASS SELECTION -->
+<!-- ── CLASS SELECTION ── -->
 <div id="class-screen">
   <div class="class-container">
     <div class="class-title">⚔️ Choose Your Class</div>
@@ -670,27 +361,31 @@ nav a:hover{
   </div>
 </div>
 
-<!-- TALENT TREE -->
+<!-- ── TALENT TREE ── -->
 <div id="talent-screen">
   <div class="talent-container">
     <div class="talent-title" id="talent-title">Talent Tree</div>
     <div class="talent-pts">✨ Talent Points: <span id="talent-pts-val">0</span></div>
     <div class="tree-grid" id="tree-grid"></div>
-    <div style="text-align:center;margin-top:14px;"><button class="start-btn" onclick="closeTalents()">✅ Done</button></div>
-    
+    <div style="text-align:center;margin-top:14px;">
+      <button class="start-btn" onclick="closeTalents()">✅ Done</button>
+    </div>
   </div>
 </div>
 
-<!-- CRAFTING SCREEN -->
+<!-- ── CRAFTING SCREEN ── -->
 <div id="craft-screen">
   <div class="craft-container">
     <div class="craft-title">⚗️ Crafting Table</div>
     <p style="color:#888;font-size:.9em;text-align:center;">Combine materials to forge powerful items!</p>
     <div class="craft-grid" id="craft-grid"></div>
-    <div style="text-align:center;margin-top:16px;"><button class="start-btn" onclick="closeCrafting()">✅ Close</button></div>
+    <div style="text-align:center;margin-top:16px;">
+      <button class="start-btn" onclick="closeCrafting()">✅ Close</button>
+    </div>
   </div>
 </div>
 
+<!-- ── NAV ── -->
 <nav>
   <a href="index.html">🏠 Home</a>
   <a href="projects.html">📁 Projects</a>
@@ -700,211 +395,298 @@ nav a:hover{
 <h1 class="game-title">⚔️ ROTANA'S RPG ⚔️</h1>
 <p class="subtitle">A Text-Based Adventure — Max Level 100</p>
 
-<div style="display:flex;gap:7px;margin-bottom:11px;justify-content:center;flex-wrap:wrap;">
+<!-- ── TOP BUTTONS (shown after login) ── -->
+<div class="top-btns" id="top-btns" style="display:none;">
   <button class="start-btn" onclick="saveToCloud()" style="font-size:.8em;padding:6px 16px;">💾 Save</button>
   <button class="start-btn blue-btn" onclick="loadFromCloud()" style="font-size:.8em;padding:6px 16px;">📂 Load</button>
-  <button class="start-btn purple-btn" onclick="openCrafting()" style="font-size:.8em;padding:6px 16px;">⚗️ Craft</button>
   <button class="start-btn" onclick="openTalents()" id="talent-btn" style="font-size:.8em;padding:6px 16px;display:none;background:linear-gradient(135deg,#4400aa,#8844ff);color:white;">🌟 Talents</button>
 </div>
-<!-- DIFFICULTY BAR -->
-<div id="difficulty-bar" style="display:none;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:10px;">
-  <span style="font-family:'Cinzel',serif;color:#888;font-size:.8em;align-self:center;">⚙️ Difficulty:</span>
-  <button id="diff-btn-normal" onclick="setDifficulty('normal')"
-    style="background:rgba(8,8,40,.8);border:2px solid #cccccc;color:#cccccc;padding:5px 14px;border-radius:6px;font-family:'Cinzel',serif;font-size:.78em;cursor:pointer;transition:all .3s;">
-    ⚔️ Normal
-  </button>
-  <button id="diff-btn-hard" onclick="setDifficulty('hard')"
-    style="background:rgba(8,8,40,.8);border:2px solid #ff8800;color:#ff8800;padding:5px 14px;border-radius:6px;font-family:'Cinzel',serif;font-size:.78em;cursor:pointer;opacity:0.4;transition:all .3s;">
-    🔥 Hard <span style="font-size:.7em;">(Lv20+)</span>
-  </button>
-  <button id="diff-btn-hell" onclick="setDifficulty('hell')"
-    style="background:rgba(8,8,40,.8);border:2px solid #ff2222;color:#ff2222;padding:5px 14px;border-radius:6px;font-family:'Cinzel',serif;font-size:.78em;cursor:pointer;opacity:0.4;transition:all .3s;">
-    💀 Hell <span style="font-size:.7em;">(Lv50+)</span>
-  </button>
-</div>
 
-<!-- NAME SCREEN -->
+<!-- ── NAME/LOGIN SCREEN ── -->
 <div id="name-screen" class="panel">
   <div class="panel-title">⚔️ ROTANA'S RPG ⚔️</div>
   <p style="color:#888;font-size:.93em;text-align:center;margin-bottom:16px;">Login or Register to begin your adventure!</p>
-
   <div style="display:flex;flex-direction:column;gap:8px;max-width:280px;margin:0 auto;">
-    <div style="background:rgba(0,0,0,.4);border:1px solid var(--dark-gold);color:var(--text);padding:9px 12px;border-radius:6px;font-family:'Crimson Text',serif;font-size:1em;width:100%;outline:none;">📧 EMAIL</div>
-    <input type="email" id="auth-email" placeholder="Enter your email..." maxlength="50" style="background:rgba(0,0,0,.4);border:1px solid var(--dark-gold);color:var(--text);padding:9px 12px;border-radius:6px;font-family:'Crimson Text',serif;font-size:1em;width:100%;outline:none;">
-
-    <div style="background:rgba(0,0,0,.4);border:1px solid var(--dark-gold);color:var(--text);padding:9px 12px;border-radius:6px;font-family:'Crimson Text',serif;font-size:1em;width:100%;outline:none;">🔒 PASSWORD</div>
-    <input type="password" id="auth-password" placeholder="Enter your password..." maxlength="50" style="background:rgba(0,0,0,.4);border:1px solid var(--dark-gold);color:var(--text);padding:9px 12px;border-radius:6px;font-family:'Crimson Text',serif;font-size:1em;width:100%;outline:none;">
-
-    <div style="background:rgba(0,0,0,.4);border:1px solid var(--dark-gold);color:var(--text);padding:9px 12px;border-radius:6px;font-family:'Crimson Text',serif;font-size:1em;width:100%;outline:none;">⚔️ CHARACTER NAME <span style="color:#555;"></span></div>
-    <input type="text" id="name-input" placeholder="Enter your character name..." maxlength="15" style="background:rgba(0,0,0,.4);border:1px solid var(--dark-gold);color:var(--text);padding:9px 12px;border-radius:6px;font-family:'Crimson Text',serif;font-size:1em;width:100%;outline:none;">
-
+    <input type="email" id="auth-email" placeholder="📧 Email..." maxlength="50">
+    <input type="password" id="auth-password" placeholder="🔒 Password..." maxlength="50">
+    <input type="text" id="name-input" placeholder="⚔️ Character name (Register only)" maxlength="15">
     <div style="display:flex;gap:8px;margin-top:6px;">
       <button class="start-btn" onclick="registerUser()" style="flex:1;">📝 Register</button>
       <button class="start-btn blue-btn" onclick="loginUser()" style="flex:1;">🔑 Login</button>
     </div>
   </div>
-
   <div id="auth-msg" style="color:#ff4444;text-align:center;margin-top:10px;font-size:.85em;"></div>
 </div>
 
-<!-- GAME WRAPPER -->
-<div id="game-wrapper" style="display:none;">
+<!-- ══════════════════════════════════════════════ -->
+<!-- ── GAME WRAPPER ──                            -->
+<!-- ══════════════════════════════════════════════ -->
+<div id="game-wrapper" style="display:none;width:100%;max-width:1080px;">
 
-  <!-- LEFT: CHARACTER + EQUIPMENT -->
-  <div style="display:flex;flex-direction:column;gap:10px;">
-    <div class="panel">
-      <div class="panel-title">⚔️ Character</div>
-      <div class="char-display">
-        <img id="char-avatar" src="warrior.jpg" alt="Character"
-  style="width:150px;height:150px;object-fit:cover;border-radius:12px;border:2px solid var(--dark-gold);">
-        <div style="font-family:'Cinzel',serif;color:var(--gold);font-size:.88em;" id="char-name"></div>
-        <div style="color:var(--purple);font-size:.75em;margin-top:2px;" id="char-class">Adventurer</div>
-        <div style="color:#888;font-size:.72em;" id="char-level">Level 1 / 100</div>
-      </div>
-      <div class="stat-row"><span class="stat-label">❤️ HP</span><span class="stat-value"><span id="hp-val">100</span>/<span id="hp-max">100</span></span></div>
-      <div class="bar-wrap"><div class="bar hp-bar" id="hp-bar" style="width:100%"></div></div>
-      <div class="stat-row" style="margin-top:6px;"><span class="stat-label">💧 MP</span><span class="stat-value"><span id="mp-val">50</span>/<span id="mp-max">50</span></span></div>
-      <div class="bar-wrap"><div class="bar mp-bar" id="mp-bar" style="width:100%"></div></div>
-      <div class="stat-row" style="margin-top:6px;"><span class="stat-label">⭐ XP</span><span class="stat-value"><span id="xp-val">0</span>/<span id="xp-next">100</span></span></div>
-      <div class="bar-wrap"><div class="bar xp-bar" id="xp-bar" style="width:0%"></div></div>
-      <div class="stat-grid">
-  <!-- Primary Stats -->
-  <div class="stat-box"><div class="val" id="str-val">5</div><div class="lbl">⚔️STR</div></div>
-  <div class="stat-box"><div class="val" id="agi-val">5</div><div class="lbl">💨AGI</div></div>
-  <div class="stat-box"><div class="val" id="int-val">5</div><div class="lbl">🧠INT</div></div>
-  <div class="stat-box"><div class="val" id="sta-val">5</div><div class="lbl">💪STA</div></div>
-  <div class="stat-box"><div class="val" id="hit-val">5</div><div class="lbl">🎯HIT</div></div>
-  <!-- Derived Stats -->
-  <div class="stat-box"><div class="val" id="atk-val">0</div><div class="lbl">🗡️ATK</div></div>
-  <div class="stat-box"><div class="val" id="armor-val">0</div><div class="lbl">🛡️ARM</div></div>
-  <div class="stat-box"><div class="val" id="crit-val">0%</div><div class="lbl">💥CRIT</div></div>
-  <div class="stat-box"><div class="val" id="dodge-val">0%</div><div class="lbl">🌀DODGE</div></div>
-  <div class="stat-box"><div class="val" id="hpregen-val">0</div><div class="lbl">❤️REGEN</div></div>
-  <div class="stat-box"><div class="val" id="mpregen-val">0</div><div class="lbl">💧MREGEN</div></div>
-  <div class="stat-box"><div class="val" id="lifesteal-val">0%</div><div class="lbl">🩸LIFESTEAL</div></div>
-</div>
-    </div>
-    <div class="panel">
-      <div class="panel-title">🛡️ Equipment</div>
-      <div class="equip-grid" id="equip-grid">
-        <div class="equip-slot" id="slot-weapon" onclick="unequipSlot('weapon')"><div class="equip-slot-label">Weapon</div><div class="equip-slot-icon">⚔️</div><div class="equip-slot-name" id="slot-weapon-name">Empty</div></div>
-        <div class="equip-slot" id="slot-armor" onclick="unequipSlot('armor')"><div class="equip-slot-label">Armor</div><div class="equip-slot-icon">🛡️</div><div class="equip-slot-name" id="slot-armor-name">Empty</div></div>
-        <div class="equip-slot" id="slot-helmet" onclick="unequipSlot('helmet')"><div class="equip-slot-label">Helmet</div><div class="equip-slot-icon">⛑️</div><div class="equip-slot-name" id="slot-helmet-name">Empty</div></div>
-        <div class="equip-slot" id="slot-boots" onclick="unequipSlot('boots')"><div class="equip-slot-label">Boots</div><div class="equip-slot-icon">👢</div><div class="equip-slot-name" id="slot-boots-name">Empty</div></div>
-        <div class="equip-slot" id="slot-ring" onclick="unequipSlot('ring')"><div class="equip-slot-label">Ring</div><div class="equip-slot-icon">💍</div><div class="equip-slot-name" id="slot-ring-name">Empty</div></div>
-        <div class="equip-slot" id="slot-amulet" onclick="unequipSlot('amulet')"><div class="equip-slot-label">Amulet</div><div class="equip-slot-icon">📿</div><div class="equip-slot-name" id="slot-amulet-name">Empty</div></div>
-      </div>
-    </div>
-    <!-- QUESTS -->
-    <div class="panel"><div class="panel-title">📋 Quests</div><div id="quest-list"></div></div>
-  </div>
+  <!-- ╔══════════════════════════════════╗ -->
+  <!-- ║   CHARACTER SCENE               ║ -->
+  <!-- ╚══════════════════════════════════╝ -->
+  <div id="main-scene-char" class="main-scene active">
+    <div class="scene-grid">
 
-  <!-- MIDDLE -->
-  <div style="display:flex;flex-direction:column;gap:10px;">
-    <div id="skills-bar" class="panel">
-      <div class="panel-title" style="margin-bottom:7px;">⚡ Skills</div>
-      <div id="skills-slot-row" style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;"></div>
-              <!-- Auto Skill Slots -->
-  <div style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;">⚡ AUTO SKILLS</div>
-    <div id="auto-skill-slots" style="display:flex;gap:8px;justify-content:center;margin:8px 0;">
-       <div class="auto-slot skill-slot" id="auto-slot-0" ondragover="event.preventDefault()" ondrop="dropSkillToSlot(event,0)" onclick="clearSlot(0)">
-        <div class="skill-icon-wrap" id="auto-slot-content-0">➕</div>
-        <div class="skill-lbl">Slot 1</div>
-    </div>
-    <div class="auto-slot skill-slot" id="auto-slot-1" ondragover="event.preventDefault()" ondrop="dropSkillToSlot(event,1)" onclick="clearSlot(1)">
-      <div class="skill-icon-wrap" id="auto-slot-content-1">➕</div>
-      <div class="skill-lbl">Slot 2</div>
-    </div>
-   <div class="auto-slot skill-slot" id="auto-slot-2" ondragover="event.preventDefault()" ondrop="dropSkillToSlot(event,2)" onclick="clearSlot(2)">
-      <div class="skill-icon-wrap" id="auto-slot-content-2">➕</div>
-      <div class="skill-lbl">Slot 3</div>
-   </div>
-   
-  </div>
-  <button id="auto-fight-btn" onclick="toggleAutoFight()"
-  style="display:none;font-size:.8em;padding:6px 16px;background:linear-gradient(135deg,#005500,#00aa44);color:white;border:none;border-radius:8px;font-family:'Cinzel',serif;cursor:pointer;font-weight:700;transition:all .3s;letter-spacing:1px;margin:3px;width:100%;">
-  ⚡ Auto Fight
-</button>
-    </div>
-  
-    <div class="panel" id="story-box"><div id="story-content"></div></div>
-      <div id="combat-box" class="panel">      
-      <div class="arena" id="arena">
-        <div class="arena-side">
-          <div class="arena-char" id="arena-player">🧙</div>
-          <div class="arena-hp-wrap"><div class="arena-hp-fill arena-player-fill" id="arena-player-hp" style="width:100%"></div></div>
-          <div class="arena-label" id="arena-player-label">You</div>
+      <!-- LEFT: Character + Equipment -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+
+        <!-- Character Panel -->
+        <div class="panel">
+          <div class="panel-title">⚔️ Character</div>
+          <div class="char-display">
+            <img id="char-avatar" src="warrior.jpg" alt="Character" style="width:150px;height:150px;object-fit:cover;border-radius:12px;border:2px solid var(--dark-gold);">
+            <div style="font-family:'Cinzel',serif;color:var(--gold);font-size:.88em;" id="char-name"></div>
+            <div style="color:var(--purple);font-size:.75em;margin-top:2px;" id="char-class">Adventurer</div>
+            <div style="color:#888;font-size:.72em;" id="char-level">Level 1 / 100</div>
+          </div>
+          <div class="stat-row"><span class="stat-label">❤️ HP</span><span class="stat-value"><span id="hp-val">100</span>/<span id="hp-max">100</span></span></div>
+          <div class="bar-wrap"><div class="bar hp-bar" id="hp-bar" style="width:100%"></div></div>
+          <div class="stat-row" style="margin-top:6px;"><span class="stat-label">💧 MP</span><span class="stat-value"><span id="mp-val">50</span>/<span id="mp-max">50</span></span></div>
+          <div class="bar-wrap"><div class="bar mp-bar" id="mp-bar" style="width:100%"></div></div>
+          <div class="stat-row" style="margin-top:6px;"><span class="stat-label">⭐ XP</span><span class="stat-value"><span id="xp-val">0</span>/<span id="xp-next">100</span></span></div>
+          <div class="bar-wrap"><div class="bar xp-bar" id="xp-bar" style="width:0%"></div></div>
+          <div class="stat-grid">
+            <div class="stat-box"><div class="val" id="str-val">5</div><div class="lbl">⚔️STR</div></div>
+            <div class="stat-box"><div class="val" id="agi-val">5</div><div class="lbl">💨AGI</div></div>
+            <div class="stat-box"><div class="val" id="int-val">5</div><div class="lbl">🧠INT</div></div>
+            <div class="stat-box"><div class="val" id="sta-val">5</div><div class="lbl">💪STA</div></div>
+            <div class="stat-box"><div class="val" id="hit-val">5</div><div class="lbl">🎯HIT</div></div>
+            <div class="stat-box"><div class="val" id="atk-val">0</div><div class="lbl">🗡️ATK</div></div>
+            <div class="stat-box"><div class="val" id="armor-val">0</div><div class="lbl">🛡️ARM</div></div>
+            <div class="stat-box"><div class="val" id="crit-val">0%</div><div class="lbl">💥CRIT</div></div>
+            <div class="stat-box"><div class="val" id="dodge-val">0%</div><div class="lbl">🌀DODGE</div></div>
+            <div class="stat-box"><div class="val" id="hpregen-val">0</div><div class="lbl">❤️REGEN</div></div>
+            <div class="stat-box"><div class="val" id="mpregen-val">0</div><div class="lbl">💧MREGEN</div></div>
+            <div class="stat-box"><div class="val" id="lifesteal-val">0%</div><div class="lbl">🩸STEAL</div></div>
+          </div>
         </div>
-        <div class="arena-vs">VS</div>
-        <div class="arena-side">
-          <div class="arena-char" id="arena-enemy">👹</div>
-          <div class="arena-hp-wrap"><div class="arena-hp-fill" id="arena-enemy-hp" style="width:100%"></div></div>
-          <div class="arena-label" id="arena-enemy-label">Enemy</div>
+
+        <!-- Equipment Panel -->
+        <div class="panel">
+          <div class="panel-title">🛡️ Equipment</div>
+          <div class="equip-grid" id="equip-grid">
+            <div class="equip-slot" id="slot-weapon" onclick="unequipSlot('weapon')"><div class="equip-slot-label">Weapon</div><div class="equip-slot-icon">⚔️</div><div class="equip-slot-name" id="slot-weapon-name">Empty</div></div>
+            <div class="equip-slot" id="slot-armor" onclick="unequipSlot('armor')"><div class="equip-slot-label">Armor</div><div class="equip-slot-icon">🛡️</div><div class="equip-slot-name" id="slot-armor-name">Empty</div></div>
+            <div class="equip-slot" id="slot-helmet" onclick="unequipSlot('helmet')"><div class="equip-slot-label">Helmet</div><div class="equip-slot-icon">⛑️</div><div class="equip-slot-name" id="slot-helmet-name">Empty</div></div>
+            <div class="equip-slot" id="slot-boots" onclick="unequipSlot('boots')"><div class="equip-slot-label">Boots</div><div class="equip-slot-icon">👢</div><div class="equip-slot-name" id="slot-boots-name">Empty</div></div>
+            <div class="equip-slot" id="slot-ring" onclick="unequipSlot('ring')"><div class="equip-slot-label">Ring</div><div class="equip-slot-icon">💍</div><div class="equip-slot-name" id="slot-ring-name">Empty</div></div>
+            <div class="equip-slot" id="slot-amulet" onclick="unequipSlot('amulet')"><div class="equip-slot-label">Amulet</div><div class="equip-slot-icon">📿</div><div class="equip-slot-name" id="slot-amulet-name">Empty</div></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- MIDDLE: Quests + Log -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="panel">
+          <div class="panel-title">📋 Quests</div>
+          <div id="quest-list"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">📜 Activity Log</div>
+          <div id="log-box"></div>
         </div>
       </div>
-      <div class="stat-row"><span class="stat-label">❤️ Enemy HP</span><span class="stat-value"><span id="enemy-hp-val">0</span>/<span id="enemy-hp-max">0</span></span></div>
 
-<div id="combat-log"></div>
-      
-      <div class="combat-grid">
-        <button class="combat-btn" onclick="combatAction('attack')">⚔️ Attack</button>
-        <button class="combat-btn" onclick="combatAction('magic')">✨ Magic (10MP)</button>
-        <button class="combat-btn" onclick="combatAction('defend')">🛡️ Defend</button>
-        <button class="combat-btn" onclick="combatAction('flee')">🏃 Flee</button>
+      <!-- RIGHT: Inventory -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="panel">
+          <div class="panel-title">🎒 Inventory</div>
+          <div class="gold-display">💰 <span id="gold-val">30</span> Gold</div>
+          <!-- Auto Sell -->
+          <div style="background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;padding:7px;margin-bottom:8px;">
+            <div style="font-family:'Cinzel',serif;color:var(--gold);font-size:.72em;margin-bottom:5px;">⚙️ AUTO SELL JUNK</div>
+            <div class="toggle-row">Normal <label class="toggle"><input type="checkbox" id="as-normal" onchange="saveAutoSell()"><span class="toggle-slider"></span></label></div>
+            <div class="toggle-row">Uncommon <label class="toggle"><input type="checkbox" id="as-uncommon" onchange="saveAutoSell()"><span class="toggle-slider"></span></label></div>
+            <div class="toggle-row">Rare <label class="toggle"><input type="checkbox" id="as-rare" onchange="saveAutoSell()"><span class="toggle-slider"></span></label></div>
+            <div class="toggle-row">Epic <label class="toggle"><input type="checkbox" id="as-epic" onchange="saveAutoSell()"><span class="toggle-slider"></span></label></div>
+            <button class="start-btn red-btn" onclick="autoSellNow()" style="font-size:.72em;padding:4px 12px;margin-top:5px;width:100%;">🗑️ Sell Junk Now</button>
+          </div>
+          <!-- Inventory Tabs -->
+          <div class="tabs" id="inv-tabs">
+            <div class="tab active" onclick="switchInvTab('equipment')" id="inv-tab-equipment">⚔️ Equip</div>
+            <div class="tab" onclick="switchInvTab('consumable')" id="inv-tab-consumable">🧪 Items</div>
+            <div class="tab" onclick="switchInvTab('material')" id="inv-tab-material">💎 Mats</div>
+          </div>
+          <div id="inventory-list"></div>
+        </div>
       </div>
-      
-      </div>
-      
-    <div class="panel" id="choices-box" style="display:flex;flex-direction:column;gap:7px;"></div>
-    <div class="panel"><div class="panel-title">📜 Log</div><div id="log-box"></div></div>
-    <!-- LEADERBOARD -->
-<div id="leaderboard-panel" class="panel" style="display:none;margin-top:13px;width:100%;max-width:1080px;">
-  <div class="panel-title">🏆 Global Leaderboard</div>
-  <div style="display:flex;justify-content:center;gap:7px;margin-bottom:11px;flex-wrap:wrap;">
-    <button class="submit-btn" onclick="submitScore()">📤 Submit Score</button>
-    <button class="refresh-btn" onclick="fetchLeaderboard()">🔄 Refresh</button>
-  </div>
-  <div id="lb-list"><div class="lb-empty">Loading...</div></div>
-</div>
+
+    </div>
   </div>
 
-  <!-- RIGHT: INVENTORY + SHOP + QUESTS -->
-   <!-- SHOP -->
-    
-  <div style="display:flex;flex-direction:column;gap:10px;">
-    <!-- INVENTORY -->
-     
-    <div class="panel">
-      <div class="panel-title">🎒 Inventory</div>
-      <div class="gold-display">💰 <span id="gold-val">30</span> Gold</div>
-      <!-- AUTO SELL SETTINGS -->
-      <div style="background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;padding:7px;margin-bottom:8px;">
-        <div style="font-family:'Cinzel',serif;color:var(--gold);font-size:.72em;margin-bottom:5px;">⚙️ AUTO SELL JUNK</div>
-        <div class="toggle-row">Normal <label class="toggle"><input type="checkbox" id="as-normal" onchange="saveAutoSell()"><span class="toggle-slider"></span></label></div>
-        <div class="toggle-row">Uncommon <label class="toggle"><input type="checkbox" id="as-uncommon" onchange="saveAutoSell()"><span class="toggle-slider"></span></label></div>
-        <div class="toggle-row">Rare <label class="toggle"><input type="checkbox" id="as-rare" onchange="saveAutoSell()"><span class="toggle-slider"></span></label></div>
-        <div class="toggle-row">Epic <label class="toggle"><input type="checkbox" id="as-epic" onchange="saveAutoSell()"><span class="toggle-slider"></span></label></div>
-        <button class="start-btn red-btn" onclick="autoSellNow()" style="font-size:.72em;padding:4px 12px;margin-top:5px;width:100%;">🗑️ Sell Junk Now</button>
+  <!-- ╔══════════════════════════════════╗ -->
+  <!-- ║   ADVENTURE SCENE               ║ -->
+  <!-- ╚══════════════════════════════════╝ -->
+  <div id="main-scene-adv" class="main-scene">
+    <div class="scene-grid">
+
+      <!-- LEFT: Dungeon List + Difficulty -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+
+        <!-- Dungeon List -->
+        <div class="panel">
+          <div class="panel-title">🗺️ Dungeons</div>
+          <div id="choices-box" style="display:flex;flex-direction:column;gap:7px;"></div>
+        </div>
+
+        <!-- Difficulty -->
+        <div class="panel" id="difficulty-bar">
+          <div class="panel-title">⚙️ Difficulty</div>
+          <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
+            <button id="diff-btn-normal" onclick="setDifficulty('normal')" style="background:rgba(8,8,40,.8);border:2px solid #cccccc;color:#cccccc;padding:5px 10px;border-radius:6px;font-family:'Cinzel',serif;font-size:.72em;cursor:pointer;transition:all .3s;">⚔️ Normal</button>
+            <button id="diff-btn-hard" onclick="setDifficulty('hard')" style="background:rgba(8,8,40,.8);border:2px solid #ff8800;color:#ff8800;padding:5px 10px;border-radius:6px;font-family:'Cinzel',serif;font-size:.72em;cursor:pointer;opacity:0.4;transition:all .3s;">🔥 Hard</button>
+            <button id="diff-btn-hell" onclick="setDifficulty('hell')" style="background:rgba(8,8,40,.8);border:2px solid #ff2222;color:#ff2222;padding:5px 10px;border-radius:6px;font-family:'Cinzel',serif;font-size:.72em;cursor:pointer;opacity:0.4;transition:all .3s;">💀 Hell</button>
+          </div>
+        </div>
+
       </div>
-      <div class="tabs" id="inv-tabs">
-        <div class="tab active" onclick="switchInvTab('equipment')" id="inv-tab-equipment">⚔️ Equip</div>
-        <div class="tab" onclick="switchInvTab('consumable')" id="inv-tab-consumable">🧪 Items</div>
-        <div class="tab" onclick="switchInvTab('material')" id="inv-tab-material">💎 Mats</div>
+
+      <!-- MIDDLE: Skills + Combat -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+
+        <!-- Skills Bar -->
+        <div id="skills-bar" class="panel">
+          <div class="panel-title" style="margin-bottom:7px;">⚡ Skills</div>
+          <div id="skills-slot-row" style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;"></div>
+          <!-- Auto Skill Slots -->
+          <div style="font-family:'Cinzel',serif;color:var(--dark-gold);font-size:.7em;text-align:center;margin:8px 0 4px;letter-spacing:1px;">⚡ AUTO SKILLS</div>
+          <div id="auto-skill-slots" style="display:flex;gap:8px;justify-content:center;margin:4px 0 8px;">
+            <div class="auto-slot skill-slot" id="auto-slot-0" ondragover="event.preventDefault()" ondrop="dropSkillToSlot(event,0)" onclick="clearSlot(0)">
+              <div class="skill-icon-wrap" id="auto-slot-content-0">➕</div>
+              <div class="skill-lbl">Slot 1</div>
+            </div>
+            <div class="auto-slot skill-slot" id="auto-slot-1" ondragover="event.preventDefault()" ondrop="dropSkillToSlot(event,1)" onclick="clearSlot(1)">
+              <div class="skill-icon-wrap" id="auto-slot-content-1">➕</div>
+              <div class="skill-lbl">Slot 2</div>
+            </div>
+            <div class="auto-slot skill-slot" id="auto-slot-2" ondragover="event.preventDefault()" ondrop="dropSkillToSlot(event,2)" onclick="clearSlot(2)">
+              <div class="skill-icon-wrap" id="auto-slot-content-2">➕</div>
+              <div class="skill-lbl">Slot 3</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Story Box -->
+        <div class="panel" id="story-box"><div id="story-content"></div></div>
+
+        <!-- Combat Box -->
+        <div id="combat-box" class="panel">
+          <div class="arena" id="arena">
+            <div class="arena-side">
+              <div class="arena-char" id="arena-player">🧙</div>
+              <div class="arena-hp-wrap"><div class="arena-hp-fill arena-player-fill" id="arena-player-hp" style="width:100%"></div></div>
+              <div class="arena-label" id="arena-player-label">You</div>
+            </div>
+            <div class="arena-vs">VS</div>
+            <div class="arena-side">
+              <div class="arena-char" id="arena-enemy">👹</div>
+              <div class="arena-hp-wrap"><div class="arena-hp-fill" id="arena-enemy-hp" style="width:100%"></div></div>
+              <div class="arena-label" id="arena-enemy-label">Enemy</div>
+            </div>
+          </div>
+          <div class="stat-row"><span class="stat-label">❤️ Enemy HP</span><span class="stat-value"><span id="enemy-hp-val">0</span>/<span id="enemy-hp-max">0</span></span></div>
+          <div id="combat-log"></div>
+          <div class="combat-grid">
+            <button class="combat-btn" onclick="combatAction('attack')">⚔️ Attack</button>
+            <button class="combat-btn" onclick="combatAction('magic')">✨ Magic (10MP)</button>
+            <button class="combat-btn" onclick="combatAction('defend')">🛡️ Defend</button>
+            <button class="combat-btn" onclick="combatAction('flee')">🏃 Flee</button>
+          </div>
+        </div>
+
+        <!-- Auto Fight Button -->
+        <button id="auto-fight-btn" onclick="toggleAutoFight()" style="display:none;font-size:.8em;padding:6px 16px;background:linear-gradient(135deg,#005500,#00aa44);color:white;border:none;border-radius:8px;font-family:'Cinzel',serif;cursor:pointer;font-weight:700;transition:all .3s;letter-spacing:1px;margin:3px;width:100%;">⚡ Auto Fight</button>
+
       </div>
-      <div id="inventory-list"></div>
+
+      <!-- RIGHT: Log + Leaderboard -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="panel">
+          <div class="panel-title">📜 Combat Log</div>
+          <div id="adv-log-box" style="background:linear-gradient(135deg,rgba(0,0,0,0.4),rgba(8,8,40,0.6));border:1px solid rgba(240,192,64,0.15);border-radius:8px;padding:9px;max-height:120px;overflow-y:auto;font-size:.82em;color:#aaa;line-height:1.6;"></div>
+        </div>
+        <div id="leaderboard-panel" class="panel">
+          <div class="panel-title">🏆 Leaderboard</div>
+          <div style="display:flex;justify-content:center;gap:7px;margin-bottom:11px;flex-wrap:wrap;">
+            <button class="submit-btn" onclick="submitScore()">📤 Submit</button>
+            <button class="refresh-btn" onclick="fetchLeaderboard()">🔄 Refresh</button>
+          </div>
+          <div id="lb-list"><div class="lb-empty">Loading...</div></div>
+        </div>
+      </div>
+
     </div>
-    <div class="panel">
-      <div class="panel-title">🏪 Shop</div>
-      <div class="tabs">
-        <div class="tab active" onclick="switchShopTab('equipment')" id="shop-tab-equipment">⚔️ Equip</div>
-        <div class="tab" onclick="switchShopTab('consumable')" id="shop-tab-consumable">🧪 Items</div>
-      </div>
-      <div id="shop-content"></div>
-    </div>
-        
   </div>
-  
+
+  <!-- ╔══════════════════════════════════╗ -->
+  <!-- ║   TOWN SCENE                    ║ -->
+  <!-- ╚══════════════════════════════════╝ -->
+  <div id="main-scene-town" class="main-scene">
+    <div class="scene-grid">
+
+      <!-- LEFT: Inn + Crafting + Future -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="panel">
+          <div class="panel-title">⛪ Inn</div>
+          <div style="text-align:center;padding:10px;">
+            <div style="font-size:2em;">⛪</div>
+            <div style="color:#aaa;font-size:.85em;margin:6px 0;">The Rusty Flagon</div>
+            <div style="color:#888;font-size:.8em;margin-bottom:8px;">Restore 50% HP & MP</div>
+            <button class="start-btn blue-btn" onclick="loadScene('inn')" style="font-size:.8em;">Rest (5g)</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">⚗️ Crafting</div>
+          <div style="text-align:center;padding:8px;">
+            <button class="start-btn purple-btn" onclick="openCrafting()" style="font-size:.8em;width:100%;">⚗️ Open Crafting</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">🔮 Coming Soon</div>
+          <div style="color:#444;font-style:italic;font-size:.8em;text-align:center;line-height:2.2;padding:8px;">
+            🔒 Auction House<br>
+            🔒 Black Market<br>
+            🔒 Guild Hall
+          </div>
+        </div>
+      </div>
+
+      <!-- MIDDLE: Shop -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="panel">
+          <div class="panel-title">🏪 Shop</div>
+          <div class="tabs">
+            <div class="tab active" onclick="switchShopTab('equipment')" id="shop-tab-equipment">⚔️ Equip</div>
+            <div class="tab" onclick="switchShopTab('consumable')" id="shop-tab-consumable">🧪 Items</div>
+          </div>
+          <div id="shop-content"></div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Town Notice -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="panel">
+          <div class="panel-title">📋 Town Notice</div>
+          <div style="color:#666;font-size:.8em;line-height:2;padding:4px;">
+            <div>🗺️ New dungeons unlock at higher levels!</div>
+            <div>💰 Sell items at the shop for gold!</div>
+            <div>⚗️ Craft powerful gear from materials!</div>
+            <div>🏆 Submit your score to the leaderboard!</div>
+            <div>💾 Save your progress regularly!</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
 </div>
+<!-- END GAME WRAPPER -->
+
+<!-- ── AUDIO ── -->
 <audio id="snd-attack" src="https://assets.mixkit.co/active_storage/sfx/2058/2058-preview.mp3"></audio>
 <audio id="snd-magic" src="https://assets.mixkit.co/active_storage/sfx/2015/2015-preview.mp3"></audio>
 <audio id="snd-heal" src="https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3"></audio>
@@ -913,22 +695,36 @@ nav a:hover{
 <audio id="snd-boss" src="https://assets.mixkit.co/active_storage/sfx/2008/2008-preview.mp3"></audio>
 <audio id="snd-craft" src="https://assets.mixkit.co/active_storage/sfx/1997/1997-preview.mp3"></audio>
 <audio id="clickSound" src="click.mp3"></audio>
-<!-- Supabase -->
+
+<!-- ── SUPABASE ── -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   const SUPABASE_URL = "https://xagwrqrgcuuitwgroiwh.supabase.co";
   const SUPABASE_KEY = "sb_publishable_xSMSx_To3wMdH7EMxktY2Q_XrpeiHAK";
-  // NEW
-const dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-  
+  const dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 </script>
 
 <script src="game.js"></script>
+
+<!-- ── MODALS ── -->
 <div id="enhance-screen" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:8500;overflow-y:auto;padding:20px;"></div>
 <div id="item-popup" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9900;align-items:center;justify-content:center;" onclick="if(event.target===this)closeItemPopup()">
   <div id="item-popup-content" style="background:var(--panel);border:2px solid var(--gold);border-radius:12px;padding:20px;max-width:320px;width:90%;max-height:80vh;overflow-y:auto;"></div>
 </div>
 
+<!-- ── BOTTOM NAV ── -->
+<div class="bottom-nav" id="bottom-nav">
+  <button class="nav-btn active" id="nav-char" onclick="switchMainScene('char')">
+    <span class="nav-icon">⚔️</span>Character
+  </button>
+  <button class="nav-btn" id="nav-adv" onclick="switchMainScene('adv')">
+    <span class="nav-icon">🗺️</span>Adventure
+  </button>
+  <button class="nav-btn" id="nav-town" onclick="switchMainScene('town')">
+    <span class="nav-icon">🏘️</span>Town
+  </button>
+</div>
+
+</div><!-- end content wrapper -->
 </body>
 </html>

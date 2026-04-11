@@ -253,7 +253,7 @@ function calcStats(){
 
   // Mana Regen
   state.manaRegen = Math.floor(
-    (0.5 + state.int * 0.5) * mpRegenMult
+    (0.5 + state.int * 1.5) * mpRegenMult
   ) + (state.equipMpRegen||0);
 
   // HP Regen
@@ -424,11 +424,17 @@ const SKILLS={
     const d=Math.floor(state.attackPower*2.2);
     e.hp-=d;addCombatLog(`💥 Power Strike! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
   
-  battle_cry:{name:'Battle Cry',icon:'📯',mp:()=>Math.floor(state.maxMp*0.15),cd:999,use:(e)=>{
-  // ✅ Use multipliers instead of equipment bonuses
-  state.strMult *= 1.9;
-  state.armorMult *= 1.9;
-  state.critMult *= 2.1;
+  battle_cry:{name:'Battle Cry',icon:'📯',mp:()=>Math.floor(state.maxMp*0.15),cd:5,use:(e)=>{
+  // Only apply if not already active
+  if(state.battleCryActive){
+    addCombatLog(`📯 Battle Cry already active!`,'info');
+    return 0;
+  }
+  state.battleCryActive = true;
+  state.strMult *= 2.5;
+  state.armorMult *= 2.4;
+  state.critMult *= 2.5;
+  state.hitMult *= 1.5;
   addCombatLog(`📯 Battle Cry! +50% STR, +40% ARMOR for this fight!`,'good');
   playSound('snd-magic');
   calcStats();
@@ -509,69 +515,86 @@ function spawnAbilityFloat(text, color='#ffffff'){
   document.body.appendChild(div);
   setTimeout(()=>div.remove(), 1000);
 }
+
+// ── SWITCH MAIN SCENE ──
+function switchMainScene(scene){
+  // Hide all scenes
+  document.querySelectorAll('.main-scene').forEach(s => s.style.display = 'none');
+  // Show selected scene
+  document.getElementById(`main-scene-${scene}`).style.display = 'block';
+  // Update nav buttons
+  ['char','adv','town'].forEach(s => {
+    document.getElementById(`nav-${s}`).classList.remove('active');
+  });
+  document.getElementById(`nav-${scene}`).classList.add('active');
+  // Special actions per scene
+  if(scene === 'adv') loadScene(state.currentScene || 'town');
+  if(scene === 'town') renderShop();
+}
+ 
 // ── NORMAL ENEMIES ──
 const NORMAL_ENEMIES= [];
 // ── BASE MONSTER TEMPLATES (no scaling — pure base stats) ──
 const MONSTER_TEMPLATES = {
   // 🐺 WOLF MOUNTAIN (Stage 1)
-  young_wolf:      {id:'young_wolf',     name:'🐺 Young Wolf',      icon:'wolf',    hp:100, atk:80,  armor:5,  hit:8,  dodge:5,  xp:80,  gold:[30,60]},
-  forest_wolf:     {id:'forest_wolf',    name:'🐺 Forest Wolf',     icon:'wolf',    hp:150, atk:100, armor:8,  hit:10, dodge:8,  xp:120, gold:[50,100]},
-  shadow_wolf:     {id:'shadow_wolf',    name:'🐺 Shadow Wolf',     icon:'wolf',    hp:200, atk:130, armor:12, hit:14, dodge:12, xp:160, gold:[80,140]},
-  dire_wolf:       {id:'dire_wolf',      name:'🐺 Dire Wolf',       icon:'wolf',    hp:260, atk:160, armor:15, hit:18, dodge:15, xp:200, gold:[100,180]},
+  young_wolf:      {id:'young_wolf',     name:'🐺 Young Wolf',      icon:'wolf',    hp:1000, atk:80,  armor:5,  hit:8,  dodge:5,  xp:80,  gold:[30,60]},
+  forest_wolf:     {id:'forest_wolf',    name:'🐺 Forest Wolf',     icon:'wolf',    hp:1500, atk:100, armor:8,  hit:10, dodge:8,  xp:120, gold:[50,100]},
+  shadow_wolf:     {id:'shadow_wolf',    name:'🐺 Shadow Wolf',     icon:'wolf',    hp:2000, atk:130, armor:12, hit:14, dodge:12, xp:160, gold:[80,140]},
+  dire_wolf:       {id:'dire_wolf',      name:'🐺 Dire Wolf',       icon:'wolf',    hp:2600, atk:160, armor:15, hit:18, dodge:15, xp:200, gold:[100,180]},
 
   // 🕷️ SPIDER CAVERN (Stage 2)
-  cave_spider:     {id:'cave_spider',    name:'🕷️ Cave Spider',     icon:'spider',  hp:300, atk:180, armor:20, hit:20, dodge:20, xp:240, gold:[120,200]},
-  venom_spider:    {id:'venom_spider',   name:'🕷️ Venom Spider',    icon:'spider',  hp:400, atk:220, armor:25, hit:25, dodge:25, xp:300, gold:[160,260]},
-  giant_spider:    {id:'giant_spider',   name:'🕷️ Giant Spider',    icon:'spider',  hp:520, atk:270, armor:32, hit:30, dodge:30, xp:370, gold:[200,320]},
-  queen_spider:    {id:'queen_spider',   name:'🕷️ Queen Spider',    icon:'spider',  hp:680, atk:320, armor:40, hit:36, dodge:36, xp:450, gold:[250,400]},
+  cave_spider:     {id:'cave_spider',    name:'🕷️ Cave Spider',     icon:'spider',  hp:3000, atk:180, armor:20, hit:20, dodge:20, xp:240, gold:[120,200]},
+  venom_spider:    {id:'venom_spider',   name:'🕷️ Venom Spider',    icon:'spider',  hp:4000, atk:220, armor:25, hit:25, dodge:25, xp:300, gold:[160,260]},
+  giant_spider:    {id:'giant_spider',   name:'🕷️ Giant Spider',    icon:'spider',  hp:5200, atk:270, armor:32, hit:30, dodge:30, xp:370, gold:[200,320]},
+  queen_spider:    {id:'queen_spider',   name:'🕷️ Queen Spider',    icon:'spider',  hp:6800, atk:320, armor:40, hit:36, dodge:36, xp:450, gold:[250,400]},
 
   // 👹 GOBLIN FORTRESS (Stage 3)
-  goblin_scout:    {id:'goblin_scout',   name:'👹 Goblin Scout',    icon:'goblin',  hp:800, atk:380, armor:50, hit:44, dodge:44, xp:540, gold:[300,480]},
-  goblin_warrior:  {id:'goblin_warrior', name:'👹 Goblin Warrior',  icon:'goblin',  hp:1000,atk:450, armor:60, hit:52, dodge:52, xp:650, gold:[380,580]},
-  goblin_shaman:   {id:'goblin_shaman',  name:'👹 Goblin Shaman',   icon:'goblin',  hp:1300,atk:520, armor:72, hit:62, dodge:62, xp:780, gold:[460,700]},
-  goblin_elite:    {id:'goblin_elite',   name:'👹 Goblin Elite',    icon:'goblin',  hp:1650,atk:600, armor:86, hit:74, dodge:74, xp:940, gold:[560,840]},
+  goblin_scout:    {id:'goblin_scout',   name:'👹 Goblin Scout',    icon:'goblin',  hp:8000, atk:380, armor:50, hit:44, dodge:44, xp:540, gold:[300,480]},
+  goblin_warrior:  {id:'goblin_warrior', name:'👹 Goblin Warrior',  icon:'goblin',  hp:10000,atk:450, armor:60, hit:52, dodge:52, xp:650, gold:[380,580]},
+  goblin_shaman:   {id:'goblin_shaman',  name:'👹 Goblin Shaman',   icon:'goblin',  hp:13000,atk:520, armor:72, hit:62, dodge:62, xp:780, gold:[460,700]},
+  goblin_elite:    {id:'goblin_elite',   name:'👹 Goblin Elite',    icon:'goblin',  hp:16500,atk:600, armor:86, hit:74, dodge:74, xp:940, gold:[560,840]},
 
   // 💀 SKELETON CRYPT (Stage 4)
-  skeleton_archer: {id:'skeleton_archer',name:'💀 Skeleton Archer', icon:'skeleton',hp:2000,atk:700, armor:100,hit:88, dodge:88, xp:1100,gold:[660,1000]},
-  skeleton_warrior:{id:'skeleton_warrior',name:'💀 Skeleton Warrior',icon:'skeleton',hp:2500,atk:820, armor:120,hit:104,dodge:104,xp:1320,gold:[800,1200]},
-  skeleton_mage:   {id:'skeleton_mage',  name:'💀 Skeleton Mage',   icon:'skeleton',hp:3100,atk:960, armor:144,hit:122,dodge:122,xp:1580,gold:[960,1440]},
-  skeleton_knight: {id:'skeleton_knight',name:'💀 Skeleton Knight', icon:'skeleton',hp:3900,atk:1120,armor:170,hit:144,dodge:144,xp:1900,gold:[1160,1740]},
+  skeleton_archer: {id:'skeleton_archer',name:'💀 Skeleton Archer', icon:'skeleton',hp:20000,atk:700, armor:100,hit:88, dodge:88, xp:1100,gold:[660,1000]},
+  skeleton_warrior:{id:'skeleton_warrior',name:'💀 Skeleton Warrior',icon:'skeleton',hp:25000,atk:820, armor:120,hit:104,dodge:104,xp:1320,gold:[800,1200]},
+  skeleton_mage:   {id:'skeleton_mage',  name:'💀 Skeleton Mage',   icon:'skeleton',hp:31000,atk:960, armor:144,hit:122,dodge:122,xp:1580,gold:[960,1440]},
+  skeleton_knight: {id:'skeleton_knight',name:'💀 Skeleton Knight', icon:'skeleton',hp:39000,atk:1120,armor:170,hit:144,dodge:144,xp:1900,gold:[1160,1740]},
 
   // 👊 ORC STRONGHOLD (Stage 5)
-  orc_grunt:       {id:'orc_grunt',      name:'👊 Orc Grunt',       icon:'orc',     hp:4800,atk:1300,armor:200,hit:170,dodge:170,xp:2280,gold:[1400,2100]},
+  orc_grunt:       {id:'orc_grunt',      name:'👊 Orc Grunt',       icon:'orc',     hp:48000,atk:1300,armor:200,hit:170,dodge:170,xp:2280,gold:[1400,2100]},
   orc_warrior:     {id:'orc_warrior',    name:'👊 Orc Warrior',     icon:'orc',     hp:6000,atk:1520,armor:236,hit:200,dodge:200,xp:2740,gold:[1680,2520]},
-  orc_shaman:      {id:'orc_shaman',     name:'👊 Orc Shaman',      icon:'orc',     hp:7400,atk:1780,armor:278,hit:234,dodge:234,xp:3280,gold:[2020,3020]},
-  orc_berserker:   {id:'orc_berserker',  name:'👊 Orc Berserker',   icon:'orc',     hp:9200,atk:2080,armor:326,hit:274,dodge:274,xp:3940,gold:[2420,3640]},
+  orc_shaman:      {id:'orc_shaman',     name:'👊 Orc Shaman',      icon:'orc',     hp:74000,atk:1780,armor:278,hit:234,dodge:234,xp:3280,gold:[2020,3020]},
+  orc_berserker:   {id:'orc_berserker',  name:'👊 Orc Berserker',   icon:'orc',     hp:92000,atk:2080,armor:326,hit:274,dodge:274,xp:3940,gold:[2420,3640]},
 
   // 🧛 VAMPIRE CASTLE (Stage 6)
-  vampire_thrall:  {id:'vampire_thrall', name:'🧛 Vampire Thrall',  icon:'vampire', hp:11400,atk:2440,armor:382,hit:322,dodge:322,xp:4720,gold:[2900,4360]},
-  vampire_hunter:  {id:'vampire_hunter', name:'🧛 Vampire Hunter',  icon:'vampire', hp:14000,atk:2860,armor:448,hit:378,dodge:378,xp:5680,gold:[3500,5240]},
-  vampire_noble:   {id:'vampire_noble',  name:'🧛 Vampire Noble',   icon:'vampire', hp:17200,atk:3340,armor:524,hit:442,dodge:442,xp:6820,gold:[4200,6300]},
-  vampire_elder:   {id:'vampire_elder',  name:'🧛 Vampire Elder',   icon:'vampire', hp:21200,atk:3900,armor:614,hit:518,dodge:518,xp:8180,gold:[5040,7560]},
+  vampire_thrall:  {id:'vampire_thrall', name:'🧛 Vampire Thrall',  icon:'vampire', hp:114000,atk:2440,armor:382,hit:322,dodge:322,xp:4720,gold:[2900,4360]},
+  vampire_hunter:  {id:'vampire_hunter', name:'🧛 Vampire Hunter',  icon:'vampire', hp:140000,atk:2860,armor:448,hit:378,dodge:378,xp:5680,gold:[3500,5240]},
+  vampire_noble:   {id:'vampire_noble',  name:'🧛 Vampire Noble',   icon:'vampire', hp:172000,atk:3340,armor:524,hit:442,dodge:442,xp:6820,gold:[4200,6300]},
+  vampire_elder:   {id:'vampire_elder',  name:'🧛 Vampire Elder',   icon:'vampire', hp:212000,atk:3900,armor:614,hit:518,dodge:518,xp:8180,gold:[5040,7560]},
 
   // 👾 TROLL CAVES (Stage 7)
-  cave_troll:      {id:'cave_troll',     name:'👾 Cave Troll',      icon:'troll',   hp:26000,atk:4560,armor:718,hit:606,dodge:606,xp:9820,gold:[6050,9080]},
-  rock_troll:      {id:'rock_troll',     name:'👾 Rock Troll',      icon:'troll',   hp:32000,atk:5320,armor:840,hit:708,dodge:708,xp:11780,gold:[7260,10900]},
-  frost_troll:     {id:'frost_troll',    name:'👾 Frost Troll',     icon:'troll',   hp:39400,atk:6220,armor:982,hit:828,dodge:828,xp:14140,gold:[8720,13080]},
-  war_troll:       {id:'war_troll',      name:'👾 War Troll',       icon:'troll',   hp:48600,atk:7280,armor:1148,hit:968,dodge:968,xp:16960,gold:[10460,15700]},
+  cave_troll:      {id:'cave_troll',     name:'👾 Cave Troll',      icon:'troll',   hp:260000,atk:4560,armor:718,hit:606,dodge:606,xp:9820,gold:[6050,9080]},
+  rock_troll:      {id:'rock_troll',     name:'👾 Rock Troll',      icon:'troll',   hp:320000,atk:5320,armor:840,hit:708,dodge:708,xp:11780,gold:[7260,10900]},
+  frost_troll:     {id:'frost_troll',    name:'👾 Frost Troll',     icon:'troll',   hp:394000,atk:6220,armor:982,hit:828,dodge:828,xp:14140,gold:[8720,13080]},
+  war_troll:       {id:'war_troll',      name:'👾 War Troll',       icon:'troll',   hp:486000,atk:7280,armor:1148,hit:968,dodge:968,xp:16960,gold:[10460,15700]},
 
   // 😈 DEMON CITADEL (Stage 8)
-  demon_scout:     {id:'demon_scout',    name:'😈 Demon Scout',     icon:'demon',   hp:59800,atk:8500,armor:1342,hit:1132,dodge:1132,xp:20360,gold:[12560,18840]},
-  demon_warrior:   {id:'demon_warrior',  name:'😈 Demon Warrior',   icon:'demon',   hp:73600,atk:9940,armor:1568,hit:1322,dodge:1322,xp:24440,gold:[15080,22620]},
-  demon_mage:      {id:'demon_mage',     name:'😈 Demon Mage',      icon:'demon',   hp:90600,atk:11620,armor:1832,hit:1546,dodge:1546,xp:29320,gold:[18100,27140]},
-  demon_knight:    {id:'demon_knight',   name:'😈 Demon Knight',    icon:'demon',   hp:111600,atk:13580,armor:2140,hit:1806,dodge:1806,xp:35180,gold:[21720,32580]},
+  demon_scout:     {id:'demon_scout',    name:'😈 Demon Scout',     icon:'demon',   hp:598000,atk:8500,armor:1342,hit:1132,dodge:1132,xp:20360,gold:[12560,18840]},
+  demon_warrior:   {id:'demon_warrior',  name:'😈 Demon Warrior',   icon:'demon',   hp:736000,atk:9940,armor:1568,hit:1322,dodge:1322,xp:24440,gold:[15080,22620]},
+  demon_mage:      {id:'demon_mage',     name:'😈 Demon Mage',      icon:'demon',   hp:906000,atk:11620,armor:1832,hit:1546,dodge:1546,xp:29320,gold:[18100,27140]},
+  demon_knight:    {id:'demon_knight',   name:'😈 Demon Knight',    icon:'demon',   hp:1116000,atk:13580,armor:2140,hit:1806,dodge:1806,xp:35180,gold:[21720,32580]},
 
   // 🌑 SHADOW REALM (Stage 9)
-  shadow_wraith:   {id:'shadow_wraith',  name:'🌑 Shadow Wraith',   icon:'werewolf',hp:137400,atk:15880,armor:2500,hit:2112,dodge:2112,xp:42220,gold:[26060,39100]},
-  shadow_knight:   {id:'shadow_knight',  name:'🌑 Shadow Knight',   icon:'werewolf',hp:169200,atk:18560,armor:2922,hit:2468,dodge:2468,xp:50660,gold:[31280,46920]},
-  shadow_mage:     {id:'shadow_mage',    name:'🌑 Shadow Mage',     icon:'werewolf',hp:208400,atk:21700,armor:3416,  hit:2886,dodge:2886,xp:60800,gold:[37540,56300]},
-  shadow_lord:     {id:'shadow_lord',    name:'🌑 Shadow Lord',     icon:'werewolf',hp:256800,atk:25380,armor:3994,hit:3372,dodge:3372,xp:72960,gold:[45050,67580]},
+  shadow_wraith:   {id:'shadow_wraith',  name:'🌑 Shadow Wraith',   icon:'werewolf',hp:1374000,atk:15880,armor:2500,hit:2112,dodge:2112,xp:42220,gold:[26060,39100]},
+  shadow_knight:   {id:'shadow_knight',  name:'🌑 Shadow Knight',   icon:'werewolf',hp:1692000,atk:18560,armor:2922,hit:2468,dodge:2468,xp:50660,gold:[31280,46920]},
+  shadow_mage:     {id:'shadow_mage',    name:'🌑 Shadow Mage',     icon:'werewolf',hp:2084000,atk:21700,armor:3416,  hit:2886,dodge:2886,xp:60800,gold:[37540,56300]},
+  shadow_lord:     {id:'shadow_lord',    name:'🌑 Shadow Lord',     icon:'werewolf',hp:2568000,atk:25380,armor:3994,hit:3372,dodge:3372,xp:72960,gold:[45050,67580]},
 
   // 🌟 ETERNAL KINGDOM (Stage 10)
-  eternal_guard:   {id:'eternal_guard',  name:'🌟 Eternal Guard',   icon:'phoenix', hp:316400,atk:29680,armor:4668,hit:3942,dodge:3942,xp:87560,gold:[54060,81100]},
-  eternal_warrior: {id:'eternal_warrior',name:'🌟 Eternal Warrior', icon:'phoenix', hp:389800,atk:34700,armor:5460,hit:4608,dodge:4608,xp:105080,gold:[64880,97320]},
-  eternal_mage:    {id:'eternal_mage',   name:'🌟 Eternal Mage',    icon:'phoenix', hp:480200,atk:40580,armor:6386,hit:5388,dodge:5388,xp:126100,gold:[77860,116800]},
-  eternal_champion:{id:'eternal_champion',name:'🌟 Eternal Champion',icon:'phoenix',hp:591600,atk:47460,armor:7468,hit:6300,dodge:6300,xp:151300,gold:[93440,140160]},
+  eternal_guard:   {id:'eternal_guard',  name:'🌟 Eternal Guard',   icon:'phoenix', hp:3164000,atk:29680,armor:4668,hit:3942,dodge:3942,xp:87560,gold:[54060,81100]},
+  eternal_warrior: {id:'eternal_warrior',name:'🌟 Eternal Warrior', icon:'phoenix', hp:3898000,atk:34700,armor:5460,hit:4608,dodge:4608,xp:105080,gold:[64880,97320]},
+  eternal_mage:    {id:'eternal_mage',   name:'🌟 Eternal Mage',    icon:'phoenix', hp:4802000,atk:40580,armor:6386,hit:5388,dodge:5388,xp:126100,gold:[77860,116800]},
+  eternal_champion:{id:'eternal_champion',name:'🌟 Eternal Champion',icon:'phoenix',hp:5916000,atk:47460,armor:7468,hit:6300,dodge:6300,xp:151300,gold:[93440,140160]},
 };
 
 // ── STAGE DEFINITIONS ──
@@ -1049,7 +1072,7 @@ function dungeonComplete() {
 const SLOT_ICONS={weapon:'⚔️',armor:'🛡️',helmet:'⛑️',boots:'👢',ring:'💍',amulet:'📿'};
 const EQUIP_PREFIXES={legendary:['Divine','Mythic','Godforged','Ancient','Eternal','Celestial'],epic:['Heroic','Valiant','Exalted','Magnificent','Radiant'],rare:['Polished','Reinforced','Enchanted','Gleaming'],uncommon:['Sturdy','Sharpened','Improved','Sturdy'],normal:['Iron','Wooden','Basic','Simple']};
 const EQUIP_NAMES={weapon:['Blade','Sword','Axe','Spear','Dagger','Staff','Bow'],armor:['Plate','Chainmail','Robe','Leather','Cuirass'],helmet:['Helm','Crown','Hood','Circlet','Visor'],boots:['Greaves','Sabatons','Boots','Treads'],ring:['Band','Seal','Loop','Signet'],amulet:['Pendant','Amulet','Talisman','Necklace']};
-const EQUIP_STATS={weapon:{str:[15,35], lifeSteal:[0.09, 0.59]},armor:{armor:[25,55], sta:[15,35],maxHp:[200,300],hpRegen:[25,75]},helmet:{armor:[35,65],int:[15,35]},boots:{agi:[15,35]},ring:{str:[15,35],int:[15,35]},amulet:{int:[25,45],maxMp:[105,205]}};
+const EQUIP_STATS={weapon:{str:[15,35], lifeSteal:[0.07, 0.29]},armor:{armor:[25,55], sta:[15,35],maxHp:[200,300],hpRegen:[25,75]},helmet:{armor:[35,65],int:[15,35]},boots:{agi:[15,35]},ring:{str:[15,35],int:[15,35]},amulet:{int:[25,45],maxMp:[105,205]}};
 
 function mkEquipDrop(slot, rarity){
   rarity = applyRarityBonus(rarity);
@@ -1275,15 +1298,17 @@ function startGame(){
   state.name=n;showGame();loadScene('town');addLog(`${n} begins their adventure!`,'info');fetchLeaderboard();
 }
 function showGame(){
-  document.getElementById('difficulty-bar').style.display='flex';
   document.getElementById('name-screen').style.display='none';
-  document.getElementById('game-wrapper').style.display='grid';
-  document.getElementById('leaderboard-panel').style.display='block';
+  document.getElementById('game-wrapper').style.display='block';
+  document.getElementById('bottom-nav').style.display='flex';
+  document.getElementById('top-btns').style.display='flex';
   document.getElementById('char-name').textContent=state.name;
   document.getElementById('arena-player').innerHTML='<img src="warrior.jpg" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:2px solid var(--dark-gold);">';
   document.getElementById('arena-player-label').textContent=state.name;
-  loadAutoSellUI();updateUI();renderShop();renderQuests();renderInventory();renderSkillBar();renderEquipSlots();fetchLeaderboard();
+  loadAutoSellUI();updateUI();renderShop();renderQuests();
+  renderInventory();renderSkillBar();renderEquipSlots();fetchLeaderboard();
   setDifficulty('normal');
+  switchMainScene('adv'); // Start on Adventure scene
 }
 
 // ── LOAD SCENE ──
@@ -1456,8 +1481,8 @@ function autoFightStep(){
     addCombatLog(`${currentEnemy.name} is frozen!`,'info');
   } else {
     // Check web trap
-    const dodge = currentEnemy.webTrapped>0 ? 0 : state.dodge;
-    if(currentEnemy.webTrapped>0) currentEnemy.webTrapped--;
+    const dodge = state.webTrapped>0 ? 0 : state.dodge;
+    if(state.webTrapped>0) state.webTrapped--;
 
     // Check phase shift
     if(currentEnemy.phaseShifted){
@@ -1559,6 +1584,7 @@ state.mpRegenMult = 1.0;
 state.hitMult   = 1.0;
 state.mpMult    = 1.0;
 state.attackMult = 1.0;
+state.battleCryActive = false;
 // ← classBonuses and talentBonuses are NEVER touched here!
   
   // ✅ Reapply permanent bonuses (class + talent)
@@ -1674,7 +1700,7 @@ if(won){
 
   } else {
     currentEnemy=null;document.getElementById('combat-box').style.display='none';
-    loadScene('victory');
+    loadScene('town');
 }
 
   updateUI();
@@ -1717,37 +1743,37 @@ function renderAutoSlots() {
 }
 
 function useNextAutoSkill(enemy) {
-  console.log('useNextAutoSkill called, slots:', autoSkillSlots, 'index:', autoSkillIndex);
-  const filledSlots = autoSkillSlots.filter(s => s !== null);
+  const filledSlots = autoSkillSlots
+    .map((id, i) => ({ id, i }))
+    .filter(s => s.id !== null);
+  
   if (filledSlots.length === 0) return false;
 
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const idx = autoSkillIndex % 3;
-    const skillId = autoSkillSlots[idx];
-    autoSkillIndex++;
+  // Cycle through filled slots only
+  const slot = filledSlots[autoSkillIndex % filledSlots.length];
+  autoSkillIndex++;
 
-    if (!skillId || !SKILLS[skillId]) continue;
+  const skillId = slot.id;
+  if (!skillId || !SKILLS[skillId]) return false;
 
-    const skill = SKILLS[skillId];
-    const cd = state.skillCooldowns[skillId] || 0;
-    const mpCost = typeof skill.mp === 'function' ? skill.mp() : skill.mp;
+  const skill = SKILLS[skillId];
+  const cd = state.skillCooldowns[skillId] || 0;
+  const mpCost = typeof skill.mp === 'function' ? skill.mp() : skill.mp;
 
-    if (cd > 0) {
-      addCombatLog(`⏳ ${skill.name} on cooldown (${cd})`, 'info');
-      continue;
-    }
-    if (state.mp < mpCost) {
-      addCombatLog(`💙 Not enough MP for ${skill.name}!`, 'bad');
-      continue;
-    }
-
-    // Use the skill!
-    state.mp -= mpCost;
-    state.skillCooldowns[skillId] = skill.cd;
-    skill.use(enemy);
-    return true;
+  if (cd > 0) {
+    addCombatLog(`⏳ ${skill.name} on cooldown (${cd})`, 'info');
+    return false;
   }
-  return false;
+  if (state.mp < mpCost) {
+    addCombatLog(`💙 Not enough MP for ${skill.name}!`, 'bad');
+    return false;
+  }
+
+  state.mp -= mpCost;
+  state.skillCooldowns[skillId] = skill.cd;
+  skill.use(enemy);
+  spawnAbilityFloat(`${skill.icon} ${skill.name}!`, '#f0c040');
+  return true;
 }
 
 
@@ -2026,10 +2052,10 @@ function rollTreasureRarity(tier){
     
     case 'epic':
       // epic 90%, legendary 10%
-      return r < 0.10 ? 'legendary' : 'epic';
+      return r < 0.05 ? 'legendary' : 'epic';
     
     case 'legendary':
-      // epic 90%, legendary 10%
+      // epic 80%, legendary 10%
       return r < 0.10 ? 'legendary' : 'epic';
     
     default:
