@@ -86,6 +86,14 @@ function rollRarity(isBoss=false){
 // STEP 1: Replace your const state={...} with this
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const state={
+
+  // ACTIVE DEBUFFS (cleared after combat)
+activeDebuffs: {
+  maxHpReduction: 0,
+  webTrapped: 0,
+  rageTimer: 0,
+},
+
   // BONUS TRACKING (NEW)
   classBonuses: {
     strMult: 0, agiMult: 0, intMult: 0, staMult: 0,
@@ -104,7 +112,7 @@ const state={
   equipMaxMp:0, equipMaxHp:0, equipArmor:0, equipArmorMult:0, equipCrit:0, equipDodge:0,equipDodgeMult:0, equipLifeSteal:0,equipAttackPower:0,equipAttackPowerMult:0, equipHpRegen:0, equipHpRegenMult:0, equipMpRegen:0,equipMpRegenMult:0, equipHit:0,equipHitMult:0,equiplifeSteal:0,equipLifeStealMult:1.0,
  
   // Track talent-based gold multiplier separately
-  name:'',level:9,xp:0,xpNext:100,maxLevel:100,
+  name:'',level:9,xp:0,xpNext:1000,maxLevel:100,
   hp:100,maxHp:100,mp:50,maxMp:50,hit:10,crit:5,dodge:5,hpRegen:20,lifeSteal:0.01,attackPower:10,armor:10,mpRegen:20,
  
   // PRIMARY BASE STATS (raw - leveled up, never modified directly by class/talent)
@@ -139,6 +147,8 @@ const state={
     level50:{text:'👑 Reach Level 50',done:false},
     level100:{text:'🌟 Reach Max Level 100',done:false},
   }
+  
+
 };
 const DIFFICULTY={
   normal:{
@@ -233,7 +243,7 @@ function calcStats(){
 
   // Hit
   state.hit = Math.floor((
-    (state.agi * 2.3 + state.baseHit) * hitMult
+    (state.agi * 5.3 + state.baseHit) * hitMult
   ) + (state.equipHit||0) + (state.talentBonuses.baseHit||0));
 
   // Max MP
@@ -459,7 +469,7 @@ last_stand:{name:'Last Stand',icon:'🛡️',mp:()=>Math.floor(state.maxMp*0.20)
   
   poison_blade:{name:'Poison Blade',icon:'🐍',mp:()=>Math.floor(state.maxMp*0.12),cd:2,use:(e)=>{
     const stacks=5;
-    const tickDmg=Math.floor(state.agi*0.8 + state.attackPower*0.3);
+    const tickDmg=Math.floor(state.agi*1.8 + state.attackPower*1.3);
     e.poisoned=(e.poisoned||0)+stacks;
     e.poisonDmg=tickDmg;
     addCombatLog(`🐍 Poisoned! ${tickDmg} dmg/tick for ${stacks} turns!`,'good');
@@ -672,12 +682,13 @@ const STAGE_BOSSES = {
       name:'DEATH CURSE!', color:'#aa44ff', triggerEvery:3,
       desc:'Reduces your max HP by 5% permanently this fight!',
       effect:(e)=>{
-        const reduction = Math.floor(state.maxHp * 0.05);
-        state.equipMaxHp = (state.equipMaxHp||0) - reduction;
-        spawnAbilityFloat('💀 DEATH CURSE!','#aa44ff');
-        addCombatLog(`💀 Death Curse! Max HP reduced by ${reduction}!`,'bad');
-        calcStats();
-      }
+  const reduction = Math.floor(state.maxHp * 0.05);
+  state.activeDebuffs.maxHpReduction += reduction;
+  state.equipMaxHp = (state.equipMaxHp||0) - reduction;
+  spawnAbilityFloat('💀 DEATH CURSE!','#aa44ff');
+  addCombatLog(`💀 Death Curse! Max HP reduced by ${reduction}!`,'bad');
+  calcStats();
+}
     },
     cs:{title:'Skeleton Lord',req:'Required: Stage 4 Clear',text:'The Skeleton Lord rises from his eternal tomb! His death magic weakens even the strongest heroes!'},
   },
@@ -885,39 +896,33 @@ function startNextWave() {
   if (!currentStage) return;
   dungeonWave++;
 
-  // Build wave queue
   if (dungeonWave === 1) {
-    // Wave 1: just 1 weak monster
     dungeonQueue = [currentStage.monsters[0]];
     showWaveAnnouncement('⚔️ WAVE 1', '#f0c040');
   } else if (dungeonWave === 2) {
-    // Wave 2: 3-7 random monsters
     const count = Math.floor(Math.random() * 5) + 3;
     dungeonQueue = Array.from({length: count}, () =>
       currentStage.monsters[Math.floor(Math.random() * currentStage.monsters.length)]
     );
     showWaveAnnouncement(`⚔️ WAVE 2 — ${count} enemies!`, '#ff8800');
   } else if (dungeonWave === 3) {
-    // Wave 3: 3-7 random monsters, slightly harder
     const count = Math.floor(Math.random() * 5) + 3;
     dungeonQueue = Array.from({length: count}, () =>
       currentStage.monsters[Math.floor(Math.random() * currentStage.monsters.length)]
     );
     showWaveAnnouncement(`⚔️ WAVE 3 — ${count} enemies!`, '#ff4444');
   } else if (dungeonWave === 4) {
-    // Boss wave!
     dungeonQueue = ['BOSS'];
     showWaveAnnouncement('💀 BOSS INCOMING!', '#ff0000');
   } else {
-    // Dungeon complete!
     dungeonComplete();
     return;
   }
 
   dungeonMonstersLeft = dungeonQueue.length;
 
-  // Start first monster after short delay
-  setTimeout(() => spawnNextDungeonMonster(), 1500);
+  // Wait for announcement to finish before spawning (2.5s)
+  setTimeout(() => spawnNextDungeonMonster(), 2500);
 }
 
 function triggerStageBoss(bossId) {
@@ -1303,6 +1308,25 @@ function loadScene(sceneId){
 }
 
 function toggleAutoFight(){
+  if(currentStage){
+    // In dungeon — stop auto fight and reset dungeon
+    autoFightOn=false;
+    clearInterval(autoFightTimer);
+    autoFightTimer=null;
+    currentStage=null;
+    dungeonWave=0;
+    dungeonQueue=[];
+    currentEnemy=null;
+    document.getElementById('combat-box').style.display='none';
+    document.getElementById('choices-box').style.display='flex';
+    stopAutoFight();
+    addLog('⏹️ Left the dungeon!','info');
+    notify('⏹️ Dungeon abandoned!','#888');
+    loadScene('town');
+    return;
+  }
+
+  // Outside dungeon — old behavior
   if(!autoFightEnemyId){
     notify('⚠️ Defeat an enemy first!','var(--red)');
     return;
@@ -1317,7 +1341,6 @@ function toggleAutoFight(){
     stopAutoFight();
     addLog('⏹️ Auto Fight OFF.','info');
     notify('⏹️ Auto Fight stopped.','#888');
-    // ← ADD THIS: Show choices so player can navigate
     document.getElementById('combat-box').style.display='none';
     document.getElementById('choices-box').style.display='flex';
   }
@@ -1326,12 +1349,20 @@ function toggleAutoFight(){
 function updateAutoFightBtn(){
   const btn=document.getElementById('auto-fight-btn');
   if(!btn)return;
+  
+  if(currentStage){
+    // Inside dungeon — show as "Leave Dungeon" button
+    btn.textContent='🚪 Leave Dungeon';
+    btn.style.background='linear-gradient(135deg,#6a0000,#aa2222)';
+    btn.style.display='inline-block';
+    return;
+  }
+
   btn.textContent=autoFightOn?'⏹️ Stop Auto':'⚡ Auto Fight';
   btn.style.background=autoFightOn
     ?'linear-gradient(135deg,#6a0000,#aa2222)'
     :'linear-gradient(135deg,#005500,#00aa44)';
- //  Only show if player has defeated this enemy before AND not currently in combat
-  btn.style.display=(autoFightEnemyId && !currentEnemy)?'inline-block':'none';
+  btn.style.display=(autoFightEnemyId&&!currentEnemy)?'inline-block':'none';
 }
  
 function startAutoFight(){
@@ -1349,7 +1380,9 @@ function startAutoFight(){
 }
   
 function autoFightStep(){
-  if(!currentEnemy||!autoFightOn)return;
+  if(!currentEnemy)return;
+
+  // ── PLAYER ATTACKS ──
   const enemyDodgeChance=Math.max(0,(currentEnemy.dodge||0)-state.hit)/100;
   if(Math.random()<enemyDodgeChance){
     addCombatLog(`💨 ${currentEnemy.name} dodged!`,'bad');
@@ -1359,7 +1392,7 @@ function autoFightStep(){
     if(Math.random()<state.crit/100){dmg=Math.floor(dmg*2);isCrit=true;}
     if(state.unlockedTalents.includes('berserker')&&state.hp<state.maxHp*.5)dmg=Math.floor(dmg*1.35);
     if(state.unlockedTalents.includes('death_mark'))dmg=Math.floor(dmg*1.5);
-   if(isCrit) showCritEffect();
+    if(isCrit)showCritEffect();
     currentEnemy.hp-=dmg;
     const lifeSteal=state.lifeSteal||0;
     if(lifeSteal>0){
@@ -1374,78 +1407,104 @@ function autoFightStep(){
     addCombatLog(`⚔️ ${isCrit?'💥CRIT! ':''}Auto: ${dmg} dmg!`,isCrit?'gold':'good');
     animateAttack(true,dmg,isCrit);
   }
+
+  // ── CHECK ENEMY DEATH ──
   if(currentEnemy.hp<=0){
     currentEnemy.hp=0;
     updateEnemyBar();
     clearInterval(autoFightTimer);
     autoFightTimer=null;
     endCombat(true);
-    if(autoFightOn){
-      setTimeout(()=>{
-        if(autoFightOn&&autoFightEnemyId){
-          startCombat(autoFightEnemyId,false);
-          autoFightTimer=setInterval(()=>{
-            if(!autoFightOn||!currentEnemy){clearInterval(autoFightTimer);return;}
-            autoFightStep();
-          },1000);
-        }
-      },1200);
-    }
-    return;
+    return; // ← endCombat handles next monster/wave
   }
- Object.keys(state.skillCooldowns).forEach(k=>{
+
+  // ── SKILL COOLDOWNS ──
+  Object.keys(state.skillCooldowns).forEach(k=>{
     if(state.skillCooldowns[k]>0)state.skillCooldowns[k]--;
   });
- //  HP/MP regen per turn
-if(state.hpRegen>0){
-  const regen=Math.floor(state.hpRegen);
-  if(regen>0&&state.hp<state.maxHp){
-    state.hp=Math.min(state.maxHp,state.hp+regen);
-    //spawnDmgFloat(`+${regen}HP`,false,'heal-float');
-    addCombatLog(`💚 Regen +${regen} HP`,'good'); // ← add this
+
+  // ── HP/MP REGEN ──
+  if(state.hpRegen>0){
+    const regen=Math.floor(state.hpRegen);
+    if(regen>0&&state.hp<state.maxHp){
+      state.hp=Math.min(state.maxHp,state.hp+regen);
+      addCombatLog(`💚 Regen +${regen} HP`,'good');
+    }
   }
-}
-if(state.manaRegen>0){
-  const mregen=Math.floor(state.manaRegen);
-  if(mregen>0&&state.mp<state.maxMp){
-    state.mp=Math.min(state.maxMp,state.mp+mregen);
-    addCombatLog(`💙 Mana Regen +${mregen} MP`,'info'); // ← add this
- }
-}
+  if(state.manaRegen>0){
+    const mregen=Math.floor(state.manaRegen);
+    if(mregen>0&&state.mp<state.maxMp){
+      state.mp=Math.min(state.maxMp,state.mp+mregen);
+      addCombatLog(`💙 Mana Regen +${mregen} MP`,'info');
+    }
+  }
+
+  // ── BOSS ABILITY ──
+  if(currentEnemy.boss && currentEnemy.ability){
+    currentEnemy.abilityTurn=(currentEnemy.abilityTurn||0)+1;
+    if(currentEnemy.abilityTurn>=currentEnemy.ability.triggerEvery){
+      currentEnemy.abilityTurn=0;
+      currentEnemy.ability.effect(currentEnemy);
+    }
+  }
+
+  // ── ENEMY ATTACKS ──
   if(currentEnemy.frozen){
     currentEnemy.frozen=false;
     addCombatLog(`${currentEnemy.name} is frozen!`,'info');
   } else {
-    const playerDodgeChance=Math.max(0,state.dodge-(currentEnemy.hit||0))/100;
-    let eDmg=Math.max(1,currentEnemy.atk+Math.floor(Math.random()*6)-Math.floor(state.armor/10));
-    if(state.defending)eDmg=Math.floor(eDmg/2);
-    if(Math.random()<playerDodgeChance){addCombatLog('💨 You dodged!','good');eDmg=0;}
-    state.hp-=eDmg;
-    if(eDmg>0){addCombatLog(`${currentEnemy.name} hits you for ${eDmg}!`,'bad');animateAttack(false,eDmg,false);}
+    // Check web trap
+    const dodge = currentEnemy.webTrapped>0 ? 0 : state.dodge;
+    if(currentEnemy.webTrapped>0) currentEnemy.webTrapped--;
+
+    // Check phase shift
+    if(currentEnemy.phaseShifted){
+      currentEnemy.phaseShifted=false;
+      addCombatLog(`🌑 ${currentEnemy.name} phases back in!`,'info');
+    } else {
+      const playerDodgeChance=Math.max(0,dodge-(currentEnemy.hit||0))/100;
+      let eDmg=Math.max(1,currentEnemy.atk+Math.floor(Math.random()*6)-Math.floor(state.armor/10));
+      if(state.defending)eDmg=Math.floor(eDmg/2);
+      if(Math.random()<playerDodgeChance){addCombatLog('💨 You dodged!','good');eDmg=0;}
+      state.hp-=eDmg;
+      if(eDmg>0){addCombatLog(`${currentEnemy.name} hits you for ${eDmg}!`,'bad');animateAttack(false,eDmg,false);}
+    }
   }
+
+  // ── RAGE TIMER ──
+  if(currentEnemy.rageTimer>0){
+    currentEnemy.rageTimer--;
+    if(currentEnemy.rageTimer===0){
+      currentEnemy.atk=Math.floor(currentEnemy.atk/2);
+      addCombatLog(`👊 ${currentEnemy.name} calms down!`,'info');
+    }
+  }
+
+  // ── POISON ──
   if(currentEnemy.poisoned>0){
-  const pd = currentEnemy.poisonDmg || Math.floor(state.agi*0.8 + state.attackPower*0.3);
-  currentEnemy.hp-=pd;
-  currentEnemy.poisoned--;
-  addCombatLog(`🐍 Poison deals ${pd}!`,'good');
-  spawnDmgFloat(`🐍${pd}`,true,'enemy-dmg');
-}
+    const pd=currentEnemy.poisonDmg||Math.floor(state.agi*0.8+state.attackPower*0.3);
+    currentEnemy.hp-=pd;
+    currentEnemy.poisoned--;
+    addCombatLog(`🐍 Poison deals ${pd}!`,'good');
+    spawnDmgFloat(`🐍${pd}`,true,'enemy-dmg');
+  }
+
+  // ── PLAYER DEATH ──
   if(state.hp<=0){
     state.hp=0;
     updateUI();
     clearInterval(autoFightTimer);
     autoFightTimer=null;
-    stopAutoFight();
-  // Reset all combat multipliers to base
-    state.str=1.0;
-    state.skillArmorMult=1.0;
-    state.skillMaxHp=1.0;
-
-    addLog('💀 Auto Fight stopped — you died!','bad');
-    notify('💀 Auto Fight stopped — you died!','var(--red)');
+    // Reset dungeon state
+    currentStage=null;
+    dungeonWave=0;
+    dungeonQueue=[];
+    addLog('💀 You died!','bad');
+    notify('💀 You died!','var(--red)');
     endCombat(false);
     return;
   }
+
   updateEnemyBar();
   updateUI();
 }
@@ -1468,6 +1527,19 @@ function stopAutoFight(){
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function endCombat(won){
   if(!currentEnemy)return;
+// ── CLEAR ALL BOSS DEBUFFS ──
+  if(state.activeDebuffs.maxHpReduction > 0){
+    state.equipMaxHp = (state.equipMaxHp||0) + state.activeDebuffs.maxHpReduction;
+    state.activeDebuffs.maxHpReduction = 0;
+  }
+  state.activeDebuffs.webTrapped = 0;
+  state.activeDebuffs.rageTimer = 0;
+  state.webTrapped = 0;
+
+  // Also restore orc chieftain rage if still active
+  if(currentEnemy.rageTimer > 0){
+    currentEnemy.atk = Math.floor(currentEnemy.atk / 2);
+  }
 
   state.usedUndying=false;
   state.skillCooldowns={};
@@ -1595,12 +1667,12 @@ if(won){
     document.getElementById('combat-box').style.display='none';
 
     if(!autoFightOn){
-      loadScene('town');
+      loadScene('victory');
     }
 
   } else {
     currentEnemy=null;document.getElementById('combat-box').style.display='none';
-    loadScene('town');
+    loadScene('victory');
 }
 
   updateUI();
@@ -1643,6 +1715,7 @@ function renderAutoSlots() {
 }
 
 function useNextAutoSkill(enemy) {
+  console.log('useNextAutoSkill called, slots:', autoSkillSlots, 'index:', autoSkillIndex);
   const filledSlots = autoSkillSlots.filter(s => s !== null);
   if (filledSlots.length === 0) return false;
 
@@ -1710,6 +1783,7 @@ function startCombat(enemyId,isBoss){
   startCombatWith(currentEnemy);
 }
 function startCombatWith(enemy){
+  autoSkillIndex = 0;
   document.getElementById('enemy-hp-val').textContent=enemy.hp;
   document.getElementById('enemy-hp-max').textContent=enemy.maxHp;
   const enemyEl=document.getElementById('arena-enemy');
@@ -1860,36 +1934,44 @@ function useSkillInCombat(skillId){
   const mpCost=typeof sk.mp==='function'?sk.mp():sk.mp;
   if(cd>0){addCombatLog(`${sk.name} on cooldown! (${cd})`,'bad');return;}
   if(state.mp<mpCost){addCombatLog(`Not enough MP for ${sk.name}!`,'bad');return;}
-  state.mp-=mpCost;state.skillCooldowns[skillId]=sk.cd;
+
+  // Use skill
+  state.mp-=mpCost;
+  state.skillCooldowns[skillId]=sk.cd;
   sk.use(currentEnemy);
-  Object.keys(state.skillCooldowns).forEach(k=>{if(k!==skillId&&state.skillCooldowns[k]>0)state.skillCooldowns[k]--;});
-  if(currentEnemy.hp<=0){
+
+  // Show skill float
+  spawnAbilityFloat(`${sk.icon} ${sk.name}!`, '#f0c040');
+
+  // Tick down other cooldowns
+  Object.keys(state.skillCooldowns).forEach(k=>{
+    if(k!==skillId&&state.skillCooldowns[k]>0)state.skillCooldowns[k]--;
+  });
+
+  // Check if enemy died
+  if(currentEnemy&&currentEnemy.hp<=0){
     currentEnemy.hp=0;
     updateEnemyBar();
     clearInterval(autoFightTimer);
     autoFightTimer=null;
     endCombat(true);
-    if(autoFightOn){
-      setTimeout(()=>{
-        if(autoFightOn&&autoFightEnemyId){
-          startCombat(autoFightEnemyId,false);
-          autoFightTimer=setInterval(()=>{
-            if(!autoFightOn||!currentEnemy){clearInterval(autoFightTimer);return;}
-            autoFightStep();
-          },1000);
-        }
-      },1200);
-    }
     return;
   }
-  if(currentEnemy.hp>0){
-    const eDmg=Math.max(1,currentEnemy.atk+Math.floor(Math.random()*6)-state.armor);
+
+  // Enemy retaliates
+  if(currentEnemy&&currentEnemy.hp>0){
+    const playerDodgeChance=Math.max(0,state.dodge-(currentEnemy.hit||0))/100;
+    let eDmg=Math.max(1,currentEnemy.atk+Math.floor(Math.random()*6)-Math.floor(state.armor/10));
+    if(state.manaShield){state.manaShield=false;addCombatLog('🔮 Mana Shield absorbed!','info');eDmg=0;}
+    if(Math.random()<playerDodgeChance){addCombatLog('💨 You dodged!','good');eDmg=0;}
     state.hp-=eDmg;
-    addCombatLog(`${currentEnemy.name} retaliates: ${eDmg}!`,'bad');
-    animateAttack(false,eDmg,false);
+    if(eDmg>0){addCombatLog(`${currentEnemy.name} retaliates: ${eDmg}!`,'bad');animateAttack(false,eDmg,false);}
     if(state.hp<=0){state.hp=0;updateUI();endCombat(false);return;}
   }
-  updateEnemyBar();updateUI();renderSkillBar();
+
+  updateEnemyBar();
+  updateUI();
+  renderSkillBar();
 }
 
 function addCombatLog(msg,type=''){
@@ -1968,7 +2050,7 @@ function checkLevelUp(){
   while(state.xp>=state.xpNext&&state.level<state.maxLevel){
     state.xp-=state.xpNext;
     state.level++;
-    state.xpNext=Math.floor(state.level*100*1.25);
+    state.xpNext=Math.floor(state.level*100*20.00);
     
     // Level up BASE stats
     state.baseStr+=2;

@@ -804,9 +804,31 @@ nav a:hover{
     <div id="skills-bar" class="panel">
       <div class="panel-title" style="margin-bottom:7px;">⚡ Skills</div>
       <div id="skills-slot-row" style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;"></div>
+              <!-- Auto Skill Slots -->
+  <div style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;">⚡ AUTO SKILLS</div>
+    <div id="auto-skill-slots" style="display:flex;gap:8px;justify-content:center;margin:8px 0;">
+       <div class="auto-slot skill-slot" id="auto-slot-0" ondragover="event.preventDefault()" ondrop="dropSkillToSlot(event,0)" onclick="clearSlot(0)">
+        <div class="skill-icon-wrap" id="auto-slot-content-0">➕</div>
+        <div class="skill-lbl">Slot 1</div>
     </div>
+    <div class="auto-slot skill-slot" id="auto-slot-1" ondragover="event.preventDefault()" ondrop="dropSkillToSlot(event,1)" onclick="clearSlot(1)">
+      <div class="skill-icon-wrap" id="auto-slot-content-1">➕</div>
+      <div class="skill-lbl">Slot 2</div>
+    </div>
+   <div class="auto-slot skill-slot" id="auto-slot-2" ondragover="event.preventDefault()" ondrop="dropSkillToSlot(event,2)" onclick="clearSlot(2)">
+      <div class="skill-icon-wrap" id="auto-slot-content-2">➕</div>
+      <div class="skill-lbl">Slot 3</div>
+   </div>
+   
+  </div>
+  <button id="auto-fight-btn" onclick="toggleAutoFight()"
+  style="display:none;font-size:.8em;padding:6px 16px;background:linear-gradient(135deg,#005500,#00aa44);color:white;border:none;border-radius:8px;font-family:'Cinzel',serif;cursor:pointer;font-weight:700;transition:all .3s;letter-spacing:1px;margin:3px;width:100%;">
+  ⚡ Auto Fight
+</button>
+    </div>
+  
     <div class="panel" id="story-box"><div id="story-content"></div></div>
-    <div id="combat-box" class="panel">
+      <div id="combat-box" class="panel">      
       <div class="arena" id="arena">
         <div class="arena-side">
           <div class="arena-char" id="arena-player">🧙</div>
@@ -821,22 +843,7 @@ nav a:hover{
         </div>
       </div>
       <div class="stat-row"><span class="stat-label">❤️ Enemy HP</span><span class="stat-value"><span id="enemy-hp-val">0</span>/<span id="enemy-hp-max">0</span></span></div>
-      <!-- Auto Skill Slots -->
-<div style="font-family:'Cinzel',serif;color:var(--dark-gold);font-size:.7em;text-align:center;margin-bottom:4px;letter-spacing:1px;">⚡ AUTO SKILLS</div>
-<div id="auto-skill-slots" style="display:flex;gap:8px;justify-content:center;margin:8px 0;">
-  <div class="auto-slot skill-slot" id="auto-slot-0" ondragover="event.preventDefault()" ondrop="dropSkillToSlot(event,0)" onclick="clearSlot(0)">
-    <div class="skill-icon-wrap" id="auto-slot-content-0">➕</div>
-    <div class="skill-lbl">Slot 1</div>
-  </div>
-  <div class="auto-slot skill-slot" id="auto-slot-1" ondragover="event.preventDefault()" ondrop="dropSkillToSlot(event,1)" onclick="clearSlot(1)">
-    <div class="skill-icon-wrap" id="auto-slot-content-1">➕</div>
-    <div class="skill-lbl">Slot 2</div>
-  </div>
-  <div class="auto-slot skill-slot" id="auto-slot-2" ondragover="event.preventDefault()" ondrop="dropSkillToSlot(event,2)" onclick="clearSlot(2)">
-    <div class="skill-icon-wrap" id="auto-slot-content-2">➕</div>
-    <div class="skill-lbl">Slot 3</div>
-  </div>
-</div>
+
 <div id="combat-log"></div>
       
       <div class="combat-grid">
@@ -847,10 +854,7 @@ nav a:hover{
       </div>
       
       </div>
-      <button id="auto-fight-btn" onclick="toggleAutoFight()"
-  style="display:none;font-size:.8em;padding:6px 16px;background:linear-gradient(135deg,#005500,#00aa44);color:white;border:none;border-radius:8px;font-family:'Cinzel',serif;cursor:pointer;font-weight:700;transition:all .3s;letter-spacing:1px;margin:3px;width:100%;">
-  ⚡ Auto Fight
-</button>
+      
     <div class="panel" id="choices-box" style="display:flex;flex-direction:column;gap:7px;"></div>
     <div class="panel"><div class="panel-title">📜 Log</div><div id="log-box"></div></div>
     <!-- LEADERBOARD -->
