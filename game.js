@@ -530,6 +530,7 @@ function switchMainScene(scene){
   // Special actions per scene
   if(scene === 'adv') loadScene(state.currentScene || 'town');
   if(scene === 'town') renderShop();
+  if(scene === 'town'){ renderShop(); fetchBlackMarket(); }
 }
  
 // ── NORMAL ENEMIES ──
@@ -1119,6 +1120,320 @@ const CRAFTING=[
   {id:'craft_divine_blade',result:{name:'⚔️ Divine Blade',slot:'weapon',rarity:'legendary',stats:{str:220},category:'equipment'},
    req:[{name:'☄️ Divine Shard',qty:2},{name:'🐉 Dragon Scale',qty:2},{name:'😈 Demon Horn',qty:1}],desc:'The ultimate weapon — forged from fallen god material'},
 ];
+
+// ── BLACK MARKET ──
+const BLACK_MARKET_ITEMS = 5; // items per refresh
+
+async function fetchBlackMarket(){
+  const today = new Date().toISOString().split('T')[0];
+  
+  // Check if today's stock exists
+  const { data, error } = await dbClient
+    .from('black_market')
+    .select('*')
+    .eq('refresh_date', today)
+    .single();
+
+  if(data && data.items){
+    renderBlackMarket(data.items);
+    return;
+  }
+
+  // Generate new daily stock
+  const items = generateBlackMarketItems();
+  await dbClient.from('black_market').insert({
+    items: items,
+    refresh_date: today
+  });
+  renderBlackMarket(items);
+}
+
+function generateBlackMarketItems(){
+  const slots = ['weapon','armor','helmet','boots','ring','amulet'];
+  const rarities = ['rare','epic','legendary'];
+  const items = [];
+  
+  for(let i = 0; i < BLACK_MARKET_ITEMS; i++){
+    const slot = slots[Math.floor(Math.random() * slots.length)];
+    // Black market has higher chance of rare/epic/legendary
+    const rarityRoll = Math.random();
+    const rarity = rarityRoll < 0.1 ? 'legendary' : rarityRoll < 0.4 ? 'epic' : 'rare';
+    const item = mkEquipDrop(slot, rarity);
+    // Black market price is 2x-3x normal
+    item.blackMarketPrice = Math.floor(item.sellPrice * (Math.random() * 1.5 + 2));
+    item.uid = genUid();
+    items.push(item);
+  }
+  return items;
+}
+
+function renderBlackMarket(items){
+  const r_ = r => RARITY[r] || RARITY.normal;
+  const container = document.getElementById('black-market-list');
+  if(!container) return;
+
+  // Show refresh timer
+  const now = new Date();
+  const midnight = new Date();
+  midnight.setHours(24,0,0,0);
+  const hoursLeft = Math.floor((midnight - now) / 3600000);
+  const minsLeft = Math.floor(((midnight - now) % 3600000) / 60000);
+
+  container.innerHTML = `
+    <div style="text-align:center;color:#888;font-size:.75em;margin-bottom:10px;font-family:'Cinzel',serif;">
+      🕵️ Refreshes in ${hoursLeft}h ${minsLeft}m
+    </div>
+    ${items.map(item => `
+      <div class="bm-item ${item.rarity}" onclick="buyBlackMarketItem('${item.uid}')">
+        <div class="bm-item-icon">${item.name.split(' ')[0]}</div>
+        <div class="bm-item-info">
+          <div class="bm-item-name" style="color:${r_(item.rarity).color}">${item.name}</div>
+          <div class="bm-item-stats">${Object.entries(item.stats||{}).map(([k,v])=>`+${v<1?v.toFixed(3):v} ${k.toUpperCase()}`).join(' · ')}</div>
+          <div class="bm-item-rarity" style="color:${r_(item.rarity).color};font-size:.75em;">${r_(item.rarity).label}</div>
+        </div>
+        <div class="bm-item-price">
+          <div style="color:var(--gold);font-family:'Cinzel',serif;font-size:.85em;">💰 ${formatNumber(item.blackMarketPrice)}g</div>
+          <div style="font-size:.7em;color:${state.gold >= item.blackMarketPrice ? 'var(--green)' : 'var(--red)'};">
+            ${state.gold >= item.blackMarketPrice ? '✅ Affordable' : '❌ Too expensive'}
+          </div>
+        </div>
+      </div>
+    `).join('')}
+  `;
+}
+
+async function buyBlackMarketItem(uid){
+  // Get today's items
+  const today = new Date().toISOString().split('T')[0];
+  const { data } = await dbClient.from('black_market').select('*').eq('refresh_date', today).single();
+  if(!data) return;
+
+  const items = data.items;
+  const item = items.find(i => i.uid == uid);
+  if(!item){ notify('Item no longer available!', 'var(--red)'); return; }
+
+  if(state.gold < item.blackMarketPrice){
+    notify('❌ Not enough gold!', 'var(--red)');
+    return;
+  }
+
+  state.gold -= item.blackMarketPrice;
+  const newItem = {...item};
+  delete newItem.blackMarketPrice;
+  addToInventory(newItem);
+
+  // Remove item from black market
+  const updatedItems = items.filter(i => i.uid != uid);
+  await dbClient.from('black_market').update({items: updatedItems}).eq('refresh_date', today);
+
+  addLog(`🕵️ Bought ${item.name} from Black Market!`, 'legendary');
+  notify(`🕵️ ${item.name} purchased!`, 'var(--gold)');
+  playSound('snd-craft');
+  updateUI();
+  renderInventory();
+  fetchBlackMarket();
+}
+
+// ── AUCTION HOUSE ──
+async function fetchAuctions(){
+  const container = document.getElementById('auction-list');
+  if(!container) return;
+  container.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">Loading auctions...</div>';
+
+  const { data, error } = await dbClient
+    .from('auctions')
+    .select('*')
+    .eq('status','active')
+    .order('ends_at', {ascending: true});
+
+  if(error || !data || !data.length){
+    container.innerHTML = '<div style="text-align:center;color:#444;padding:20px;font-style:italic;">No active auctions. Be the first to list an item!</div>';
+    return;
+  }
+
+  renderAuctions(data);
+}
+
+function renderAuctions(auctions){
+  const container = document.getElementById('auction-list');
+  if(!container) return;
+  const r_ = r => RARITY[r] || RARITY.normal;
+
+  container.innerHTML = auctions.map(auction => {
+    const item = auction.item;
+    const endsAt = new Date(auction.ends_at);
+    const now = new Date();
+    const timeLeft = endsAt - now;
+    const hoursLeft = Math.max(0, Math.floor(timeLeft / 3600000));
+    const minsLeft = Math.max(0, Math.floor((timeLeft % 3600000) / 60000));
+    const isExpired = timeLeft <= 0;
+    const isOwn = auction.seller_name === state.name;
+
+    return `
+      <div class="auction-item ${item.rarity}">
+        <div class="auction-item-icon">${item.name.split(' ')[0]}</div>
+        <div class="auction-item-info">
+          <div class="auction-item-name" style="color:${r_(item.rarity).color}">${item.name}</div>
+          <div class="auction-item-stats">${Object.entries(item.stats||{}).map(([k,v])=>`+${v<1?v.toFixed(3):v} ${k.toUpperCase()}`).join(' · ')}</div>
+          <div style="font-size:.72em;color:#888;margin-top:2px;">
+            Seller: <span style="color:var(--gold)">${auction.seller_name}</span> · 
+            ${isExpired ? '<span style="color:var(--red)">Expired</span>' : `⏱️ ${hoursLeft}h ${minsLeft}m left`}
+          </div>
+        </div>
+        <div class="auction-item-bids">
+          <div style="font-size:.75em;color:#888;">Current bid</div>
+          <div style="color:var(--gold);font-family:'Cinzel',serif;font-size:.9em;">💰 ${formatNumber(auction.current_bid || auction.start_price)}g</div>
+          ${auction.buyout_price ? `<div style="font-size:.72em;color:#aaa;">Buyout: ${formatNumber(auction.buyout_price)}g</div>` : ''}
+          ${!isOwn && !isExpired ? `
+            <div style="display:flex;gap:4px;margin-top:4px;">
+              <button class="start-btn" onclick="placeBid('${auction.id}', ${auction.current_bid || auction.start_price})" style="font-size:.65em;padding:3px 8px;">⬆️ Bid</button>
+              ${auction.buyout_price ? `<button class="start-btn" onclick="buyoutAuction('${auction.id}', ${auction.buyout_price})" style="font-size:.65em;padding:3px 8px;background:linear-gradient(135deg,#005500,#00aa44);">⚡ Buy</button>` : ''}
+            </div>
+          ` : ''}
+          ${isOwn ? `<div style="font-size:.7em;color:#888;margin-top:4px;">Your listing</div>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function placeBid(auctionId, currentBid){
+  const minBid = currentBid + Math.max(100, Math.floor(currentBid * 0.05));
+  const bidAmount = parseInt(prompt(`Enter bid amount (minimum: ${formatNumber(minBid)}g):`));
+  if(!bidAmount || isNaN(bidAmount)) return;
+
+  if(bidAmount < minBid){
+    notify(`❌ Minimum bid is ${formatNumber(minBid)}g!`, 'var(--red)');
+    return;
+  }
+  if(bidAmount > state.gold){
+    notify('❌ Not enough gold!', 'var(--red)');
+    return;
+  }
+
+  const { error } = await dbClient
+    .from('auctions')
+    .update({
+      current_bid: bidAmount,
+      current_bidder: state.name,
+      updated_at: new Date()
+    })
+    .eq('id', auctionId);
+
+  if(error){
+    notify('❌ Bid failed: ' + error.message, 'var(--red)');
+    return;
+  }
+
+  addLog(`⚡ Bid placed: ${formatNumber(bidAmount)}g!`, 'gold');
+  notify(`⚡ Bid placed: ${formatNumber(bidAmount)}g!`, 'var(--gold)');
+  fetchAuctions();
+}
+
+async function buyoutAuction(auctionId, buyoutPrice){
+  if(buyoutPrice > state.gold){
+    notify('❌ Not enough gold!', 'var(--red)');
+    return;
+  }
+
+  if(!confirm(`Buy now for ${formatNumber(buyoutPrice)}g?`)) return;
+
+  // Get auction details
+  const { data: auction } = await dbClient.from('auctions').select('*').eq('id', auctionId).single();
+  if(!auction) return;
+
+  // Deduct gold and add item
+  state.gold -= buyoutPrice;
+  addToInventory({...auction.item});
+
+  // Mark auction as sold
+  await dbClient.from('auctions').update({
+    status: 'sold',
+    current_bidder: state.name,
+    current_bid: buyoutPrice,
+    updated_at: new Date()
+  }).eq('id', auctionId);
+
+  addLog(`🏛️ Bought ${auction.item.name} for ${formatNumber(buyoutPrice)}g!`, 'legendary');
+  notify(`🏛️ Item purchased!`, 'var(--gold)');
+  playSound('snd-craft');
+  updateUI();
+  renderInventory();
+  fetchAuctions();
+}
+
+async function listItemForAuction(uid){
+  const item = state.inventory.find(i => i.uid === uid);
+  if(!item || item.equipped){
+    notify('❌ Cannot list equipped items!', 'var(--red)');
+    return;
+  }
+
+  const startPrice = parseInt(prompt(`Starting price (gold):`));
+  if(!startPrice || isNaN(startPrice) || startPrice <= 0) return;
+
+  const buyoutInput = prompt(`Buyout price (gold, or leave empty for no buyout):`);
+  const buyoutPrice = buyoutInput ? parseInt(buyoutInput) : null;
+
+  if(buyoutPrice && buyoutPrice <= startPrice){
+    notify('❌ Buyout must be higher than starting price!', 'var(--red)');
+    return;
+  }
+
+  // Remove from inventory
+  const idx = state.inventory.findIndex(i => i.uid === uid);
+  state.inventory.splice(idx, 1);
+
+  // Set ends_at to 24 hours from now
+  const endsAt = new Date();
+  endsAt.setHours(endsAt.getHours() + 24);
+
+  const { error } = await dbClient.from('auctions').insert({
+    seller_name: state.name,
+    item: item,
+    start_price: startPrice,
+    buyout_price: buyoutPrice || null,
+    current_bid: 0,
+    current_bidder: null,
+    ends_at: endsAt.toISOString(),
+    status: 'active'
+  });
+
+  if(error){
+    // Restore item if failed
+    state.inventory.push(item);
+    notify('❌ Listing failed: ' + error.message, 'var(--red)');
+    return;
+  }
+
+  addLog(`🏛️ ${item.name} listed for auction!`, 'gold');
+  notify(`🏛️ Item listed!`, 'var(--gold)');
+  renderInventory();
+  updateUI();
+}
+
+function switchMarketTab(tab){
+  document.getElementById('market-bm').style.display = tab === 'blackmarket' ? 'block' : 'none';
+  document.getElementById('market-ah').style.display = tab === 'auction' ? 'block' : 'none';
+  document.getElementById('market-tab-bm').classList.toggle('active', tab === 'blackmarket');
+  document.getElementById('market-tab-ah').classList.toggle('active', tab === 'auction');
+  if(tab === 'auction') fetchAuctions();
+  if(tab === 'blackmarket') fetchBlackMarket();
+}
+
+async function showMyAuctions(){
+  const { data } = await dbClient
+    .from('auctions')
+    .select('*')
+    .eq('seller_name', state.name)
+    .eq('status', 'active');
+
+  if(!data || !data.length){
+    notify('You have no active listings!', '#888');
+    return;
+  }
+  renderAuctions(data);
+}
 
 // ── SCENES ──
 const SCENES={
@@ -2417,9 +2732,11 @@ function showItemPopup(source, id){
       item.effect?`<div class="tooltip-stat">Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}</div>`:'';
     if(item.category==='equipment'){
   btns=item.equipped
+  
     ?`<button class="start-btn red-btn" onclick="unequipSlot('${item.slot}');closeItemPopup()">Unequip</button>`
     :`<button class="start-btn blue-btn" onclick="equipItem(${item.uid});closeItemPopup()">Equip</button>`;
   btns+=`<button class="start-btn purple-btn" onclick="closeItemPopup();openEnhance(${item.uid})">⚒️ Enhance</button>`;
+  btns += `<button class="start-btn" onclick="closeItemPopup();listItemForAuction(${item.uid})" style="background:linear-gradient(135deg,#005580,#0088cc);">🏛️ List</button>`;
 }
     if(item.category==='consumable'){
       btns+=`<button class="start-btn" onclick="useItem(${item.uid});closeItemPopup()">Use</button>`;
