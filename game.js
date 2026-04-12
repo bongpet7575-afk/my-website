@@ -795,7 +795,6 @@ function switchMainScene(scene){
   // Special actions per scene
   if(scene === 'adv') loadScene(state.currentScene || 'town');
   if(scene === 'town') renderShop();
-  if(scene === 'town'){ renderShop(); fetchBlackMarket(); }
 }
  
 // ── NORMAL ENEMIES ──
@@ -1386,164 +1385,6 @@ const CRAFTING=[
    req:[{name:'☄️ Divine Shard',qty:2},{name:'🐉 Dragon Scale',qty:2},{name:'😈 Demon Horn',qty:1}],desc:'The ultimate weapon — forged from fallen god material'},
 ];
 
-// ── BLACK MARKET ──
-const BLACK_MARKET_ITEMS = 5; // items per refresh
-
-async function fetchBlackMarket(){
-  try {
-    // Get today's date range
-    const today = new Date();
-    const tomorrow = new Date(today.getTime() + 86400000);
-    
-    const todayStart = today.toISOString().split('T'); // "2026-04-12"
-    const tomorrowStart = tomorrow.toISOString().split('T'); // "2026-04-13"
-
-    // Get today's market
-    const { data: market, error: marketError } = await dbClient
-      .from('black_market')
-      .select('*')
-      .gte('refresh_date', todayStart + 'T00:00:00Z')
-      .lt('refresh_date', tomorrowStart + 'T00:00:00Z')
-      .single();
-
-    if(market){
-      // Fetch items for this market
-      const { data: items, error: itemsError } = await dbClient
-        .from('black_market_items')
-        .select('*')
-        .eq('market_id', market.id);
-
-      if(items && items.length > 0){
-        renderBlackMarket(items, market.id);
-        return;
-      }
-    }
-
-    // Generate new daily stock
-    const { data: newMarket, error: insertError } = await dbClient
-      .from('black_market')
-      .insert({
-        refresh_date: new Date().toISOString()
-      })
-      .select()
-      .single();
-
-    if(insertError || !newMarket) throw insertError;
-
-    const items = generateBlackMarketItems(newMarket.id);
-    await dbClient.from('black_market_items').insert(items);
-    
-    renderBlackMarket(items, newMarket.id);
-  } catch(error) {
-    console.error('Black market fetch error:', error);
-    notify('❌ Failed to load black market', 'var(--red)');
-  }
-}
-
-function generateBlackMarketItems(marketId){
-  const slots = ['weapon','armor','helmet','boots','ring','amulet','box'];
-  const rarities = ['rare','epic','legendary'];
-  const items = [];
-  
-  for(let i = 0; i < BLACK_MARKET_ITEMS; i++){
-    const slot = slots[Math.floor(Math.random() * slots.length)];
-    const rarityRoll = Math.random();
-    const rarity = rarityRoll < 0.1 ? 'legendary' : rarityRoll < 0.4 ? 'epic' : 'rare';
-    const item = mkEquipDrop(slot, rarity);
-    const price = Math.floor(item.sellPrice * (Math.random() * 1.5 + 2));
-    
-    items.push({
-      market_id: marketId,
-      item_name: item.name,
-      price: price,
-      stock: 1,
-      rarity: rarity,
-      description: JSON.stringify(item) // Store full item data
-    });
-  }
-  return items;
-}
-
-function renderBlackMarket(items, marketId){
-  const r_ = r => RARITY[r] || RARITY.normal;
-  const container = document.getElementById('black-market-list');
-  if(!container) return;
-
-  const now = new Date();
-  const midnight = new Date();
-  midnight.setHours(24,0,0,0);
-  const hoursLeft = Math.floor((midnight - now) / 3600000);
-  const minsLeft = Math.floor(((midnight - now) % 3600000) / 60000);
-
-  container.innerHTML = `
-    <div style="text-align:center;color:#888;font-size:.75em;margin-bottom:10px;font-family:'Cinzel',serif;">
-      🕵️ Refreshes in ${hoursLeft}h ${minsLeft}m
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,200px),1fr));gap:8px;padding:0 4px;">
-      ${items.map(item => `
-        <div class="bm-item ${item.rarity}" onclick="buyBlackMarketItem('${item.id}', '${marketId}')" style="padding:10px;border:1px solid ${r_(item.rarity).color};border-radius:6px;cursor:pointer;background:rgba(0,0,0,0.3);transition:all 0.2s;display:flex;flex-direction:column;gap:6px;min-width:0;">
-          <div style="font-size:1.5em;text-align:center;word-break:break-word;">${item.item_name.split(' ')}</div>
-          <div style="font-size:.8em;color:${r_(item.rarity).color};font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.item_name}</div>
-          <div style="font-size:.7em;color:#aaa;">${item.rarity}</div>
-          <div style="color:var(--gold);font-family:'Cinzel',serif;font-size:.9em;margin-top:auto;">💰 ${formatNumber(item.price)}g</div>
-          <div style="font-size:.65em;color:${state.gold >= item.price ? 'var(--green)' : 'var(--red)'};">
-            ${state.gold >= item.price ? '✅ Can buy' : '❌ Too expensive'}
-          </div>
-        </div>
-      `).join('')}
-    </div>
-  `;
-}
-
-async function buyBlackMarketItem(itemId, marketId){
-  try {
-    // Get item details
-    const { data: item, error: itemError } = await dbClient
-      .from('black_market_items')
-      .select('*')
-      .eq('id', itemId)
-      .single();
-
-    if(itemError || !item || item.stock <= 0){
-      notify('Item no longer available!', 'var(--red)');
-      return;
-    }
-
-    if(state.gold < item.price){
-      notify('❌ Not enough gold!', 'var(--red)');
-      return;
-    }
-
-    // Parse item data
-    const itemData = JSON.parse(item.description);
-
-    // ✅ Step 1: Deduct gold
-    state.gold -= item.price;
-
-    // ✅ Step 2: Add to inventory
-    addToInventory(itemData);
-
-    // ✅ Step 3: Decrease stock
-    await dbClient
-      .from('black_market_items')
-      .update({ stock: item.stock - 1 })
-      .eq('id', itemId);
-
-    // ✅ Step 4: Save character
-    await saveCharacter(state);
-
-    addLog(`🕵️ Bought ${item.item_name} from Black Market!`, 'legendary');
-    notify(`🕵️ ${item.item_name} purchased!`, 'var(--gold)');
-    playSound('snd-craft');
-    updateUI();
-    renderInventory();
-    fetchBlackMarket();
-
-  } catch(error) {
-    console.error('Buy black market error:', error);
-    notify('❌ Purchase failed: ' + error.message, 'var(--red)');
-  }
-}
 
 // ── AUCTION HOUSE ──
 async function fetchAuctions(){
@@ -1582,42 +1423,40 @@ function renderAuctions(auctions){
   if(!container) return;
   const r_ = r => RARITY[r] || RARITY.normal;
 
-  container.innerHTML = auctions.map(auction => {
-    const endsAt = new Date(auction.ends_at);
-    const now = new Date();
-    const timeLeft = endsAt - now;
-    const hoursLeft = Math.max(0, Math.floor(timeLeft / 3600000));
-    const minsLeft = Math.max(0, Math.floor((timeLeft % 3600000) / 60000));
-    const isExpired = timeLeft <= 0;
-    const isOwn = auction.seller && auction.seller.id === state.character_id;
-    const currentBidAmount = auction.current_bid || auction.start_price;
+  container.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,200px),1fr));gap:8px;padding:0 4px;">
+      ${auctions.map(auction => {
+        const endsAt = new Date(auction.ends_at);
+        const now = new Date();
+        const timeLeft = endsAt - now;
+        const hoursLeft = Math.max(0, Math.floor(timeLeft / 3600000));
+        const minsLeft = Math.max(0, Math.floor((timeLeft % 3600000) / 60000));
+        const isExpired = timeLeft <= 0;
+        const isOwn = auction.seller && auction.seller.id === state.character_id;
+        const currentBidAmount = auction.current_bid || auction.start_price;
 
-    return `
-      <div class="auction-item ${auction.class}">
-        <div class="auction-item-icon">${auction.item_name.split(' ')}</div>
-        <div class="auction-item-info">
-          <div class="auction-item-name" style="color:${r_(auction.rarity).color}">${auction.item_name}</div>
-          <div class="auction-item-stats">${auction.description || ''}</div>
-          <div style="font-size:.72em;color:#888;margin-top:2px;">
-            Seller: <span style="color:var(--gold)">${auction.seller?.name || 'Unknown'}</span> · 
-            ${isExpired ? '<span style="color:var(--red)">Expired</span>' : `⏱️ ${hoursLeft}h ${minsLeft}m left`}
-          </div>
-        </div>
-        <div class="auction-item-bids">
-          <div style="font-size:.75em;color:#888;">Current bid</div>
-          <div style="color:var(--gold);font-family:'Cinzel',serif;font-size:.9em;">💰 ${formatNumber(currentBidAmount)}g</div>
-          ${auction.buyout_price ? `<div style="font-size:.72em;color:#aaa;">Buyout: ${formatNumber(auction.buyout_price)}g</div>` : ''}
-          ${!isOwn && !isExpired ? `
-            <div style="display:flex;gap:4px;margin-top:4px;">
-              <button class="start-btn" onclick="placeBid('${auction.id}', ${currentBidAmount})" style="font-size:.65em;padding:3px 8px;">⬆️ Bid</button>
-              ${auction.buyout_price ? `<button class="start-btn" onclick="buyoutAuction('${auction.id}', ${auction.buyout_price})" style="font-size:.65em;padding:3px 8px;background:linear-gradient(135deg,#005500,#00aa44);">⚡ Buy</button>` : ''}
+        return `
+          <div class="auction-item ${auction.rarity}" style="padding:10px;border:1px solid ${r_(auction.rarity).color};border-radius:6px;cursor:pointer;background:rgba(0,0,0,0.3);transition:all 0.2s;display:flex;flex-direction:column;gap:6px;min-width:0;">
+            <div style="font-size:1.5em;text-align:center;word-break:break-word;">${auction.item_name.split(' ')}</div>
+            <div style="font-size:.8em;color:${r_(auction.rarity).color};font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${auction.item_name}</div>
+            <div style="font-size:.7em;color:#aaa;">Seller: ${auction.seller?.name || 'Unknown'}</div>
+            <div style="font-size:.7em;color:#888;">
+              ${isExpired ? '<span style="color:var(--red)">❌ Expired</span>' : `⏱️ ${hoursLeft}h ${minsLeft}m`}
             </div>
-          ` : ''}
-          ${isOwn ? `<div style="font-size:.7em;color:#888;margin-top:4px;">Your listing</div>` : ''}
-        </div>
-      </div>
-    `;
-  }).join('');
+            <div style="color:var(--gold);font-family:'Cinzel',serif;font-size:.9em;margin-top:auto;">💰 ${formatNumber(currentBidAmount)}g</div>
+            ${auction.buyout_price ? `<div style="font-size:.65em;color:#aaa;">Buyout: ${formatNumber(auction.buyout_price)}g</div>` : ''}
+            ${!isOwn && !isExpired ? `
+              <div style="display:flex;gap:4px;margin-top:4px;">
+                <button class="start-btn" onclick="placeBid('${auction.id}', ${currentBidAmount})" style="font-size:.65em;padding:3px 8px;flex:1;">⬆️ Bid</button>
+                ${auction.buyout_price ? `<button class="start-btn" onclick="buyoutAuction('${auction.id}', ${auction.buyout_price})" style="font-size:.65em;padding:3px 8px;background:linear-gradient(135deg,#005500,#00aa44);flex:1;">⚡ Buy</button>` : ''}
+              </div>
+            ` : ''}
+            ${isOwn ? `<div style="font-size:.7em;color:#888;text-align:center;margin-top:4px;">Your listing</div>` : ''}
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
 }
 
 async function buyoutAuction(auctionId, buyoutPrice){
@@ -1842,12 +1681,9 @@ async function saveCharacter(character) {
 }
 
 function switchMarketTab(tab){
-  document.getElementById('market-bm').style.display = tab === 'blackmarket' ? 'block' : 'none';
   document.getElementById('market-ah').style.display = tab === 'auction' ? 'block' : 'none';
-  document.getElementById('market-tab-bm').classList.toggle('active', tab === 'blackmarket');
   document.getElementById('market-tab-ah').classList.toggle('active', tab === 'auction');
   if(tab === 'auction') fetchAuctions();
-  if(tab === 'blackmarket') fetchBlackMarket();
 }
 
 

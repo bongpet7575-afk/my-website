@@ -7,17 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
   <style>
 
-    /* ── BLACK MARKET ── */
-.bm-item{display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,rgba(255,255,255,0.03),rgba(8,8,40,0.6));border:1px solid rgba(240,192,64,0.2);border-radius:8px;padding:8px;margin-bottom:6px;cursor:pointer;transition:all 0.2s;}
-.bm-item:hover{border-color:var(--gold);transform:translateX(3px);box-shadow:0 0 10px rgba(240,192,64,0.2);}
-.bm-item.legendary{border-color:var(--legendary);box-shadow:0 0 8px rgba(255,140,0,0.3);}
-.bm-item.epic{border-color:var(--epic);}
-.bm-item.rare{border-color:var(--rare);}
-.bm-item-icon{font-size:1.8em;min-width:35px;text-align:center;}
-.bm-item-info{flex:1;}
-.bm-item-name{font-family:'Cinzel',serif;font-size:.82em;font-weight:600;}
-.bm-item-stats{font-size:.72em;color:#888;margin-top:2px;}
-.bm-item-price{text-align:right;min-width:100px;}
+ 
 
 /* ── AUCTION HOUSE ── */
 .auction-item{display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,rgba(255,255,255,0.03),rgba(8,8,40,0.6));border:1px solid rgba(240,192,64,0.2);border-radius:8px;padding:8px;margin-bottom:6px;transition:all 0.2s;}
@@ -671,8 +661,6 @@
         <div class="panel">
           <div class="panel-title">🔮 Coming Soon</div>
           <div style="color:#444;font-style:italic;font-size:.8em;text-align:center;line-height:2.2;padding:8px;">
-            🔒 Auction House<br>
-            🔒 Black Market<br>
             🔒 Guild Hall
           </div>
         </div>
@@ -692,17 +680,11 @@
 
       <!-- Black Market + Auction House -->
 <div class="panel" style="margin-top:10px;">
-  <div class="panel-title">🕵️ Black Market & 🏛️ Auction House</div>
+  <div class="panel-title">🏛️ Auction House</div>
   <div class="tabs">
-    <div class="tab active" onclick="switchMarketTab('blackmarket')" id="market-tab-bm">🕵️ Black Market</div>
     <div class="tab" onclick="switchMarketTab('auction')" id="market-tab-ah">🏛️ Auction House</div>
   </div>
-  
-  <!-- Black Market -->
-  <div id="market-bm">
-    <div id="black-market-list"></div>
-  </div>
-  
+    
   <!-- Auction House -->
   <div id="market-ah" style="display:none;">
     <div style="display:flex;gap:6px;margin-bottom:8px;">
