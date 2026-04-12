@@ -819,7 +819,7 @@ function scaleMonster(templateId, stageLevel) {
   const tmpl = MONSTER_TEMPLATES[templateId];
   if (!tmpl) return null;
   const diff = DIFFICULTY[state.difficulty || 'normal'];
-  const stageScale = 1 + (stageLevel - 1) * 0.5;
+  const stageScale = 1 + (stageLevel - 1) * 0.9;
   const s = stageScale * diff.hpMult;
   const a = stageScale * diff.atkMult;
   return {
@@ -1073,7 +1073,7 @@ function dungeonComplete() {
 const SLOT_ICONS={weapon:'⚔️',armor:'🛡️',helmet:'⛑️',boots:'👢',ring:'💍',amulet:'📿'};
 const EQUIP_PREFIXES={legendary:['Divine','Mythic','Godforged','Ancient','Eternal','Celestial'],epic:['Heroic','Valiant','Exalted','Magnificent','Radiant'],rare:['Polished','Reinforced','Enchanted','Gleaming'],uncommon:['Sturdy','Sharpened','Improved','Sturdy'],normal:['Iron','Wooden','Basic','Simple']};
 const EQUIP_NAMES={weapon:['Blade','Sword','Axe','Spear','Dagger','Staff','Bow'],armor:['Plate','Chainmail','Robe','Leather','Cuirass'],helmet:['Helm','Crown','Hood','Circlet','Visor'],boots:['Greaves','Sabatons','Boots','Treads'],ring:['Band','Seal','Loop','Signet'],amulet:['Pendant','Amulet','Talisman','Necklace']};
-const EQUIP_STATS={weapon:{str:[15,35], lifeSteal:[0.07, 0.29]},armor:{armor:[25,55], sta:[15,35],maxHp:[200,300],hpRegen:[25,75]},helmet:{armor:[35,65],int:[15,35]},boots:{agi:[15,35]},ring:{str:[15,35],int:[15,35]},amulet:{int:[25,45],maxMp:[105,205]}};
+const EQUIP_STATS={weapon:{str:[15,35], lifeSteal:[0.07, 0.09]},armor:{armor:[25,55], sta:[15,35],maxHp:[200,300],hpRegen:[25,75]},helmet:{armor:[35,65],int:[15,35]},boots:{agi:[15,35]},ring:{str:[15,35],int:[15,35]},amulet:{int:[25,45],maxMp:[105,205]}};
 
 function mkEquipDrop(slot, rarity){
   rarity = applyRarityBonus(rarity);
@@ -1149,7 +1149,7 @@ async function fetchBlackMarket(){
 }
 
 function generateBlackMarketItems(){
-  const slots = ['weapon','armor','helmet','boots','ring','amulet'];
+  const slots = ['weapon','armor','helmet','boots','ring','amulet','box'];
   const rarities = ['rare','epic','legendary'];
   const items = [];
   
