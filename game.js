@@ -20,7 +20,272 @@ let dungeonQueue = [];
 
 
 
+// ── TUTORIAL MODE ──
+const TUTORIAL_CONFIG = {
+  enabled: true,
+  levelThreshold: 3, // Tutorial active for levels 1-3
+  damageMultiplier: 1.5, // Player does 50% more damage
+  enemyDamageMultiplier: 0.6, // Enemies do 40% less damage
+  enemyHPMultiplier: 0.7, // Enemies have 30% less HP
+  hints: {
+    firstCombat: true,
+    firstMagic: false,
+    firstDefend: false,
+    firstFlee: false
+  }
+};
 
+function isTutorialActive() {
+  return TUTORIAL_CONFIG.enabled && state.level <= TUTORIAL_CONFIG.levelThreshold;
+}
+
+function applyTutorialScaling(enemy) {
+  if (!isTutorialActive()) return enemy;
+
+  // Scale down enemy stats
+  enemy.hp = Math.floor(enemy.hp * TUTORIAL_CONFIG.enemyHPMultiplier);
+  enemy.maxHp = Math.floor(enemy.maxHp * TUTORIAL_CONFIG.enemyHPMultiplier);
+  enemy.atk = Math.floor(enemy.atk * TUTORIAL_CONFIG.enemyDamageMultiplier);
+
+  return enemy;
+}
+
+function getTutorialDamageBonus() {
+  return isTutorialActive() ? TUTORIAL_CONFIG.damageMultiplier : 1;
+}
+
+function showTutorialHint(hintType) {
+  if (!isTutorialActive() || !TUTORIAL_CONFIG.hints[hintType]) return;
+
+  const hints = {
+    firstCombat: "💡 TIP: Click 'Attack' to deal damage! Build up your stats by defeating enemies.",
+    firstMagic: "💡 TIP: You can use 'Magic' to deal extra damage! It costs MP.",
+    firstDefend: "💡 TIP: Use 'Defend' to reduce incoming damage!",
+    firstFlee: "💡 TIP: You can 'Flee' from combat if you're losing!"
+  };
+
+  if (hints[hintType]) {
+    addCombatLog(hints[hintType], 'info');
+    TUTORIAL_CONFIG.hints[hintType] = false; // Show only once
+  }
+}
+
+// ── MODIFY startCombat ──
+function startCombat(enemyId, isBoss) {
+  const tmpl = MONSTER_TEMPLATES[enemyId];
+  if (!tmpl) return;
+
+  const diff = DIFFICULTY[state.difficulty || 'normal'];
+  const scale = (1 + Math.max(0, (state.level - 1)) * 0.01) * diff.hpMult;
+  const atkScale = (1 + Math.max(0, (state.level - 1)) * 0.01) * diff.atkMult;
+
+  const prefix = state.difficulty === 'hell' ? '💀 Hell ' : state.difficulty === 'hard' ? '🔥 Hard ' : '';
+
+  currentEnemy = {
+    ...tmpl,
+    name: prefix + tmpl.name,
+    hp: Math.floor(tmpl.hp * scale),
+    maxHp: Math.floor(tmpl.hp * scale),
+    atk: Math.floor(tmpl.atk * atkScale),
+    armor: tmpl.armor,
+    hit: Math.floor((tmpl.hit || 0) * 5),
+    dodge: Math.floor((tmpl.dodge || 0) * 5),
+    poisoned: 0,
+    frozen: false,
+    crippled: 0,
+    boss: false,
+    _xpMult: diff.xpMult,
+    _goldMult: diff.goldMult,
+  };
+
+  // ✅ Apply tutorial scaling
+  currentEnemy = applyTutorialScaling(currentEnemy);
+
+  startCombatWith(currentEnemy);
+
+  // Show tutorial message
+  if (isTutorialActive()) {
+    addCombatLog('📚 TUTORIAL MODE: Enemies are weaker! Defeat them to learn combat.', 'info');
+    showTutorialHint('firstCombat');
+  }
+}
+
+// ── MODIFY combatAction (attack) ──
+function combatAction(action) {
+  if (!currentEnemy) return;
+
+  if (action === 'attack') {
+    const enemyDodgeChance = Math.max(0, (currentEnemy.dodge || 0) - state.hit) / 100;
+    if (Math.random() < enemyDodgeChance) {
+      addCombatLog(`💨 ${currentEnemy.name} dodged your attack!`, 'bad');
+      playSound('snd-attack');
+    } else {
+      let dmg = Math.max(1, state.attackPower + Math.floor(Math.random() * 8) - Math.floor(currentEnemy.armor / 2));
+
+      // ✅ Apply tutorial damage boost
+      const tutorialBonus = getTutorialDamageBonus();
+      dmg = Math.floor(dmg * tutorialBonus);
+
+      let isCrit = false;
+      if (state.unlockedTalents.includes('berserker') && state.hp < state.maxHp * 0.5) dmg = Math.floor(dmg * 1.35);
+      if (Math.random() < state.crit / 100) { dmg = Math.floor(dmg * 2); isCrit = true; }
+      if (isCrit) showCritEffect();
+      if (state.unlockedTalents.includes('death_mark')) dmg = Math.floor(dmg * 1.5);
+      if (state.unlockedTalents.includes('venom')) currentEnemy.poisoned = (currentEnemy.poisoned || 0) + 1;
+
+      currentEnemy.hp -= dmg;
+
+      // Life steal
+      const lifeSteal = state.lifeSteal || 0;
+      if (lifeSteal > 0) {
+        const healAmt = Math.floor(dmg * lifeSteal);
+        if (healAmt > 0) {
+          state.hp = Math.min(state.maxHp, state.hp + healAmt);
+          addCombatLog(`🩸 Life Steal heals ${healAmt} HP!`, 'good');
+          spawnDmgFloat(`🩸+${healAmt}`, false, 'heal-float');
+        }
+      }
+
+      addCombatLog(`⚔️ ${isCrit ? '💥CRIT! ' : ''}You hit for ${dmg}!`, isCrit ? 'gold' : 'good');
+      playSound('snd-attack');
+      animateAttack(true, dmg, isCrit);
+    }
+    state.defending = false;
+
+  } else if (action === 'magic') {
+    showTutorialHint('firstMagic');
+    if (state.mp < 10) { addCombatLog('❌ Not enough MP!', 'bad'); return; }
+    let dmg = Math.max(1, state.int * 2 + Math.floor(Math.random() * 10));
+    if (state.unlockedTalents.includes('spell_power')) dmg = Math.floor(dmg * 1.3);
+    if (state.unlockedTalents.includes('fire_mastery')) dmg = Math.floor(dmg * 1.2);
+    currentEnemy.hp -= dmg;
+    state.mp -= 10;
+    addCombatLog(`✨ Magic hits for ${dmg}! (-10 MP)`, 'info');
+    playSound('snd-magic');
+    animateAttack(true, dmg, false);
+    state.defending = false;
+
+  } else if (action === 'defend') {
+    showTutorialHint('firstDefend');
+    state.defending = true;
+    addCombatLog('🛡️ Bracing for impact!', 'info');
+
+  } else if (action === 'flee') {
+    showTutorialHint('firstFlee');
+    const ok = state.unlockedTalents.includes('smoke_bomb') ? .99 : state.agi > currentEnemy.armor ? .7 : .35;
+    if (Math.random() < ok) {
+      addLog('Fled from battle!', 'bad');
+      currentEnemy = null;
+      document.getElementById('combat-box').style.display = 'none';
+      loadScene('town');
+      return;
+    }
+    addCombatLog('❌ Failed to flee!', 'bad');
+    state.defending = false;
+  }
+
+  // ✅ CHECK IF ENEMY DIED FIRST
+  if (currentEnemy && currentEnemy.hp <= 0) {
+    currentEnemy.hp = 0;
+    updateEnemyBar();
+    endCombat(true);
+    return;
+  }
+
+  // Apply talent healing & regen (rest of your code stays the same)
+  if (state.hpRegen > 0) {
+    const regen = Math.floor(state.hpRegen + state.equipHpRegen);
+    if (regen > 0 && state.hp < state.maxHp) {
+      state.hp = Math.min(state.maxHp, state.hp + regen);
+      addCombatLog(`💚 Regen +${regen} HP`, 'good');
+    }
+  }
+
+  if (state.manaRegen > 0) {
+    const mregen = Math.floor(state.manaRegen);
+    if (mregen > 0 && state.mp < state.maxMp) {
+      state.mp = Math.min(state.maxMp, state.mp + mregen);
+      addCombatLog(`💙 Mana Regen +${mregen} MP`, 'info');
+    }
+  }
+
+  // Decrement cooldowns
+  Object.keys(state.skillCooldowns).forEach(k => {
+    if (state.skillCooldowns[k] > 0) {
+      state.skillCooldowns[k]--;
+    }
+  });
+
+  // ✅ ENEMY ATTACKS ONLY IF STILL ALIVE
+  if (currentEnemy && currentEnemy.hp > 0) {
+    if (currentEnemy.frozen) {
+      currentEnemy.frozen = false;
+      addCombatLog(`${currentEnemy.name} is frozen!`, 'info');
+    } else {
+      const playerDodgeChance = Math.max(0, state.dodge - (currentEnemy.hit || 0)) / 100;
+      let eDmg = Math.max(1, currentEnemy.atk + Math.floor(Math.random() * 6) - Math.floor(state.armor / 10));
+
+      // ✅ Apply tutorial enemy damage reduction
+      if (isTutorialActive()) {
+        eDmg = Math.floor(eDmg * TUTORIAL_CONFIG.enemyDamageMultiplier);
+      }
+
+      if (state.defending) eDmg = Math.floor(eDmg / (state.unlockedTalents.includes('fortress') ? 4 : 2));
+      if (state.unlockedTalents.includes('shield_wall')) eDmg = Math.floor(eDmg * .9);
+      if (state.manaShield) { state.manaShield = false; addCombatLog('🔮 Mana Shield absorbed!', 'info'); eDmg = 0; }
+      if (Math.random() < playerDodgeChance) { addCombatLog('💨 You dodged!', 'good'); eDmg = 0; }
+      state.hp -= eDmg;
+      if (eDmg > 0) { addCombatLog(`${currentEnemy.name} hits you for ${eDmg}!`, 'bad'); animateAttack(false, eDmg, false); }
+    }
+
+    if (currentEnemy.poisoned > 0) {
+      const pd = 8;
+      currentEnemy.hp -= pd;
+      currentEnemy.poisoned--;
+      addCombatLog(`🐍 Poison deals ${pd}!`, 'good');
+    }
+
+    if (state.hp <= 0 && state.unlockedTalents.includes('undying') && !state.usedUndying) {
+      state.hp = 1;
+      state.usedUndying = true;
+      addCombatLog('💪 Undying Will! Survived!', 'gold');
+    }
+
+    if (state.hp <= 0) {
+      state.hp = 0;
+      updateUI();
+      endCombat(false);
+      return;
+    }
+  }
+
+  updateEnemyBar();
+  updateUI();
+}
+
+// ── OPTIONAL: Add tutorial exit option ──
+function exitTutorialMode() {
+  TUTORIAL_CONFIG.enabled = false;
+  addLog('📚 Tutorial Mode disabled! Difficulty increased.', 'gold');
+  notify('Tutorial Mode disabled!', 'var(--gold)');
+}
+
+// ── OPTIONAL: Add tutorial status to UI ──
+function updateTutorialStatus() {
+  const tutorialIndicator = document.getElementById('tutorial-indicator');
+  if (tutorialIndicator) {
+    if (isTutorialActive()) {
+      tutorialIndicator.innerHTML = `
+        <div style="padding: 8px; background: rgba(100, 200, 255, 0.2); border: 1px solid #64c8ff; border-radius: 4px; font-size: 0.8em; color: #64c8ff;">
+          📚 Tutorial Mode (Lv.${state.level}/${TUTORIAL_CONFIG.levelThreshold})
+          <button onclick="exitTutorialMode()" style="margin-left: 8px; padding: 2px 6px; font-size: 0.75em;">Exit</button>
+        </div>
+      `;
+    } else {
+      tutorialIndicator.innerHTML = '';
+    }
+  }
+}
 
 // Particicle
 
@@ -1125,54 +1390,85 @@ const CRAFTING=[
 const BLACK_MARKET_ITEMS = 5; // items per refresh
 
 async function fetchBlackMarket(){
-  const today = new Date().toISOString().split('T')[0];
-  
-  // Check if today's stock exists
-  const { data, error } = await dbClient
-    .from('black_market')
-    .select('*')
-    .eq('refresh_date', today)
-    .single();
+  try {
+    // Get today's date range
+    const today = new Date();
+    const tomorrow = new Date(today.getTime() + 86400000);
+    
+    const todayStart = today.toISOString().split('T'); // "2026-04-12"
+    const tomorrowStart = tomorrow.toISOString().split('T'); // "2026-04-13"
 
-  if(data && data.items){
-    renderBlackMarket(data.items);
-    return;
+    // Get today's market
+    const { data: market, error: marketError } = await dbClient
+      .from('black_market')
+      .select('*')
+      .gte('refresh_date', todayStart + 'T00:00:00Z')
+      .lt('refresh_date', tomorrowStart + 'T00:00:00Z')
+      .single();
+
+    if(market){
+      // Fetch items for this market
+      const { data: items, error: itemsError } = await dbClient
+        .from('black_market_items')
+        .select('*')
+        .eq('market_id', market.id);
+
+      if(items && items.length > 0){
+        renderBlackMarket(items, market.id);
+        return;
+      }
+    }
+
+    // Generate new daily stock
+    const { data: newMarket, error: insertError } = await dbClient
+      .from('black_market')
+      .insert({
+        refresh_date: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if(insertError || !newMarket) throw insertError;
+
+    const items = generateBlackMarketItems(newMarket.id);
+    await dbClient.from('black_market_items').insert(items);
+    
+    renderBlackMarket(items, newMarket.id);
+  } catch(error) {
+    console.error('Black market fetch error:', error);
+    notify('❌ Failed to load black market', 'var(--red)');
   }
-
-  // Generate new daily stock
-  const items = generateBlackMarketItems();
-  await dbClient.from('black_market').insert({
-    items: items,
-    refresh_date: today
-  });
-  renderBlackMarket(items);
 }
 
-function generateBlackMarketItems(){
+function generateBlackMarketItems(marketId){
   const slots = ['weapon','armor','helmet','boots','ring','amulet','box'];
   const rarities = ['rare','epic','legendary'];
   const items = [];
   
   for(let i = 0; i < BLACK_MARKET_ITEMS; i++){
     const slot = slots[Math.floor(Math.random() * slots.length)];
-    // Black market has higher chance of rare/epic/legendary
     const rarityRoll = Math.random();
     const rarity = rarityRoll < 0.1 ? 'legendary' : rarityRoll < 0.4 ? 'epic' : 'rare';
     const item = mkEquipDrop(slot, rarity);
-    // Black market price is 2x-3x normal
-    item.blackMarketPrice = Math.floor(item.sellPrice * (Math.random() * 1.5 + 2));
-    item.uid = genUid();
-    items.push(item);
+    const price = Math.floor(item.sellPrice * (Math.random() * 1.5 + 2));
+    
+    items.push({
+      market_id: marketId,
+      item_name: item.name,
+      price: price,
+      stock: 1,
+      rarity: rarity,
+      description: JSON.stringify(item) // Store full item data
+    });
   }
   return items;
 }
 
-function renderBlackMarket(items){
+function renderBlackMarket(items, marketId){
   const r_ = r => RARITY[r] || RARITY.normal;
   const container = document.getElementById('black-market-list');
   if(!container) return;
 
-  // Show refresh timer
   const now = new Date();
   const midnight = new Date();
   midnight.setHours(24,0,0,0);
@@ -1183,55 +1479,70 @@ function renderBlackMarket(items){
     <div style="text-align:center;color:#888;font-size:.75em;margin-bottom:10px;font-family:'Cinzel',serif;">
       🕵️ Refreshes in ${hoursLeft}h ${minsLeft}m
     </div>
-    ${items.map(item => `
-      <div class="bm-item ${item.rarity}" onclick="buyBlackMarketItem('${item.uid}')">
-        <div class="bm-item-icon">${item.name.split(' ')[0]}</div>
-        <div class="bm-item-info">
-          <div class="bm-item-name" style="color:${r_(item.rarity).color}">${item.name}</div>
-          <div class="bm-item-stats">${Object.entries(item.stats||{}).map(([k,v])=>`+${v<1?v.toFixed(3):v} ${k.toUpperCase()}`).join(' · ')}</div>
-          <div class="bm-item-rarity" style="color:${r_(item.rarity).color};font-size:.75em;">${r_(item.rarity).label}</div>
-        </div>
-        <div class="bm-item-price">
-          <div style="color:var(--gold);font-family:'Cinzel',serif;font-size:.85em;">💰 ${formatNumber(item.blackMarketPrice)}g</div>
-          <div style="font-size:.7em;color:${state.gold >= item.blackMarketPrice ? 'var(--green)' : 'var(--red)'};">
-            ${state.gold >= item.blackMarketPrice ? '✅ Affordable' : '❌ Too expensive'}
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,200px),1fr));gap:8px;padding:0 4px;">
+      ${items.map(item => `
+        <div class="bm-item ${item.rarity}" onclick="buyBlackMarketItem('${item.id}', '${marketId}')" style="padding:10px;border:1px solid ${r_(item.rarity).color};border-radius:6px;cursor:pointer;background:rgba(0,0,0,0.3);transition:all 0.2s;display:flex;flex-direction:column;gap:6px;min-width:0;">
+          <div style="font-size:1.5em;text-align:center;word-break:break-word;">${item.item_name.split(' ')}</div>
+          <div style="font-size:.8em;color:${r_(item.rarity).color};font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.item_name}</div>
+          <div style="font-size:.7em;color:#aaa;">${item.rarity}</div>
+          <div style="color:var(--gold);font-family:'Cinzel',serif;font-size:.9em;margin-top:auto;">💰 ${formatNumber(item.price)}g</div>
+          <div style="font-size:.65em;color:${state.gold >= item.price ? 'var(--green)' : 'var(--red)'};">
+            ${state.gold >= item.price ? '✅ Can buy' : '❌ Too expensive'}
           </div>
         </div>
-      </div>
-    `).join('')}
+      `).join('')}
+    </div>
   `;
 }
 
-async function buyBlackMarketItem(uid){
-  // Get today's items
-  const today = new Date().toISOString().split('T')[0];
-  const { data } = await dbClient.from('black_market').select('*').eq('refresh_date', today).single();
-  if(!data) return;
+async function buyBlackMarketItem(itemId, marketId){
+  try {
+    // Get item details
+    const { data: item, error: itemError } = await dbClient
+      .from('black_market_items')
+      .select('*')
+      .eq('id', itemId)
+      .single();
 
-  const items = data.items;
-  const item = items.find(i => i.uid == uid);
-  if(!item){ notify('Item no longer available!', 'var(--red)'); return; }
+    if(itemError || !item || item.stock <= 0){
+      notify('Item no longer available!', 'var(--red)');
+      return;
+    }
 
-  if(state.gold < item.blackMarketPrice){
-    notify('❌ Not enough gold!', 'var(--red)');
-    return;
+    if(state.gold < item.price){
+      notify('❌ Not enough gold!', 'var(--red)');
+      return;
+    }
+
+    // Parse item data
+    const itemData = JSON.parse(item.description);
+
+    // ✅ Step 1: Deduct gold
+    state.gold -= item.price;
+
+    // ✅ Step 2: Add to inventory
+    addToInventory(itemData);
+
+    // ✅ Step 3: Decrease stock
+    await dbClient
+      .from('black_market_items')
+      .update({ stock: item.stock - 1 })
+      .eq('id', itemId);
+
+    // ✅ Step 4: Save character
+    await saveCharacter(state);
+
+    addLog(`🕵️ Bought ${item.item_name} from Black Market!`, 'legendary');
+    notify(`🕵️ ${item.item_name} purchased!`, 'var(--gold)');
+    playSound('snd-craft');
+    updateUI();
+    renderInventory();
+    fetchBlackMarket();
+
+  } catch(error) {
+    console.error('Buy black market error:', error);
+    notify('❌ Purchase failed: ' + error.message, 'var(--red)');
   }
-
-  state.gold -= item.blackMarketPrice;
-  const newItem = {...item};
-  delete newItem.blackMarketPrice;
-  addToInventory(newItem);
-
-  // Remove item from black market
-  const updatedItems = items.filter(i => i.uid != uid);
-  await dbClient.from('black_market').update({items: updatedItems}).eq('refresh_date', today);
-
-  addLog(`🕵️ Bought ${item.name} from Black Market!`, 'legendary');
-  notify(`🕵️ ${item.name} purchased!`, 'var(--gold)');
-  playSound('snd-craft');
-  updateUI();
-  renderInventory();
-  fetchBlackMarket();
 }
 
 // ── AUCTION HOUSE ──
@@ -1240,18 +1551,30 @@ async function fetchAuctions(){
   if(!container) return;
   container.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">Loading auctions...</div>';
 
-  const { data, error } = await dbClient
-    .from('auctions')
-    .select('*')
-    .eq('status','active')
-    .order('ends_at', {ascending: true});
+  try {
+    const { data, error } = await dbClient
+      .from('auctions')
+      .select(`
+        *,
+        seller:seller_id(id, name, user_id),
+        current_bidder:current_bidder_id(id, name, user_id)
+      `)
+      .eq('status','active')
+      .gt('ends_at', new Date().toISOString())
+      .order('ends_at', {ascending: true});
 
-  if(error || !data || !data.length){
-    container.innerHTML = '<div style="text-align:center;color:#444;padding:20px;font-style:italic;">No active auctions. Be the first to list an item!</div>';
-    return;
+    if(error) throw error;
+
+    if(!data || !data.length){
+      container.innerHTML = '<div style="text-align:center;color:#444;padding:20px;font-style:italic;">No active auctions. Be the first to list an item!</div>';
+      return;
+    }
+
+    renderAuctions(data);
+  } catch(error) {
+    console.error('Fetch auctions error:', error);
+    container.innerHTML = '<div style="text-align:center;color:#f00;padding:20px;">Failed to load auctions</div>';
   }
-
-  renderAuctions(data);
 }
 
 function renderAuctions(auctions){
@@ -1260,33 +1583,33 @@ function renderAuctions(auctions){
   const r_ = r => RARITY[r] || RARITY.normal;
 
   container.innerHTML = auctions.map(auction => {
-    const item = auction.item;
     const endsAt = new Date(auction.ends_at);
     const now = new Date();
     const timeLeft = endsAt - now;
     const hoursLeft = Math.max(0, Math.floor(timeLeft / 3600000));
     const minsLeft = Math.max(0, Math.floor((timeLeft % 3600000) / 60000));
     const isExpired = timeLeft <= 0;
-    const isOwn = auction.seller_name === state.name;
+    const isOwn = auction.seller && auction.seller.id === state.character_id;
+    const currentBidAmount = auction.current_bid || auction.start_price;
 
     return `
-      <div class="auction-item ${item.rarity}">
-        <div class="auction-item-icon">${item.name.split(' ')[0]}</div>
+      <div class="auction-item ${auction.class}">
+        <div class="auction-item-icon">${auction.item_name.split(' ')}</div>
         <div class="auction-item-info">
-          <div class="auction-item-name" style="color:${r_(item.rarity).color}">${item.name}</div>
-          <div class="auction-item-stats">${Object.entries(item.stats||{}).map(([k,v])=>`+${v<1?v.toFixed(3):v} ${k.toUpperCase()}`).join(' · ')}</div>
+          <div class="auction-item-name" style="color:${r_(auction.rarity).color}">${auction.item_name}</div>
+          <div class="auction-item-stats">${auction.description || ''}</div>
           <div style="font-size:.72em;color:#888;margin-top:2px;">
-            Seller: <span style="color:var(--gold)">${auction.seller_name}</span> · 
+            Seller: <span style="color:var(--gold)">${auction.seller?.name || 'Unknown'}</span> · 
             ${isExpired ? '<span style="color:var(--red)">Expired</span>' : `⏱️ ${hoursLeft}h ${minsLeft}m left`}
           </div>
         </div>
         <div class="auction-item-bids">
           <div style="font-size:.75em;color:#888;">Current bid</div>
-          <div style="color:var(--gold);font-family:'Cinzel',serif;font-size:.9em;">💰 ${formatNumber(auction.current_bid || auction.start_price)}g</div>
+          <div style="color:var(--gold);font-family:'Cinzel',serif;font-size:.9em;">💰 ${formatNumber(currentBidAmount)}g</div>
           ${auction.buyout_price ? `<div style="font-size:.72em;color:#aaa;">Buyout: ${formatNumber(auction.buyout_price)}g</div>` : ''}
           ${!isOwn && !isExpired ? `
             <div style="display:flex;gap:4px;margin-top:4px;">
-              <button class="start-btn" onclick="placeBid('${auction.id}', ${auction.current_bid || auction.start_price})" style="font-size:.65em;padding:3px 8px;">⬆️ Bid</button>
+              <button class="start-btn" onclick="placeBid('${auction.id}', ${currentBidAmount})" style="font-size:.65em;padding:3px 8px;">⬆️ Bid</button>
               ${auction.buyout_price ? `<button class="start-btn" onclick="buyoutAuction('${auction.id}', ${auction.buyout_price})" style="font-size:.65em;padding:3px 8px;background:linear-gradient(135deg,#005500,#00aa44);">⚡ Buy</button>` : ''}
             </div>
           ` : ''}
@@ -1295,6 +1618,74 @@ function renderAuctions(auctions){
       </div>
     `;
   }).join('');
+}
+
+async function buyoutAuction(auctionId, buyoutPrice){
+  if(buyoutPrice > state.gold){
+    notify('❌ Not enough gold!', 'var(--red)');
+    return;
+  }
+
+  if(!confirm(`Buy now for ${formatNumber(buyoutPrice)}g?`)) return;
+
+  try {
+    // Get auction details
+    const { data: auction, error: fetchError } = await dbClient
+      .from('auctions')
+      .select('*')
+      .eq('id', auctionId)
+      .single();
+
+    if(fetchError || !auction) {
+      notify('❌ Auction not found!', 'var(--red)');
+      return;
+    }
+
+    if(auction.status !== 'active'){
+      notify('❌ Auction is no longer active!', 'var(--red)');
+      return;
+    }
+
+    // ✅ Step 1: Deduct gold from buyer
+    state.gold -= buyoutPrice;
+
+    // ✅ Step 2: Add item to buyer's inventory
+    const itemData = {
+      name: auction.item_name,
+      rarity: auction.rarity,
+      class: auction.class,
+      uid: genUid()
+    };
+    addToInventory(itemData);
+
+    // ✅ Step 3: Mark auction as sold
+    const { error: updateError } = await dbClient
+      .from('auctions')
+      .update({
+        status: 'sold',
+        current_bidder_id: state.character_id,
+        current_bid: buyoutPrice,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', auctionId);
+
+    if(updateError) throw updateError;
+
+    // ✅ Step 4: Save buyer's updated gold
+    await saveCharacter(state);
+
+    addLog(`🏛️ Bought ${auction.item_name} for ${formatNumber(buyoutPrice)}g!`, 'legendary');
+    notify(`🏛️ Item purchased!`, 'var(--gold)');
+    playSound('snd-craft');
+    updateUI();
+    renderInventory();
+    fetchAuctions();
+
+  } catch(error) {
+    state.gold += buyoutPrice; // Rollback
+    notify('❌ Purchase failed: ' + error.message, 'var(--red)');
+    console.error('Buyout error:', error);
+  }
 }
 
 async function placeBid(auctionId, currentBid){
@@ -1311,55 +1702,45 @@ async function placeBid(auctionId, currentBid){
     return;
   }
 
-  const { error } = await dbClient
-    .from('auctions')
-    .update({
-      current_bid: bidAmount,
-      current_bidder: state.name,
-      updated_at: new Date()
-    })
-    .eq('id', auctionId);
+  try {
+    // ✅ Step 1: Create bid record
+    const { error: bidError } = await dbClient
+      .from('auction_bids')
+      .insert({
+        auction_id: auctionId,
+        bidder_id: state.character_id,
+        bid_amount: bidAmount
+      });
 
-  if(error){
+    if(bidError) throw bidError;
+
+    // ✅ Step 2: Update auction with new bid
+    const { error: updateError } = await dbClient
+      .from('auctions')
+      .update({
+        current_bid: bidAmount,
+        current_bidder_id: state.character_id,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', auctionId);
+
+    if(updateError) throw updateError;
+
+    // ✅ Step 3: Deduct gold
+    state.gold -= bidAmount;
+
+    // ✅ Step 4: Save character
+    await saveCharacter(state);
+
+    addLog(`⚡ Bid placed: ${formatNumber(bidAmount)}g!`, 'gold');
+    notify(`⚡ Bid placed: ${formatNumber(bidAmount)}g!`, 'var(--gold)');
+    updateUI();
+    fetchAuctions();
+
+  } catch(error) {
     notify('❌ Bid failed: ' + error.message, 'var(--red)');
-    return;
+    console.error('Bid error:', error);
   }
-
-  addLog(`⚡ Bid placed: ${formatNumber(bidAmount)}g!`, 'gold');
-  notify(`⚡ Bid placed: ${formatNumber(bidAmount)}g!`, 'var(--gold)');
-  fetchAuctions();
-}
-
-async function buyoutAuction(auctionId, buyoutPrice){
-  if(buyoutPrice > state.gold){
-    notify('❌ Not enough gold!', 'var(--red)');
-    return;
-  }
-
-  if(!confirm(`Buy now for ${formatNumber(buyoutPrice)}g?`)) return;
-
-  // Get auction details
-  const { data: auction } = await dbClient.from('auctions').select('*').eq('id', auctionId).single();
-  if(!auction) return;
-
-  // Deduct gold and add item
-  state.gold -= buyoutPrice;
-  addToInventory({...auction.item});
-
-  // Mark auction as sold
-  await dbClient.from('auctions').update({
-    status: 'sold',
-    current_bidder: state.name,
-    current_bid: buyoutPrice,
-    updated_at: new Date()
-  }).eq('id', auctionId);
-
-  addLog(`🏛️ Bought ${auction.item.name} for ${formatNumber(buyoutPrice)}g!`, 'legendary');
-  notify(`🏛️ Item purchased!`, 'var(--gold)');
-  playSound('snd-craft');
-  updateUI();
-  renderInventory();
-  fetchAuctions();
 }
 
 async function listItemForAuction(uid){
@@ -1380,36 +1761,84 @@ async function listItemForAuction(uid){
     return;
   }
 
-  // Remove from inventory
-  const idx = state.inventory.findIndex(i => i.uid === uid);
-  state.inventory.splice(idx, 1);
+  try {
+    // Remove from inventory
+    const idx = state.inventory.findIndex(i => i.uid === uid);
+    state.inventory.splice(idx, 1);
 
-  // Set ends_at to 24 hours from now
-  const endsAt = new Date();
-  endsAt.setHours(endsAt.getHours() + 24);
+    // Set ends_at to 24 hours from now
+    const endsAt = new Date();
+    endsAt.setHours(endsAt.getHours() + 24);
 
-  const { error } = await dbClient.from('auctions').insert({
-    seller_name: state.name,
-    item: item,
-    start_price: startPrice,
-    buyout_price: buyoutPrice || null,
-    current_bid: 0,
-    current_bidder: null,
-    ends_at: endsAt.toISOString(),
-    status: 'active'
-  });
+    const { error } = await dbClient.from('auctions').insert({
+      seller_id: state.character_id,
+      item_name: item.name,
+      rarity: item.rarity,
+      class: item.class,
+      start_price: startPrice,
+      buyout_price: buyoutPrice || null,
+      current_bid: 0,
+      current_bidder_id: null,
+      ends_at: endsAt.toISOString(),
+      status: 'active'
+    });
 
-  if(error){
+    if(error) throw error;
+
+    // Save updated character
+    await saveCharacter(state);
+
+    addLog(`🏛️ ${item.name} listed for auction!`, 'gold');
+    notify(`🏛️ Item listed!`, 'var(--gold)');
+    renderInventory();
+    updateUI();
+
+  } catch(error) {
     // Restore item if failed
     state.inventory.push(item);
     notify('❌ Listing failed: ' + error.message, 'var(--red)');
-    return;
+    console.error('List auction error:', error);
   }
+}
 
-  addLog(`🏛️ ${item.name} listed for auction!`, 'gold');
-  notify(`🏛️ Item listed!`, 'var(--gold)');
-  renderInventory();
-  updateUI();
+async function showMyAuctions(){
+  try {
+    const { data } = await dbClient
+      .from('auctions')
+      .select('*')
+      .eq('seller_id', state.character_id)
+      .eq('status', 'active');
+
+    if(!data || !data.length){
+      notify('You have no active listings!', '#888');
+      return;
+    }
+    renderAuctions(data);
+  } catch(error) {
+    console.error('Show my auctions error:', error);
+    notify('❌ Failed to load your auctions', 'var(--red)');
+  }
+}
+
+async function saveCharacter(character) {
+  try {
+    const { error } = await dbClient
+      .from('characters')
+      .update({
+        level: character.level,
+        exp: character.exp,
+        gold: character.gold,
+        stats: character.stats,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', character.character_id);
+
+    if(error) throw error;
+    console.log('Character saved successfully');
+  } catch(error) {
+    console.error('Failed to save character:', error);
+    throw error;
+  }
 }
 
 function switchMarketTab(tab){
@@ -1421,19 +1850,6 @@ function switchMarketTab(tab){
   if(tab === 'blackmarket') fetchBlackMarket();
 }
 
-async function showMyAuctions(){
-  const { data } = await dbClient
-    .from('auctions')
-    .select('*')
-    .eq('seller_name', state.name)
-    .eq('status', 'active');
-
-  if(!data || !data.length){
-    notify('You have no active listings!', '#888');
-    return;
-  }
-  renderAuctions(data);
-}
 
 // ── SCENES ──
 const SCENES={
@@ -3185,32 +3601,62 @@ function updateUI(){
   document.getElementById('mp-bar').style.width=Math.max(0,(mp/state.maxMp)*100)+'%';
   document.getElementById('xp-bar').style.width=Math.min(100,(state.xp/state.xpNext)*100)+'%';
   document.getElementById('arena-player-hp').style.width=Math.max(0,(hp/state.maxHp)*100)+'%';
+  updateTutorialStatus();
 }
 
 // ── SAVE / LOAD ──
 async function saveGame(){
   await saveToCloud();
 }
+
 async function loadGame(){
   await loadFromCloud();
 }
+
 // Save game to Supabase
 async function saveToCloud() {
-  if (!state.name) {
+  if (!state.character_id || !state.name) {
     alert("No character found! Please start a game first.");
     return;
   }
 
-  const { error } = await dbClient
-    .from("game_saves")
-    .upsert({ player_name: state.name, game_state: state, updated_at: new Date() },
-             { onConflict: "player_name" });
+  try {
+    // ✅ Step 1: Save character stats
+    const { error: charError } = await dbClient
+      .from("characters")
+      .update({
+        level: state.level,
+        exp: state.exp,
+        gold: state.gold,
+        stats: state.stats || {},
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", state.character_id);
 
-  if (error) {
-    alert("❌ Cloud save failed: " + error.message);
-  } else {
+    if (charError) throw charError;
+
+    // ✅ Step 2: Save full game state
+    const { error: saveError } = await dbClient
+      .from("game_saves")
+      .upsert({
+        id: state.character_id, // Use character_id as primary key
+        character_id: state.character_id,
+        game_state: {
+          ...state,
+          inventory: state.inventory || [],
+          currentScene: state.currentScene || 'town'
+        },
+        updated_at: new Date().toISOString()
+      },
+      { onConflict: "id" });
+
+    if (saveError) throw saveError;
+
     addLog('💾 Game saved to cloud!', 'gold');
     alert("✅ Game saved to cloud!");
+  } catch (error) {
+    alert("❌ Cloud save failed: " + error.message);
+    console.error('Save error:', error);
   }
 }
 
@@ -3219,27 +3665,46 @@ async function loadFromCloud() {
   const playerName = prompt("Enter your character name to load:");
   if (!playerName) return;
 
-  console.log("Trying to load:", playerName);
+  try {
+    console.log("Trying to load:", playerName);
 
-  const { data, error } = await dbClient
-    .from("game_saves")
-    .select("game_state")
-    .eq("player_name", playerName)
-    .single();
+    // ✅ Fetch character and game save
+    const { data: character, error: charError } = await dbClient
+      .from("characters")
+      .select("*")
+      .eq("name", playerName)
+      .eq("user_id", (await dbClient.auth.getUser()).data.user.id)
+      .single();
 
-  console.log("Data:", data);
-  console.log("Error:", error);
+    if (charError || !character) {
+      alert("❌ No character found: " + playerName);
+      return;
+    }
 
-  if (error || !data) {
-    alert("❌ No cloud save found for: " + playerName);
-  } else {
-    // Load directly into state instead of reloading
-    Object.assign(state, data.game_state);
+    const { data: gameSave, error: saveError } = await dbClient
+      .from("game_saves")
+      .select("game_state")
+      .eq("character_id", character.id)
+      .single();
+
+    if (saveError || !gameSave) {
+      alert("❌ No cloud save found for: " + playerName);
+      return;
+    }
+
+    console.log("Loaded save:", gameSave);
+
+    // ✅ Load into state
+    Object.assign(state, gameSave.game_state);
+    state.character_id = character.id; // Ensure character_id is set
     localStorage.setItem("rpgSave5", JSON.stringify(state));
     showGame();
     loadScene(state.currentScene || 'town');
     addLog(`☁️ Cloud save loaded! Welcome back ${state.name}!`, 'gold');
     alert("✅ Game loaded from cloud!");
+  } catch (error) {
+    alert("❌ Load failed: " + error.message);
+    console.error('Load error:', error);
   }
 }
 
@@ -3249,16 +3714,95 @@ async function registerUser() {
   const name = document.getElementById('name-input').value.trim();
   const msg = document.getElementById('auth-msg');
 
-  if (!email || !password || !name) { msg.textContent = 'Please fill in all fields!'; return; }
+  if (!email || !password || !name) {
+    msg.textContent = 'Please fill in all fields!';
+    return;
+  }
 
-  const { error } = await dbClient.auth.signUp({ email, password });
-  if (error) { msg.textContent = '❌ ' + error.message; return; }
+  try {
+    // ✅ Step 1: Sign up user
+    const { data: authData, error: authError } = await dbClient.auth.signUp({
+      email,
+      password
+    });
 
-  state.name = name;
-  await saveToCloud();
-  msg.style.color = '#44ff44';
-  msg.textContent = '✅ Registered! Starting game...';
-  setTimeout(() => startGame(), 1000);
+    if (authError) {
+      msg.textContent = '❌ ' + authError.message;
+      return;
+    }
+
+    // ✅ Step 2: Immediately sign in to create session
+    const { data: signInData, error: signInError } = await dbClient.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (signInError) {
+      msg.textContent = '❌ ' + signInError.message;
+      return;
+    }
+
+    const userId = signInData.user.id;
+
+    // ✅ Step 3: Create character with starter bonuses (NO class yet)
+    const { data: character, error: charError } = await dbClient
+      .from("characters")
+      .insert({
+        user_id: userId,
+        name: name,
+        level: 1,
+        exp: 0,
+        gold: 1550,
+        class: null, // ← No class until level 10
+        stats: {
+          strength: 8,
+          agility: 6,
+          vitality: 10,
+          intelligence: 4
+        }
+      })
+      .select()
+      .single();
+
+    if (charError) throw charError;
+
+    // ✅ Step 4: Initialize state with starter bonuses
+    state.character_id = character.id;
+    state.name = name;
+    state.level = 1;
+    state.exp = 0;
+    state.gold = 1550;
+    state.class = null; // ← No class until level 10
+    state.stats = {
+      strength: 8,
+      agility: 6,
+      vitality: 10,
+      intelligence: 4
+    };
+    state.inventory = [];
+    state.currentScene = 'town';
+    state.unlockedTalents = []; // ← Empty talents at start
+
+    // ✅ Step 5: Create initial game save
+    const { error: saveError } = await dbClient
+      .from("game_saves")
+      .insert({
+        character_id: character.id,
+        game_state: state,
+        updated_at: new Date().toISOString()
+      });
+
+    if (saveError) throw saveError;
+
+    addLog('💰 You start with 500g! Reach level 10 to choose your class.', 'gold');
+    msg.style.color = '#44ff44';
+    msg.textContent = '✅ Registered! Starting game...';
+    setTimeout(() => startGame(), 1000);
+
+  } catch (error) {
+    msg.textContent = '❌ Registration failed: ' + error.message;
+    console.error('Register error:', error);
+  }
 }
 
 async function loginUser() {
@@ -3267,86 +3811,152 @@ async function loginUser() {
   const name = document.getElementById('name-input').value.trim();
   const msg = document.getElementById('auth-msg');
 
-  if (!email || !password) { msg.textContent = 'Please enter email and password!'; return; }
+  if (!email || !password) {
+    msg.textContent = 'Please enter email and password!';
+    return;
+  }
 
-  const { error } = await dbClient.auth.signInWithPassword({ email, password });
-  if (error) { msg.textContent = '❌ ' + error.message; return; }
+  try {
+    // ✅ Step 1: Sign in user
+    const { data: authData, error: authError } = await dbClient.auth.signInWithPassword({
+      email,
+      password
+    });
 
-  // Use name from input if provided, otherwise prompt
-  if (name) {
-    const { data, error: loadError } = await dbClient
-      .from("game_saves")
-      .select("game_state")
-      .eq("player_name", name)
+    if (authError) {
+      msg.textContent = '❌ ' + authError.message;
+      return;
+    }
+
+    const userId = authData.user.id;
+
+    // ✅ Step 2: Get user's characters
+    let characterName = name;
+    if (!characterName) {
+      const charList = prompt("Enter your character name:");
+      if (!charList) return;
+      characterName = charList;
+    }
+
+    const { data: character, error: charError } = await dbClient
+      .from("characters")
+      .select("*")
+      .eq("name", characterName)
+      .eq("user_id", userId)
       .single();
 
-    if (loadError || !data) {
-      msg.textContent = '❌ No save found for: ' + name;
-    } else {
-      Object.assign(state, data.game_state);
-      showGame();
-      loadScene(state.currentScene || 'town');
-      addLog(`☁️ Welcome back ${state.name}!`, 'gold');
+    if (charError || !character) {
+      msg.textContent = '❌ No character found: ' + characterName;
+      return;
     }
-  } else {
-    await loadFromCloud();
+
+    // ✅ Step 3: Load game save
+    const { data: gameSave, error: saveError } = await dbClient
+      .from("game_saves")
+      .select("game_state")
+      .eq("character_id", character.id)
+      .single();
+
+    if (saveError || !gameSave) {
+      msg.textContent = '❌ No save found for: ' + characterName;
+      return;
+    }
+
+    // ✅ Step 4: Load into state
+    Object.assign(state, gameSave.game_state);
+    state.character_id = character.id;
+    localStorage.setItem("rpgSave5", JSON.stringify(state));
+    showGame();
+    loadScene(state.currentScene || 'town');
+    addLog(`☁️ Welcome back ${state.name}!`, 'gold');
+    msg.style.color = '#44ff44';
+    msg.textContent = '✅ Logged in!';
+  } catch (error) {
+    msg.textContent = '❌ Login failed: ' + error.message;
+    console.error('Login error:', error);
   }
 }
 
 // ── LEADERBOARD ──
 async function fetchLeaderboard(){
-  try{
-    document.getElementById('lb-list').innerHTML='<div class="lb-empty">Loading...</div>';
+  try {
+    document.getElementById('lb-list').innerHTML = '<div class="lb-empty">Loading...</div>';
+    
     const { data, error } = await dbClient
       .from('leaderboard')
-      .select('*')
+      .select(`
+        *,
+        player:player_id(name, class)
+      `)
       .order('level', { ascending: false })
       .order('gold', { ascending: false })
       .limit(20);
-    if(error)throw error;
-    renderLeaderboard(data||[]);
-  }catch(e){
-    document.getElementById('lb-list').innerHTML='<div class="lb-empty">Could not load leaderboard.</div>';
+
+    if (error) throw error;
+    renderLeaderboard(data || []);
+  } catch (e) {
+    document.getElementById('lb-list').innerHTML = '<div class="lb-empty">Could not load leaderboard.</div>';
+    console.error('Leaderboard error:', e);
   }
 }
 
 async function submitScore(){
-  if(!state.name){alert('Start the game first!');return;}
-  try{
+  if (!state.character_id || !state.name) {
+    alert('Start the game first!');
+    return;
+  }
+
+  try {
     const { error } = await dbClient
       .from('leaderboard')
       .upsert({
-        player_name: state.name,
+        player_id: state.character_id,
         level: state.level,
         gold: state.gold,
         class: state.class ? CLASSES[state.class].name : 'Adventurer',
-        date: new Date().toLocaleDateString(),
-        updated_at: new Date()
-      }, { onConflict: 'player_name' });
-    if(error)throw error;
-    addLog('🏆 Score submitted!','gold');
-    notify('🏆 Score submitted!','var(--gold)');
+        updated_at: new Date().toISOString()
+      },
+      { onConflict: 'player_id' });
+
+    if (error) throw error;
+
+    addLog('🏆 Score submitted!', 'gold');
+    notify('🏆 Score submitted!', 'var(--gold)');
     fetchLeaderboard();
-  }catch(e){
+  } catch (e) {
     alert('Could not submit score: ' + e.message);
+    console.error('Submit score error:', e);
   }
 }
 
 function renderLeaderboard(scores){
-  const list=document.getElementById('lb-list');
-  if(!scores||!scores.length){list.innerHTML='<div class="lb-empty">No scores yet! 🏆</div>';return;}
-  const medals=['🥇','🥈','🥉'];
-  const cls=['gold','silver','bronze'];
-  list.innerHTML=scores.map((s,i)=>`
+  const list = document.getElementById('lb-list');
+  if (!scores || !scores.length) {
+    list.innerHTML = '<div class="lb-empty">No scores yet! 🏆</div>';
+    return;
+  }
+
+  const medals = ['🥇', '🥈', '🥉'];
+  const cls = ['gold', 'silver', 'bronze'];
+
+  list.innerHTML = scores.map((s, i) => `
     <div class="lb-row">
-      <div class="lb-rank ${cls[i]||''}">${medals[i]||'#'+(i+1)}</div>
-      <div class="lb-name">${s.player_name}</div>
-      <div class="lb-class">${s.class||'Adventurer'}</div>
+      <div class="lb-rank ${cls[i] || ''}">${medals[i] || '#' + (i + 1)}</div>
+      <div class="lb-name">${s.player?.name || 'Unknown'}</div>
+      <div class="lb-class">${s.player?.class || s.class || 'Adventurer'}</div>
       <div class="lb-level">⭐ Lv.${s.level}</div>
       <div class="lb-gold-col">💰 ${formatNumber(s.gold)}g</div>
-    </div>`).join('');
+    </div>
+  `).join('');
 }
 
 // Click sound
-const clickSnd=document.getElementById('clickSound');
-document.addEventListener('click',e=>{if(['BUTTON','A'].includes(e.target.tagName)){if(clickSnd){clickSnd.currentTime=0;clickSnd.play().catch(()=>{});}}});
+const clickSnd = document.getElementById('clickSound');
+document.addEventListener('click', e => {
+  if (['BUTTON', 'A'].includes(e.target.tagName)) {
+    if (clickSnd) {
+      clickSnd.currentTime = 0;
+      clickSnd.play().catch(() => {});
+    }
+  }
+});
