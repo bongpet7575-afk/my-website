@@ -1,4 +1,3 @@
-
 // ── LOADER ──
 window.addEventListener('load',()=>{const l=document.getElementById('loader');l.style.opacity='0';setTimeout(()=>l.style.display='none',500);});
 
@@ -18,307 +17,59 @@ let dungeonWave = 0;
 let dungeonMonstersLeft = 0;
 let dungeonQueue = [];
 
-
-
 // ── TUTORIAL MODE ──
 const TUTORIAL_CONFIG = {
   enabled: true,
-  levelThreshold: 3, // Tutorial active for levels 1-3
-  damageMultiplier: 1.5, // Player does 50% more damage
-  enemyDamageMultiplier: 0.6, // Enemies do 40% less damage
-  enemyHPMultiplier: 0.7, // Enemies have 30% less HP
-  hints: {
-    firstCombat: true,
-    firstMagic: false,
-    firstDefend: false,
-    firstFlee: false
-  }
+  levelThreshold: 3,
+  damageMultiplier: 1.5,
+  enemyDamageMultiplier: 0.6,
+  enemyHPMultiplier: 0.7,
+  hints: { firstCombat: true, firstMagic: false, firstDefend: false, firstFlee: false }
 };
-
-function isTutorialActive() {
-  return TUTORIAL_CONFIG.enabled && state.level <= TUTORIAL_CONFIG.levelThreshold;
-}
-
-function applyTutorialScaling(enemy) {
-  if (!isTutorialActive()) return enemy;
-
-  // Scale down enemy stats
-  enemy.hp = Math.floor(enemy.hp * TUTORIAL_CONFIG.enemyHPMultiplier);
+function isTutorialActive(){ return TUTORIAL_CONFIG.enabled && state.level <= TUTORIAL_CONFIG.levelThreshold; }
+function applyTutorialScaling(enemy){
+  if(!isTutorialActive()) return enemy;
+  enemy.hp    = Math.floor(enemy.hp    * TUTORIAL_CONFIG.enemyHPMultiplier);
   enemy.maxHp = Math.floor(enemy.maxHp * TUTORIAL_CONFIG.enemyHPMultiplier);
-  enemy.atk = Math.floor(enemy.atk * TUTORIAL_CONFIG.enemyDamageMultiplier);
-
+  enemy.atk   = Math.floor(enemy.atk   * TUTORIAL_CONFIG.enemyDamageMultiplier);
   return enemy;
 }
-
-function getTutorialDamageBonus() {
-  return isTutorialActive() ? TUTORIAL_CONFIG.damageMultiplier : 1;
-}
-
-function showTutorialHint(hintType) {
-  if (!isTutorialActive() || !TUTORIAL_CONFIG.hints[hintType]) return;
-
-  const hints = {
-    firstCombat: "💡 TIP: Click 'Attack' to deal damage! Build up your stats by defeating enemies.",
-    firstMagic: "💡 TIP: You can use 'Magic' to deal extra damage! It costs MP.",
-    firstDefend: "💡 TIP: Use 'Defend' to reduce incoming damage!",
-    firstFlee: "💡 TIP: You can 'Flee' from combat if you're losing!"
+function getTutorialDamageBonus(){ return isTutorialActive() ? TUTORIAL_CONFIG.damageMultiplier : 1; }
+function showTutorialHint(hintType){
+  if(!isTutorialActive()||!TUTORIAL_CONFIG.hints[hintType])return;
+  const hints={
+    firstCombat:"💡 TIP: Click 'Attack' to deal damage!",
+    firstMagic:"💡 TIP: You can use 'Magic' to deal extra damage! It costs MP.",
+    firstDefend:"💡 TIP: Use 'Defend' to reduce incoming damage!",
+    firstFlee:"💡 TIP: You can 'Flee' from combat if you're losing!"
   };
-
-  if (hints[hintType]) {
-    addCombatLog(hints[hintType], 'info');
-    TUTORIAL_CONFIG.hints[hintType] = false; // Show only once
-  }
+  if(hints[hintType]){ addCombatLog(hints[hintType],'info'); TUTORIAL_CONFIG.hints[hintType]=false; }
+}
+function exitTutorialMode(){ TUTORIAL_CONFIG.enabled=false; addLog('📚 Tutorial Mode disabled!','gold'); notify('Tutorial Mode disabled!','var(--gold)'); }
+function updateTutorialStatus(){
+  const el=document.getElementById('tutorial-indicator');
+  if(!el)return;
+  el.innerHTML=isTutorialActive()?`<div style="padding:8px;background:rgba(100,200,255,0.2);border:1px solid #64c8ff;border-radius:4px;font-size:0.8em;color:#64c8ff;">📚 Tutorial Mode (Lv.${state.level}/${TUTORIAL_CONFIG.levelThreshold})<button onclick="exitTutorialMode()" style="margin-left:8px;padding:2px 6px;font-size:0.75em;">Exit</button></div>`:'';
 }
 
-// ── MODIFY startCombat ──
-function startCombat(enemyId, isBoss) {
-  const tmpl = MONSTER_TEMPLATES[enemyId];
-  if (!tmpl) return;
-
-  const diff = DIFFICULTY[state.difficulty || 'normal'];
-  const scale = (1 + Math.max(0, (state.level - 1)) * 0.01) * diff.hpMult;
-  const atkScale = (1 + Math.max(0, (state.level - 1)) * 0.01) * diff.atkMult;
-
-  const prefix = state.difficulty === 'hell' ? '💀 Hell ' : state.difficulty === 'hard' ? '🔥 Hard ' : '';
-
-  currentEnemy = {
-    ...tmpl,
-    name: prefix + tmpl.name,
-    hp: Math.floor(tmpl.hp * scale),
-    maxHp: Math.floor(tmpl.hp * scale),
-    atk: Math.floor(tmpl.atk * atkScale),
-    armor: tmpl.armor,
-    hit: Math.floor((tmpl.hit || 0) * 5),
-    dodge: Math.floor((tmpl.dodge || 0) * 5),
-    poisoned: 0,
-    frozen: false,
-    crippled: 0,
-    boss: false,
-    _xpMult: diff.xpMult,
-    _goldMult: diff.goldMult,
-  };
-
-  // ✅ Apply tutorial scaling
-  currentEnemy = applyTutorialScaling(currentEnemy);
-
-  startCombatWith(currentEnemy);
-
-  // Show tutorial message
-  if (isTutorialActive()) {
-    addCombatLog('📚 TUTORIAL MODE: Enemies are weaker! Defeat them to learn combat.', 'info');
-    showTutorialHint('firstCombat');
-  }
-}
-
-// ── MODIFY combatAction (attack) ──
-function combatAction(action) {
-  if (!currentEnemy) return;
-
-  if (action === 'attack') {
-    const enemyDodgeChance = Math.max(0, (currentEnemy.dodge || 0) - state.hit) / 100;
-    if (Math.random() < enemyDodgeChance) {
-      addCombatLog(`💨 ${currentEnemy.name} dodged your attack!`, 'bad');
-      playSound('snd-attack');
-    } else {
-      let dmg = Math.max(1, state.attackPower + Math.floor(Math.random() * 8) - Math.floor(currentEnemy.armor / 2));
-
-      // ✅ Apply tutorial damage boost
-      const tutorialBonus = getTutorialDamageBonus();
-      dmg = Math.floor(dmg * tutorialBonus);
-
-      let isCrit = false;
-      if (state.unlockedTalents.includes('berserker') && state.hp < state.maxHp * 0.5) dmg = Math.floor(dmg * 1.35);
-      if (Math.random() < state.crit / 100) { dmg = Math.floor(dmg * 2); isCrit = true; }
-      if (isCrit) showCritEffect();
-      if (state.unlockedTalents.includes('death_mark')) dmg = Math.floor(dmg * 1.5);
-      if (state.unlockedTalents.includes('venom')) currentEnemy.poisoned = (currentEnemy.poisoned || 0) + 1;
-
-      currentEnemy.hp -= dmg;
-
-      // Life steal
-      const lifeSteal = state.lifeSteal || 0;
-      if (lifeSteal > 0) {
-        const healAmt = Math.floor(dmg * lifeSteal);
-        if (healAmt > 0) {
-          state.hp = Math.min(state.maxHp, state.hp + healAmt);
-          addCombatLog(`🩸 Life Steal heals ${healAmt} HP!`, 'good');
-          spawnDmgFloat(`🩸+${healAmt}`, false, 'heal-float');
-        }
-      }
-
-      addCombatLog(`⚔️ ${isCrit ? '💥CRIT! ' : ''}You hit for ${dmg}!`, isCrit ? 'gold' : 'good');
-      playSound('snd-attack');
-      animateAttack(true, dmg, isCrit);
-    }
-    state.defending = false;
-
-  } else if (action === 'magic') {
-    showTutorialHint('firstMagic');
-    if (state.mp < 10) { addCombatLog('❌ Not enough MP!', 'bad'); return; }
-    let dmg = Math.max(1, state.int * 2 + Math.floor(Math.random() * 10));
-    if (state.unlockedTalents.includes('spell_power')) dmg = Math.floor(dmg * 1.3);
-    if (state.unlockedTalents.includes('fire_mastery')) dmg = Math.floor(dmg * 1.2);
-    currentEnemy.hp -= dmg;
-    state.mp -= 10;
-    addCombatLog(`✨ Magic hits for ${dmg}! (-10 MP)`, 'info');
-    playSound('snd-magic');
-    animateAttack(true, dmg, false);
-    state.defending = false;
-
-  } else if (action === 'defend') {
-    showTutorialHint('firstDefend');
-    state.defending = true;
-    addCombatLog('🛡️ Bracing for impact!', 'info');
-
-  } else if (action === 'flee') {
-    showTutorialHint('firstFlee');
-    const ok = state.unlockedTalents.includes('smoke_bomb') ? .99 : state.agi > currentEnemy.armor ? .7 : .35;
-    if (Math.random() < ok) {
-      addLog('Fled from battle!', 'bad');
-      currentEnemy = null;
-      document.getElementById('combat-box').style.display = 'none';
-      loadScene('town');
-      return;
-    }
-    addCombatLog('❌ Failed to flee!', 'bad');
-    state.defending = false;
-  }
-
-  // ✅ CHECK IF ENEMY DIED FIRST
-  if (currentEnemy && currentEnemy.hp <= 0) {
-    currentEnemy.hp = 0;
-    updateEnemyBar();
-    endCombat(true);
-    return;
-  }
-
-  // Apply talent healing & regen (rest of your code stays the same)
-  if (state.hpRegen > 0) {
-    const regen = Math.floor(state.hpRegen + state.equipHpRegen);
-    if (regen > 0 && state.hp < state.maxHp) {
-      state.hp = Math.min(state.maxHp, state.hp + regen);
-      addCombatLog(`💚 Regen +${regen} HP`, 'good');
-    }
-  }
-
-  if (state.manaRegen > 0) {
-    const mregen = Math.floor(state.manaRegen);
-    if (mregen > 0 && state.mp < state.maxMp) {
-      state.mp = Math.min(state.maxMp, state.mp + mregen);
-      addCombatLog(`💙 Mana Regen +${mregen} MP`, 'info');
-    }
-  }
-
-  // Decrement cooldowns
-  Object.keys(state.skillCooldowns).forEach(k => {
-    if (state.skillCooldowns[k] > 0) {
-      state.skillCooldowns[k]--;
-    }
-  });
-
-  // ✅ ENEMY ATTACKS ONLY IF STILL ALIVE
-  if (currentEnemy && currentEnemy.hp > 0) {
-    if (currentEnemy.frozen) {
-      currentEnemy.frozen = false;
-      addCombatLog(`${currentEnemy.name} is frozen!`, 'info');
-    } else {
-      const playerDodgeChance = Math.max(0, state.dodge - (currentEnemy.hit || 0)) / 100;
-      let eDmg = Math.max(1, currentEnemy.atk + Math.floor(Math.random() * 6) - Math.floor(state.armor / 10));
-
-      // ✅ Apply tutorial enemy damage reduction
-      if (isTutorialActive()) {
-        eDmg = Math.floor(eDmg * TUTORIAL_CONFIG.enemyDamageMultiplier);
-      }
-
-      if (state.defending) eDmg = Math.floor(eDmg / (state.unlockedTalents.includes('fortress') ? 4 : 2));
-      if (state.unlockedTalents.includes('shield_wall')) eDmg = Math.floor(eDmg * .9);
-      if (state.manaShield) { state.manaShield = false; addCombatLog('🔮 Mana Shield absorbed!', 'info'); eDmg = 0; }
-      if (Math.random() < playerDodgeChance) { addCombatLog('💨 You dodged!', 'good'); eDmg = 0; }
-      state.hp -= eDmg;
-      if (eDmg > 0) { addCombatLog(`${currentEnemy.name} hits you for ${eDmg}!`, 'bad'); animateAttack(false, eDmg, false); }
-    }
-
-    if (currentEnemy.poisoned > 0) {
-      const pd = 8;
-      currentEnemy.hp -= pd;
-      currentEnemy.poisoned--;
-      addCombatLog(`🐍 Poison deals ${pd}!`, 'good');
-    }
-
-    if (state.hp <= 0 && state.unlockedTalents.includes('undying') && !state.usedUndying) {
-      state.hp = 1;
-      state.usedUndying = true;
-      addCombatLog('💪 Undying Will! Survived!', 'gold');
-    }
-
-    if (state.hp <= 0) {
-      state.hp = 0;
-      updateUI();
-      endCombat(false);
-      return;
-    }
-  }
-
-  updateEnemyBar();
-  updateUI();
-}
-
-// ── OPTIONAL: Add tutorial exit option ──
-function exitTutorialMode() {
-  TUTORIAL_CONFIG.enabled = false;
-  addLog('📚 Tutorial Mode disabled! Difficulty increased.', 'gold');
-  notify('Tutorial Mode disabled!', 'var(--gold)');
-}
-
-// ── OPTIONAL: Add tutorial status to UI ──
-function updateTutorialStatus() {
-  const tutorialIndicator = document.getElementById('tutorial-indicator');
-  if (tutorialIndicator) {
-    if (isTutorialActive()) {
-      tutorialIndicator.innerHTML = `
-        <div style="padding: 8px; background: rgba(100, 200, 255, 0.2); border: 1px solid #64c8ff; border-radius: 4px; font-size: 0.8em; color: #64c8ff;">
-          📚 Tutorial Mode (Lv.${state.level}/${TUTORIAL_CONFIG.levelThreshold})
-          <button onclick="exitTutorialMode()" style="margin-left: 8px; padding: 2px 6px; font-size: 0.75em;">Exit</button>
-        </div>
-      `;
-    } else {
-      tutorialIndicator.innerHTML = '';
-    }
-  }
-}
-
-// Particicle
-
-function spawnParticles(x, y, color='#f0c040', count=12){
+// ── PARTICLES ──
+function spawnParticles(x,y,color='#f0c040',count=12){
   for(let i=0;i<count;i++){
-    const p=document.createElement('div');
-    p.className='particle';
-    const angle=Math.random()*360;
-    const dist=Math.random()*80+30;
-    const tx=Math.cos(angle*Math.PI/180)*dist+'px';
-    const ty=Math.sin(angle*Math.PI/180)*dist+'px';
+    const p=document.createElement('div');p.className='particle';
+    const angle=Math.random()*360,dist=Math.random()*80+30;
+    const tx=Math.cos(angle*Math.PI/180)*dist+'px',ty=Math.sin(angle*Math.PI/180)*dist+'px';
     p.style.cssText=`left:${x}px;top:${y}px;width:${Math.random()*6+3}px;height:${Math.random()*6+3}px;background:${color};--tx:${tx};--ty:${ty};animation-duration:${Math.random()*0.5+0.5}s;`;
-    document.body.appendChild(p);
-    setTimeout(()=>p.remove(),1000);
+    document.body.appendChild(p);setTimeout(()=>p.remove(),1000);
   }
 }
-
 function showLevelUpEffect(){
-  const div=document.createElement('div');
-  div.className='levelup-text';
-  div.textContent='⭐ LEVEL UP! ⭐';
-  document.body.appendChild(div);
-  setTimeout(()=>div.remove(),2000);
-  // Gold particles burst from center
-  spawnParticles(window.innerWidth/2, window.innerHeight/2,'#f0c040',20);
+  const div=document.createElement('div');div.className='levelup-text';div.textContent='⭐ LEVEL UP! ⭐';
+  document.body.appendChild(div);setTimeout(()=>div.remove(),2000);
+  spawnParticles(window.innerWidth/2,window.innerHeight/2,'#f0c040',20);
 }
-
 function showCritEffect(){
-  const div=document.createElement('div');
-  div.className='crit-text';
-  div.textContent='💥 CRITICAL HIT!';
-  document.body.appendChild(div);
-  setTimeout(()=>div.remove(),800);
+  const div=document.createElement('div');div.className='crit-text';div.textContent='💥 CRITICAL HIT!';
+  document.body.appendChild(div);setTimeout(()=>div.remove(),800);
 }
 
 // ── RARITY ──
@@ -331,73 +82,67 @@ const RARITY={
 };
 function rollRarity(isBoss=false){
   const r=Math.random();
-  if(isBoss){
-    // Bosses: can drop epic and legendary
-    if(r<0.15)return'legendary';
-    if(r<0.40)return'epic';
-    if(r<0.70)return'rare';
-    return'uncommon';
-  } else {
-    // Normal monsters: max rare, small chance
-    if(r<0.05)return'rare';
-    if(r<0.20)return'uncommon';
-    return'normal';
-  }
+  if(isBoss){ if(r<0.15)return'legendary'; if(r<0.40)return'epic'; if(r<0.70)return'rare'; return'uncommon'; }
+  else { if(r<0.05)return'rare'; if(r<0.20)return'uncommon'; return'normal'; }
 }
 
-
 // ── STATE ──
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// STEP 1: Replace your const state={...} with this
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const state={
+  // Identity (set on login/register)
+  character_id: null,
+  user_id: null,
 
-  // ACTIVE DEBUFFS (cleared after combat)
-activeDebuffs: {
-  maxHpReduction: 0,
-  webTrapped: 0,
-  rageTimer: 0,
-},
+  // Active debuffs (cleared after combat)
+  activeDebuffs:{ maxHpReduction:0, webTrapped:0, rageTimer:0 },
 
-  // BONUS TRACKING (NEW)
-  classBonuses: {
-    strMult: 0, agiMult: 0, intMult: 0, staMult: 0,
-    hitMult: 0, critMult: 0, dodgeMult: 0, hpRegenMult: 0, maxHpMult: 0, maxMpMult: 0,
-    mpRegenMult: 0, armorMult: 0, mpMult: 0, lifeStealMult: 0, attackPowerMult: 0, hpMult: 0,
-  },
-  talentBonuses: {
-    strMult: 0, agiMult: 0, intMult: 0, staMult: 0,
-    hitMult: 0, critMult: 0, dodgeMult: 0, hpRegenMult: 0,
-    mpRegenMult: 0, armorMult: 0, mpMult: 0, lifeStealMult: 0,
-    attackPowerMult: 0, maxHpMult: 0, hpMult: 0,
-  },
+  // Bonus tracking
+  classBonuses:{ strMult:0,agiMult:0,intMult:0,staMult:0,hitMult:0,critMult:0,dodgeMult:0,hpRegenMult:0,maxHpMult:0,maxMpMult:0,mpRegenMult:0,armorMult:0,mpMult:0,lifeStealMult:0,attackPowerMult:0,hpMult:0 },
+  talentBonuses:{ strMult:0,agiMult:0,intMult:0,staMult:0,hitMult:0,critMult:0,dodgeMult:0,hpRegenMult:0,mpRegenMult:0,armorMult:0,mpMult:0,lifeStealMult:0,attackPowerMult:0,maxHpMult:0,hpMult:0 },
 
-  // EQUIPMENT BONUSES (applied on top of base * mult)
-  equipStr:0, equipStrMult:0, equipAgi:0,equipAgiMult:0, equipInt:0, equipIntMult:0, equipSta:0,equipStaMult:0, equipMaxHpMult:0, equipMaxMpMult:0,
-  equipMaxMp:0, equipMaxHp:0, equipArmor:0, equipArmorMult:0, equipCrit:0, equipDodge:0,equipDodgeMult:0, equipLifeSteal:0,equipAttackPower:0,equipAttackPowerMult:0, equipHpRegen:0, equipHpRegenMult:0, equipMpRegen:0,equipMpRegenMult:0, equipHit:0,equipHitMult:0,equiplifeSteal:0,equipLifeStealMult:1.0,
- 
-  // Track talent-based gold multiplier separately
-  name:'',level:9,xp:0,xpNext:1000,maxLevel:100,
-  hp:100,maxHp:100,mp:50,maxMp:50,hit:10,crit:5,dodge:5,hpRegen:20,lifeSteal:0.01,attackPower:10,armor:10,mpRegen:20,
- 
-  // PRIMARY BASE STATS (raw - leveled up, never modified directly by class/talent)
-  baseStr:5,baseAgi:5,baseInt:5,baseSta:5,baseArmor:5,baseHit:2,baseCrit:0.1,baseDodge:2,baseHpRegen:20,baseLifeSteal:0.05,baseAttackPower:10,
- 
-  // STAT MULTIPLIERS (class + talent % bonuses, starts at 1.0 = 100%)
-  strMult:1.0,agiMult:1.0,intMult:1.0,staMult:1.0,armorMult:1.0,maxHpMult:1.0,hpRegenMult:1.0,maxMpMult:1.0,mpMult:1.0,critMult:1.0,dodgeMult:1.0,mpRegenMult:1.0,hitMult:1.0,lifeStealMult:1.0,skillStrMult:1.0,skillStaMult:1.0,skillMaxHp:1.0,skillArmorMult:1.0,attackPowerMult:1.0,
- 
-  // EFFECTIVE STATS (calculated by calcStats from base * mult)
-  str:5,agi:5,int:5,armor:2,sta:5,hit:5,crit:2,dodge:2,lifeSteal:0.01,attackPower:10,
-  gold:300,goldMult:1.0,difficulty:'normal',
- 
-  // DERIVED STATS (calculated automatically by calcStats)
-  attackPower:0,attackPowerMult:1.0,armor:0,armorMult:1.0,crit:0,critMult:1.0,
-  dodge:0,dodgeMult:1.0,hpRegen:0,hpRegenMult:1.0,mpRegen:0,maxHp:0,maxHpMult:1.0,maxMp:0,maxMpMult:1.0,mpRegenMult:1.0,mp:0,mpMult:1.0,hit:0,hitMult:1.0,lifeSteal:0,lifeStealMult:1.0,
-  inventory:[],equipped:{weapon:null,armor:null,helmet:null,boots:null,ring:null,amulet:null},
-  class:null,talentPoints:0,unlockedTalents:[],talentUnlockedFlags:{},skills:[],skillCooldowns:{},
-  defending:false,manaShield:false,usedUndying:false,
+  // Equipment bonuses
+  equipStr:0,equipStrMult:0,equipAgi:0,equipAgiMult:0,equipInt:0,equipIntMult:0,
+  equipSta:0,equipStaMult:0,equipMaxHpMult:0,equipMaxMpMult:0,equipMaxMp:0,equipMaxHp:0,
+  equipArmor:0,equipArmorMult:0,equipCrit:0,equipDodge:0,equipDodgeMult:0,
+  equipLifeSteal:0,equipLifeStealMult:1.0,equipAttackPower:0,equipAttackPowerMult:0,
+  equipHpRegen:0,equipHpRegenMult:0,equipMpRegen:0,equipMpRegenMult:0,equipHit:0,equipHitMult:0,
+
+  // Core
+  name:'',level:1,xp:0,xpNext:2000,maxLevel:100,
+  hp:100,maxHp:100,mp:50,maxMp:50,
+  gold:0,goldMult:1.0,difficulty:'normal',
+
+  // Primary base stats
+  baseStr:5,baseAgi:5,baseInt:5,baseSta:5,baseArmor:5,
+  baseHit:2,baseCrit:0.1,baseDodge:2,baseHpRegen:20,baseLifeSteal:0.05,baseAttackPower:10,
+
+  // Stat multipliers (starts at 1.0)
+  strMult:1.0,agiMult:1.0,intMult:1.0,staMult:1.0,armorMult:1.0,
+  maxHpMult:1.0,hpRegenMult:1.0,maxMpMult:1.0,mpMult:1.0,
+  critMult:1.0,dodgeMult:1.0,mpRegenMult:1.0,hitMult:1.0,
+  lifeStealMult:1.0,attackPowerMult:1.0,
+  skillStrMult:1.0,skillStaMult:1.0,skillMaxHp:1.0,skillArmorMult:1.0,
+
+  // Effective stats (calculated by calcStats)
+  str:5,agi:5,int:5,sta:5,armor:0,
+  hit:0,crit:0,dodge:0,lifeSteal:0,attackPower:0,
+  hpRegen:0,manaRegen:0,
+
+  // Inventory / Equipment
+  inventory:[],
+  equipped:{ weapon:null,armor:null,helmet:null,boots:null,ring:null,amulet:null },
+
+  // Progression
+  class:null,talentPoints:0,unlockedTalents:[],talentUnlockedFlags:{},
+  skills:[],skillCooldowns:{},
+
+  // Flags
+  defending:false,manaShield:false,usedUndying:false,battleCryActive:false,
+
+  // UI state
   currentScene:'town',invTab:'equipment',shopTab:'equipment',
-  autoSell:{normal:false,uncommon:false},
+  autoSell:{ normal:false,uncommon:false,rare:false,epic:false },
+
+  // Quests
   quests:{
     kill1:{text:'🗡️ Defeat your first enemy',done:false},
     gold50:{text:'💰 Earn 50 gold',done:false},
@@ -412,124 +157,55 @@ activeDebuffs: {
     level50:{text:'👑 Reach Level 50',done:false},
     level100:{text:'🌟 Reach Max Level 100',done:false},
   }
-  
-
 };
+
+// ── DIFFICULTY ──
 const DIFFICULTY={
-  normal:{
-    label:'Normal',icon:'⚔️',color:'#cccccc',
-    levelReq:0,
-    hpMult:1,atkMult:1,
-    hitMul:1,dodgeMult:1,
-    goldMult:1,xpMult:1,
-    rarityBonus:0,   // no bonus
-    legendaryChance:0.003,
-  },
-  hard:{
-    label:'Hard',icon:'🔥',color:'#ff8800',
-    levelReq:20,
-    hpMult:3,atkMult:3,
-    hitMul:3,dodgeMult:3,
-    goldMult:3,xpMult:3,
-    rarityBonus:2,   // shifts rarity up by 2 tiers
-    legendaryChance:0.007,
-  },
-  hell:{
-    label:'Hell',icon:'💀',color:'#ff2222',
-    levelReq:50,
-    hpMult:5,atkMult:5,    
-    hitMul:5,dodgeMult:5,
-    goldMult:5,xpMult:5,
-    rarityBonus:3,   // shifts rarity up by 2 tiers
-    legendaryChance:0.009,
-  },
+  normal:{ label:'Normal',icon:'⚔️',color:'#cccccc',levelReq:0,hpMult:1,atkMult:1,hitMul:1,dodgeMult:1,goldMult:1,xpMult:1,rarityBonus:0,legendaryChance:0.003 },
+  hard:{   label:'Hard',  icon:'🔥',color:'#ff8800',levelReq:20,hpMult:3,atkMult:3,hitMul:3,dodgeMult:3,goldMult:3,xpMult:3,rarityBonus:2,legendaryChance:0.007 },
+  hell:{   label:'Hell',  icon:'💀',color:'#ff2222',levelReq:50,hpMult:5,atkMult:5,hitMul:5,dodgeMult:5,goldMult:5,xpMult:5,rarityBonus:3,legendaryChance:0.009 },
 };
 function setDifficulty(diff){
   const d=DIFFICULTY[diff];
-  if(state.level<d.levelReq){
-    notify(`⚠️ Need Level ${d.levelReq} for ${d.label} mode!`,'var(--red)');
-    return;
-  }
+  if(state.level<d.levelReq){ notify(`⚠️ Need Level ${d.levelReq} for ${d.label} mode!`,'var(--red)'); return; }
   state.difficulty=diff;
-  // update button styles
   ['normal','hard','hell'].forEach(k=>{
-    const btn=document.getElementById(`diff-btn-${k}`);
-    if(!btn)return;
-    btn.style.opacity= k===diff?'1':'0.4';
-    btn.style.transform= k===diff?'scale(1.08)':'scale(1)';
+    const btn=document.getElementById(`diff-btn-${k}`);if(!btn)return;
+    btn.style.opacity=k===diff?'1':'0.4';btn.style.transform=k===diff?'scale(1.08)':'scale(1)';
   });
   notify(`${d.icon} ${d.label} Mode activated!`,d.color);
   addLog(`${d.icon} Difficulty set to ${d.label}!`,'gold');
 }
-function calcStats(){
-  // Combine: base * (combat temp mult) + equip + class bonus + talent bonus
-  const strMult   = state.strMult   + (state.classBonuses.strMult  ||0) + (state.talentBonuses.strMult  ||0);
-  const agiMult   = state.agiMult   + (state.classBonuses.agiMult  ||0) + (state.talentBonuses.agiMult  ||0);
-  const intMult   = state.intMult   + (state.classBonuses.intMult  ||0) + (state.talentBonuses.intMult  ||0);
-  const staMult   = state.staMult   + (state.classBonuses.staMult  ||0) + (state.talentBonuses.staMult  ||0);
-  const attackPowerMult   = state.attackPowerMult   + (state.classBonuses.attackPowerMult  ||0) + (state.talentBonuses.attackPowerMult  ||0);
-  const armorMult = state.armorMult + (state.classBonuses.armorMult||0) + (state.talentBonuses.armorMult||0);
-  const critMult  = state.critMult  + (state.classBonuses.critMult ||0) + (state.talentBonuses.critMult ||0);
-  const dodgeMult = state.dodgeMult + (state.classBonuses.dodgeMult||0) + (state.talentBonuses.dodgeMult||0);
-  const hitMult   = state.hitMult   + (state.classBonuses.hitMult  ||0) + (state.talentBonuses.hitMult  ||0);
-  const mpMult    = state.mpMult    + (state.classBonuses.mpMult   ||0) + (state.talentBonuses.mpMult   ||0);
-  const hpRegenMult = state.hpRegenMult + (state.classBonuses.hpRegenMult||0) + (state.talentBonuses.hpRegenMult||0);
-  const mpRegenMult = state.mpRegenMult + (state.classBonuses.mpRegenMult||0) + (state.talentBonuses.mpRegenMult||0);
 
-  // Primary stats
+// ── CALC STATS ──
+function calcStats(){
+  const strMult      = state.strMult      + (state.classBonuses.strMult     ||0) + (state.talentBonuses.strMult     ||0);
+  const agiMult      = state.agiMult      + (state.classBonuses.agiMult     ||0) + (state.talentBonuses.agiMult     ||0);
+  const intMult      = state.intMult      + (state.classBonuses.intMult     ||0) + (state.talentBonuses.intMult     ||0);
+  const staMult      = state.staMult      + (state.classBonuses.staMult     ||0) + (state.talentBonuses.staMult     ||0);
+  const atkpMult     = state.attackPowerMult + (state.classBonuses.attackPowerMult||0) + (state.talentBonuses.attackPowerMult||0);
+  const armorMult    = state.armorMult    + (state.classBonuses.armorMult   ||0) + (state.talentBonuses.armorMult   ||0);
+  const critMult     = state.critMult     + (state.classBonuses.critMult    ||0) + (state.talentBonuses.critMult    ||0);
+  const dodgeMult    = state.dodgeMult    + (state.classBonuses.dodgeMult   ||0) + (state.talentBonuses.dodgeMult   ||0);
+  const hitMult      = state.hitMult      + (state.classBonuses.hitMult     ||0) + (state.talentBonuses.hitMult     ||0);
+  const mpMult       = state.mpMult       + (state.classBonuses.mpMult      ||0) + (state.talentBonuses.mpMult      ||0);
+  const hpRegenMult  = state.hpRegenMult  + (state.classBonuses.hpRegenMult ||0) + (state.talentBonuses.hpRegenMult ||0);
+  const mpRegenMult  = state.mpRegenMult  + (state.classBonuses.mpRegenMult ||0) + (state.talentBonuses.mpRegenMult ||0);
+
   state.str = Math.floor(state.baseStr * strMult) + (state.equipStr||0) + (state.talentBonuses.baseStr||0);
   state.agi = Math.floor(state.baseAgi * agiMult) + (state.equipAgi||0) + (state.talentBonuses.baseAgi||0);
   state.int = Math.floor(state.baseInt * intMult) + (state.equipInt||0) + (state.talentBonuses.baseInt||0);
   state.sta = Math.floor(state.baseSta * staMult) + (state.equipSta||0) + (state.talentBonuses.baseSta||0);
-
-  // Attack Power
-  state.attackPower = Math.floor((
-    (state.str * 2 + state.int * 2) * attackPowerMult) + (state.equipAttackPower||0) + (state.talentBonuses.baseAttackPower||0));
-
-  // Max HP
-  state.maxHp = Math.floor(
-    50 + (state.str * 10) + (state.sta * 15) + (state.level * 20)
-  ) + (state.equipMaxHp||0);
-
-  // Armor
-  state.armor = Math.floor(
-    (state.agi * 3 + state.baseArmor + (state.talentBonuses.baseArmor||0)) * armorMult
-  ) + (state.equipArmor||0);
-
-  // Crit%
-  state.crit = Math.floor((
-    (state.agi * 0.0005 + state.baseCrit) * critMult
-  ) + (state.equipCrit||0) + (state.talentBonuses.baseCrit||0));
-
-  // Dodge
-  state.dodge = Math.floor((
-    (state.agi * 1.9 + state.baseDodge) * dodgeMult
-  ) + (state.equipDodge||0) + (state.talentBonuses.baseDodge||0));
-
-  // Hit
-  state.hit = Math.floor((
-    (state.agi * 5.3 + state.baseHit) * hitMult
-  ) + (state.equipHit||0) + (state.talentBonuses.baseHit||0));
-
-  // Max MP
-  state.maxMp = Math.floor(
-    (50 + state.int * 3) * mpMult
-  ) + (state.equipMaxMp||0);
-
-  // Mana Regen
-  state.manaRegen = Math.floor(
-    (0.5 + state.int * 1.5) * mpRegenMult
-  ) + (state.equipMpRegen||0);
-
-  // HP Regen
-  state.hpRegen = Math.floor(
-    (state.sta * 0.5 + state.baseHpRegen + (state.talentBonuses.baseHpRegen||0)) * hpRegenMult
-  ) + (state.equipHpRegen||0);
-
-  // Life Steal
-  state.lifeSteal = (state.baseLifeSteal * state.lifeStealMult) + (state.equipLifeSteal||0);
-
-  // Clamp
+  state.attackPower  = Math.floor((state.str*2+state.int*2)*atkpMult) + (state.equipAttackPower||0) + (state.talentBonuses.baseAttackPower||0);
+  state.maxHp        = Math.floor(50+(state.str*10)+(state.sta*15)+(state.level*20)) + (state.equipMaxHp||0);
+  state.armor        = Math.floor((state.agi*3+state.baseArmor+(state.talentBonuses.baseArmor||0))*armorMult) + (state.equipArmor||0);
+  state.crit         = Math.floor(((state.agi*0.0005+state.baseCrit)*critMult) + (state.equipCrit||0) + (state.talentBonuses.baseCrit||0));
+  state.dodge        = Math.floor(((state.agi*1.9+state.baseDodge)*dodgeMult) + (state.equipDodge||0) + (state.talentBonuses.baseDodge||0));
+  state.hit          = Math.floor(((state.agi*5.3+state.baseHit)*hitMult) + (state.equipHit||0) + (state.talentBonuses.baseHit||0));
+  state.maxMp        = Math.floor((50+state.int*3)*mpMult) + (state.equipMaxMp||0);
+  state.manaRegen    = Math.floor((0.5+state.int*1.5)*mpRegenMult) + (state.equipMpRegen||0);
+  state.hpRegen      = Math.floor((state.sta*0.5+state.baseHpRegen+(state.talentBonuses.baseHpRegen||0))*hpRegenMult) + (state.equipHpRegen||0);
+  state.lifeSteal    = (state.baseLifeSteal*state.lifeStealMult) + (state.equipLifeSteal||0);
   state.hp = Math.min(state.hp, state.maxHp);
   state.mp = Math.min(state.mp, state.maxMp);
 }
@@ -537,146 +213,62 @@ function calcStats(){
 // ── CLASSES ──
 const CLASSES={
   warrior:{name:'Warrior',icon:'⚔️',desc:'A mighty melee fighter. +10% STR bonus.',
-    bonuses:{strMult:0.10,staMult:0.10},
-    skills:['power_strike','battle_cry','last_stand'],
+    bonuses:{strMult:0.10,staMult:0.10},skills:['power_strike','battle_cry','last_stand'],
     trees:{
       dps:{name:'🗡️ DPS',talents:[
-        {id:'berserker',name:'Berserker Rage',desc:'10% CRIT per rank',cost:5,ranks:10,
-          effect:()=>{
-            state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+1;
-          }},
-        {id:'cleave',name:'Brute Force',desc:'20% CRIT per rank',cost:10,ranks:5,
-          effect:()=>{
-            state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+2;
-          }},
-        {id:'execute',name:'Killing Blow',desc:'30% CRIT per rank',cost:20,ranks:3,
-          effect:()=>{
-            state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+3;
-          }},
+        {id:'berserker',name:'Berserker Rage',desc:'10% CRIT per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+1;}},
+        {id:'cleave',name:'Brute Force',desc:'20% CRIT per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+2;}},
+        {id:'execute',name:'Killing Blow',desc:'30% CRIT per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+3;}},
       ]},
       tank:{name:'🛡️ Tank',talents:[
-        {id:'iron_skin',name:'Iron Skin',desc:'10% ARMOR per rank',cost:5,ranks:10,
-          effect:()=>{
-            state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.1;
-          }},
-        {id:'fortress',name:'Iron Fortress',desc:'20% ARMOR per rank',cost:10,ranks:5,
-          effect:()=>{
-            state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.2;
-          }},
-        {id:'shield_wall',name:'Hardened Skin',desc:'30% ARMOR per rank',cost:20,ranks:3,
-          effect:()=>{
-            state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.3;
-          }},
+        {id:'iron_skin',name:'Iron Skin',desc:'10% ARMOR per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.1;}},
+        {id:'fortress',name:'Iron Fortress',desc:'20% ARMOR per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.2;}},
+        {id:'shield_wall',name:'Hardened Skin',desc:'30% ARMOR per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.3;}},
       ]},
       heal:{name:'💚 Self Heal',talents:[
-        {id:'second_wind',name:'Tough Body',desc:'10% HP regen per rank',cost:5,ranks:10,
-          effect:()=>{
-            state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.1;
-          }},
-        {id:'undying',name:'Endurance',desc:'20% HP regen per rank',cost:10,ranks:5,
-          effect:()=>{
-            state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.2;
-          }},
-        {id:'regeneration',name:'Vitality',desc:'30% HP regen per rank',cost:20,ranks:3,
-          effect:()=>{
-            state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.3;
-          }},
+        {id:'second_wind',name:'Tough Body',desc:'10% HP regen per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.1;}},
+        {id:'undying',name:'Endurance',desc:'20% HP regen per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.2;}},
+        {id:'regeneration',name:'Vitality',desc:'30% HP regen per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.3;}},
       ]}
     }
   },
   mage:{name:'Mage',icon:'🔮',desc:'A powerful spellcaster. +10% INT bonus.',
-    bonuses:{intMult:0.10,mpMult:0.05},
-    skills:['fireball','ice_lance','mana_shield'],
+    bonuses:{intMult:0.10,mpMult:0.05},skills:['fireball','ice_lance','mana_shield'],
     trees:{
       fire:{name:'🔥 Fire',talents:[
-        {id:'fire_mastery',name:'Fire Mastery',desc:'1% CRIT per rank',cost:5,ranks:5,
-          effect:()=>{
-            state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+1;
-          }},
-        {id:'ignite',name:'Burning Mind',desc:'2% CRIT per rank',cost:10,ranks:5,
-          effect:()=>{
-            state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+2;
-          }},
-        {id:'meteor',name:'Arcane Intellect',desc:'3% CRIT per rank',cost:20,ranks:3,
-          effect:()=>{
-            state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+3;
-          }},
+        {id:'fire_mastery',name:'Fire Mastery',desc:'1% CRIT per rank',cost:5,ranks:5,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+1;}},
+        {id:'ignite',name:'Burning Mind',desc:'2% CRIT per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+2;}},
+        {id:'meteor',name:'Arcane Intellect',desc:'3% CRIT per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+3;}},
       ]},
       ice:{name:'❄️ Ice',talents:[
-        {id:'frost',name:'Frost Barrier',desc:'1% AR per rank',cost:5,ranks:10,
-          effect:()=>{
-            state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.1;
-          }},
-        {id:'ice_armor',name:'Ice Armor',desc:'2% DODGE per rank',cost:10,ranks:5,
-          effect:()=>{
-            state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.2;
-          }},
-        {id:'blizzard',name:'Ice Mind',desc:'3% DODGE per rank',cost:20,ranks:3,
-          effect:()=>{
-            state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.3;
-          }},
+        {id:'frost',name:'Frost Barrier',desc:'1% AR per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.1;}},
+        {id:'ice_armor',name:'Ice Armor',desc:'2% DODGE per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.2;}},
+        {id:'blizzard',name:'Ice Mind',desc:'3% DODGE per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.3;}},
       ]},
       arcane:{name:'✨ Arcane',talents:[
-        {id:'mana_regen',name:'Mana Pool',desc:'1% HP REGEN per rank',cost:5,ranks:10,
-          effect:()=>{
-            state.talentBonuses.mpRegenMult=(state.talentBonuses.mpRegenMult||0)+0.1;
-          }},
-        {id:'spell_power',name:'Spellcraft',desc:'2% HP REGEN per rank',cost:10,ranks:5,
-          effect:()=>{
-            state.talentBonuses.mpRegenMult=(state.talentBonuses.mpRegenMult||0)+0.2;
-          }},
-        {id:'arcane_surge',name:'Arcane Mastery',desc:'3% HP REGEN per rank',cost:20,ranks:3,
-          effect:()=>{
-            state.talentBonuses.mpRegenMult=(state.talentBonuses.mpRegenMult||0)+0.3;
-          }},
+        {id:'mana_regen',name:'Mana Pool',desc:'1% MP regen per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.mpRegenMult=(state.talentBonuses.mpRegenMult||0)+0.1;}},
+        {id:'spell_power',name:'Spellcraft',desc:'2% MP regen per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.mpRegenMult=(state.talentBonuses.mpRegenMult||0)+0.2;}},
+        {id:'arcane_surge',name:'Arcane Mastery',desc:'3% MP regen per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.mpRegenMult=(state.talentBonuses.mpRegenMult||0)+0.3;}},
       ]}
     }
   },
   rogue:{name:'Rogue',icon:'🗡️',desc:'A cunning assassin. +20% AGI',
-    bonuses:{agiMult:0.2,goldMult:1.0},
-    skills:['backstab','poison_blade','shadow_step'],
+    bonuses:{agiMult:0.2,goldMult:1.0},skills:['backstab','poison_blade','shadow_step'],
     trees:{
       assassination:{name:'☠️ Assassin',talents:[
-        {id:'crit',name:'Precision',desc:'1% CRIT per rank',cost:5,ranks:10,
-          effect:()=>{
-            state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+1;
-          }},
-        {id:'ambush',name:'Swift Strike',desc:'2% CRIT per rank',cost:10,ranks:5,
-          effect:()=>{
-            state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+2;
-          }},
-        {id:'death_mark',name:'Lethal Focus',desc:'3% CRIT per rank',cost:20,ranks:3,
-          effect:()=>{
-            state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+2;
-          }},
+        {id:'crit',name:'Precision',desc:'1% CRIT per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+1;}},
+        {id:'ambush',name:'Swift Strike',desc:'2% CRIT per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+2;}},
+        {id:'death_mark',name:'Lethal Focus',desc:'3% CRIT per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+2;}},
       ]},
       subtlety:{name:'🌑 Subtlety',talents:[
-        {id:'evasion',name:'Agility',desc:'1% DODGE per rank',cost:5,ranks:10,
-          effect:()=>{
-            state.talentBonuses.dodgeMult=(state.talentBonuses.dodgeMult||0)+0.1;
-          }},
-        {id:'smoke_bomb',name:'Nimble Feet',desc:'2% DODGE per rank',cost:10,ranks:5,
-          effect:()=>{
-            state.talentBonuses.dodgeMult = (state.talentBonuses.dodgeMult || 0) + 0.2;
-          }},
-        {id:'vanish',name:'Shadow Reflex',desc:'3% DODGE per rank',cost:20,ranks:3,
-          effect:()=>{
-            state.talentBonuses.dodgeMult = (state.talentBonuses.dodgeMult || 0) + 0.3;
-          }},
+        {id:'evasion',name:'Agility',desc:'1% DODGE per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.dodgeMult=(state.talentBonuses.dodgeMult||0)+0.1;}},
+        {id:'smoke_bomb',name:'Nimble Feet',desc:'2% DODGE per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.dodgeMult=(state.talentBonuses.dodgeMult||0)+0.2;}},
+        {id:'vanish',name:'Shadow Reflex',desc:'3% DODGE per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.dodgeMult=(state.talentBonuses.dodgeMult||0)+0.3;}},
       ]},
       poison:{name:'🐍 Poison',talents:[
-        {id:'venom',name:'Toxic Edge',desc:'1% HP REGEN per rank',cost:5,ranks:10,
-          effect:()=>{
-            state.talentBonuses.mpRegenMult=(state.talentBonuses.mpRegenMult||0)+0.1;
-          }},
-        {id:'cripple',name:'Predator',desc:'2% HP REGEN per rank',cost:10,ranks:5,
-          effect:()=>{
-            state.talentBonuses.mpRegenMult=(state.talentBonuses.mpRegenMult||0)+0.2;
-          }},
-        {id:'plague',name:'Virulence',desc:'3% HP REGEN per rank',cost:20,ranks:3,
-          effect:()=>{
-            state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.3;
-          }},
+        {id:'venom',name:'Toxic Edge',desc:'1% HP regen per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.mpRegenMult=(state.talentBonuses.mpRegenMult||0)+0.1;}},
+        {id:'cripple',name:'Predator',desc:'2% HP regen per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.mpRegenMult=(state.talentBonuses.mpRegenMult||0)+0.2;}},
+        {id:'plague',name:'Virulence',desc:'3% HP regen per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.3;}},
       ]}
     }
   }
@@ -684,1134 +276,284 @@ const CLASSES={
 
 // ── SKILLS ──
 const SKILLS={
-  // ⚔️ WARRIOR SKILLS — scale with STR / attackPower
   power_strike:{name:'Power Strike',icon:'💥',mp:()=>Math.floor(state.maxMp*0.10),cd:1,use:(e)=>{
-    const d=Math.floor(state.attackPower*2.2);
-    e.hp-=d;addCombatLog(`💥 Power Strike! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
-  
+    const d=Math.floor(state.attackPower*2.2);e.hp-=d;addCombatLog(`💥 Power Strike! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
   battle_cry:{name:'Battle Cry',icon:'📯',mp:()=>Math.floor(state.maxMp*0.15),cd:5,use:(e)=>{
-  // Only apply if not already active
-  if(state.battleCryActive){
-    addCombatLog(`📯 Battle Cry already active!`,'info');
-    return 0;
-  }
-  state.battleCryActive = true;
-  state.strMult *= 2.5;
-  state.armorMult *= 2.4;
-  state.critMult *= 2.5;
-  state.hitMult *= 1.5;
-  addCombatLog(`📯 Battle Cry! +50% STR, +40% ARMOR for this fight!`,'good');
-  playSound('snd-magic');
-  calcStats();
-  return 0;
-}},
-
-last_stand:{name:'Last Stand',icon:'🛡️',mp:()=>Math.floor(state.maxMp*0.20),cd:1,use:(e)=>{
-  const healAmt=Math.floor(state.maxHp*0.35);
-  state.hp=Math.min(state.maxHp,state.hp+healAmt);
-  // ✅ Use multiplier instead of equipment bonus
-  addCombatLog(`🛡️ Last Stand! +${healAmt} HP, +50% ARMOR!`,'good');
-  playSound('snd-heal');
-  spawnDmgFloat(`+${healAmt}HP`,false,'heal-float');
-  calcStats();
-  return 0;
-}},
-  // 🔥 MAGE SKILLS — scale with INT
+    if(state.battleCryActive){addCombatLog(`📯 Battle Cry already active!`,'info');return 0;}
+    state.battleCryActive=true;state.strMult*=2.5;state.armorMult*=2.4;state.critMult*=2.5;state.hitMult*=1.5;
+    addCombatLog(`📯 Battle Cry! +50% STR, +40% ARMOR!`,'good');playSound('snd-magic');calcStats();return 0;}},
+  last_stand:{name:'Last Stand',icon:'🛡️',mp:()=>Math.floor(state.maxMp*0.20),cd:1,use:(e)=>{
+    const h=Math.floor(state.maxHp*0.35);state.hp=Math.min(state.maxHp,state.hp+h);
+    addCombatLog(`🛡️ Last Stand! +${h} HP!`,'good');playSound('snd-heal');spawnDmgFloat(`+${h}HP`,false,'heal-float');calcStats();return 0;}},
   fireball:{name:'Fireball',icon:'🔥',mp:()=>Math.floor(state.maxMp*0.12),cd:1,use:(e)=>{
-    const d=Math.floor(state.int*6+Math.random()*state.int*2);
-    e.hp-=d;addCombatLog(`🔥 Fireball! ${d} dmg!`,'good');playSound('snd-magic');animateAttack(true,d,false);return d;}},
-  
+    const d=Math.floor(state.int*6+Math.random()*state.int*2);e.hp-=d;addCombatLog(`🔥 Fireball! ${d} dmg!`,'good');playSound('snd-magic');animateAttack(true,d,false);return d;}},
   ice_lance:{name:'Ice Lance',icon:'❄️',mp:()=>Math.floor(state.maxMp*0.10),cd:2,use:(e)=>{
-    const d=Math.floor(state.int*4.5);
-    e.hp-=d;e.frozen=true;
-    addCombatLog(`❄️ Ice Lance! ${d} dmg — Enemy Frozen!`,'info');
-    playSound('snd-magic');animateAttack(true,d,false);return d;}},
-  
+    const d=Math.floor(state.int*4.5);e.hp-=d;e.frozen=true;
+    addCombatLog(`❄️ Ice Lance! ${d} dmg — Frozen!`,'info');playSound('snd-magic');animateAttack(true,d,false);return d;}},
   mana_shield:{name:'Mana Shield',icon:'🔮',mp:()=>Math.floor(state.maxMp*0.25),cd:4,use:(e)=>{
-    state.manaShield=true;
-    const shieldStr=Math.floor(state.int*2);
-    addCombatLog(`🔮 Mana Shield active! (absorbs ~${shieldStr} dmg)`,'info');
-    playSound('snd-heal');return 0;}},
-  
-  // 🗡️ ROGUE SKILLS — scale with AGI / attackPower
+    state.manaShield=true;addCombatLog(`🔮 Mana Shield active!`,'info');playSound('snd-heal');return 0;}},
   backstab:{name:'Backstab',icon:'🗡️',mp:()=>Math.floor(state.maxMp*0.08),cd:1,use:(e)=>{
-    const d=Math.floor(state.attackPower*1.5 + state.agi*3);
-    e.hp-=d;addCombatLog(`🗡️ Backstab! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
-  
+    const d=Math.floor(state.attackPower*1.5+state.agi*3);e.hp-=d;addCombatLog(`🗡️ Backstab! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
   poison_blade:{name:'Poison Blade',icon:'🐍',mp:()=>Math.floor(state.maxMp*0.12),cd:2,use:(e)=>{
-    const stacks=5;
-    const tickDmg=Math.floor(state.agi*1.8 + state.attackPower*1.3);
-    e.poisoned=(e.poisoned||0)+stacks;
-    e.poisonDmg=tickDmg;
-    addCombatLog(`🐍 Poisoned! ${tickDmg} dmg/tick for ${stacks} turns!`,'good');
-    playSound('snd-magic');return 0;}},
-  
+    const stacks=5,tick=Math.floor(state.agi*1.8+state.attackPower*1.3);
+    e.poisoned=(e.poisoned||0)+stacks;e.poisonDmg=tick;
+    addCombatLog(`🐍 Poisoned! ${tick} dmg/tick for ${stacks} turns!`,'good');playSound('snd-magic');return 0;}},
   shadow_step:{name:'Shadow Step',icon:'🌑',mp:()=>Math.floor(state.maxMp*0.15),cd:3,use:(e)=>{
-    const d=Math.floor(state.attackPower*2.0 + state.agi*4);
-    e.hp-=d;addCombatLog(`🌑 Shadow Step! ${d} dmg!`,'purple');
-    playSound('snd-magic');animateAttack(true,d,false);return d;}},
+    const d=Math.floor(state.attackPower*2.0+state.agi*4);e.hp-=d;addCombatLog(`🌑 Shadow Step! ${d} dmg!`,'purple');playSound('snd-magic');animateAttack(true,d,false);return d;}},
 };
-// Key changes: Power Strike — now uses attackPower instead of raw str
-// Key changes:Fireball — scales with int properly
-// Key changes:Ice Lance — stronger scaling with int
-// Key changes:Backstab — uses attackPower for proper scaling
-// Key changes:Shadow Step — uses attackPower, highest multiplier for rogue
-// Key changes:Poison Blade — 5 turns instead of 3
-// Now all skills stay useful at high levels! 💪
 
-function spawnAbilityFloat(text, color='#ffffff'){
-  const div = document.createElement('div');
-  div.style.cssText = `
-    position:fixed;
-    top:35%;
-    left:50%;
-    transform:translate(-50%,-50%);
-    font-family:'Cinzel',serif;
-    font-size:1.6em;
-    font-weight:700;
-    color:${color};
-    text-shadow:0 0 20px ${color};
-    pointer-events:none;
-    z-index:9999;
-    animation:critFlash 1s ease forwards;
-    white-space:nowrap;
-  `;
-  div.textContent = text;
-  document.body.appendChild(div);
-  setTimeout(()=>div.remove(), 1000);
+function spawnAbilityFloat(text,color='#ffffff'){
+  const div=document.createElement('div');
+  div.style.cssText=`position:fixed;top:35%;left:50%;transform:translate(-50%,-50%);font-family:'Cinzel',serif;font-size:1.6em;font-weight:700;color:${color};text-shadow:0 0 20px ${color};pointer-events:none;z-index:9999;animation:critFlash 1s ease forwards;white-space:nowrap;`;
+  div.textContent=text;document.body.appendChild(div);setTimeout(()=>div.remove(),1000);
 }
 
 // ── SWITCH MAIN SCENE ──
 function switchMainScene(scene){
-  // Hide all scenes
-  document.querySelectorAll('.main-scene').forEach(s => s.style.display = 'none');
-  // Show selected scene
-  document.getElementById(`main-scene-${scene}`).style.display = 'block';
-  // Update nav buttons
-  ['char','adv','town'].forEach(s => {
-    document.getElementById(`nav-${s}`).classList.remove('active');
-  });
+  document.querySelectorAll('.main-scene').forEach(s=>s.style.display='none');
+  document.getElementById(`main-scene-${scene}`).style.display='block';
+  ['char','adv','town'].forEach(s=>document.getElementById(`nav-${s}`).classList.remove('active'));
   document.getElementById(`nav-${scene}`).classList.add('active');
-  // Special actions per scene
-  if(scene === 'adv') loadScene(state.currentScene || 'town');
-  if(scene === 'town') renderShop();
+  if(scene==='adv')loadScene(state.currentScene||'town');
+  if(scene==='town')renderShop();
 }
- 
-// ── NORMAL ENEMIES ──
-const NORMAL_ENEMIES= [];
-// ── BASE MONSTER TEMPLATES (no scaling — pure base stats) ──
+
+// ── MONSTER TEMPLATES ──
 const MONSTER_TEMPLATES = {
-  // 🐺 WOLF MOUNTAIN (Stage 1)
   young_wolf:      {id:'young_wolf',     name:'🐺 Young Wolf',      icon:'wolf',    hp:1000, atk:80,  armor:5,  hit:8,  dodge:5,  xp:80,  gold:[30,60]},
   forest_wolf:     {id:'forest_wolf',    name:'🐺 Forest Wolf',     icon:'wolf',    hp:1500, atk:100, armor:8,  hit:10, dodge:8,  xp:120, gold:[50,100]},
   shadow_wolf:     {id:'shadow_wolf',    name:'🐺 Shadow Wolf',     icon:'wolf',    hp:2000, atk:130, armor:12, hit:14, dodge:12, xp:160, gold:[80,140]},
   dire_wolf:       {id:'dire_wolf',      name:'🐺 Dire Wolf',       icon:'wolf',    hp:2600, atk:160, armor:15, hit:18, dodge:15, xp:200, gold:[100,180]},
-
-  // 🕷️ SPIDER CAVERN (Stage 2)
   cave_spider:     {id:'cave_spider',    name:'🕷️ Cave Spider',     icon:'spider',  hp:3000, atk:180, armor:20, hit:20, dodge:20, xp:240, gold:[120,200]},
   venom_spider:    {id:'venom_spider',   name:'🕷️ Venom Spider',    icon:'spider',  hp:4000, atk:220, armor:25, hit:25, dodge:25, xp:300, gold:[160,260]},
   giant_spider:    {id:'giant_spider',   name:'🕷️ Giant Spider',    icon:'spider',  hp:5200, atk:270, armor:32, hit:30, dodge:30, xp:370, gold:[200,320]},
   queen_spider:    {id:'queen_spider',   name:'🕷️ Queen Spider',    icon:'spider',  hp:6800, atk:320, armor:40, hit:36, dodge:36, xp:450, gold:[250,400]},
-
-  // 👹 GOBLIN FORTRESS (Stage 3)
   goblin_scout:    {id:'goblin_scout',   name:'👹 Goblin Scout',    icon:'goblin',  hp:8000, atk:380, armor:50, hit:44, dodge:44, xp:540, gold:[300,480]},
   goblin_warrior:  {id:'goblin_warrior', name:'👹 Goblin Warrior',  icon:'goblin',  hp:10000,atk:450, armor:60, hit:52, dodge:52, xp:650, gold:[380,580]},
   goblin_shaman:   {id:'goblin_shaman',  name:'👹 Goblin Shaman',   icon:'goblin',  hp:13000,atk:520, armor:72, hit:62, dodge:62, xp:780, gold:[460,700]},
   goblin_elite:    {id:'goblin_elite',   name:'👹 Goblin Elite',    icon:'goblin',  hp:16500,atk:600, armor:86, hit:74, dodge:74, xp:940, gold:[560,840]},
-
-  // 💀 SKELETON CRYPT (Stage 4)
   skeleton_archer: {id:'skeleton_archer',name:'💀 Skeleton Archer', icon:'skeleton',hp:20000,atk:700, armor:100,hit:88, dodge:88, xp:1100,gold:[660,1000]},
-  skeleton_warrior:{id:'skeleton_warrior',name:'💀 Skeleton Warrior',icon:'skeleton',hp:25000,atk:820, armor:120,hit:104,dodge:104,xp:1320,gold:[800,1200]},
+  skeleton_warrior:{id:'skeleton_warrior',name:'💀 Skeleton Warrior',icon:'skeleton',hp:25000,atk:820,armor:120,hit:104,dodge:104,xp:1320,gold:[800,1200]},
   skeleton_mage:   {id:'skeleton_mage',  name:'💀 Skeleton Mage',   icon:'skeleton',hp:31000,atk:960, armor:144,hit:122,dodge:122,xp:1580,gold:[960,1440]},
   skeleton_knight: {id:'skeleton_knight',name:'💀 Skeleton Knight', icon:'skeleton',hp:39000,atk:1120,armor:170,hit:144,dodge:144,xp:1900,gold:[1160,1740]},
-
-  // 👊 ORC STRONGHOLD (Stage 5)
   orc_grunt:       {id:'orc_grunt',      name:'👊 Orc Grunt',       icon:'orc',     hp:48000,atk:1300,armor:200,hit:170,dodge:170,xp:2280,gold:[1400,2100]},
-  orc_warrior:     {id:'orc_warrior',    name:'👊 Orc Warrior',     icon:'orc',     hp:6000,atk:1520,armor:236,hit:200,dodge:200,xp:2740,gold:[1680,2520]},
+  orc_warrior:     {id:'orc_warrior',    name:'👊 Orc Warrior',     icon:'orc',     hp:60000,atk:1520,armor:236,hit:200,dodge:200,xp:2740,gold:[1680,2520]},
   orc_shaman:      {id:'orc_shaman',     name:'👊 Orc Shaman',      icon:'orc',     hp:74000,atk:1780,armor:278,hit:234,dodge:234,xp:3280,gold:[2020,3020]},
   orc_berserker:   {id:'orc_berserker',  name:'👊 Orc Berserker',   icon:'orc',     hp:92000,atk:2080,armor:326,hit:274,dodge:274,xp:3940,gold:[2420,3640]},
-
-  // 🧛 VAMPIRE CASTLE (Stage 6)
   vampire_thrall:  {id:'vampire_thrall', name:'🧛 Vampire Thrall',  icon:'vampire', hp:114000,atk:2440,armor:382,hit:322,dodge:322,xp:4720,gold:[2900,4360]},
   vampire_hunter:  {id:'vampire_hunter', name:'🧛 Vampire Hunter',  icon:'vampire', hp:140000,atk:2860,armor:448,hit:378,dodge:378,xp:5680,gold:[3500,5240]},
   vampire_noble:   {id:'vampire_noble',  name:'🧛 Vampire Noble',   icon:'vampire', hp:172000,atk:3340,armor:524,hit:442,dodge:442,xp:6820,gold:[4200,6300]},
   vampire_elder:   {id:'vampire_elder',  name:'🧛 Vampire Elder',   icon:'vampire', hp:212000,atk:3900,armor:614,hit:518,dodge:518,xp:8180,gold:[5040,7560]},
-
-  // 👾 TROLL CAVES (Stage 7)
   cave_troll:      {id:'cave_troll',     name:'👾 Cave Troll',      icon:'troll',   hp:260000,atk:4560,armor:718,hit:606,dodge:606,xp:9820,gold:[6050,9080]},
   rock_troll:      {id:'rock_troll',     name:'👾 Rock Troll',      icon:'troll',   hp:320000,atk:5320,armor:840,hit:708,dodge:708,xp:11780,gold:[7260,10900]},
   frost_troll:     {id:'frost_troll',    name:'👾 Frost Troll',     icon:'troll',   hp:394000,atk:6220,armor:982,hit:828,dodge:828,xp:14140,gold:[8720,13080]},
   war_troll:       {id:'war_troll',      name:'👾 War Troll',       icon:'troll',   hp:486000,atk:7280,armor:1148,hit:968,dodge:968,xp:16960,gold:[10460,15700]},
-
-  // 😈 DEMON CITADEL (Stage 8)
   demon_scout:     {id:'demon_scout',    name:'😈 Demon Scout',     icon:'demon',   hp:598000,atk:8500,armor:1342,hit:1132,dodge:1132,xp:20360,gold:[12560,18840]},
   demon_warrior:   {id:'demon_warrior',  name:'😈 Demon Warrior',   icon:'demon',   hp:736000,atk:9940,armor:1568,hit:1322,dodge:1322,xp:24440,gold:[15080,22620]},
   demon_mage:      {id:'demon_mage',     name:'😈 Demon Mage',      icon:'demon',   hp:906000,atk:11620,armor:1832,hit:1546,dodge:1546,xp:29320,gold:[18100,27140]},
   demon_knight:    {id:'demon_knight',   name:'😈 Demon Knight',    icon:'demon',   hp:1116000,atk:13580,armor:2140,hit:1806,dodge:1806,xp:35180,gold:[21720,32580]},
-
-  // 🌑 SHADOW REALM (Stage 9)
   shadow_wraith:   {id:'shadow_wraith',  name:'🌑 Shadow Wraith',   icon:'werewolf',hp:1374000,atk:15880,armor:2500,hit:2112,dodge:2112,xp:42220,gold:[26060,39100]},
   shadow_knight:   {id:'shadow_knight',  name:'🌑 Shadow Knight',   icon:'werewolf',hp:1692000,atk:18560,armor:2922,hit:2468,dodge:2468,xp:50660,gold:[31280,46920]},
-  shadow_mage:     {id:'shadow_mage',    name:'🌑 Shadow Mage',     icon:'werewolf',hp:2084000,atk:21700,armor:3416,  hit:2886,dodge:2886,xp:60800,gold:[37540,56300]},
+  shadow_mage:     {id:'shadow_mage',    name:'🌑 Shadow Mage',     icon:'werewolf',hp:2084000,atk:21700,armor:3416,hit:2886,dodge:2886,xp:60800,gold:[37540,56300]},
   shadow_lord:     {id:'shadow_lord',    name:'🌑 Shadow Lord',     icon:'werewolf',hp:2568000,atk:25380,armor:3994,hit:3372,dodge:3372,xp:72960,gold:[45050,67580]},
-
-  // 🌟 ETERNAL KINGDOM (Stage 10)
   eternal_guard:   {id:'eternal_guard',  name:'🌟 Eternal Guard',   icon:'phoenix', hp:3164000,atk:29680,armor:4668,hit:3942,dodge:3942,xp:87560,gold:[54060,81100]},
   eternal_warrior: {id:'eternal_warrior',name:'🌟 Eternal Warrior', icon:'phoenix', hp:3898000,atk:34700,armor:5460,hit:4608,dodge:4608,xp:105080,gold:[64880,97320]},
   eternal_mage:    {id:'eternal_mage',   name:'🌟 Eternal Mage',    icon:'phoenix', hp:4802000,atk:40580,armor:6386,hit:5388,dodge:5388,xp:126100,gold:[77860,116800]},
   eternal_champion:{id:'eternal_champion',name:'🌟 Eternal Champion',icon:'phoenix',hp:5916000,atk:47460,armor:7468,hit:6300,dodge:6300,xp:151300,gold:[93440,140160]},
 };
 
-// ── STAGE DEFINITIONS ──
-const STAGES = [
-  {
-    id: 1, name: '🐺 Wolf Mountain', levelReq: 1,
-    monsters: ['young_wolf','forest_wolf','shadow_wolf','dire_wolf'],
-    bossId: 'stage_boss_1'
-  },
-  {
-    id: 2, name: '🕷️ Spider Cavern', levelReq: 10,
-    monsters: ['cave_spider','venom_spider','giant_spider','queen_spider'],
-    bossId: 'stage_boss_2'
-  },
-  {
-    id: 3, name: '👹 Goblin Fortress', levelReq: 20,
-    monsters: ['goblin_scout','goblin_warrior','goblin_shaman','goblin_elite'],
-    bossId: 'stage_boss_3'
-  },
-  {
-    id: 4, name: '💀 Skeleton Crypt', levelReq: 30,
-    monsters: ['skeleton_archer','skeleton_warrior','skeleton_mage','skeleton_knight'],
-    bossId: 'stage_boss_4'
-  },
-  {
-    id: 5, name: '👊 Orc Stronghold', levelReq: 40,
-    monsters: ['orc_grunt','orc_warrior','orc_shaman','orc_berserker'],
-    bossId: 'stage_boss_5'
-  },
-  {
-    id: 6, name: '🧛 Vampire Castle', levelReq: 50,
-    monsters: ['vampire_thrall','vampire_hunter','vampire_noble','vampire_elder'],
-    bossId: 'stage_boss_6'
-  },
-  {
-    id: 7, name: '👾 Troll Caves', levelReq: 60,
-    monsters: ['cave_troll','rock_troll','frost_troll','war_troll'],
-    bossId: 'stage_boss_7'
-  },
-  {
-    id: 8, name: '😈 Demon Citadel', levelReq: 70,
-    monsters: ['demon_scout','demon_warrior','demon_mage','demon_knight'],
-    bossId: 'stage_boss_8'
-  },
-  {
-    id: 9, name: '🌑 Shadow Realm', levelReq: 80,
-    monsters: ['shadow_wraith','shadow_knight','shadow_mage','shadow_lord'],
-    bossId: 'stage_boss_9'
-  },
-  {
-    id: 10, name: '🌟 Eternal Kingdom', levelReq: 90,
-    monsters: ['eternal_guard','eternal_warrior','eternal_mage','eternal_champion'],
-    bossId: 'stage_boss_10'
-  },
+// ── STAGES ──
+const STAGES=[
+  {id:1, name:'🐺 Wolf Mountain',    levelReq:1,  monsters:['young_wolf','forest_wolf','shadow_wolf','dire_wolf'],                   bossId:'stage_boss_1'},
+  {id:2, name:'🕷️ Spider Cavern',    levelReq:10, monsters:['cave_spider','venom_spider','giant_spider','queen_spider'],             bossId:'stage_boss_2'},
+  {id:3, name:'👹 Goblin Fortress',  levelReq:20, monsters:['goblin_scout','goblin_warrior','goblin_shaman','goblin_elite'],         bossId:'stage_boss_3'},
+  {id:4, name:'💀 Skeleton Crypt',   levelReq:30, monsters:['skeleton_archer','skeleton_warrior','skeleton_mage','skeleton_knight'], bossId:'stage_boss_4'},
+  {id:5, name:'👊 Orc Stronghold',   levelReq:40, monsters:['orc_grunt','orc_warrior','orc_shaman','orc_berserker'],                 bossId:'stage_boss_5'},
+  {id:6, name:'🧛 Vampire Castle',   levelReq:50, monsters:['vampire_thrall','vampire_hunter','vampire_noble','vampire_elder'],      bossId:'stage_boss_6'},
+  {id:7, name:'👾 Troll Caves',      levelReq:60, monsters:['cave_troll','rock_troll','frost_troll','war_troll'],                    bossId:'stage_boss_7'},
+  {id:8, name:'😈 Demon Citadel',    levelReq:70, monsters:['demon_scout','demon_warrior','demon_mage','demon_knight'],              bossId:'stage_boss_8'},
+  {id:9, name:'🌑 Shadow Realm',     levelReq:80, monsters:['shadow_wraith','shadow_knight','shadow_mage','shadow_lord'],            bossId:'stage_boss_9'},
+  {id:10,name:'🌟 Eternal Kingdom',  levelReq:90, monsters:['eternal_guard','eternal_warrior','eternal_mage','eternal_champion'],    bossId:'stage_boss_10'},
 ];
 
-// ── STAGE BOSSES WITH UNIQUE ABILITIES ──
-const STAGE_BOSSES = {
-  stage_boss_1: {
-    id:'stage_boss_1', name:'🐺 Wolf King', icon:'🐺',
-    hp:5000, atk:400, armor:80, hit:60, dodge:60, xp:2000, gold:[500,1000],
-    ability:{
-      name:'PACK HOWL!', color:'#ffdd00', triggerEvery:3,
-      desc:'Summons wolf pack — deals bonus damage!',
-      effect:(e)=>{
-        const bonusDmg = Math.floor(e.atk * 0.5);
-        state.hp = Math.max(1, state.hp - bonusDmg);
-        spawnAbilityFloat('🐺 PACK HOWL!','#ffdd00');
-        addCombatLog(`🐺 Wolf King howls! Pack attacks for ${bonusDmg}!`,'bad');
-        animateAttack(false, bonusDmg, false);
-      }
-    },
-    cs:{title:'Wolf King',req:'Required: Stage 1 Clear',text:'The mighty Wolf King rises from the pack! His howl shakes the mountain. Wolves gather at his call!'},
-  },
-  stage_boss_2: {
-    id:'stage_boss_2', name:'🕷️ Spider Queen', icon:'🕷️',
-    hp:15000, atk:900, armor:200, hit:150, dodge:150, xp:5000, gold:[1200,2400],
-    ability:{
-      name:'WEB TRAP!', color:'#44ff44', triggerEvery:3,
-      desc:'Reduces your dodge to 0 for 2 turns!',
-      effect:(e)=>{
-        state.webTrapped = 2;
-        spawnAbilityFloat('🕸️ WEB TRAP!','#44ff44');
-        addCombatLog(`🕸️ Spider Queen webs you! Dodge reduced to 0 for 2 turns!`,'bad');
-      }
-    },
-    cs:{title:'Spider Queen',req:'Required: Stage 2 Clear',text:'From the depths of her web kingdom, the Spider Queen descends! Her silk traps even the mightiest warriors!'},
-  },
-  stage_boss_3: {
-    id:'stage_boss_3', name:'👹 Goblin Warlord', icon:'👹',
-    hp:35000, atk:1800, armor:500, hit:350, dodge:350, xp:10000, gold:[2500,5000],
-    ability:{
-      name:'GOLD STEAL!', color:'#f0c040', triggerEvery:3,
-      desc:'Steals 10% of your gold!',
-      effect:(e)=>{
-        const stolen = Math.floor(state.gold * 0.10);
-        state.gold = Math.max(0, state.gold - stolen);
-        spawnAbilityFloat('💰 GOLD STEAL!','#f0c040');
-        addCombatLog(`💰 Goblin Warlord steals ${stolen} gold!`,'bad');
-      }
-    },
-    cs:{title:'Goblin Warlord',req:'Required: Stage 3 Clear',text:'The Goblin Warlord commands an army of thieves! He wants your gold and your head!'},
-  },
-  stage_boss_4: {
-    id:'stage_boss_4', name:'💀 Skeleton Lord', icon:'💀',
-    hp:80000, atk:3500, armor:1100, hit:800, dodge:800, xp:20000, gold:[5000,10000],
-    ability:{
-      name:'DEATH CURSE!', color:'#aa44ff', triggerEvery:3,
-      desc:'Reduces your max HP by 5% permanently this fight!',
-      effect:(e)=>{
-  const reduction = Math.floor(state.maxHp * 0.05);
-  state.activeDebuffs.maxHpReduction += reduction;
-  state.equipMaxHp = (state.equipMaxHp||0) - reduction;
-  spawnAbilityFloat('💀 DEATH CURSE!','#aa44ff');
-  addCombatLog(`💀 Death Curse! Max HP reduced by ${reduction}!`,'bad');
-  calcStats();
-}
-    },
-    cs:{title:'Skeleton Lord',req:'Required: Stage 4 Clear',text:'The Skeleton Lord rises from his eternal tomb! His death magic weakens even the strongest heroes!'},
-  },
-  stage_boss_5: {
-    id:'stage_boss_5', name:'👊 Orc Chieftain', icon:'👊',
-    hp:180000, atk:7000, armor:2400, hit:1800, dodge:1800, xp:40000, gold:[10000,20000],
-    ability:{
-      name:'BERSERKER RAGE!', color:'#ff8800', triggerEvery:5,
-      desc:'Doubles ATK for 3 turns!',
-      effect:(e)=>{
-        currentEnemy.atk = Math.floor(currentEnemy.atk * 2);
-        currentEnemy.rageTimer = 3;
-        spawnAbilityFloat('👊 BERSERKER RAGE!','#ff8800');
-        addCombatLog(`👊 Orc Chieftain goes berserk! ATK doubled for 3 turns!`,'bad');
-      }
-    },
-    cs:{title:'Orc Chieftain',req:'Required: Stage 5 Clear',text:'The Orc Chieftain is the strongest warrior alive! When he rages, no armor can protect you!'},
-  },
-  stage_boss_6: {
-    id:'stage_boss_6', name:'🧛 Vampire Lord', icon:'🧛',
-    hp:400000, atk:14000, armor:5000, hit:4000, dodge:4000, xp:80000, gold:[20000,40000],
-    ability:{
-      name:'LIFE DRAIN!', color:'#ff2244', triggerEvery:3,
-      desc:'Heals 20% of damage dealt!',
-      effect:(e)=>{
-        const healAmt = Math.floor(currentEnemy.atk * 0.2);
-        currentEnemy.hp = Math.min(currentEnemy.maxHp, currentEnemy.hp + healAmt);
-        spawnAbilityFloat('🧛 LIFE DRAIN!','#ff2244');
-        addCombatLog(`🧛 Vampire Lord drains life! Heals ${healAmt} HP!`,'bad');
-        updateEnemyBar();
-      }
-    },
-    cs:{title:'Vampire Lord',req:'Required: Stage 6 Clear',text:'The Vampire Lord rules the night! His life drain makes him nearly unkillable. Strike fast!'},
-  },
-  stage_boss_7: {
-    id:'stage_boss_7', name:'👾 Troll King', icon:'👾',
-    hp:900000, atk:28000, armor:10000, hit:8000, dodge:8000, xp:160000, gold:[40000,80000],
-    ability:{
-      name:'REGENERATION!', color:'#00ff88', triggerEvery:2,
-      desc:'Heals 3% max HP every 2 turns!',
-      effect:(e)=>{
-        const healAmt = Math.floor(currentEnemy.maxHp * 0.03);
-        currentEnemy.hp = Math.min(currentEnemy.maxHp, currentEnemy.hp + healAmt);
-        spawnAbilityFloat('👾 REGENERATION!','#00ff88');
-        addCombatLog(`👾 Troll King regenerates ${healAmt} HP!`,'bad');
-        updateEnemyBar();
-      }
-    },
-    cs:{title:'Troll King',req:'Required: Stage 7 Clear',text:'The Troll King cannot be killed! His regeneration is legendary. You must deal massive damage fast!'},
-  },
-  stage_boss_8: {
-    id:'stage_boss_8', name:'😈 Demon Prince', icon:'😈',
-    hp:2000000, atk:55000, armor:20000, hit:16000, dodge:16000, xp:320000, gold:[80000,160000],
-    ability:{
-      name:'HELLFIRE!', color:'#ff4400', triggerEvery:3,
-      desc:'Ignores your armor completely!',
-      effect:(e)=>{
-        const trueDmg = Math.floor(currentEnemy.atk * 0.8);
-        state.hp = Math.max(1, state.hp - trueDmg);
-        spawnAbilityFloat('😈 HELLFIRE!','#ff4400');
-        addCombatLog(`😈 Hellfire! ${trueDmg} true damage — armor ignored!`,'bad');
-        animateAttack(false, trueDmg, false);
-      }
-    },
-    cs:{title:'Demon Prince',req:'Required: Stage 8 Clear',text:'The Demon Prince wields hellfire that melts through any armor! Your defense means nothing here!'},
-  },
-  stage_boss_9: {
-    id:'stage_boss_9', name:'🌑 Shadow Emperor', icon:'🌑',
-    hp:5000000, atk:110000, armor:40000, hit:32000, dodge:32000, xp:640000, gold:[160000,320000],
-    ability:{
-      name:'PHASE SHIFT!', color:'#4488ff', triggerEvery:3,
-      desc:'Becomes untargetable — your next attack misses!',
-      effect:(e)=>{
-        currentEnemy.phaseShifted = true;
-        spawnAbilityFloat('🌑 PHASE SHIFT!','#4488ff');
-        addCombatLog(`🌑 Shadow Emperor phases out! Next attack will miss!`,'bad');
-      }
-    },
-    cs:{title:'Shadow Emperor',req:'Required: Stage 9 Clear',text:'The Shadow Emperor exists between dimensions! He phases in and out of reality. Time your attacks carefully!'},
-  },
-  stage_boss_10: {
-    id:'stage_boss_10', name:'🌟 Eternal King', icon:'🌟',
-    hp:12000000, atk:220000, armor:80000, hit:64000, dodge:64000, xp:1500000, gold:[400000,800000],
-    ability:{
-      name:'ALL POWERS!', color:'#ffffff', triggerEvery:2,
-      desc:'Uses all abilities randomly!',
-      effect:(e)=>{
-        const abilities = ['pack_howl','web_trap','gold_steal','death_curse','berserker','life_drain','regen','hellfire','phase_shift'];
-        const chosen = abilities[Math.floor(Math.random()*abilities.length)];
-        spawnAbilityFloat('🌟 ETERNAL POWER!','#ffffff');
-        // Random ability effect
-        const trueDmg = Math.floor(currentEnemy.atk * 0.6);
-        state.hp = Math.max(1, state.hp - trueDmg);
-        addCombatLog(`🌟 Eternal King unleashes ancient power! ${trueDmg} damage!`,'bad');
-        animateAttack(false, trueDmg, false);
-      }
-    },
-    cs:{title:'Eternal King',req:'Required: Stage 10 — FINAL BOSS',text:'The Eternal King combines ALL the powers of every boss you have defeated! This is the ultimate challenge. Are you ready?'},
-  },
+// ── STAGE BOSSES ──
+const STAGE_BOSSES={
+  stage_boss_1:{id:'stage_boss_1',name:'🐺 Wolf King',icon:'🐺',hp:5000,atk:400,armor:80,hit:60,dodge:60,xp:2000,gold:[500,1000],
+    ability:{name:'PACK HOWL!',color:'#ffdd00',triggerEvery:3,effect:(e)=>{const d=Math.floor(e.atk*0.5);state.hp=Math.max(1,state.hp-d);spawnAbilityFloat('🐺 PACK HOWL!','#ffdd00');addCombatLog(`🐺 Wolf King howls! Pack attacks for ${d}!`,'bad');animateAttack(false,d,false);}},
+    cs:{title:'Wolf King',req:'Required: Stage 1 Clear',text:'The mighty Wolf King rises from the pack!'}},
+  stage_boss_2:{id:'stage_boss_2',name:'🕷️ Spider Queen',icon:'🕷️',hp:15000,atk:900,armor:200,hit:150,dodge:150,xp:5000,gold:[1200,2400],
+    ability:{name:'WEB TRAP!',color:'#44ff44',triggerEvery:3,effect:(e)=>{state.webTrapped=2;spawnAbilityFloat('🕸️ WEB TRAP!','#44ff44');addCombatLog(`🕸️ Spider Queen webs you! Dodge 0 for 2 turns!`,'bad');}},
+    cs:{title:'Spider Queen',req:'Required: Stage 2 Clear',text:'From the depths of her web kingdom, the Spider Queen descends!'}},
+  stage_boss_3:{id:'stage_boss_3',name:'👹 Goblin Warlord',icon:'👹',hp:35000,atk:1800,armor:500,hit:350,dodge:350,xp:10000,gold:[2500,5000],
+    ability:{name:'GOLD STEAL!',color:'#f0c040',triggerEvery:3,effect:(e)=>{const s=Math.floor(state.gold*0.10);state.gold=Math.max(0,state.gold-s);spawnAbilityFloat('💰 GOLD STEAL!','#f0c040');addCombatLog(`💰 Goblin Warlord steals ${s} gold!`,'bad');}},
+    cs:{title:'Goblin Warlord',req:'Required: Stage 3 Clear',text:'The Goblin Warlord commands an army of thieves!'}},
+  stage_boss_4:{id:'stage_boss_4',name:'💀 Skeleton Lord',icon:'💀',hp:80000,atk:3500,armor:1100,hit:800,dodge:800,xp:20000,gold:[5000,10000],
+    ability:{name:'DEATH CURSE!',color:'#aa44ff',triggerEvery:3,effect:(e)=>{const r=Math.floor(state.maxHp*0.05);state.activeDebuffs.maxHpReduction+=r;state.equipMaxHp=(state.equipMaxHp||0)-r;spawnAbilityFloat('💀 DEATH CURSE!','#aa44ff');addCombatLog(`💀 Death Curse! Max HP -${r}!`,'bad');calcStats();}},
+    cs:{title:'Skeleton Lord',req:'Required: Stage 4 Clear',text:'The Skeleton Lord rises from his eternal tomb!'}},
+  stage_boss_5:{id:'stage_boss_5',name:'👊 Orc Chieftain',icon:'👊',hp:180000,atk:7000,armor:2400,hit:1800,dodge:1800,xp:40000,gold:[10000,20000],
+    ability:{name:'BERSERKER RAGE!',color:'#ff8800',triggerEvery:5,effect:(e)=>{currentEnemy.atk=Math.floor(currentEnemy.atk*2);currentEnemy.rageTimer=3;spawnAbilityFloat('👊 BERSERKER RAGE!','#ff8800');addCombatLog(`👊 Orc Chieftain berserk! ATK doubled!`,'bad');}},
+    cs:{title:'Orc Chieftain',req:'Required: Stage 5 Clear',text:'The Orc Chieftain is the strongest warrior alive!'}},
+  stage_boss_6:{id:'stage_boss_6',name:'🧛 Vampire Lord',icon:'🧛',hp:400000,atk:14000,armor:5000,hit:4000,dodge:4000,xp:80000,gold:[20000,40000],
+    ability:{name:'LIFE DRAIN!',color:'#ff2244',triggerEvery:3,effect:(e)=>{const h=Math.floor(currentEnemy.atk*0.2);currentEnemy.hp=Math.min(currentEnemy.maxHp,currentEnemy.hp+h);spawnAbilityFloat('🧛 LIFE DRAIN!','#ff2244');addCombatLog(`🧛 Vampire Lord drains life! +${h} HP!`,'bad');updateEnemyBar();}},
+    cs:{title:'Vampire Lord',req:'Required: Stage 6 Clear',text:'The Vampire Lord rules the night!'}},
+  stage_boss_7:{id:'stage_boss_7',name:'👾 Troll King',icon:'👾',hp:900000,atk:28000,armor:10000,hit:8000,dodge:8000,xp:160000,gold:[40000,80000],
+    ability:{name:'REGENERATION!',color:'#00ff88',triggerEvery:2,effect:(e)=>{const h=Math.floor(currentEnemy.maxHp*0.03);currentEnemy.hp=Math.min(currentEnemy.maxHp,currentEnemy.hp+h);spawnAbilityFloat('👾 REGENERATION!','#00ff88');addCombatLog(`👾 Troll King regenerates ${h} HP!`,'bad');updateEnemyBar();}},
+    cs:{title:'Troll King',req:'Required: Stage 7 Clear',text:'The Troll King cannot be killed!'}},
+  stage_boss_8:{id:'stage_boss_8',name:'😈 Demon Prince',icon:'😈',hp:2000000,atk:55000,armor:20000,hit:16000,dodge:16000,xp:320000,gold:[80000,160000],
+    ability:{name:'HELLFIRE!',color:'#ff4400',triggerEvery:3,effect:(e)=>{const d=Math.floor(currentEnemy.atk*0.8);state.hp=Math.max(1,state.hp-d);spawnAbilityFloat('😈 HELLFIRE!','#ff4400');addCombatLog(`😈 Hellfire! ${d} true damage!`,'bad');animateAttack(false,d,false);}},
+    cs:{title:'Demon Prince',req:'Required: Stage 8 Clear',text:'The Demon Prince wields hellfire that melts through any armor!'}},
+  stage_boss_9:{id:'stage_boss_9',name:'🌑 Shadow Emperor',icon:'🌑',hp:5000000,atk:110000,armor:40000,hit:32000,dodge:32000,xp:640000,gold:[160000,320000],
+    ability:{name:'PHASE SHIFT!',color:'#4488ff',triggerEvery:3,effect:(e)=>{currentEnemy.phaseShifted=true;spawnAbilityFloat('🌑 PHASE SHIFT!','#4488ff');addCombatLog(`🌑 Shadow Emperor phases out! Next attack misses!`,'bad');}},
+    cs:{title:'Shadow Emperor',req:'Required: Stage 9 Clear',text:'The Shadow Emperor exists between dimensions!'}},
+  stage_boss_10:{id:'stage_boss_10',name:'🌟 Eternal King',icon:'🌟',hp:12000000,atk:220000,armor:80000,hit:64000,dodge:64000,xp:1500000,gold:[400000,800000],
+    ability:{name:'ALL POWERS!',color:'#ffffff',triggerEvery:2,effect:(e)=>{const d=Math.floor(currentEnemy.atk*0.6);state.hp=Math.max(1,state.hp-d);spawnAbilityFloat('🌟 ETERNAL POWER!','#ffffff');addCombatLog(`🌟 Eternal King unleashes power! ${d} damage!`,'bad');animateAttack(false,d,false);}},
+    cs:{title:'Eternal King',req:'Required: Stage 10 — FINAL BOSS',text:'The Eternal King combines ALL the powers of every boss!'}},
 };
 
-// ── SCALE MONSTER TO STAGE ──
-function scaleMonster(templateId, stageLevel) {
-  const tmpl = MONSTER_TEMPLATES[templateId];
-  if (!tmpl) return null;
-  const diff = DIFFICULTY[state.difficulty || 'normal'];
-  const stageScale = 1 + (stageLevel - 1) * 0.9;
-  const s = stageScale * diff.hpMult;
-  const a = stageScale * diff.atkMult;
-  return {
-    ...tmpl,
-    hp:    Math.floor(tmpl.hp    * s),
-    maxHp: Math.floor(tmpl.hp    * s),
-    atk:   Math.floor(tmpl.atk   * a),
-    armor: Math.floor(tmpl.armor * stageScale),
-    hit:   Math.floor(tmpl.hit   * stageScale),
-    dodge: Math.floor(tmpl.dodge * stageScale),
-    xp:    Math.floor(tmpl.xp    * diff.xpMult),
-    gold:  [
-      Math.floor(tmpl.gold[0] * diff.goldMult),
-      Math.floor(tmpl.gold[1] * diff.goldMult)
-    ],
-    poisoned: 0, frozen: false, boss: false,
-    _xpMult: 1, _goldMult: 1,
-  };
+function scaleMonster(templateId,stageLevel){
+  const tmpl=MONSTER_TEMPLATES[templateId];if(!tmpl)return null;
+  const diff=DIFFICULTY[state.difficulty||'normal'];
+  const stageScale=1+(stageLevel-1)*0.9;
+  return{...tmpl,hp:Math.floor(tmpl.hp*stageScale*diff.hpMult),maxHp:Math.floor(tmpl.hp*stageScale*diff.hpMult),atk:Math.floor(tmpl.atk*stageScale*diff.atkMult),armor:Math.floor(tmpl.armor*stageScale),hit:Math.floor(tmpl.hit*stageScale),dodge:Math.floor(tmpl.dodge*stageScale),xp:Math.floor(tmpl.xp*diff.xpMult),gold:[Math.floor(tmpl.gold[0]*diff.goldMult),Math.floor(tmpl.gold[1]*diff.goldMult)],poisoned:0,frozen:false,boss:false,_xpMult:1,_goldMult:1};
 }
 
-// ── ENTER DUNGEON ──
-function enterDungeon(stageId) {
-  const stage = STAGES.find(s => s.id === stageId);
-  if (!stage) return;
-  if (state.level < stage.levelReq) {
-    notify(`⚠️ Need Level ${stage.levelReq} to enter ${stage.name}!`, 'var(--red)');
-    return;
-  }
-
-  currentStage = stage;
-  dungeonWave = 0;
-  dungeonQueue = [];
-
-  addLog(`⚔️ Entering ${stage.name}!`, 'gold');
-  notify(`⚔️ ${stage.name} — Prepare for battle!`, 'var(--gold)');
-
-  // Hide choices, show story
-  document.getElementById('choices-box').style.display = 'none';
-  document.getElementById('story-content').innerHTML = `
-    <div class="scene-title">${stage.name}</div>
-    <p style="color:#aaa;">Three waves of monsters await... then the boss!</p>
-    <p style="color:var(--gold);margin-top:8px;">⚔️ Wave 1 incoming!</p>
-  `;
-
+// ── DUNGEON FLOW ──
+function enterDungeon(stageId){
+  const stage=STAGES.find(s=>s.id===stageId);if(!stage)return;
+  if(state.level<stage.levelReq){notify(`⚠️ Need Level ${stage.levelReq} to enter ${stage.name}!`,'var(--red)');return;}
+  currentStage=stage;dungeonWave=0;dungeonQueue=[];
+  addLog(`⚔️ Entering ${stage.name}!`,'gold');notify(`⚔️ ${stage.name} — Prepare!`,'var(--gold)');
+  document.getElementById('choices-box').style.display='none';
+  document.getElementById('story-content').innerHTML=`<div class="scene-title">${stage.name}</div><p style="color:#aaa;">Three waves of monsters await... then the boss!</p><p style="color:var(--gold);margin-top:8px;">⚔️ Wave 1 incoming!</p>`;
   startNextWave();
 }
-
-// ── WAVE ANNOUNCEMENT ──
-function showWaveAnnouncement(text, color) {
-  const div = document.createElement('div');
-  div.style.cssText = `
-    position:fixed;
-    top:45%;
-    left:50%;
-    transform:translate(-50%,-50%);
-    font-family:'Cinzel',serif;
-    font-size:2em;
-    font-weight:700;
-    color:${color};
-    text-shadow:0 0 30px ${color};
-    pointer-events:none;
-    z-index:9999;
-    animation:levelUpFlash 2s ease forwards;
-    white-space:nowrap;
-  `;
-  div.textContent = text;
-  document.body.appendChild(div);
-  setTimeout(() => div.remove(), 2000);
+function showWaveAnnouncement(text,color){
+  const div=document.createElement('div');
+  div.style.cssText=`position:fixed;top:45%;left:50%;transform:translate(-50%,-50%);font-family:'Cinzel',serif;font-size:2em;font-weight:700;color:${color};text-shadow:0 0 30px ${color};pointer-events:none;z-index:9999;animation:levelUpFlash 2s ease forwards;white-space:nowrap;`;
+  div.textContent=text;document.body.appendChild(div);setTimeout(()=>div.remove(),2000);
 }
-
-// ── SPAWN NEXT MONSTER IN QUEUE ──
-
-function spawnNextDungeonMonster() {
-  if (!currentStage || dungeonQueue.length === 0) return;
-
-  const nextId = dungeonQueue.shift();
-
-  if (nextId === 'BOSS') {
-    triggerStageBoss(currentStage.bossId);
-    return;
-  }
-
-  const monster = scaleMonster(nextId, currentStage.id);
-  if (!monster) return;
-
-  currentEnemy = monster;
-  startCombatWith(currentEnemy);
-
-  // Auto fight starts immediately!
+function spawnNextDungeonMonster(){
+  if(!currentStage||dungeonQueue.length===0)return;
+  const nextId=dungeonQueue.shift();
+  if(nextId==='BOSS'){triggerStageBoss(currentStage.bossId);return;}
+  const monster=scaleMonster(nextId,currentStage.id);if(!monster)return;
+  currentEnemy=monster;startCombatWith(currentEnemy);
   clearInterval(autoFightTimer);
-  autoFightTimer = setInterval(() => {
-    if (!currentEnemy) { clearInterval(autoFightTimer); return; }
-    autoFightStep();
-  }, 1000);
+  autoFightTimer=setInterval(()=>{if(!currentEnemy){clearInterval(autoFightTimer);return;}autoFightStep();},1000);
 }
-// ── START NEXT WAVE ──
-function startNextWave() {
-  if (!currentStage) return;
+function startNextWave(){
+  if(!currentStage)return;
   dungeonWave++;
-
-  if (dungeonWave === 1) {
-    dungeonQueue = [currentStage.monsters[0]];
-    showWaveAnnouncement('⚔️ WAVE 1', '#f0c040');
-  } else if (dungeonWave === 2) {
-    const count = Math.floor(Math.random() * 5) + 3;
-    dungeonQueue = Array.from({length: count}, () =>
-      currentStage.monsters[Math.floor(Math.random() * currentStage.monsters.length)]
-    );
-    showWaveAnnouncement(`⚔️ WAVE 2 — ${count} enemies!`, '#ff8800');
-  } else if (dungeonWave === 3) {
-    const count = Math.floor(Math.random() * 5) + 3;
-    dungeonQueue = Array.from({length: count}, () =>
-      currentStage.monsters[Math.floor(Math.random() * currentStage.monsters.length)]
-    );
-    showWaveAnnouncement(`⚔️ WAVE 3 — ${count} enemies!`, '#ff4444');
-  } else if (dungeonWave === 4) {
-    dungeonQueue = ['BOSS'];
-    showWaveAnnouncement('💀 BOSS INCOMING!', '#ff0000');
+  if(dungeonWave===1){
+    dungeonQueue=[currentStage.monsters[0]];showWaveAnnouncement('⚔️ WAVE 1','#f0c040');
+  } else if(dungeonWave===2){
+    const c=Math.floor(Math.random()*5)+3;
+    dungeonQueue=Array.from({length:c},()=>currentStage.monsters[Math.floor(Math.random()*currentStage.monsters.length)]);
+    showWaveAnnouncement(`⚔️ WAVE 2 — ${c} enemies!`,'#ff8800');
+  } else if(dungeonWave===3){
+    const c=Math.floor(Math.random()*5)+3;
+    dungeonQueue=Array.from({length:c},()=>currentStage.monsters[Math.floor(Math.random()*currentStage.monsters.length)]);
+    showWaveAnnouncement(`⚔️ WAVE 3 — ${c} enemies!`,'#ff4444');
+  } else if(dungeonWave===4){
+    dungeonQueue=['BOSS'];showWaveAnnouncement('💀 BOSS INCOMING!','#ff0000');
   } else {
-    dungeonComplete();
-    return;
+    dungeonComplete();return;
   }
-
-  dungeonMonstersLeft = dungeonQueue.length;
-
-  // Wait for announcement to finish before spawning (2.5s)
-  setTimeout(() => spawnNextDungeonMonster(), 2500);
+  dungeonMonstersLeft=dungeonQueue.length;
+  setTimeout(()=>spawnNextDungeonMonster(),2500);
 }
-
-function triggerStageBoss(bossId) {
-  const boss = STAGE_BOSSES[bossId];
-  if (!boss) return;
-
-  // Show boss cutscene
-  pendingBossId = bossId;
-  document.getElementById('boss-icon').textContent = boss.icon;
-  document.getElementById('boss-cs-name').textContent = boss.cs.title;
-  document.getElementById('boss-cs-req').textContent = boss.cs.req;
-  document.getElementById('boss-cs-text').textContent = boss.cs.text;
-  document.getElementById('boss-cutscene').style.display = 'block';
+function triggerStageBoss(bossId){
+  const boss=STAGE_BOSSES[bossId];if(!boss)return;
+  pendingBossId=bossId;
+  document.getElementById('boss-icon').textContent=boss.icon;
+  document.getElementById('boss-cs-name').textContent=boss.cs.title;
+  document.getElementById('boss-cs-req').textContent=boss.cs.req;
+  document.getElementById('boss-cs-text').textContent=boss.cs.text;
+  document.getElementById('boss-cutscene').style.display='block';
   playSound('snd-boss');
 }
-// ── START BOSS FIGHT ──
 function startBossFight(){
-  if(currentStage){
-    startStageBossFight();
-    return;
-  }
+  if(currentStage){startStageBossFight();return;}
+  document.getElementById('boss-cutscene').style.display='none';
+}
+function startStageBossFight(){
   document.getElementById('boss-cutscene').style.display='none';
   if(!pendingBossId)return;
-  const boss=BOSSES.find(b=>b.id===pendingBossId);if(!boss)return;
-
+  const boss=STAGE_BOSSES[pendingBossId];if(!boss)return;
   const diff=DIFFICULTY[state.difficulty||'normal'];
-  const scale=1+Math.max(0,(state.level-boss.levelReq))*0.05;
-
-  // Add difficulty prefix to boss name
+  const stageLevel=currentStage?currentStage.id:1;
+  const stageScale=1+(stageLevel-1)*0.5;
   const prefix=state.difficulty==='hell'?'💀 Hell ':state.difficulty==='hard'?'🔥 Hard ':'';
-
-  currentEnemy={
-    ...boss,
-    name:prefix+boss.name,
-    hp:Math.floor(boss.hp*scale*diff.hpMult),
-    maxHp:Math.floor(boss.hp*scale*diff.hpMult),
-    atk:Math.floor(boss.atk*scale*diff.atkMult),
-    armor:boss.armor,
-    poisoned:0,frozen:false,crippled:0,boss:true,
-    _xpMult:diff.xpMult,
-    _goldMult:diff.goldMult,
-  };
+  currentEnemy={...boss,name:prefix+boss.name,hp:Math.floor(boss.hp*stageScale*diff.hpMult),maxHp:Math.floor(boss.hp*stageScale*diff.hpMult),atk:Math.floor(boss.atk*stageScale*diff.atkMult),armor:Math.floor(boss.armor*stageScale),hit:Math.floor(boss.hit*stageScale),dodge:Math.floor(boss.dodge*stageScale),xp:Math.floor(boss.xp*diff.xpMult),gold:[Math.floor(boss.gold[0]*diff.goldMult),Math.floor(boss.gold[1]*diff.goldMult)],poisoned:0,frozen:false,boss:true,abilityTurn:0,_xpMult:1,_goldMult:1};
   startCombatWith(currentEnemy);
-}
-
-// ── START STAGE BOSS FIGHT ──
-function startStageBossFight() {
-  document.getElementById('boss-cutscene').style.display = 'none';
-  if (!pendingBossId) return;
-
-  const boss = STAGE_BOSSES[pendingBossId];
-  if (!boss) return;
-
-  const diff = DIFFICULTY[state.difficulty || 'normal'];
-  const stageLevel = currentStage ? currentStage.id : 1;
-  const stageScale = 1 + (stageLevel - 1) * 0.5;
-
-  const prefix = state.difficulty==='hell'?'💀 Hell ':state.difficulty==='hard'?'🔥 Hard ':'';
-
-  currentEnemy = {
-    ...boss,
-    name: prefix + boss.name,
-    hp: Math.floor(boss.hp * stageScale * diff.hpMult),
-    maxHp: Math.floor(boss.hp * stageScale * diff.hpMult),
-    atk: Math.floor(boss.atk * stageScale * diff.atkMult),
-    armor: Math.floor(boss.armor * stageScale),
-    hit: Math.floor(boss.hit * stageScale),
-    dodge: Math.floor(boss.dodge * stageScale),
-    xp: Math.floor(boss.xp * diff.xpMult),
-    gold: [
-      Math.floor(boss.gold[0] * diff.goldMult),
-      Math.floor(boss.gold[1] * diff.goldMult)
-    ],
-    poisoned: 0, frozen: false, boss: true,
-    abilityTurn: 0,
-    _xpMult: 1, _goldMult: 1,
-  };
-
-  startCombatWith(currentEnemy);
-
-  // Auto fight starts immediately for boss too!
   clearInterval(autoFightTimer);
-  autoFightTimer = setInterval(() => {
-    if (!currentEnemy) { clearInterval(autoFightTimer); return; }
-    autoFightStep();
-  }, 1000);
+  autoFightTimer=setInterval(()=>{if(!currentEnemy){clearInterval(autoFightTimer);return;}autoFightStep();},1000);
 }
-
-// ── DUNGEON COMPLETE ──
-function dungeonComplete() {
-  const stageId = currentStage.id;
-  currentStage = null;
-  dungeonWave = 0;
-  dungeonQueue = [];
-
-  addLog('🏆 Dungeon Complete!', 'legendary');
-  notify('🏆 Dungeon Complete!', 'var(--gold)');
-
-  // Drop treasure box
+function dungeonComplete(){
+  const stageId=currentStage.id;
+  currentStage=null;dungeonWave=0;dungeonQueue=[];
+  addLog('🏆 Dungeon Complete!','legendary');notify('🏆 Dungeon Complete!','var(--gold)');
   dropTreasureBox(stageId);
-
-  // Show completion screen
-  document.getElementById('story-content').innerHTML = `
-    <div class="scene-title">🏆 Dungeon Complete!</div>
-    <p style="color:var(--gold);margin-bottom:8px;">All enemies defeated!</p>
-    <p style="color:#aaa;">A treasure chest has been added to your inventory!</p>
-    <p style="color:#aaa;margin-top:4px;">Open it from the Items tab to claim your rewards!</p>
-  `;
-
-  const box = document.getElementById('choices-box');
-  box.innerHTML = '';
-  box.style.display = 'flex';
-  const btn = document.createElement('button');
-  btn.className = 'choice-btn fade-in';
-  btn.innerHTML = '🏘️ Return to Town';
-  btn.onclick = () => loadScene('town');
-  box.appendChild(btn);
-
-  updateUI();
-  renderInventory();
+  document.getElementById('story-content').innerHTML=`<div class="scene-title">🏆 Dungeon Complete!</div><p style="color:var(--gold);margin-bottom:8px;">All enemies defeated!</p><p style="color:#aaa;">A treasure chest has been added to your inventory!</p>`;
+  const box=document.getElementById('choices-box');box.innerHTML='';box.style.display='flex';
+  const btn=document.createElement('button');btn.className='choice-btn fade-in';btn.innerHTML='🏘️ Return to Town';btn.onclick=()=>loadScene('town');box.appendChild(btn);
+  updateUI();renderInventory();
 }
-
-// ── ITEM HELPERS ──
-const SLOT_ICONS={weapon:'⚔️',armor:'🛡️',helmet:'⛑️',boots:'👢',ring:'💍',amulet:'📿'};
-const EQUIP_PREFIXES={legendary:['Divine','Mythic','Godforged','Ancient','Eternal','Celestial'],epic:['Heroic','Valiant','Exalted','Magnificent','Radiant'],rare:['Polished','Reinforced','Enchanted','Gleaming'],uncommon:['Sturdy','Sharpened','Improved','Sturdy'],normal:['Iron','Wooden','Basic','Simple']};
-const EQUIP_NAMES={weapon:['Blade','Sword','Axe','Spear','Dagger','Staff','Bow'],armor:['Plate','Chainmail','Robe','Leather','Cuirass'],helmet:['Helm','Crown','Hood','Circlet','Visor'],boots:['Greaves','Sabatons','Boots','Treads'],ring:['Band','Seal','Loop','Signet'],amulet:['Pendant','Amulet','Talisman','Necklace']};
-const EQUIP_STATS={weapon:{str:[15,35], lifeSteal:[0.07, 0.09]},armor:{armor:[25,55], sta:[15,35],maxHp:[200,300],hpRegen:[25,75]},helmet:{armor:[35,65],int:[15,35]},boots:{agi:[15,35]},ring:{str:[15,35],int:[15,35]},amulet:{int:[25,45],maxMp:[105,205]}};
-
-function mkEquipDrop(slot, rarity){
-  rarity = applyRarityBonus(rarity);
-  const mult=RARITY[rarity].mult;
-  const prefix=EQUIP_PREFIXES[rarity][Math.floor(Math.random()*EQUIP_PREFIXES[rarity].length)];
-  const suffix=EQUIP_NAMES[slot][Math.floor(Math.random()*EQUIP_NAMES[slot].length)];
-  const stats={};
-  Object.entries(EQUIP_STATS[slot]).forEach(([k,[mn,mx]])=>{
-    const raw=(Math.random()*(mx-mn)+mn)*mult;
-    // If the stat range is decimals, keep 3 decimal places
-    stats[k]=mx<1?Math.round(raw*1000)/1000:Math.round(raw);
-  });
-  return {uid:genUid(),name:`${SLOT_ICONS[slot]} ${prefix} ${suffix}`,category:'equipment',slot,rarity,stats,equipped:false,sellPrice:Math.round(50*mult*(state.level||1)*.10)};
-}
-function mkMat(name,rarity,sellPrice){return {uid:genUid(),name,category:'material',rarity,sellPrice,stackable:true,qty:1};}
-function mkCons(name,rarity,sellPrice,hpVal){return {uid:genUid(),name,category:'consumable',rarity,sellPrice,stackable:true,qty:1,effect:'hp',val:hpVal};}
-function genUid(){return Date.now()+Math.random();}
-function applyRarityBonus(rarity){
-  const order=['normal','uncommon','rare','epic','legendary'];
-  const diff=DIFFICULTY[state.difficulty||'normal'];
-  const bonus=diff.rarityBonus||0;
-  const idx=order.indexOf(rarity);
-  const newIdx=Math.min(order.length-1, idx+bonus);
-  return order[newIdx];
-}
-// ── CRAFTING RECIPES ──
-const CRAFTING=[
-  {id:'craft_steel_sword',result:{name:'⚔️ Crafted Steel Sword',slot:'weapon',rarity:'rare',stats:{str:100},category:'equipment'},
-   req:[{name:'🪓 Orc Fragment',qty:3},{name:'🪶 Wolf Fang',qty:2}],desc:'A powerful steel sword forged from orc metal'},
-  {id:'craft_shadow_blade',result:{name:'🗡️ Shadow Blade',slot:'weapon',rarity:'epic',stats:{str:80,agi:60},category:'equipment'},
-   req:[{name:'🌕 Moon Shard',qty:2},{name:'🪶 Wolf Fang',qty:3},{name:'🕸️ Spider Silk',qty:2}],desc:'A blade imbued with shadow energy'},
-  {id:'craft_dragon_armor',result:{name:'🛡️ Dragon Scale Armor',slot:'armor',rarity:'epic',stats:{armor:320},category:'equipment'},
-   req:[{name:'🐉 Dragon Scale',qty:3},{name:'🪨 Stone Core',qty:2}],desc:'Armor forged from dragon scales'},
-  {id:'craft_void_ring',result:{name:'💍 Void Ring',slot:'ring',rarity:'epic',stats:{str:150,int:150,agi:150},category:'equipment'},
-   req:[{name:'🌑 Void Crystal',qty:2},{name:'💎 Troll Gem',qty:3}],desc:'A ring channeling the power of the void'},
-  {id:'craft_phoenix_amulet',result:{name:'📿 Phoenix Amulet',slot:'amulet',rarity:'legendary',stats:{int:150,maxMp:400},category:'equipment'},
-   req:[{name:'🔥 Phoenix Feather',qty:2},{name:'🔥 Dragon Flame',qty:2},{name:'💎 Pure Crystal Core',qty:1}],desc:'Ultimate mage amulet — requires rare boss drops'},
-  {id:'craft_titan_helm',result:{name:'⛑️ Titan Helm',slot:'helmet',rarity:'legendary',stats:{armor:200,str:80},category:'equipment'},
-   req:[{name:'⚡ Titan Soul',qty:1},{name:'💀 Death Essence',qty:2},{name:'🪨 Stone Core',qty:3}],desc:'A helmet of godlike defense'},
-  {id:'craft_chaos_boots',result:{name:'👢 Chaos Treads',slot:'boots',rarity:'legendary',stats:{agi:180,str:50},category:'equipment'},
-   req:[{name:'🌀 Chaos Essence',qty:2},{name:'🌕 Moon Shard',qty:3}],desc:'Boots that bend space with every step'},
-  {id:'craft_mega_potion',result:{name:'❤️ Mega Elixir',category:'consumable',rarity:'epic',effect:'hp',val:1500,stackable:true,qty:1},
-   req:[{name:'🩸 Blood Vial',qty:3},{name:'🔥 Phoenix Feather',qty:1}],desc:'Restores 1500 HP instantly'},
-  {id:'craft_divine_blade',result:{name:'⚔️ Divine Blade',slot:'weapon',rarity:'legendary',stats:{str:220},category:'equipment'},
-   req:[{name:'☄️ Divine Shard',qty:2},{name:'🐉 Dragon Scale',qty:2},{name:'😈 Demon Horn',qty:1}],desc:'The ultimate weapon — forged from fallen god material'},
-];
-
-
-// ── AUCTION HOUSE ──
-async function fetchAuctions(){
-  const container = document.getElementById('auction-list');
-  if(!container) return;
-  container.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">Loading auctions...</div>';
-
-  try {
-    const { data, error } = await dbClient
-      .from('auctions')
-      .select(`
-        *,
-        seller:seller_id(id, name, user_id),
-        current_bidder:current_bidder_id(id, name, user_id)
-      `)
-      .eq('status','active')
-      .gt('ends_at', new Date().toISOString())
-      .order('ends_at', {ascending: true});
-
-    if(error) throw error;
-
-    if(!data || !data.length){
-      container.innerHTML = '<div style="text-align:center;color:#444;padding:20px;font-style:italic;">No active auctions. Be the first to list an item!</div>';
-      return;
-    }
-
-    renderAuctions(data);
-  } catch(error) {
-    console.error('Fetch auctions error:', error);
-    container.innerHTML = '<div style="text-align:center;color:#f00;padding:20px;">Failed to load auctions</div>';
-  }
-}
-
-function renderAuctions(auctions){
-  const container = document.getElementById('auction-list');
-  if(!container) return;
-  const r_ = r => RARITY[r] || RARITY.normal;
-
-  container.innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,200px),1fr));gap:8px;padding:0 4px;">
-      ${auctions.map(auction => {
-        const endsAt = new Date(auction.ends_at);
-        const now = new Date();
-        const timeLeft = endsAt - now;
-        const hoursLeft = Math.max(0, Math.floor(timeLeft / 3600000));
-        const minsLeft = Math.max(0, Math.floor((timeLeft % 3600000) / 60000));
-        const isExpired = timeLeft <= 0;
-        const isOwn = auction.seller && auction.seller.id === state.character_id;
-        const currentBidAmount = auction.current_bid || auction.start_price;
-
-        return `
-          <div class="auction-item ${auction.rarity}" style="padding:10px;border:1px solid ${r_(auction.rarity).color};border-radius:6px;cursor:pointer;background:rgba(0,0,0,0.3);transition:all 0.2s;display:flex;flex-direction:column;gap:6px;min-width:0;">
-            <div style="font-size:1.5em;text-align:center;word-break:break-word;">${auction.item_name.split(' ')}</div>
-            <div style="font-size:.8em;color:${r_(auction.rarity).color};font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${auction.item_name}</div>
-            <div style="font-size:.7em;color:#aaa;">Seller: ${auction.seller?.name || 'Unknown'}</div>
-            <div style="font-size:.7em;color:#888;">
-              ${isExpired ? '<span style="color:var(--red)">❌ Expired</span>' : `⏱️ ${hoursLeft}h ${minsLeft}m`}
-            </div>
-            <div style="color:var(--gold);font-family:'Cinzel',serif;font-size:.9em;margin-top:auto;">💰 ${formatNumber(currentBidAmount)}g</div>
-            ${auction.buyout_price ? `<div style="font-size:.65em;color:#aaa;">Buyout: ${formatNumber(auction.buyout_price)}g</div>` : ''}
-            ${!isOwn && !isExpired ? `
-              <div style="display:flex;gap:4px;margin-top:4px;">
-                <button class="start-btn" onclick="placeBid('${auction.id}', ${currentBidAmount})" style="font-size:.65em;padding:3px 8px;flex:1;">⬆️ Bid</button>
-                ${auction.buyout_price ? `<button class="start-btn" onclick="buyoutAuction('${auction.id}', ${auction.buyout_price})" style="font-size:.65em;padding:3px 8px;background:linear-gradient(135deg,#005500,#00aa44);flex:1;">⚡ Buy</button>` : ''}
-              </div>
-            ` : ''}
-            ${isOwn ? `<div style="font-size:.7em;color:#888;text-align:center;margin-top:4px;">Your listing</div>` : ''}
-          </div>
-        `;
-      }).join('')}
-    </div>
-  `;
-}
-
-async function buyoutAuction(auctionId, buyoutPrice){
-  if(buyoutPrice > state.gold){
-    notify('❌ Not enough gold!', 'var(--red)');
-    return;
-  }
-
-  if(!confirm(`Buy now for ${formatNumber(buyoutPrice)}g?`)) return;
-
-  try {
-    // Get auction details
-    const { data: auction, error: fetchError } = await dbClient
-      .from('auctions')
-      .select('*')
-      .eq('id', auctionId)
-      .single();
-
-    if(fetchError || !auction) {
-      notify('❌ Auction not found!', 'var(--red)');
-      return;
-    }
-
-    if(auction.status !== 'active'){
-      notify('❌ Auction is no longer active!', 'var(--red)');
-      return;
-    }
-
-    // ✅ Step 1: Deduct gold from buyer
-    state.gold -= buyoutPrice;
-
-    // ✅ Step 2: Add item to buyer's inventory
-    const itemData = {
-      name: auction.item_name,
-      rarity: auction.rarity,
-      class: auction.class,
-      uid: genUid()
-    };
-    addToInventory(itemData);
-
-    // ✅ Step 3: Mark auction as sold
-    const { error: updateError } = await dbClient
-      .from('auctions')
-      .update({
-        status: 'sold',
-        current_bidder_id: state.character_id,
-        current_bid: buyoutPrice,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', auctionId);
-
-    if(updateError) throw updateError;
-
-    // ✅ Step 4: Save buyer's updated gold
-    await saveCharacter(state);
-
-    addLog(`🏛️ Bought ${auction.item_name} for ${formatNumber(buyoutPrice)}g!`, 'legendary');
-    notify(`🏛️ Item purchased!`, 'var(--gold)');
-    playSound('snd-craft');
-    updateUI();
-    renderInventory();
-    fetchAuctions();
-
-  } catch(error) {
-    state.gold += buyoutPrice; // Rollback
-    notify('❌ Purchase failed: ' + error.message, 'var(--red)');
-    console.error('Buyout error:', error);
-  }
-}
-
-async function placeBid(auctionId, currentBid){
-  const minBid = currentBid + Math.max(100, Math.floor(currentBid * 0.05));
-  const bidAmount = parseInt(prompt(`Enter bid amount (minimum: ${formatNumber(minBid)}g):`));
-  if(!bidAmount || isNaN(bidAmount)) return;
-
-  if(bidAmount < minBid){
-    notify(`❌ Minimum bid is ${formatNumber(minBid)}g!`, 'var(--red)');
-    return;
-  }
-  if(bidAmount > state.gold){
-    notify('❌ Not enough gold!', 'var(--red)');
-    return;
-  }
-
-  try {
-    // ✅ Step 1: Create bid record
-    const { error: bidError } = await dbClient
-      .from('auction_bids')
-      .insert({
-        auction_id: auctionId,
-        bidder_id: state.character_id,
-        bid_amount: bidAmount
-      });
-
-    if(bidError) throw bidError;
-
-    // ✅ Step 2: Update auction with new bid
-    const { error: updateError } = await dbClient
-      .from('auctions')
-      .update({
-        current_bid: bidAmount,
-        current_bidder_id: state.character_id,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', auctionId);
-
-    if(updateError) throw updateError;
-
-    // ✅ Step 3: Deduct gold
-    state.gold -= bidAmount;
-
-    // ✅ Step 4: Save character
-    await saveCharacter(state);
-
-    addLog(`⚡ Bid placed: ${formatNumber(bidAmount)}g!`, 'gold');
-    notify(`⚡ Bid placed: ${formatNumber(bidAmount)}g!`, 'var(--gold)');
-    updateUI();
-    fetchAuctions();
-
-  } catch(error) {
-    notify('❌ Bid failed: ' + error.message, 'var(--red)');
-    console.error('Bid error:', error);
-  }
-}
-
-async function listItemForAuction(uid){
-  const item = state.inventory.find(i => i.uid === uid);
-  if(!item || item.equipped){
-    notify('❌ Cannot list equipped items!', 'var(--red)');
-    return;
-  }
-
-  const startPrice = parseInt(prompt(`Starting price (gold):`));
-  if(!startPrice || isNaN(startPrice) || startPrice <= 0) return;
-
-  const buyoutInput = prompt(`Buyout price (gold, or leave empty for no buyout):`);
-  const buyoutPrice = buyoutInput ? parseInt(buyoutInput) : null;
-
-  if(buyoutPrice && buyoutPrice <= startPrice){
-    notify('❌ Buyout must be higher than starting price!', 'var(--red)');
-    return;
-  }
-
-  try {
-    // Remove from inventory
-    const idx = state.inventory.findIndex(i => i.uid === uid);
-    state.inventory.splice(idx, 1);
-
-    // Set ends_at to 24 hours from now
-    const endsAt = new Date();
-    endsAt.setHours(endsAt.getHours() + 24);
-
-    const { error } = await dbClient.from('auctions').insert({
-      seller_id: state.character_id,
-      item_name: item.name,
-      rarity: item.rarity,
-      class: item.class,
-      start_price: startPrice,
-      buyout_price: buyoutPrice || null,
-      current_bid: 0,
-      current_bidder_id: null,
-      ends_at: endsAt.toISOString(),
-      status: 'active'
-    });
-
-    if(error) throw error;
-
-    // Save updated character
-    await saveCharacter(state);
-
-    addLog(`🏛️ ${item.name} listed for auction!`, 'gold');
-    notify(`🏛️ Item listed!`, 'var(--gold)');
-    renderInventory();
-    updateUI();
-
-  } catch(error) {
-    // Restore item if failed
-    state.inventory.push(item);
-    notify('❌ Listing failed: ' + error.message, 'var(--red)');
-    console.error('List auction error:', error);
-  }
-}
-
-async function showMyAuctions(){
-  try {
-    const { data } = await dbClient
-      .from('auctions')
-      .select('*')
-      .eq('seller_id', state.character_id)
-      .eq('status', 'active');
-
-    if(!data || !data.length){
-      notify('You have no active listings!', '#888');
-      return;
-    }
-    renderAuctions(data);
-  } catch(error) {
-    console.error('Show my auctions error:', error);
-    notify('❌ Failed to load your auctions', 'var(--red)');
-  }
-}
-
-async function saveCharacter(character) {
-  try {
-    const { error } = await dbClient
-      .from('characters')
-      .update({
-        level: character.level,
-        exp: character.exp,
-        gold: character.gold,
-        stats: character.stats,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', character.character_id);
-
-    if(error) throw error;
-    console.log('Character saved successfully');
-  } catch(error) {
-    console.error('Failed to save character:', error);
-    throw error;
-  }
-}
-
-function switchMarketTab(tab){
-  document.getElementById('market-ah').style.display = tab === 'auction' ? 'block' : 'none';
-  document.getElementById('market-tab-ah').classList.toggle('active', tab === 'auction');
-  if(tab === 'auction') fetchAuctions();
-}
-
 
 // ── SCENES ──
 const SCENES={
-  town:{
-  title:'🏘️ Town Square',
-  text:'You stand in the peaceful town square. Choose a dungeon to enter or visit the shop!',
-  choices:[
-    {text:'🐺 Wolf Mountain (Lv 1+)',   next:'dungeon_1'},
-    {text:'🕷️ Spider Cavern (Lv 10+)',  next:'dungeon_2'},
-    {text:'👹 Goblin Fortress (Lv 20+)',next:'dungeon_3'},
-    {text:'💀 Skeleton Crypt (Lv 30+)', next:'dungeon_4'},
-    {text:'👊 Orc Stronghold (Lv 40+)', next:'dungeon_5'},
-    {text:'🧛 Vampire Castle (Lv 50+)', next:'dungeon_6'},
-    {text:'👾 Troll Caves (Lv 60+)',    next:'dungeon_7'},
-    {text:'😈 Demon Citadel (Lv 70+)',  next:'dungeon_8'},
-    {text:'🌑 Shadow Realm (Lv 80+)',   next:'dungeon_9'},
-    {text:'🌟 Eternal Kingdom (Lv 90+)',next:'dungeon_10'},
-    {text:'🏪 Shop',                    next:'shop_scene'},
-    {text:'⛪ Inn (+50% HP and MP, 5g)',       next:'inn'},
-  ]
-},
-
-dungeon_1:{title:'🐺 Wolf Mountain',text:'The howling mountain awaits. Wolves rule these peaks.',
-  choices:[
-    {text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:1},
-    {text:'🏘️ Town',next:'town'}
-  ]},
-dungeon_2:{title:'🕷️ Spider Cavern',text:'Dark webs cover every surface. The Spider Queen lurks within.',
-  choices:[
-    {text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:2},
-    {text:'🏘️ Town',next:'town'}
-  ]},
-dungeon_3:{title:'👹 Goblin Fortress',text:'The fortress stinks of greed and blood. Goblins swarm inside.',
-  choices:[
-    {text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:3},
-    {text:'🏘️ Town',next:'town'}
-  ]},
-dungeon_4:{title:'💀 Skeleton Crypt',text:'Ancient bones rattle in the darkness. Death magic fills the air.',
-  choices:[
-    {text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:4},
-    {text:'🏘️ Town',next:'town'}
-  ]},
-dungeon_5:{title:'👊 Orc Stronghold',text:'War drums echo through the stronghold. Orcs prepare for battle.',
-  choices:[
-    {text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:5},
-    {text:'🏘️ Town',next:'town'}
-  ]},
-dungeon_6:{title:'🧛 Vampire Castle',text:'The castle is cold as death. Vampires feed on the unwary.',
-  choices:[
-    {text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:6},
-    {text:'🏘️ Town',next:'town'}
-  ]},
-dungeon_7:{title:'👾 Troll Caves',text:'The cave floor shakes with each troll step. Regeneration keeps them alive.',
-  choices:[
-    {text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:7},
-    {text:'🏘️ Town',next:'town'}
-  ]},
-dungeon_8:{title:'😈 Demon Citadel',text:'Hellfire burns eternally here. Demons feast on lost souls.',
-  choices:[
-    {text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:8},
-    {text:'🏘️ Town',next:'town'}
-  ]},
-dungeon_9:{title:'🌑 Shadow Realm',text:'Reality bends here. The Shadow Emperor commands the darkness.',
-  choices:[
-    {text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:9},
-    {text:'🏘️ Town',next:'town'}
-  ]},
-dungeon_10:{title:'🌟 Eternal Kingdom',text:'The final challenge. The Eternal King waits on his throne.',
-  choices:[
-    {text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:10},
-    {text:'🏘️ Town',next:'town'}
-  ]}, 
-
-inn:{
-  title:'⛪ The Rusty Flagon Inn',
-  text:'You rest comfortably. Your wounds heal and energy is restored.',
-  action:()=>{
-    if(state.gold>=5){
-      state.gold-=5;
-      const hpHeal = Math.floor(state.maxHp * 0.5);
-      const mpHeal = Math.floor(state.maxMp * 0.5);
-      state.hp=Math.min(state.maxHp, state.hp + hpHeal);
-      state.mp=Math.min(state.maxMp, state.mp + mpHeal);
-      addLog(`Rested: +${formatNumber(hpHeal)} HP, +${formatNumber(mpHeal)} MP. Cost 5g.`,'good');
-      playSound('snd-heal');
-    } else {
-      addLog('Need 5 gold to rest!','bad');
-    }
-    updateUI();
-  },
-  choices:[{text:'🏘️ Return to Town',next:'town'}]
-},
-}
+  town:{title:'🏘️ Town Square',text:'You stand in the peaceful town square. Choose a dungeon to enter or visit the shop!',
+    choices:[
+      {text:'🐺 Wolf Mountain (Lv 1+)',   next:'dungeon_1'},
+      {text:'🕷️ Spider Cavern (Lv 10+)',  next:'dungeon_2'},
+      {text:'👹 Goblin Fortress (Lv 20+)',next:'dungeon_3'},
+      {text:'💀 Skeleton Crypt (Lv 30+)', next:'dungeon_4'},
+      {text:'👊 Orc Stronghold (Lv 40+)', next:'dungeon_5'},
+      {text:'🧛 Vampire Castle (Lv 50+)', next:'dungeon_6'},
+      {text:'👾 Troll Caves (Lv 60+)',    next:'dungeon_7'},
+      {text:'😈 Demon Citadel (Lv 70+)',  next:'dungeon_8'},
+      {text:'🌑 Shadow Realm (Lv 80+)',   next:'dungeon_9'},
+      {text:'🌟 Eternal Kingdom (Lv 90+)',next:'dungeon_10'},
+      {text:'🏪 Shop',                    next:'shop_scene'},
+      {text:'⛪ Inn (+50% HP and MP, 5g)',       next:'inn'},
+    ]},
+  dungeon_1:{title:'🐺 Wolf Mountain',text:'The howling mountain awaits.',choices:[{text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:1},{text:'🏘️ Town',next:'town'}]},
+  dungeon_2:{title:'🕷️ Spider Cavern',text:'Dark webs cover every surface.',choices:[{text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:2},{text:'🏘️ Town',next:'town'}]},
+  dungeon_3:{title:'👹 Goblin Fortress',text:'The fortress stinks of greed.',choices:[{text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:3},{text:'🏘️ Town',next:'town'}]},
+  dungeon_4:{title:'💀 Skeleton Crypt',text:'Ancient bones rattle in the darkness.',choices:[{text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:4},{text:'🏘️ Town',next:'town'}]},
+  dungeon_5:{title:'👊 Orc Stronghold',text:'War drums echo through the stronghold.',choices:[{text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:5},{text:'🏘️ Town',next:'town'}]},
+  dungeon_6:{title:'🧛 Vampire Castle',text:'The castle is cold as death.',choices:[{text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:6},{text:'🏘️ Town',next:'town'}]},
+  dungeon_7:{title:'👾 Troll Caves',text:'The cave floor shakes with each step.',choices:[{text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:7},{text:'🏘️ Town',next:'town'}]},
+  dungeon_8:{title:'😈 Demon Citadel',text:'Hellfire burns eternally here.',choices:[{text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:8},{text:'🏘️ Town',next:'town'}]},
+  dungeon_9:{title:'🌑 Shadow Realm',text:'Reality bends here.',choices:[{text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:9},{text:'🏘️ Town',next:'town'}]},
+  dungeon_10:{title:'🌟 Eternal Kingdom',text:'The final challenge.',choices:[{text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:10},{text:'🏘️ Town',next:'town'}]},
+  inn:{title:'⛪ The Rusty Flagon Inn',text:'You rest comfortably.',
+    action:()=>{
+      if(state.gold>=5){
+        state.gold-=5;
+        const hh=Math.floor(state.maxHp*0.5),mh=Math.floor(state.maxMp*0.5);
+        state.hp=Math.min(state.maxHp,state.hp+hh);state.mp=Math.min(state.maxMp,state.mp+mh);
+        addLog(`Rested: +${formatNumber(hh)} HP, +${formatNumber(mh)} MP. Cost 5g.`,'good');playSound('snd-heal');
+      } else { addLog('Need 5 gold to rest!','bad'); }
+      updateUI();
+    },
+    choices:[{text:'🏘️ Return to Town',next:'town'}]},
+};
 
 // ── SHOP ITEMS ──
 const SHOP_EQUIP=[
-  // ── WEAPONS ──
   {id:'s1',name:'⚔️ Iron Sword',price:200,slot:'weapon',rarity:'normal',stats:{str:20,lifeSteal:0.05,hit:5,crit:0.1}},
   {id:'s2',name:'⚔️ Steel Sword',price:500,slot:'weapon',rarity:'uncommon',stats:{str:45,equipLifeSteal:0.06,hit:25,crit:0.2}},
-  //{id:'s3',name:'⚔️ War Blade',price:2200,slot:'weapon',rarity:'rare',stats:{str:90,lifeSteal:0.07,hit:50}},
-  //{id:'s4',name:'⚔️ Sovereign Blade',price:5500,slot:'weapon',rarity:'legendary',stats:{str:180,lifeSteal:0.1,hit:150}},
-  // ── ARMOR ──
   {id:'s5',name:'🛡️ Wooden Shield',price:200,slot:'armor',rarity:'normal',stats:{sta:15,armor:25,hpRegen:25,dodge:0.2}},
   {id:'s6',name:'🛡️ Chain Mail',price:400,slot:'armor',rarity:'uncommon',stats:{sta:25,armor:55,hpRegen:50,dodge:0.5}},
-  //{id:'s7',name:'🛡️ Knight Plate',price:2200,slot:'armor',rarity:'rare',stats:{sta:50,armor:110,maxHp:300,hpRegen:100}},
-  //{id:'s8',name:'🛡️ Dragon Plate',price:4400,slot:'armor',rarity:'legendary',stats:{sta:90,armor:200,maxHp:800,hpRegen:300}},
-  // ── BOOTS ──
   {id:'s9',name:'👢 Leather Boots',price:220,slot:'boots',rarity:'normal',stats:{agi:15,crit:0.1}},
   {id:'s10',name:'👢 Swift Treads',price:550,slot:'boots',rarity:'uncommon',stats:{agi:30,dodge:0.2}},
-  //{id:'s11',name:'👢 Shadow Greaves',price:2200,slot:'boots',rarity:'rare',stats:{agi:60}},
-  //{id:'s12',name:'👢 Void Sabatons',price:5500,slot:'boots',rarity:'legendary',stats:{agi:120}},
-  // ── RINGS ──
   {id:'s13',name:'💍 Copper Band',price:350,slot:'ring',rarity:'normal',stats:{str:10,int:10,crit:0.10}},
   {id:'s14',name:'💍 Silver Seal',price:550,slot:'ring',rarity:'uncommon',stats:{str:25,int:25,crit:0.20}},
-  //{id:'s15',name:'💍 Enchanted Loop',price:2200,slot:'ring',rarity:'rare',stats:{str:50,int:50}},
-  //{id:'s16',name:'💍 Eternal Signet',price:5500,slot:'ring',rarity:'legendary',stats:{str:100,int:100}},
-  // ── HELMETS ──
   {id:'s17',name:'⛑️ Iron Helm',price:280,slot:'helmet',rarity:'normal',stats:{armor:25,int:10,crit:0.10}},
   {id:'s18',name:'⛑️ Steel Visor',price:580,slot:'helmet',rarity:'uncommon',stats:{armor:55,int:25,crit:0.20}},
- // {id:'s19',name:'⛑️ Warlord Crown',price:2800,slot:'helmet',rarity:'rare',stats:{armor:110,int:55}},
-  //{id:'s20',name:'⛑️ Divine Circlet',price:6600,slot:'helmet',rarity:'legendary',stats:{armor:220,int:110}},
-  // ── AMULETS ──
   {id:'s21',name:'📿 Novice Pendant',price:250,slot:'amulet',rarity:'normal',stats:{int:15,maxMp:150,crit:0.10}},
   {id:'s22',name:'📿 Mage Talisman',price:550,slot:'amulet',rarity:'uncommon',stats:{int:35,maxMp:350,crit:0.20}},
-  //{id:'s23',name:'📿 Arcane Necklace',price:2200,slot:'amulet',rarity:'rare',stats:{int:70,maxMp:700}},
- // {id:'s24',name:'📿 Celestial Amulet',price:5500,slot:'amulet',rarity:'legendary',stats:{int:140,maxMp:1400}},
 ];
 const SHOP_CONS=[
   {id:'c1',name:'❤️ Health Potion',price:100,rarity:'normal',effect:'hp',val:400},
@@ -1820,13 +562,12 @@ const SHOP_CONS=[
   {id:'c4',name:'💧 Mana Flask',price:180,rarity:'uncommon',effect:'mp',val:6000},
   {id:'c5',name:'✨ Elixir',price:400,rarity:'rare',effect:'both',val:10000},
 ];
-let autoFightOn = false;
-let autoFightEnemyId = null;  // tracks last defeated enemy
-let autoFightTimer = null;    // holds the interval reference
-let currentEnemy=null;
-let pendingBossId=null;
-let currentInvTab='equipment';
-let currentShopTab='equipment';
+
+// ── COMBAT VARS ──
+let autoFightOn=false,autoFightEnemyId=null,autoFightTimer=null;
+let currentEnemy=null,pendingBossId=null;
+let currentInvTab='equipment',currentShopTab='equipment';
+let autoSkillSlots=[null,null,null],autoSkillIndex=0;
 
 // ── ANIMATIONS ──
 function animateAttack(isPlayer,dmg,isCrit){
@@ -1839,26 +580,584 @@ function animateAttack(isPlayer,dmg,isCrit){
   }
   spawnDmgFloat(isCrit?`💥${dmg}!`:String(dmg),!isPlayer,isCrit?'crit-dmg':isPlayer?'enemy-dmg':'player-dmg');
 }
-function spawnDmgFloat(text, onEnemy, cls=''){
-  const arena=document.getElementById('arena');
-  if(!arena)return;
+function spawnDmgFloat(text,onEnemy,cls=''){
+  const arena=document.getElementById('arena');if(!arena)return;
   const rect=arena.getBoundingClientRect();
-  const div=document.createElement('div');
-  div.className=`dmg-float ${cls}`;
-  div.textContent=text;
-  
-  // Random offset so they don't stack
-  const randomX = Math.floor(Math.random()*40)-20;
-  const randomY = Math.floor(Math.random()*30)-15;
-  
-  div.style.left=(onEnemy ? rect.right-80 : rect.left+30) + randomX +'px';
-  div.style.top=(rect.top + rect.height/2 - 20) + randomY +'px';
-  
-  document.body.appendChild(div);
-  setTimeout(()=>div.remove(),950);
+  const div=document.createElement('div');div.className=`dmg-float ${cls}`;div.textContent=text;
+  const rx=Math.floor(Math.random()*40)-20,ry=Math.floor(Math.random()*30)-15;
+  div.style.left=(onEnemy?rect.right-80:rect.left+30)+rx+'px';
+  div.style.top=(rect.top+rect.height/2-20)+ry+'px';
+  document.body.appendChild(div);setTimeout(()=>div.remove(),950);
 }
 
-// ── START ──
+// ── AUTH: REGISTER ──
+async function registerUser(){
+  const email=document.getElementById('auth-email').value.trim();
+  const password=document.getElementById('auth-password').value.trim();
+  const name=document.getElementById('name-input').value.trim();
+  const msg=document.getElementById('auth-msg');
+  if(!email||!password||!name){msg.textContent='Please fill in all fields!';return;}
+
+  try {
+    const{data:authData,error:authError}=await dbClient.auth.signUp({email,password});
+    if(authError){msg.textContent='❌ '+authError.message;return;}
+
+    const{data:signInData,error:signInError}=await dbClient.auth.signInWithPassword({email,password});
+    if(signInError){msg.textContent='❌ '+signInError.message;return;}
+
+    const userId=signInData.user.id;
+
+    const{data:character,error:charError}=await dbClient.from('characters').insert({
+      user_id:userId,name,level:1,exp:0,gold:1550,class:null,
+      health:100,max_health:100,mana:50,max_mana:50,
+      inventory:[],current_scene:'town',unlocked_talents:[],talent_points:0,
+      difficulty:'normal',inv_tab:'equipment',shop_tab:'equipment',
+      equipped:{weapon:null,armor:null,helmet:null,boots:null,ring:null,amulet:null},
+      skills:[],skill_cooldowns:{},quests:state.quests,auto_sell:{normal:false,uncommon:false},
+      active_debuffs:{maxHpReduction:0,webTrapped:0,rageTimer:0},
+      talent_unlocked_flags:{},
+      stats:{
+        baseStr:5,baseAgi:5,baseInt:5,baseSta:5,baseArmor:5,baseHit:2,baseCrit:0.1,
+        baseDodge:2,baseHpRegen:20,baseLifeSteal:0.05,baseAttackPower:10,
+        strMult:1.0,agiMult:1.0,intMult:1.0,staMult:1.0,armorMult:1.0,
+        maxHpMult:1.0,hpRegenMult:1.0,maxMpMult:1.0,mpMult:1.0,critMult:1.0,
+        dodgeMult:1.0,mpRegenMult:1.0,hitMult:1.0,lifeStealMult:1.0,attackPowerMult:1.0,
+        classBonuses:{strMult:0,agiMult:0,intMult:0,staMult:0,hitMult:0,critMult:0,dodgeMult:0,hpRegenMult:0,mpRegenMult:0,armorMult:0,mpMult:0,lifeStealMult:0,attackPowerMult:0,maxHpMult:0},
+        talentBonuses:{strMult:0,agiMult:0,intMult:0,staMult:0,hitMult:0,critMult:0,dodgeMult:0,hpRegenMult:0,mpRegenMult:0,armorMult:0,mpMult:0,lifeStealMult:0,attackPowerMult:0,maxHpMult:0},
+      }
+    }).select().single();
+    if(charError)throw charError;
+
+    // Sync to state via supabase-sync.js
+    syncCharacterToState(character);
+    addLog('💰 You start with 1550g! Reach level 10 to choose your class.','gold');
+    msg.style.color='#44ff44';msg.textContent='✅ Registered! Starting game...';
+    setTimeout(()=>{ showGame(); loadScene('town'); initializeSupabaseSync(); },1000);
+
+  } catch(error){ msg.textContent='❌ Registration failed: '+error.message; console.error('Register error:',error); }
+}
+
+// ── AUTH: LOGIN ──
+async function loginUser(){
+  const email=document.getElementById('auth-email').value.trim();
+  const password=document.getElementById('auth-password').value.trim();
+  const msg=document.getElementById('auth-msg');
+  if(!email||!password){msg.textContent='Please enter email and password!';return;}
+
+  try {
+    const{data,error}=await dbClient.auth.signInWithPassword({email,password});
+    if(error){msg.textContent='❌ '+error.message;return;}
+
+    msg.textContent='⠋ Loading character...';
+
+    // Load the most recent character for this user
+    const{data:character,error:charError}=await dbClient
+      .from('characters').select('*').eq('user_id',data.user.id)
+      .order('updated_at',{ascending:false}).limit(1).single();
+
+    if(charError||!character){
+      msg.textContent='❌ No character found. Please register first.';
+      await dbClient.auth.signOut();return;
+    }
+
+    // Sync to state via supabase-sync.js
+    syncCharacterToState(character);
+
+    msg.style.color='#44ff44';msg.textContent='✅ Welcome back, '+state.name+'!';
+    setTimeout(()=>{
+      showGame();
+      loadScene(state.currentScene||'town');
+      initializeSupabaseSync();
+      checkAndSettleAuctions();
+      addLog(`☁️ Welcome back ${state.name}! (Lv.${state.level})`,'gold');
+    },800);
+
+  } catch(error){ msg.textContent='❌ Login failed: '+error.message; console.error('Login error:',error); }
+}
+
+function syncCharacterToState(character) {
+  // Basic info
+  state.character_id = character.id;
+  state.user_id = character.user_id;
+  state.name = character.name;
+  state.level = character.level || 1;
+  state.xp = character.exp || 0;
+  state.xpNext = Math.floor((character.level || 1) * 100 * 20);
+  state.gold = character.gold || 0;
+  state.class = character.class || null;
+  state.currentScene = character.current_scene || 'town';
+
+  // Health/Mana
+  state.hp = character.health || 100;
+  state.maxHp = character.max_health || 100;
+  state.mp = character.mana || 50;
+  state.maxMp = character.max_mana || 50;
+
+  // Base stats (from stats JSONB)
+  const stats = character.stats || {};
+  state.baseStr = stats.baseStr || 5;
+  state.baseAgi = stats.baseAgi || 5;
+  state.baseInt = stats.baseInt || 5;
+  state.baseSta = stats.baseSta || 5;
+  state.baseArmor = stats.baseArmor || 5;
+  state.baseHit = stats.baseHit || 2;
+  state.baseCrit = stats.baseCrit || 0.1;
+  state.baseDodge = stats.baseDodge || 2;
+  state.baseHpRegen = stats.baseHpRegen || 20;
+  state.baseLifeSteal = stats.baseLifeSteal || 0.05;
+  state.baseAttackPower = stats.baseAttackPower || 10;
+
+  // Multipliers
+  state.strMult = stats.strMult || 1.0;
+  state.agiMult = stats.agiMult || 1.0;
+  state.intMult = stats.intMult || 1.0;
+  state.staMult = stats.staMult || 1.0;
+  state.armorMult = stats.armorMult || 1.0;
+  state.maxHpMult = stats.maxHpMult || 1.0;
+  state.hpRegenMult = stats.hpRegenMult || 1.0;
+  state.maxMpMult = stats.maxMpMult || 1.0;
+  state.mpMult = stats.mpMult || 1.0;
+  state.critMult = stats.critMult || 1.0;
+  state.dodgeMult = stats.dodgeMult || 1.0;
+  state.mpRegenMult = stats.mpRegenMult || 1.0;
+  state.hitMult = stats.hitMult || 1.0;
+  state.lifeStealMult = stats.lifeStealMult || 1.0;
+  state.attackPowerMult = stats.attackPowerMult || 1.0;
+
+  // Class bonuses
+  state.classBonuses = stats.classBonuses || {
+    strMult: 0, agiMult: 0, intMult: 0, staMult: 0,
+    hitMult: 0, critMult: 0, dodgeMult: 0, hpRegenMult: 0,
+    mpRegenMult: 0, armorMult: 0, mpMult: 0, lifeStealMult: 0,
+    attackPowerMult: 0, maxHpMult: 0,
+  };
+
+  // Talent bonuses
+  state.talentBonuses = stats.talentBonuses || {
+    strMult: 0, agiMult: 0, intMult: 0, staMult: 0,
+    hitMult: 0, critMult: 0, dodgeMult: 0, hpRegenMult: 0,
+    mpRegenMult: 0, armorMult: 0, mpMult: 0, lifeStealMult: 0,
+    attackPowerMult: 0, maxHpMult: 0,
+  };
+
+  // Equipment bonuses
+  state.equipStr = stats.equipStr || 0;
+  state.equipStrMult = stats.equipStrMult || 0;
+  state.equipAgi = stats.equipAgi || 0;
+  state.equipAgiMult = stats.equipAgiMult || 0;
+  state.equipInt = stats.equipInt || 0;
+  state.equipIntMult = stats.equipIntMult || 0;
+  state.equipSta = stats.equipSta || 0;
+  state.equipStaMult = stats.equipStaMult || 0;
+  state.equipMaxHp = stats.equipMaxHp || 0;
+  state.equipMaxHpMult = stats.equipMaxHpMult || 0;
+  state.equipMaxMp = stats.equipMaxMp || 0;
+  state.equipMaxMpMult = stats.equipMaxMpMult || 0;
+  state.equipArmor = stats.equipArmor || 0;
+  state.equipArmorMult = stats.equipArmorMult || 0;
+  state.equipCrit = stats.equipCrit || 0;
+  state.equipDodge = stats.equipDodge || 0;
+  state.equipDodgeMult = stats.equipDodgeMult || 0;
+  state.equipLifeSteal = stats.equipLifeSteal || 0;
+  state.equipLifeStealMult = stats.equipLifeStealMult || 1.0;
+  state.equipAttackPower = stats.equipAttackPower || 0;
+  state.equipAttackPowerMult = stats.equipAttackPowerMult || 0;
+  state.equipHpRegen = stats.equipHpRegen || 0;
+  state.equipHpRegenMult = stats.equipHpRegenMult || 0;
+  state.equipMpRegen = stats.equipMpRegen || 0;
+  state.equipMpRegenMult = stats.equipMpRegenMult || 0;
+  state.equipHit = stats.equipHit || 0;
+  state.equipHitMult = stats.equipHitMult || 0;
+
+  // Inventory & Equipment
+  state.inventory = character.inventory || [];
+  state.equipped = character.equipped || {
+    weapon: null,
+    armor: null,
+    helmet: null,
+    boots: null,
+    ring: null,
+    amulet: null,
+  };
+
+  // Talents & Skills
+  state.talentPoints = character.talent_points || 0;
+  state.unlockedTalents = character.unlocked_talents || [];
+  state.talentUnlockedFlags = character.talent_unlocked_flags || {};
+  state.skills = character.skills || [];
+  state.skillCooldowns = character.skill_cooldowns || {};
+
+  // Quests
+  state.quests = character.quests || {
+    kill1: { text: '🗡️ Defeat your first enemy', done: false },
+    gold50: { text: '💰 Earn 50 gold', done: false },
+    level5: { text: '⭐ Reach Level 5', done: false },
+    level10: { text: '🏆 Reach Level 10', done: false },
+    boss: { text: '🐉 Defeat a Boss', done: false },
+    class: { text: '✨ Choose a Class', done: false },
+    talent: { text: '🌟 Unlock a Talent', done: false },
+    equip: { text: '🛡️ Equip an item', done: false },
+    legendary: { text: '🔱 Find a Legendary item', done: false },
+    craft: { text: '⚗️ Craft an item', done: false },
+    level50: { text: '👑 Reach Level 50', done: false },
+    level100: { text: '🌟 Reach Max Level 100', done: false },
+  };
+
+  // Debuffs
+  state.activeDebuffs = character.active_debuffs || {
+    maxHpReduction: 0,
+    webTrapped: 0,
+    rageTimer: 0,
+  };
+
+  // UI state
+  state.difficulty = character.difficulty || 'normal';
+  state.invTab = character.inv_tab || 'equipment';
+  state.shopTab = character.shop_tab || 'equipment';
+  state.autoSell = character.auto_sell || { normal: false, uncommon: false };
+
+  // Recalculate stats
+  if (typeof calcStats === 'function') {
+    calcStats();
+  }
+}
+
+// ── AUTH: LOGOUT ──
+async function logoutUser(){
+  try {
+    await savePlayerToSupabase();
+  } catch(e){ console.warn('Save on logout failed:',e); }
+  cleanupSupabaseSync();
+  await dbClient.auth.signOut();
+  location.reload();
+}
+
+async function loadPlayerFromSupabase(characterId) {
+  try {
+    const { data: { user } } = await dbClient.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data: character, error } = await dbClient
+      .from('characters')
+      .select('*')
+      .eq('id', characterId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (error) throw error;
+    if (!character) throw new Error('Character not found');
+
+    syncCharacterToState(character);
+    console.log('✅ Character loaded from Supabase');
+    return state;
+  } catch (error) {
+    console.error('Load character error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Sync database character → game state
+ */
+function syncCharacterToState(character) {
+  // Basic info
+  state.character_id = character.id;
+  state.user_id = character.user_id;
+  state.name = character.name;
+  state.level = character.level || 1;
+  state.xp = character.exp || 0;
+  state.xpNext = Math.floor((character.level || 1) * 100 * 20);
+  state.gold = character.gold || 0;
+  state.class = character.class || null;
+  state.currentScene = character.current_scene || 'town';
+
+  // Health/Mana
+  state.hp = character.health || 100;
+  state.maxHp = character.max_health || 100;
+  state.mp = character.mana || 50;
+  state.maxMp = character.max_mana || 50;
+
+  // Base stats (from stats JSONB)
+  const stats = character.stats || {};
+  state.baseStr = stats.baseStr || 5;
+  state.baseAgi = stats.baseAgi || 5;
+  state.baseInt = stats.baseInt || 5;
+  state.baseSta = stats.baseSta || 5;
+  state.baseArmor = stats.baseArmor || 5;
+  state.baseHit = stats.baseHit || 2;
+  state.baseCrit = stats.baseCrit || 0.1;
+  state.baseDodge = stats.baseDodge || 2;
+  state.baseHpRegen = stats.baseHpRegen || 20;
+  state.baseLifeSteal = stats.baseLifeSteal || 0.05;
+  state.baseAttackPower = stats.baseAttackPower || 10;
+
+  // Multipliers
+  state.strMult = stats.strMult || 1.0;
+  state.agiMult = stats.agiMult || 1.0;
+  state.intMult = stats.intMult || 1.0;
+  state.staMult = stats.staMult || 1.0;
+  state.armorMult = stats.armorMult || 1.0;
+  state.maxHpMult = stats.maxHpMult || 1.0;
+  state.hpRegenMult = stats.hpRegenMult || 1.0;
+  state.maxMpMult = stats.maxMpMult || 1.0;
+  state.mpMult = stats.mpMult || 1.0;
+  state.critMult = stats.critMult || 1.0;
+  state.dodgeMult = stats.dodgeMult || 1.0;
+  state.mpRegenMult = stats.mpRegenMult || 1.0;
+  state.hitMult = stats.hitMult || 1.0;
+  state.lifeStealMult = stats.lifeStealMult || 1.0;
+  state.attackPowerMult = stats.attackPowerMult || 1.0;
+
+  // Class bonuses
+  state.classBonuses = stats.classBonuses || {
+    strMult: 0, agiMult: 0, intMult: 0, staMult: 0,
+    hitMult: 0, critMult: 0, dodgeMult: 0, hpRegenMult: 0,
+    mpRegenMult: 0, armorMult: 0, mpMult: 0, lifeStealMult: 0,
+    attackPowerMult: 0, maxHpMult: 0,
+  };
+
+  // Talent bonuses
+  state.talentBonuses = stats.talentBonuses || {
+    strMult: 0, agiMult: 0, intMult: 0, staMult: 0,
+    hitMult: 0, critMult: 0, dodgeMult: 0, hpRegenMult: 0,
+    mpRegenMult: 0, armorMult: 0, mpMult: 0, lifeStealMult: 0,
+    attackPowerMult: 0, maxHpMult: 0,
+  };
+
+  // Equipment bonuses
+  state.equipStr = stats.equipStr || 0;
+  state.equipStrMult = stats.equipStrMult || 0;
+  state.equipAgi = stats.equipAgi || 0;
+  state.equipAgiMult = stats.equipAgiMult || 0;
+  state.equipInt = stats.equipInt || 0;
+  state.equipIntMult = stats.equipIntMult || 0;
+  state.equipSta = stats.equipSta || 0;
+  state.equipStaMult = stats.equipStaMult || 0;
+  state.equipMaxHp = stats.equipMaxHp || 0;
+  state.equipMaxHpMult = stats.equipMaxHpMult || 0;
+  state.equipMaxMp = stats.equipMaxMp || 0;
+  state.equipMaxMpMult = stats.equipMaxMpMult || 0;
+  state.equipArmor = stats.equipArmor || 0;
+  state.equipArmorMult = stats.equipArmorMult || 0;
+  state.equipCrit = stats.equipCrit || 0;
+  state.equipDodge = stats.equipDodge || 0;
+  state.equipDodgeMult = stats.equipDodgeMult || 0;
+  state.equipLifeSteal = stats.equipLifeSteal || 0;
+  state.equipLifeStealMult = stats.equipLifeStealMult || 1.0;
+  state.equipAttackPower = stats.equipAttackPower || 0;
+  state.equipAttackPowerMult = stats.equipAttackPowerMult || 0;
+  state.equipHpRegen = stats.equipHpRegen || 0;
+  state.equipHpRegenMult = stats.equipHpRegenMult || 0;
+  state.equipMpRegen = stats.equipMpRegen || 0;
+  state.equipMpRegenMult = stats.equipMpRegenMult || 0;
+  state.equipHit = stats.equipHit || 0;
+  state.equipHitMult = stats.equipHitMult || 0;
+
+  // Inventory & Equipment
+  state.inventory = character.inventory || [];
+  state.equipped = character.equipped || {
+    weapon: null,
+    armor: null,
+    helmet: null,
+    boots: null,
+    ring: null,
+    amulet: null,
+  };
+
+  // Talents & Skills
+  state.talentPoints = character.talent_points || 0;
+  state.unlockedTalents = character.unlocked_talents || [];
+  state.talentUnlockedFlags = character.talent_unlocked_flags || {};
+  state.skills = character.skills || [];
+  state.skillCooldowns = character.skill_cooldowns || {};
+
+  // Quests
+  state.quests = character.quests || {
+    kill1: { text: '🗡️ Defeat your first enemy', done: false },
+    gold50: { text: '💰 Earn 50 gold', done: false },
+    level5: { text: '⭐ Reach Level 5', done: false },
+    level10: { text: '🏆 Reach Level 10', done: false },
+    boss: { text: '🐉 Defeat a Boss', done: false },
+    class: { text: '✨ Choose a Class', done: false },
+    talent: { text: '🌟 Unlock a Talent', done: false },
+    equip: { text: '🛡️ Equip an item', done: false },
+    legendary: { text: '🔱 Find a Legendary item', done: false },
+    craft: { text: '⚗️ Craft an item', done: false },
+    level50: { text: '👑 Reach Level 50', done: false },
+    level100: { text: '🌟 Reach Max Level 100', done: false },
+  };
+
+  // Debuffs
+  state.activeDebuffs = character.active_debuffs || {
+    maxHpReduction: 0,
+    webTrapped: 0,
+    rageTimer: 0,
+  };
+
+  // UI state
+  state.difficulty = character.difficulty || 'normal';
+  state.invTab = character.inv_tab || 'equipment';
+  state.shopTab = character.shop_tab || 'equipment';
+  state.autoSell = character.auto_sell || { normal: false, uncommon: false };
+
+  // Recalculate stats
+  if (typeof calcStats === 'function') {
+    calcStats();
+  }
+}
+
+// ============================================
+// SAVE PLAYER TO SUPABASE
+// ============================================
+
+async function savePlayerToSupabase() {
+  try {
+    const { data: { user } } = await dbClient.auth.getUser();
+    
+    if (!user) throw new Error('Not authenticated');
+    if (!state.character_id) throw new Error('No character ID');
+
+    const { error } = await dbClient
+      .from('characters')
+      .update({
+        name: state.name,
+        level: state.level,
+        exp: state.xp,
+        gold: state.gold,
+        class: state.class,
+        health: state.hp,
+        max_health: state.maxHp,
+        mana: state.mp,
+        max_mana: state.maxMp,
+        current_scene: state.currentScene,
+        talent_points: state.talentPoints,
+        unlocked_talents: state.unlockedTalents,
+        talent_unlocked_flags: state.talentUnlockedFlags,
+        skills: state.skills,
+        skill_cooldowns: state.skillCooldowns,
+        quests: state.quests,
+        inventory: state.inventory,
+        equipped: state.equipped,
+        difficulty: state.difficulty,
+        inv_tab: state.invTab,
+        shop_tab: state.shopTab,
+        auto_sell: state.autoSell,
+        active_debuffs: state.activeDebuffs,
+        stats: {
+          baseStr: state.baseStr,
+          baseAgi: state.baseAgi,
+          baseInt: state.baseInt,
+          baseSta: state.baseSta,
+          baseArmor: state.baseArmor,
+          baseHit: state.baseHit,
+          baseCrit: state.baseCrit,
+          baseDodge: state.baseDodge,
+          baseHpRegen: state.baseHpRegen,
+          baseLifeSteal: state.baseLifeSteal,
+          baseAttackPower: state.baseAttackPower,
+          strMult: state.strMult,
+          agiMult: state.agiMult,
+          intMult: state.intMult,
+          staMult: state.staMult,
+          armorMult: state.armorMult,
+          maxHpMult: state.maxHpMult,
+          hpRegenMult: state.hpRegenMult,
+          maxMpMult: state.maxMpMult,
+          mpMult: state.mpMult,
+          critMult: state.critMult,
+          dodgeMult: state.dodgeMult,
+          mpRegenMult: state.mpRegenMult,
+          hitMult: state.hitMult,
+          lifeStealMult: state.lifeStealMult,
+          attackPowerMult: state.attackPowerMult,
+          classBonuses: state.classBonuses,
+          talentBonuses: state.talentBonuses,
+          equipStr: state.equipStr,
+          equipStrMult: state.equipStrMult,
+          equipAgi: state.equipAgi,
+          equipAgiMult: state.equipAgiMult,
+          equipInt: state.equipInt,
+          equipIntMult: state.equipIntMult,
+          equipSta: state.equipSta,
+          equipStaMult: state.equipStaMult,
+          equipMaxHp: state.equipMaxHp,
+          equipMaxHpMult: state.equipMaxHpMult,
+          equipMaxMp: state.equipMaxMp,
+          equipMaxMpMult: state.equipMaxMpMult,
+          equipArmor: state.equipArmor,
+          equipArmorMult: state.equipArmorMult,
+          equipCrit: state.equipCrit,
+          equipDodge: state.equipDodge,
+          equipDodgeMult: state.equipDodgeMult,
+          equipLifeSteal: state.equipLifeSteal,
+          equipLifeStealMult: state.equipLifeStealMult,
+          equipAttackPower: state.equipAttackPower,
+          equipAttackPowerMult: state.equipAttackPowerMult,
+          equipHpRegen: state.equipHpRegen,
+          equipHpRegenMult: state.equipHpRegenMult,
+          equipMpRegen: state.equipMpRegen,
+          equipMpRegenMult: state.equipMpRegenMult,
+          equipHit: state.equipHit,
+          equipHitMult: state.equipHitMult,
+        },
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', state.character_id)
+      .eq('user_id', user.id);
+
+    if (error) throw error;
+    console.log('✅ Character saved to Supabase');
+  } catch (error) {
+    console.error('Save character error:', error);
+    throw error;
+  }
+}
+
+// ============================================
+// AUTO-SAVE
+// ============================================
+
+function startAutoSave() {
+  if (autoSaveInterval) clearInterval(autoSaveInterval);
+  
+  autoSaveInterval = setInterval(async () => {
+    try {
+      await savePlayerToSupabase();
+      console.log('💾 Auto-saved');
+    } catch (error) {
+      console.warn('Auto-save failed:', error);
+    }
+  }, 30000); // Every 30 seconds
+}
+
+function stopAutoSave() {
+  if (autoSaveInterval) {
+    clearInterval(autoSaveInterval);
+    autoSaveInterval = null;
+  }
+}
+
+function setupAutoSaveOnUnload() {
+  window.addEventListener('beforeunload', async (e) => {
+    try {
+      await savePlayerToSupabase();
+    } catch (error) {
+      console.error('Failed to save on unload:', error);
+    }
+  });
+}
+
+function initializeSupabaseSync() {
+  startAutoSave();
+  setupAutoSaveOnUnload();
+  console.log('🔄 Supabase sync initialized');
+}
+
+function cleanupSupabaseSync() {
+  stopAutoSave();
+  console.log('🔄 Supabase sync stopped');
+}
+// ── SHOW GAME ──
 function startGame(){
   const n=document.getElementById('name-input').value.trim();
   if(!n){alert('Please enter your name!');return;}
@@ -1872,10 +1171,10 @@ function showGame(){
   document.getElementById('char-name').textContent=state.name;
   document.getElementById('arena-player').innerHTML='<img src="warrior.jpg" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:2px solid var(--dark-gold);">';
   document.getElementById('arena-player-label').textContent=state.name;
-  loadAutoSellUI();updateUI();renderShop();renderQuests();
+  loadAutoSellUI();calcStats();updateUI();renderShop();renderQuests();
   renderInventory();renderSkillBar();renderEquipSlots();fetchLeaderboard();
-  setDifficulty('normal');
-  switchMainScene('adv'); // Start on Adventure scene
+  setDifficulty(state.difficulty||'normal');
+  switchMainScene('adv');
 }
 
 // ── LOAD SCENE ──
@@ -1886,101 +1185,56 @@ function loadScene(sceneId){
   if(scene.action)scene.action();
   document.getElementById('story-content').innerHTML=`<div class="scene-title">${scene.title}</div><p>${scene.text}</p>`;
   document.getElementById('combat-box').style.display='none';
-  const box=document.getElementById('choices-box');
-  box.innerHTML='';box.style.display='flex';
+  const box=document.getElementById('choices-box');box.innerHTML='';box.style.display='flex';
   scene.choices.forEach(c=>{
-  const btn=document.createElement('button');
-  btn.className='choice-btn fade-in';btn.innerHTML=c.text;
-  if(c.enemy) btn.onclick=()=>startCombat(c.enemy,false);
-  else if(c.bossId) btn.onclick=()=>triggerBoss(c.bossId);
-  else if(c.next==='enter_dungeon') btn.onclick=()=>enterDungeon(c.stageId);
-  else btn.onclick=()=>loadScene(c.next);
-  box.appendChild(btn);
-});
-  updateUI();
-  updateAutoFightBtn(); // ← ADD THIS
+    const btn=document.createElement('button');btn.className='choice-btn fade-in';btn.innerHTML=c.text;
+    if(c.enemy)btn.onclick=()=>startCombat(c.enemy,false);
+    else if(c.bossId)btn.onclick=()=>triggerBoss(c.bossId);
+    else if(c.next==='enter_dungeon')btn.onclick=()=>enterDungeon(c.stageId);
+    else btn.onclick=()=>loadScene(c.next);
+    box.appendChild(btn);
+  });
+  updateUI();updateAutoFightBtn();
 }
 
+// ── AUTO FIGHT ──
 function toggleAutoFight(){
   if(currentStage){
-    // In dungeon — stop auto fight and reset dungeon
-    autoFightOn=false;
-    clearInterval(autoFightTimer);
-    autoFightTimer=null;
-    currentStage=null;
-    dungeonWave=0;
-    dungeonQueue=[];
-    currentEnemy=null;
+    autoFightOn=false;clearInterval(autoFightTimer);autoFightTimer=null;
+    currentStage=null;dungeonWave=0;dungeonQueue=[];currentEnemy=null;
     document.getElementById('combat-box').style.display='none';
     document.getElementById('choices-box').style.display='flex';
-    stopAutoFight();
-    addLog('⏹️ Left the dungeon!','info');
-    notify('⏹️ Dungeon abandoned!','#888');
-    loadScene('town');
-    return;
+    stopAutoFight();addLog('⏹️ Left the dungeon!','info');notify('⏹️ Dungeon abandoned!','#888');loadScene('town');return;
   }
-
-  // Outside dungeon — old behavior
-  if(!autoFightEnemyId){
-    notify('⚠️ Defeat an enemy first!','var(--red)');
-    return;
-  }
-  autoFightOn=!autoFightOn;
-  updateAutoFightBtn();
-  if(autoFightOn){
-    addLog('⚡ Auto Fight ON!','gold');
-    notify('⚡ Auto Fight activated!','var(--gold)');
-    startAutoFight();
-  } else {
-    stopAutoFight();
-    addLog('⏹️ Auto Fight OFF.','info');
-    notify('⏹️ Auto Fight stopped.','#888');
-    document.getElementById('combat-box').style.display='none';
-    document.getElementById('choices-box').style.display='flex';
-  }
+  if(!autoFightEnemyId){notify('⚠️ Defeat an enemy first!','var(--red)');return;}
+  autoFightOn=!autoFightOn;updateAutoFightBtn();
+  if(autoFightOn){ addLog('⚡ Auto Fight ON!','gold');notify('⚡ Auto Fight activated!','var(--gold)');startAutoFight(); }
+  else { stopAutoFight();addLog('⏹️ Auto Fight OFF.','info');notify('⏹️ Auto Fight stopped.','#888');document.getElementById('combat-box').style.display='none';document.getElementById('choices-box').style.display='flex'; }
 }
- 
 function updateAutoFightBtn(){
-  const btn=document.getElementById('auto-fight-btn');
-  if(!btn)return;
-  
+  const btn=document.getElementById('auto-fight-btn');if(!btn)return;
   if(currentStage){
-    // Inside dungeon — show as "Leave Dungeon" button
-    btn.textContent='🚪 Leave Dungeon';
-    btn.style.background='linear-gradient(135deg,#6a0000,#aa2222)';
-    btn.style.display='inline-block';
-    return;
+    btn.textContent='🚪 Leave Dungeon';btn.style.background='linear-gradient(135deg,#6a0000,#aa2222)';btn.style.display='inline-block';return;
   }
-
   btn.textContent=autoFightOn?'⏹️ Stop Auto':'⚡ Auto Fight';
-  btn.style.background=autoFightOn
-    ?'linear-gradient(135deg,#6a0000,#aa2222)'
-    :'linear-gradient(135deg,#005500,#00aa44)';
+  btn.style.background=autoFightOn?'linear-gradient(135deg,#6a0000,#aa2222)':'linear-gradient(135deg,#005500,#00aa44)';
   btn.style.display=(autoFightEnemyId&&!currentEnemy)?'inline-block':'none';
 }
- 
 function startAutoFight(){
   if(!autoFightOn||!autoFightEnemyId)return;
- //  start a new fight immediately
-  startCombat(autoFightEnemyId, false);
-  // then run one auto action every 1 second
-  autoFightTimer=setInterval(()=>{
-    if(!autoFightOn||!currentEnemy){
-      clearInterval(autoFightTimer);
-      return;
-    }
-    autoFightStep();
-  },1000);
+  startCombat(autoFightEnemyId,false);
+  autoFightTimer=setInterval(()=>{if(!autoFightOn||!currentEnemy){clearInterval(autoFightTimer);return;}autoFightStep();},1000);
 }
-  
+function stopAutoFight(){
+  autoFightOn=false;clearInterval(autoFightTimer);autoFightTimer=null;updateAutoFightBtn();
+}
+
 function autoFightStep(){
   if(!currentEnemy)return;
-
-  // ── PLAYER ATTACKS ──
-  const enemyDodgeChance=Math.max(0,(currentEnemy.dodge||0)-state.hit)/100;
-  if(Math.random()<enemyDodgeChance){
-    addCombatLog(`💨 ${currentEnemy.name} dodged!`,'bad');
-  } else {
+  // Player attacks
+  const eDodge=Math.max(0,(currentEnemy.dodge||0)-state.hit)/100;
+  if(Math.random()<eDodge){ addCombatLog(`💨 ${currentEnemy.name} dodged!`,'bad'); }
+  else {
     let dmg=Math.max(1,state.attackPower+Math.floor(Math.random()*8)-Math.floor(currentEnemy.armor/2));
     let isCrit=false;
     if(Math.random()<state.crit/100){dmg=Math.floor(dmg*2);isCrit=true;}
@@ -1988,212 +1242,87 @@ function autoFightStep(){
     if(state.unlockedTalents.includes('death_mark'))dmg=Math.floor(dmg*1.5);
     if(isCrit)showCritEffect();
     currentEnemy.hp-=dmg;
-    const lifeSteal=state.lifeSteal||0;
-    if(lifeSteal>0){
-      const healAmt=Math.floor(dmg*lifeSteal);
-      if(healAmt>0){
-        state.hp=Math.min(state.maxHp,state.hp+healAmt);
-        addCombatLog(`🩸 Life Steal heals ${healAmt} HP!`,'good');
-        spawnDmgFloat(`🩸+${healAmt}`,false,'heal-float');
-      }
-    }
+    const ls=state.lifeSteal||0;
+    if(ls>0){const h=Math.floor(dmg*ls);if(h>0){state.hp=Math.min(state.maxHp,state.hp+h);addCombatLog(`🩸 Life Steal +${h} HP!`,'good');spawnDmgFloat(`🩸+${h}`,false,'heal-float');}}
     useNextAutoSkill(currentEnemy);
     addCombatLog(`⚔️ ${isCrit?'💥CRIT! ':''}Auto: ${dmg} dmg!`,isCrit?'gold':'good');
     animateAttack(true,dmg,isCrit);
   }
-
-  // ── CHECK ENEMY DEATH ──
-  if(currentEnemy.hp<=0){
-    currentEnemy.hp=0;
-    updateEnemyBar();
-    clearInterval(autoFightTimer);
-    autoFightTimer=null;
-    endCombat(true);
-    return; // ← endCombat handles next monster/wave
-  }
-
-  // ── SKILL COOLDOWNS ──
-  Object.keys(state.skillCooldowns).forEach(k=>{
-    if(state.skillCooldowns[k]>0)state.skillCooldowns[k]--;
-  });
-
-  // ── HP/MP REGEN ──
-  if(state.hpRegen>0){
-    const regen=Math.floor(state.hpRegen);
-    if(regen>0&&state.hp<state.maxHp){
-      state.hp=Math.min(state.maxHp,state.hp+regen);
-      addCombatLog(`💚 Regen +${regen} HP`,'good');
-    }
-  }
-  if(state.manaRegen>0){
-    const mregen=Math.floor(state.manaRegen);
-    if(mregen>0&&state.mp<state.maxMp){
-      state.mp=Math.min(state.maxMp,state.mp+mregen);
-      addCombatLog(`💙 Mana Regen +${mregen} MP`,'info');
-    }
-  }
-
-  // ── BOSS ABILITY ──
-  if(currentEnemy.boss && currentEnemy.ability){
+  if(currentEnemy.hp<=0){currentEnemy.hp=0;updateEnemyBar();clearInterval(autoFightTimer);autoFightTimer=null;endCombat(true);return;}
+  Object.keys(state.skillCooldowns).forEach(k=>{if(state.skillCooldowns[k]>0)state.skillCooldowns[k]--;});
+  if(state.hpRegen>0){const r=Math.floor(state.hpRegen);if(r>0&&state.hp<state.maxHp){state.hp=Math.min(state.maxHp,state.hp+r);addCombatLog(`💚 Regen +${r} HP`,'good');}}
+  if(state.manaRegen>0){const r=Math.floor(state.manaRegen);if(r>0&&state.mp<state.maxMp){state.mp=Math.min(state.maxMp,state.mp+r);addCombatLog(`💙 Mana Regen +${r} MP`,'info');}}
+  // Boss ability
+  if(currentEnemy.boss&&currentEnemy.ability){
     currentEnemy.abilityTurn=(currentEnemy.abilityTurn||0)+1;
-    if(currentEnemy.abilityTurn>=currentEnemy.ability.triggerEvery){
-      currentEnemy.abilityTurn=0;
-      currentEnemy.ability.effect(currentEnemy);
-    }
+    if(currentEnemy.abilityTurn>=currentEnemy.ability.triggerEvery){currentEnemy.abilityTurn=0;currentEnemy.ability.effect(currentEnemy);}
   }
-
-  // ── ENEMY ATTACKS ──
-  if(currentEnemy.frozen){
-    currentEnemy.frozen=false;
-    addCombatLog(`${currentEnemy.name} is frozen!`,'info');
-  } else {
-    // Check web trap
-    const dodge = state.webTrapped>0 ? 0 : state.dodge;
-    if(state.webTrapped>0) state.webTrapped--;
-
-    // Check phase shift
-    if(currentEnemy.phaseShifted){
-      currentEnemy.phaseShifted=false;
-      addCombatLog(`🌑 ${currentEnemy.name} phases back in!`,'info');
-    } else {
-      const playerDodgeChance=Math.max(0,dodge-(currentEnemy.hit||0))/100;
+  // Enemy attacks
+  if(currentEnemy.frozen){currentEnemy.frozen=false;addCombatLog(`${currentEnemy.name} is frozen!`,'info');}
+  else {
+    const dodge=state.webTrapped>0?0:state.dodge;
+    if(state.webTrapped>0)state.webTrapped--;
+    if(currentEnemy.phaseShifted){currentEnemy.phaseShifted=false;addCombatLog(`🌑 ${currentEnemy.name} phases back!`,'info');}
+    else {
+      const pDodge=Math.max(0,dodge-(currentEnemy.hit||0))/100;
       let eDmg=Math.max(1,currentEnemy.atk+Math.floor(Math.random()*6)-Math.floor(state.armor/10));
       if(state.defending)eDmg=Math.floor(eDmg/2);
-      if(Math.random()<playerDodgeChance){addCombatLog('💨 You dodged!','good');eDmg=0;}
+      if(Math.random()<pDodge){addCombatLog('💨 You dodged!','good');eDmg=0;}
       state.hp-=eDmg;
       if(eDmg>0){addCombatLog(`${currentEnemy.name} hits you for ${eDmg}!`,'bad');animateAttack(false,eDmg,false);}
     }
   }
-
-  // ── RAGE TIMER ──
-  if(currentEnemy.rageTimer>0){
-    currentEnemy.rageTimer--;
-    if(currentEnemy.rageTimer===0){
-      currentEnemy.atk=Math.floor(currentEnemy.atk/2);
-      addCombatLog(`👊 ${currentEnemy.name} calms down!`,'info');
-    }
-  }
-
-  // ── POISON ──
-  if(currentEnemy.poisoned>0){
-    const pd=currentEnemy.poisonDmg||Math.floor(state.agi*0.8+state.attackPower*0.3);
-    currentEnemy.hp-=pd;
-    currentEnemy.poisoned--;
-    addCombatLog(`🐍 Poison deals ${pd}!`,'good');
-    spawnDmgFloat(`🐍${pd}`,true,'enemy-dmg');
-  }
-
-  // ── PLAYER DEATH ──
+  if(currentEnemy.rageTimer>0){currentEnemy.rageTimer--;if(currentEnemy.rageTimer===0){currentEnemy.atk=Math.floor(currentEnemy.atk/2);addCombatLog(`👊 ${currentEnemy.name} calms down!`,'info');}}
+  if(currentEnemy.poisoned>0){const pd=currentEnemy.poisonDmg||Math.floor(state.agi*0.8+state.attackPower*0.3);currentEnemy.hp-=pd;currentEnemy.poisoned--;addCombatLog(`🐍 Poison deals ${pd}!`,'good');spawnDmgFloat(`🐍${pd}`,true,'enemy-dmg');}
   if(state.hp<=0){
-    state.hp=0;
-    updateUI();
-    clearInterval(autoFightTimer);
-    autoFightTimer=null;
-    // Reset dungeon state
-    currentStage=null;
-    dungeonWave=0;
-    dungeonQueue=[];
-    addLog('💀 You died!','bad');
-    notify('💀 You died!','var(--red)');
-    endCombat(false);
-    return;
+    state.hp=0;updateUI();clearInterval(autoFightTimer);autoFightTimer=null;
+    currentStage=null;dungeonWave=0;dungeonQueue=[];
+    addLog('💀 You died!','bad');notify('💀 You died!','var(--red)');endCombat(false);return;
   }
-
-  updateEnemyBar();
-  updateUI();
+  updateEnemyBar();updateUI();
 }
 
-function stopAutoFight(){
-  autoFightOn=false;
-  clearInterval(autoFightTimer);
-  autoFightTimer=null;
-  updateAutoFightBtn();
-  // Don't clear currentEnemy here - let endCombat() handle it
-}
-
-
- //  ... rest of your function stays the same
- 
- 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// STEP 3: Replace endCombat() with this new version
-// Adds: skill CD reset + auto fight next round
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ── END COMBAT ── (fixed: no more double gold/XP)
 function endCombat(won){
   if(!currentEnemy)return;
-// ── CLEAR ALL BOSS DEBUFFS ──
-  if(state.activeDebuffs.maxHpReduction > 0){
-    state.equipMaxHp = (state.equipMaxHp||0) + state.activeDebuffs.maxHpReduction;
-    state.activeDebuffs.maxHpReduction = 0;
-  }
-  state.activeDebuffs.webTrapped = 0;
-  state.activeDebuffs.rageTimer = 0;
-  state.webTrapped = 0;
 
-  // Also restore orc chieftain rage if still active
-  if(currentEnemy.rageTimer > 0){
-    currentEnemy.atk = Math.floor(currentEnemy.atk / 2);
-  }
+  // Clear boss debuffs
+  if(state.activeDebuffs.maxHpReduction>0){state.equipMaxHp=(state.equipMaxHp||0)+state.activeDebuffs.maxHpReduction;state.activeDebuffs.maxHpReduction=0;}
+  state.activeDebuffs.webTrapped=0;state.activeDebuffs.rageTimer=0;state.webTrapped=0;
+  if(currentEnemy.rageTimer>0)currentEnemy.atk=Math.floor(currentEnemy.atk/2);
 
-  state.usedUndying=false;
-  state.skillCooldowns={};
-  
-  // Reset ONLY temporary combat buffs
-state.strMult   = 1.0;
-state.agiMult   = 1.0;
-state.intMult   = 1.0;
-state.staMult   = 1.0;
-state.armorMult = 1.0;
-state.critMult  = 1.0;
-state.dodgeMult = 1.0;
-state.hpRegenMult = 1.0;
-state.mpRegenMult = 1.0;
-state.hitMult   = 1.0;
-state.mpMult    = 1.0;
-state.attackMult = 1.0;
-state.battleCryActive = false;
-// ← classBonuses and talentBonuses are NEVER touched here!
-  
-  // ✅ Reapply permanent bonuses (class + talent)
+  state.usedUndying=false;state.skillCooldowns={};state.battleCryActive=false;
+
+  // Reset ONLY temporary combat multipliers (never touch classBonuses or talentBonuses)
+  state.strMult=1.0;state.agiMult=1.0;state.intMult=1.0;state.staMult=1.0;
+  state.armorMult=1.0;state.critMult=1.0;state.dodgeMult=1.0;state.hpRegenMult=1.0;
+  state.mpRegenMult=1.0;state.hitMult=1.0;state.mpMult=1.0;state.attackPowerMult=1.0;
+
+  // Reapply permanent class bonuses
   if(state.class){
-    const c = CLASSES[state.class];
-    Object.entries(c.bonuses).forEach(([k,v])=>{
-      if(k in state) {
-        state[k] = 1.0 + v;
-      }
-    });
+    const c=CLASSES[state.class];
+    Object.entries(c.bonuses).forEach(([k,v])=>{ if(k in state)state[k]=1.0+v; });
   }
-
-  Object.keys(state.talentBonuses).forEach(k => {
-    if(k in state && k.includes('Mult')) {
-      state[k] += state.talentBonuses[k];
-    }
+  // Reapply permanent talent bonuses
+  Object.keys(state.talentBonuses).forEach(k=>{
+    if(k in state&&k.includes('Mult'))state[k]+=state.talentBonuses[k];
   });
-
   calcStats();
 
-  if(won){
-    if(currentEnemy.id&&!currentEnemy.boss){
-      autoFightEnemyId=currentEnemy.id;
-    }
+  const wasBoss=currentEnemy.boss;
+  const defeatedId=currentEnemy.id;
 
-    // ✅ Safe gold calculation
-    let baseGold = [50, 150];
-    if(currentEnemy.gold && Array.isArray(currentEnemy.gold)) {
-      baseGold = currentEnemy.gold;
-    }
-    
-    const min = Number(baseGold) || 50;
-    const max = Number(baseGold) || 150;
-    const goldMult = Number(currentEnemy._goldMult) || 1;
-    const xpMult = Number(currentEnemy._xpMult) || 1;
-    
-    const g = Math.floor((Math.random() * (max - min) + min) * goldMult);
-    const xp = Math.floor(currentEnemy.xp * xpMult);
-    
-    state.gold += g;
-    state.xp += xp;
-    addLog(`Defeated ${currentEnemy.name}! +${xp} XP, +${g} Gold`, 'good');
+  if(won){
+    // ── REWARDS (runs exactly ONCE) ──
+    if(defeatedId&&!wasBoss) autoFightEnemyId=defeatedId;
+
+    const baseGold=currentEnemy.gold&&Array.isArray(currentEnemy.gold)?currentEnemy.gold:[50,150];
+    const goldMult=Number(currentEnemy._goldMult)||1;
+    const xpMult=Number(currentEnemy._xpMult)||1;
+    const g=Math.floor((Math.random()*(baseGold[1]-baseGold[0])+baseGold[0])*goldMult);
+    const xp=Math.floor(currentEnemy.xp*xpMult);
+    state.gold+=g;state.xp+=xp;
+    addLog(`Defeated ${currentEnemy.name}! +${xp} XP, +${g} Gold`,'good');
 
     if(currentEnemy.loot){
       currentEnemy.loot().forEach(item=>{
@@ -2202,191 +1331,75 @@ state.battleCryActive = false;
         if(item.rarity==='legendary')state.quests.legendary.done=true;
       });
     }
-
-    if(currentEnemy.boss)state.quests.boss.done=true;
+    if(wasBoss)state.quests.boss.done=true;
     state.quests.kill1.done=true;
     if(state.gold>=50)state.quests.gold50.done=true;
     autoSellAfterCombat();
     checkLevelUp();
-    // ── After checkLevelUp() in endCombat() ──
-if(won){
-  if(currentEnemy.id && !currentEnemy.boss){
-    autoFightEnemyId = currentEnemy.id;
-  }
-
-  const baseGold = currentEnemy.gold && Array.isArray(currentEnemy.gold) ? currentEnemy.gold : [50,150];
-  const goldMult = Number(currentEnemy._goldMult) || 1;
-  const xpMult = Number(currentEnemy._xpMult) || 1;
-  const g = Math.floor((Math.random()*(baseGold[1]-baseGold[0])+baseGold[0])*goldMult);
-  const xp = Math.floor(currentEnemy.xp * xpMult);
-  state.gold += g;
-  state.xp += xp;
-  addLog(`Defeated ${currentEnemy.name}! +${xp} XP, +${g} Gold`,'good');
-
-  const wasBoss = currentEnemy.boss; // ← save BEFORE clearing
-  currentEnemy = null;
-  document.getElementById('combat-box').style.display = 'none';
-
-  if(currentEnemy && currentEnemy.loot){
-    currentEnemy.loot().forEach(item=>{
-      addToInventory(item);
-      addLog(`Loot: ${item.name} [${RARITY[item.rarity]?.label||'Normal'}]`,item.rarity==='legendary'?'legendary':item.rarity==='epic'?'epic':'gold');
-      if(item.rarity==='legendary')state.quests.legendary.done=true;
-    });
-  }
-
-  if(wasBoss) state.quests.boss.done=true;
-  state.quests.kill1.done=true;
-  if(state.gold>=50)state.quests.gold50.done=true;
-  autoSellAfterCombat();
-  checkLevelUp();
-  renderQuests();
-
-  // ── DUNGEON FLOW ──
-  if(currentStage){
-    if(wasBoss){
-      dungeonComplete();
-    } else {
-      if(dungeonQueue.length > 0){
-        setTimeout(()=>spawnNextDungeonMonster(), 1200);
-      } else {
-        setTimeout(()=>startNextWave(), 1500);
-      }
-    }
-  } else if(!autoFightOn){
-  }
-}
     renderQuests();
 
+    // Clear enemy AFTER rewards
     currentEnemy=null;
     document.getElementById('combat-box').style.display='none';
 
-    if(!autoFightOn){
-      loadScene('victory');
+    // Dungeon flow
+    if(currentStage){
+      if(wasBoss){ dungeonComplete(); }
+      else if(dungeonQueue.length>0){ setTimeout(()=>spawnNextDungeonMonster(),1200); }
+      else { setTimeout(()=>startNextWave(),1500); }
+    } else if(autoFightOn){
+      // Auto fight continues — next fight starts via startAutoFight loop
     }
 
   } else {
-    currentEnemy=null;document.getElementById('combat-box').style.display='none';
+    currentEnemy=null;
+    document.getElementById('combat-box').style.display='none';
     loadScene('town');
+  }
+
+  updateUI();renderSkillBar();updateAutoFightBtn();
 }
 
-  updateUI();
-  renderSkillBar();
-  updateAutoFightBtn();
-}
-
-// Auto skill slots state
-let autoSkillSlots = [null, null, null];
-let autoSkillIndex = 0;
-
-function dropSkillToSlot(event, slotIndex) {
-  const skillId = event.dataTransfer.getData('skillId');
-  if (!skillId || !SKILLS[skillId]) return;
-  autoSkillSlots[slotIndex] = skillId;
-  renderAutoSlots();
-}
-
-function clearSlot(slotIndex) {
-  autoSkillSlots[slotIndex] = null;
-  renderAutoSlots();
-}
-
-function renderAutoSlots() {
-  autoSkillSlots.forEach((skillId, i) => {
-    const content = document.getElementById(`auto-slot-content-${i}`);
-    const slot = document.getElementById(`auto-slot-${i}`);
-    if (!content || !slot) return;
-    if (skillId && SKILLS[skillId]) {
-      const skill = SKILLS[skillId];
-      content.innerHTML = skill.icon;
-      content.style.borderColor = 'var(--gold)';
-      slot.querySelector('.skill-lbl').textContent = skill.name;
-    } else {
-      content.innerHTML = '➕';
-      content.style.borderColor = '';
-      slot.querySelector('.skill-lbl').textContent = `Slot ${i+1}`;
-    }
+// ── AUTO SKILL SLOTS ──
+function dropSkillToSlot(event,slotIndex){const skillId=event.dataTransfer.getData('skillId');if(!skillId||!SKILLS[skillId])return;autoSkillSlots[slotIndex]=skillId;renderAutoSlots();}
+function clearSlot(slotIndex){autoSkillSlots[slotIndex]=null;renderAutoSlots();}
+function renderAutoSlots(){
+  autoSkillSlots.forEach((skillId,i)=>{
+    const content=document.getElementById(`auto-slot-content-${i}`);const slot=document.getElementById(`auto-slot-${i}`);if(!content||!slot)return;
+    if(skillId&&SKILLS[skillId]){const sk=SKILLS[skillId];content.innerHTML=sk.icon;content.style.borderColor='var(--gold)';slot.querySelector('.skill-lbl').textContent=sk.name;}
+    else{content.innerHTML='➕';content.style.borderColor='';slot.querySelector('.skill-lbl').textContent=`Slot ${i+1}`;}
   });
 }
-
-function useNextAutoSkill(enemy) {
-  const filledSlots = autoSkillSlots
-    .map((id, i) => ({ id, i }))
-    .filter(s => s.id !== null);
-  
-  if (filledSlots.length === 0) return false;
-
-  // Cycle through filled slots only
-  const slot = filledSlots[autoSkillIndex % filledSlots.length];
-  autoSkillIndex++;
-
-  const skillId = slot.id;
-  if (!skillId || !SKILLS[skillId]) return false;
-
-  const skill = SKILLS[skillId];
-  const cd = state.skillCooldowns[skillId] || 0;
-  const mpCost = typeof skill.mp === 'function' ? skill.mp() : skill.mp;
-
-  if (cd > 0) {
-    addCombatLog(`⏳ ${skill.name} on cooldown (${cd})`, 'info');
-    return false;
-  }
-  if (state.mp < mpCost) {
-    addCombatLog(`💙 Not enough MP for ${skill.name}!`, 'bad');
-    return false;
-  }
-
-  state.mp -= mpCost;
-  state.skillCooldowns[skillId] = skill.cd;
-  skill.use(enemy);
-  spawnAbilityFloat(`${skill.icon} ${skill.name}!`, '#f0c040');
-  return true;
+function useNextAutoSkill(enemy){
+  const filled=autoSkillSlots.map((id,i)=>({id,i})).filter(s=>s.id!==null);if(!filled.length)return false;
+  const slot=filled[autoSkillIndex%filled.length];autoSkillIndex++;
+  const skillId=slot.id;if(!skillId||!SKILLS[skillId])return false;
+  const sk=SKILLS[skillId],cd=state.skillCooldowns[skillId]||0,mpCost=typeof sk.mp==='function'?sk.mp():sk.mp;
+  if(cd>0){addCombatLog(`⏳ ${sk.name} on cooldown (${cd})`,'info');return false;}
+  if(state.mp<mpCost){addCombatLog(`💙 Not enough MP for ${sk.name}!`,'bad');return false;}
+  state.mp-=mpCost;state.skillCooldowns[skillId]=sk.cd;sk.use(enemy);
+  spawnAbilityFloat(`${sk.icon} ${sk.name}!`,'#f0c040');return true;
 }
-
-
-
 
 // ── COMBAT ──
 function startCombat(enemyId,isBoss){
-  const tmpl=MONSTER_TEMPLATES[enemyId];
-  if(!tmpl)return;
-  
+  const tmpl=MONSTER_TEMPLATES[enemyId];if(!tmpl)return;
   const diff=DIFFICULTY[state.difficulty||'normal'];
   const scale=(1+Math.max(0,(state.level-1))*0.01)*diff.hpMult;
   const atkScale=(1+Math.max(0,(state.level-1))*0.01)*diff.atkMult;
-
- 
-  // Add difficulty prefix to name
   const prefix=state.difficulty==='hell'?'💀 Hell ':state.difficulty==='hard'?'🔥 Hard ':'';
- 
-  currentEnemy={
-    ...tmpl,
-    name:prefix+tmpl.name,
-    hp:Math.floor(tmpl.hp*scale),
-    maxHp:Math.floor(tmpl.hp*scale),
-    atk:Math.floor(tmpl.atk*atkScale),
-    armor:tmpl.armor,
-    hit:Math.floor((tmpl.hit||0)*5),
-    dodge:Math.floor((tmpl.dodge||0)*5),
-    poisoned:0,
-    frozen:false,
-    crippled:0,
-    boss:false,
-    _xpMult:diff.xpMult,
-    _goldMult:diff.goldMult,
-  };
+  currentEnemy={...tmpl,name:prefix+tmpl.name,hp:Math.floor(tmpl.hp*scale),maxHp:Math.floor(tmpl.hp*scale),atk:Math.floor(tmpl.atk*atkScale),armor:tmpl.armor,hit:Math.floor((tmpl.hit||0)*5),dodge:Math.floor((tmpl.dodge||0)*5),poisoned:0,frozen:false,crippled:0,boss:false,_xpMult:diff.xpMult,_goldMult:diff.goldMult};
+  currentEnemy=applyTutorialScaling(currentEnemy);
   startCombatWith(currentEnemy);
+  if(isTutorialActive()){addCombatLog('📚 TUTORIAL MODE: Enemies are weaker!','info');showTutorialHint('firstCombat');}
 }
 function startCombatWith(enemy){
-  autoSkillIndex = 0;
+  autoSkillIndex=0;
   document.getElementById('enemy-hp-val').textContent=enemy.hp;
   document.getElementById('enemy-hp-max').textContent=enemy.maxHp;
-  const enemyEl=document.getElementById('arena-enemy');
-if(enemy.icon&&!enemy.icon.includes(' ')&&enemy.icon.length<20){
-  enemyEl.innerHTML=`<img src="${enemy.icon}.jpg" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:2px solid var(--red);">`;
-}else{
-  enemyEl.textContent=enemy.icon;
-}
+  const el=document.getElementById('arena-enemy');
+  if(enemy.icon&&!enemy.icon.includes(' ')&&enemy.icon.length<20){el.innerHTML=`<img src="${enemy.icon}.jpg" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:2px solid var(--red);">`;}
+  else{el.textContent=enemy.icon;}
   document.getElementById('arena-enemy-label').textContent=enemy.name;
   document.getElementById('arena-enemy-hp').style.width='100%';
   document.getElementById('combat-log').innerHTML='';
@@ -2399,188 +1412,91 @@ if(enemy.icon&&!enemy.icon.includes(' ')&&enemy.icon.length<20){
 
 function combatAction(action){
   if(!currentEnemy)return;
-  
   if(action==='attack'){
-    const enemyDodgeChance = Math.max(0, (currentEnemy.dodge||0) - state.hit) / 100;
-    if(Math.random() < enemyDodgeChance){
-      addCombatLog(`💨 ${currentEnemy.name} dodged your attack!`,'bad');
-      playSound('snd-attack');
-    } else {
-      let dmg=Math.max(1, state.attackPower + Math.floor(Math.random()*8) - Math.floor(currentEnemy.armor/2));
+    showTutorialHint('firstCombat');
+    const eDodge=Math.max(0,(currentEnemy.dodge||0)-state.hit)/100;
+    if(Math.random()<eDodge){addCombatLog(`💨 ${currentEnemy.name} dodged!`,'bad');playSound('snd-attack');}
+    else {
+      let dmg=Math.max(1,state.attackPower+Math.floor(Math.random()*8)-Math.floor(currentEnemy.armor/2));
       let isCrit=false;
+      const tutBonus=getTutorialDamageBonus();dmg=Math.floor(dmg*tutBonus);
       if(state.unlockedTalents.includes('berserker')&&state.hp<state.maxHp*.5)dmg=Math.floor(dmg*1.35);
-      if(Math.random() < state.crit/100){dmg=Math.floor(dmg*2);isCrit=true;}
-      if(isCrit) showCritEffect();
+      if(Math.random()<state.crit/100){dmg=Math.floor(dmg*2);isCrit=true;}
+      if(isCrit)showCritEffect();
       if(state.unlockedTalents.includes('death_mark'))dmg=Math.floor(dmg*1.5);
       if(state.unlockedTalents.includes('venom'))currentEnemy.poisoned=(currentEnemy.poisoned||0)+1;
       currentEnemy.hp-=dmg;
-      // Life steal
-    const lifeSteal = state.lifeSteal || 0;
-      if(lifeSteal > 0){
-      const healAmt = Math.floor(dmg * lifeSteal);
-      if(healAmt > 0){
-      state.hp = Math.min(state.maxHp, state.hp + healAmt);
-      addCombatLog(`🩸 Life Steal heals ${healAmt} HP!`, 'good');
-      spawnDmgFloat(`🩸+${healAmt}`, false, 'heal-float');
-  }
-    }
-      addCombatLog(`⚔️ ${isCrit?'💥CRIT! ':''}You hit for ${dmg}!`,isCrit?'gold':'good');
-      playSound('snd-attack');animateAttack(true,dmg,isCrit);
+      const ls=state.lifeSteal||0;if(ls>0){const h=Math.floor(dmg*ls);if(h>0){state.hp=Math.min(state.maxHp,state.hp+h);addCombatLog(`🩸 Life Steal heals ${h} HP!`,'good');spawnDmgFloat(`🩸+${h}`,false,'heal-float');}}
+      addCombatLog(`⚔️ ${isCrit?'💥CRIT! ':''}You hit for ${dmg}!`,isCrit?'gold':'good');playSound('snd-attack');animateAttack(true,dmg,isCrit);
     }
     state.defending=false;
   } else if(action==='magic'){
+    showTutorialHint('firstMagic');
     if(state.mp<10){addCombatLog('❌ Not enough MP!','bad');return;}
     let dmg=Math.max(1,state.int*2+Math.floor(Math.random()*10));
     if(state.unlockedTalents.includes('spell_power'))dmg=Math.floor(dmg*1.3);
     if(state.unlockedTalents.includes('fire_mastery'))dmg=Math.floor(dmg*1.2);
     currentEnemy.hp-=dmg;state.mp-=10;
-    addCombatLog(`✨ Magic hits for ${dmg}! (-10 MP)`,'info');playSound('snd-magic');animateAttack(true,dmg,false);
-    state.defending=false;
+    addCombatLog(`✨ Magic hits for ${dmg}! (-10 MP)`,'info');playSound('snd-magic');animateAttack(true,dmg,false);state.defending=false;
   } else if(action==='defend'){
-    state.defending=true;addCombatLog('🛡️ Bracing for impact!','info');
+    showTutorialHint('firstDefend');state.defending=true;addCombatLog('🛡️ Bracing for impact!','info');
   } else if(action==='flee'){
+    showTutorialHint('firstFlee');
     const ok=state.unlockedTalents.includes('smoke_bomb')?.99:state.agi>currentEnemy.armor?.7:.35;
     if(Math.random()<ok){addLog('Fled from battle!','bad');currentEnemy=null;document.getElementById('combat-box').style.display='none';loadScene('town');return;}
     addCombatLog('❌ Failed to flee!','bad');state.defending=false;
   }
-  
-  // ✅ CHECK IF ENEMY DIED FIRST
-  if(currentEnemy&&currentEnemy.hp<=0){
-    currentEnemy.hp=0;
-    updateEnemyBar();
-    endCombat(true);
-    return;  // ← IMPORTANT: Stop here!
-  }
-  
-  // Apply talent healing
-  // Apply talent healing
-//if(state.unlockedTalents.includes('second_wind'))state.hp=Math.min(state.maxHp,state.hp+50);
-//if(state.unlockedTalents.includes('mana_regen'))state.mp=Math.min(state.maxMp,state.mp+50);
-
-// HP/MP regen per turn
-if(state.hpRegen>0){
-  const regen=Math.floor(state.hpRegen + state.equipHpRegen);
-  if(regen>0&&state.hp<state.maxHp){
-    state.hp=Math.min(state.maxHp,state.hp+regen);
-    //spawnDmgFloat(`+${regen}HP`,false,'heal-float');
-    addCombatLog(`💚 Regen +${regen} HP`,'good'); // ← add this
-  }
-}
-if(state.manaRegen>0){
-  const mregen=Math.floor(state.manaRegen);
-  if(mregen>0&&state.mp<state.maxMp){
-    state.mp=Math.min(state.maxMp,state.mp+mregen);
-    addCombatLog(`💙 Mana Regen +${mregen} MP`,'info'); // ← add this
-  }
-}
-  
-  // Decrement all skill cooldowns after player action
-  Object.keys(state.skillCooldowns).forEach(k => {
-    if (state.skillCooldowns[k] > 0) {
-      state.skillCooldowns[k]--;
-    }
-  });
-  
-  // ✅ ENEMY ATTACKS ONLY IF STILL ALIVE
+  if(currentEnemy&&currentEnemy.hp<=0){currentEnemy.hp=0;updateEnemyBar();endCombat(true);return;}
+  if(state.hpRegen>0){const r=Math.floor(state.hpRegen);if(r>0&&state.hp<state.maxHp){state.hp=Math.min(state.maxHp,state.hp+r);addCombatLog(`💚 Regen +${r} HP`,'good');}}
+  if(state.manaRegen>0){const r=Math.floor(state.manaRegen);if(r>0&&state.mp<state.maxMp){state.mp=Math.min(state.maxMp,state.mp+r);addCombatLog(`💙 Mana Regen +${r} MP`,'info');}}
+  Object.keys(state.skillCooldowns).forEach(k=>{if(state.skillCooldowns[k]>0)state.skillCooldowns[k]--;});
   if(currentEnemy&&currentEnemy.hp>0){
-    if(currentEnemy.frozen){
-      currentEnemy.frozen=false;
-      addCombatLog(`${currentEnemy.name} is frozen!`,'info');
-    } else {
-      const playerDodgeChance = Math.max(0, state.dodge - (currentEnemy.hit||0)) / 100;
-      let eDmg=Math.max(1, currentEnemy.atk + Math.floor(Math.random()*6) - Math.floor(state.armor/10));
+    if(currentEnemy.frozen){currentEnemy.frozen=false;addCombatLog(`${currentEnemy.name} is frozen!`,'info');}
+    else {
+      const pDodge=Math.max(0,state.dodge-(currentEnemy.hit||0))/100;
+      let eDmg=Math.max(1,currentEnemy.atk+Math.floor(Math.random()*6)-Math.floor(state.armor/10));
+      if(isTutorialActive())eDmg=Math.floor(eDmg*TUTORIAL_CONFIG.enemyDamageMultiplier);
       if(state.defending)eDmg=Math.floor(eDmg/(state.unlockedTalents.includes('fortress')?4:2));
       if(state.unlockedTalents.includes('shield_wall'))eDmg=Math.floor(eDmg*.9);
       if(state.manaShield){state.manaShield=false;addCombatLog('🔮 Mana Shield absorbed!','info');eDmg=0;}
-      if(Math.random() < playerDodgeChance){addCombatLog('💨 You dodged!','good');eDmg=0;}
+      if(Math.random()<pDodge){addCombatLog('💨 You dodged!','good');eDmg=0;}
       state.hp-=eDmg;
       if(eDmg>0){addCombatLog(`${currentEnemy.name} hits you for ${eDmg}!`,'bad');animateAttack(false,eDmg,false);}
     }
-    
-    if(currentEnemy.poisoned>0){
-      const pd=8;
-      currentEnemy.hp-=pd;
-      currentEnemy.poisoned--;
-      addCombatLog(`🐍 Poison deals ${pd}!`,'good');
-    }
-    
-    if(state.hp<=0&&state.unlockedTalents.includes('undying')&&!state.usedUndying){
-      state.hp=1;
-      state.usedUndying=true;
-      addCombatLog('💪 Undying Will! Survived!','gold');
-    }
-    
-    if(state.hp<=0){
-      state.hp=0;
-      updateUI();
-      endCombat(false);
-      return;
-    }
+    if(currentEnemy.poisoned>0){const pd=8;currentEnemy.hp-=pd;currentEnemy.poisoned--;addCombatLog(`🐍 Poison deals ${pd}!`,'good');}
+    if(state.hp<=0&&state.unlockedTalents.includes('undying')&&!state.usedUndying){state.hp=1;state.usedUndying=true;addCombatLog('💪 Undying Will! Survived!','gold');}
+    if(state.hp<=0){state.hp=0;updateUI();endCombat(false);return;}
   }
-  
-  updateEnemyBar();
-  updateUI();
+  updateEnemyBar();updateUI();
 }
 
 function useSkillInCombat(skillId){
   if(!currentEnemy)return;
   const sk=SKILLS[skillId];if(!sk)return;
-  const cd=state.skillCooldowns[skillId]||0;
-  const mpCost=typeof sk.mp==='function'?sk.mp():sk.mp;
+  const cd=state.skillCooldowns[skillId]||0,mpCost=typeof sk.mp==='function'?sk.mp():sk.mp;
   if(cd>0){addCombatLog(`${sk.name} on cooldown! (${cd})`,'bad');return;}
   if(state.mp<mpCost){addCombatLog(`Not enough MP for ${sk.name}!`,'bad');return;}
-
-  // Use skill
-  state.mp-=mpCost;
-  state.skillCooldowns[skillId]=sk.cd;
-  sk.use(currentEnemy);
-
-  // Show skill float
-  spawnAbilityFloat(`${sk.icon} ${sk.name}!`, '#f0c040');
-
-  // Tick down other cooldowns
-  Object.keys(state.skillCooldowns).forEach(k=>{
-    if(k!==skillId&&state.skillCooldowns[k]>0)state.skillCooldowns[k]--;
-  });
-
-  // Check if enemy died
-  if(currentEnemy&&currentEnemy.hp<=0){
-    currentEnemy.hp=0;
-    updateEnemyBar();
-    clearInterval(autoFightTimer);
-    autoFightTimer=null;
-    endCombat(true);
-    return;
-  }
-
-  // Enemy retaliates
+  state.mp-=mpCost;state.skillCooldowns[skillId]=sk.cd;sk.use(currentEnemy);
+  spawnAbilityFloat(`${sk.icon} ${sk.name}!`,'#f0c040');
+  Object.keys(state.skillCooldowns).forEach(k=>{if(k!==skillId&&state.skillCooldowns[k]>0)state.skillCooldowns[k]--;});
+  if(currentEnemy&&currentEnemy.hp<=0){currentEnemy.hp=0;updateEnemyBar();clearInterval(autoFightTimer);autoFightTimer=null;endCombat(true);return;}
   if(currentEnemy&&currentEnemy.hp>0){
-    const playerDodgeChance=Math.max(0,state.dodge-(currentEnemy.hit||0))/100;
+    const pDodge=Math.max(0,state.dodge-(currentEnemy.hit||0))/100;
     let eDmg=Math.max(1,currentEnemy.atk+Math.floor(Math.random()*6)-Math.floor(state.armor/10));
     if(state.manaShield){state.manaShield=false;addCombatLog('🔮 Mana Shield absorbed!','info');eDmg=0;}
-    if(Math.random()<playerDodgeChance){addCombatLog('💨 You dodged!','good');eDmg=0;}
+    if(Math.random()<pDodge){addCombatLog('💨 You dodged!','good');eDmg=0;}
     state.hp-=eDmg;
     if(eDmg>0){addCombatLog(`${currentEnemy.name} retaliates: ${eDmg}!`,'bad');animateAttack(false,eDmg,false);}
     if(state.hp<=0){state.hp=0;updateUI();endCombat(false);return;}
   }
-
-  updateEnemyBar();
-  updateUI();
-  renderSkillBar();
+  updateEnemyBar();updateUI();renderSkillBar();
 }
 
 function addCombatLog(msg,type=''){
-  // Format large numbers in combat messages
-  msg = msg.replace(/(\d+)/g, (match) => formatNumber(parseInt(match)));
-  
-  const b=document.getElementById('combat-log');
-  const d=document.createElement('div');
-  d.className=`log-entry ${type?'log-'+type:''}`;
-  d.textContent=msg;
-  b.appendChild(d);
-  b.scrollTop=b.scrollHeight;
+  msg=msg.replace(/(\d+)/g,(m)=>formatNumber(parseInt(m)));
+  const b=document.getElementById('combat-log'),d=document.createElement('div');
+  d.className=`log-entry ${type?'log-'+type:''}`;d.textContent=msg;b.appendChild(d);b.scrollTop=b.scrollHeight;
 }
-
 function updateEnemyBar(){
   if(!currentEnemy)return;
   const p=Math.max(0,(currentEnemy.hp/currentEnemy.maxHp)*100);
@@ -2588,160 +1504,101 @@ function updateEnemyBar(){
   document.getElementById('enemy-hp-val').textContent=Math.max(0,currentEnemy.hp);
 }
 
-// ── TREASURE CHEST LOOT TABLES ──
-const TREASURE_TABLES = {
-  1:  { rolls: 2, tier: 'normal' },
-  2:  { rolls: 2, tier: 'uncommon' },
-  3:  { rolls: 3, tier: 'uncommon' },
-  4:  { rolls: 3, tier: 'rare' },
-  5:  { rolls: 3, tier: 'rare' },
-  6:  { rolls: 4, tier: 'epic' },
-  7:  { rolls: 4, tier: 'epic' },
-  8:  { rolls: 4, tier: 'epic' },
-  9:  { rolls: 5, tier: 'legendary' },
-  10: { rolls: 5, tier: 'legendary' },
-};
-
-function rollTreasureRarity(tier){
-  const r = Math.random();
-  switch(tier){
-    case 'normal':
-      // normal 70%, uncommon 30%
-      return r < 0.30 ? 'uncommon' : 'normal';
-    
-    case 'uncommon':
-      // uncommon 70%, rare 30%
-      return r < 0.30 ? 'rare' : 'uncommon';
-    
-    case 'rare':
-      // rare 70%, epic 30%
-      return r < 0.30 ? 'epic' : 'rare';
-    
-    case 'epic':
-      // epic 90%, legendary 10%
-      return r < 0.05 ? 'legendary' : 'epic';
-    
-    case 'legendary':
-      // epic 80%, legendary 10%
-      return r < 0.10 ? 'legendary' : 'epic';
-    
-    default:
-      return 'normal';
-  }
+// ── ITEM HELPERS ──
+const SLOT_ICONS={weapon:'⚔️',armor:'🛡️',helmet:'⛑️',boots:'👢',ring:'💍',amulet:'📿'};
+const EQUIP_PREFIXES={legendary:['Divine','Mythic','Godforged','Ancient','Eternal','Celestial'],epic:['Heroic','Valiant','Exalted','Magnificent','Radiant'],rare:['Polished','Reinforced','Enchanted','Gleaming'],uncommon:['Sturdy','Sharpened','Improved','Sturdy'],normal:['Iron','Wooden','Basic','Simple']};
+const EQUIP_NAMES={weapon:['Blade','Sword','Axe','Spear','Dagger','Staff','Bow'],armor:['Plate','Chainmail','Robe','Leather','Cuirass'],helmet:['Helm','Crown','Hood','Circlet','Visor'],boots:['Greaves','Sabatons','Boots','Treads'],ring:['Band','Seal','Loop','Signet'],amulet:['Pendant','Amulet','Talisman','Necklace']};
+const EQUIP_STATS={weapon:{str:[15,35],lifeSteal:[0.07,0.09]},armor:{armor:[25,55],sta:[15,35],maxHp:[200,300],hpRegen:[25,75]},helmet:{armor:[35,65],int:[15,35]},boots:{agi:[15,35]},ring:{str:[15,35],int:[15,35]},amulet:{int:[25,45],maxMp:[105,205]}};
+function mkEquipDrop(slot,rarity){
+  rarity=applyRarityBonus(rarity);
+  const mult=RARITY[rarity].mult;
+  const prefix=EQUIP_PREFIXES[rarity][Math.floor(Math.random()*EQUIP_PREFIXES[rarity].length)];
+  const suffix=EQUIP_NAMES[slot][Math.floor(Math.random()*EQUIP_NAMES[slot].length)];
+  const stats={};
+  Object.entries(EQUIP_STATS[slot]).forEach(([k,[mn,mx]])=>{const raw=(Math.random()*(mx-mn)+mn)*mult;stats[k]=mx<1?Math.round(raw*1000)/1000:Math.round(raw);});
+  return{uid:genUid(),name:`${SLOT_ICONS[slot]} ${prefix} ${suffix}`,category:'equipment',slot,rarity,stats,equipped:false,sellPrice:Math.round(50*mult*(state.level||1)*.10)};
+}
+function mkMat(name,rarity,sellPrice){return{uid:genUid(),name,category:'material',rarity,sellPrice,stackable:true,qty:1};}
+function mkCons(name,rarity,sellPrice,hpVal){return{uid:genUid(),name,category:'consumable',rarity,sellPrice,stackable:true,qty:1,effect:'hp',val:hpVal};}
+function genUid(){return Date.now()+Math.random();}
+function applyRarityBonus(rarity){
+  const order=['normal','uncommon','rare','epic','legendary'];
+  const bonus=(DIFFICULTY[state.difficulty||'normal'].rarityBonus)||0;
+  return order[Math.min(order.length-1,order.indexOf(rarity)+bonus)];
 }
 
-// ── OPEN TREASURE CHEST ──
-// ── DROP TREASURE BOX INTO INVENTORY ──
-function dropTreasureBox(stageId) {
-  const boxNames = {
-    1:  '📦 Worn Chest',
-    2:  '📦 Wooden Chest',
-    3:  '📦 Iron Chest',
-    4:  '📦 Steel Chest',
-    5:  '📦 Golden Chest',
-    6:  '📦 Enchanted Chest',
-    7:  '📦 Ancient Chest',
-    8:  '📦 Demonic Chest',
-    9:  '📦 Shadow Chest',
-    10: '📦 Eternal Chest',
-  };
+// ── CRAFTING ──
+const CRAFTING=[
+  {id:'craft_steel_sword',result:{name:'⚔️ Crafted Steel Sword',slot:'weapon',rarity:'rare',stats:{str:100},category:'equipment'},req:[{name:'🪓 Orc Fragment',qty:3},{name:'🪶 Wolf Fang',qty:2}],desc:'A powerful steel sword forged from orc metal'},
+  {id:'craft_shadow_blade',result:{name:'🗡️ Shadow Blade',slot:'weapon',rarity:'epic',stats:{str:80,agi:60},category:'equipment'},req:[{name:'🌕 Moon Shard',qty:2},{name:'🪶 Wolf Fang',qty:3},{name:'🕸️ Spider Silk',qty:2}],desc:'A blade imbued with shadow energy'},
+  {id:'craft_dragon_armor',result:{name:'🛡️ Dragon Scale Armor',slot:'armor',rarity:'epic',stats:{armor:320},category:'equipment'},req:[{name:'🐉 Dragon Scale',qty:3},{name:'🪨 Stone Core',qty:2}],desc:'Armor forged from dragon scales'},
+  {id:'craft_void_ring',result:{name:'💍 Void Ring',slot:'ring',rarity:'epic',stats:{str:150,int:150,agi:150},category:'equipment'},req:[{name:'🌑 Void Crystal',qty:2},{name:'💎 Troll Gem',qty:3}],desc:'A ring channeling the power of the void'},
+  {id:'craft_phoenix_amulet',result:{name:'📿 Phoenix Amulet',slot:'amulet',rarity:'legendary',stats:{int:150,maxMp:400},category:'equipment'},req:[{name:'🔥 Phoenix Feather',qty:2},{name:'🔥 Dragon Flame',qty:2},{name:'💎 Pure Crystal Core',qty:1}],desc:'Ultimate mage amulet'},
+  {id:'craft_titan_helm',result:{name:'⛑️ Titan Helm',slot:'helmet',rarity:'legendary',stats:{armor:200,str:80},category:'equipment'},req:[{name:'⚡ Titan Soul',qty:1},{name:'💀 Death Essence',qty:2},{name:'🪨 Stone Core',qty:3}],desc:'A helmet of godlike defense'},
+  {id:'craft_chaos_boots',result:{name:'👢 Chaos Treads',slot:'boots',rarity:'legendary',stats:{agi:180,str:50},category:'equipment'},req:[{name:'🌀 Chaos Essence',qty:2},{name:'🌕 Moon Shard',qty:3}],desc:'Boots that bend space'},
+  {id:'craft_mega_potion',result:{name:'❤️ Mega Elixir',category:'consumable',rarity:'epic',effect:'hp',val:1500,stackable:true,qty:1},req:[{name:'🩸 Blood Vial',qty:3},{name:'🔥 Phoenix Feather',qty:1}],desc:'Restores 1500 HP instantly'},
+  {id:'craft_divine_blade',result:{name:'⚔️ Divine Blade',slot:'weapon',rarity:'legendary',stats:{str:220},category:'equipment'},req:[{name:'☄️ Divine Shard',qty:2},{name:'🐉 Dragon Scale',qty:2},{name:'😈 Demon Horn',qty:1}],desc:'The ultimate weapon'},
+];
 
-  const box = {
-    uid: genUid(),
-    name: boxNames[stageId] || '📦 Mystery Chest',
-    category: 'consumable',
-    rarity: stageId <= 2 ? 'normal' :
-            stageId <= 4 ? 'uncommon' :
-            stageId <= 6 ? 'rare' :
-            stageId <= 8 ? 'epic' : 'legendary',
-    effect: 'treasure',
-    stageId: stageId,
-    difficulty: state.difficulty || 'normal',
-    stackable: false,
-    qty: 1,
-    sellPrice: 1000 * stageId,
-  };
-
-  addToInventory(box);
-  addLog(`📦 ${box.name} added to inventory!`, 'legendary');
-  notify(`📦 ${box.name} dropped!`, 'var(--gold)');
-  playSound('snd-levelup');
+// ── TREASURE CHEST ──
+const TREASURE_TABLES={1:{rolls:2,tier:'normal'},2:{rolls:2,tier:'uncommon'},3:{rolls:3,tier:'uncommon'},4:{rolls:3,tier:'rare'},5:{rolls:3,tier:'rare'},6:{rolls:4,tier:'epic'},7:{rolls:4,tier:'epic'},8:{rolls:4,tier:'epic'},9:{rolls:5,tier:'legendary'},10:{rolls:5,tier:'legendary'}};
+function rollTreasureRarity(tier){
+  const r=Math.random();
+  switch(tier){case'normal':return r<0.30?'uncommon':'normal';case'uncommon':return r<0.30?'rare':'uncommon';case'rare':return r<0.30?'epic':'rare';case'epic':return r<0.05?'legendary':'epic';case'legendary':return r<0.10?'legendary':'epic';default:return'normal';}
+}
+function dropTreasureBox(stageId){
+  const names={1:'📦 Worn Chest',2:'📦 Wooden Chest',3:'📦 Iron Chest',4:'📦 Steel Chest',5:'📦 Golden Chest',6:'📦 Enchanted Chest',7:'📦 Ancient Chest',8:'📦 Demonic Chest',9:'📦 Shadow Chest',10:'📦 Eternal Chest'};
+  const box={uid:genUid(),name:names[stageId]||'📦 Mystery Chest',category:'consumable',rarity:stageId<=2?'normal':stageId<=4?'uncommon':stageId<=6?'rare':stageId<=8?'epic':'legendary',effect:'treasure',stageId,difficulty:state.difficulty||'normal',stackable:false,qty:1,sellPrice:1000*stageId};
+  addToInventory(box);addLog(`📦 ${box.name} added to inventory!`,'legendary');notify(`📦 ${box.name} dropped!`,'var(--gold)');playSound('snd-levelup');
+}
+function openTreasureBox(box){
+  const stageId=box.stageId||1,table=TREASURE_TABLES[stageId];if(!table)return;
+  const diff=DIFFICULTY[box.difficulty||'normal'];
+  const slots=['weapon','armor','helmet','boots','ring','amulet'];
+  const items=[];
+  for(let i=0;i<table.rolls;i++){
+    let rarity=rollTreasureRarity(table.tier);rarity=applyRarityBonus(rarity);
+    const slot=slots[Math.floor(Math.random()*slots.length)];
+    const item=mkEquipDrop(slot,rarity);addToInventory(item);items.push(item);
+    if(item.rarity==='legendary')state.quests.legendary.done=true;
+  }
+  const bonusGold=Math.floor(1000*stageId*diff.goldMult);state.gold+=bonusGold;
+  notify(`📦 Chest opened! ${items.length} items found!`,'var(--gold)');addLog(`📦 ${box.name} opened!`,'legendary');
+  items.forEach(item=>addLog(`  ${item.name} [${(RARITY[item.rarity]||RARITY.normal).label}]`,item.rarity==='legendary'?'legendary':item.rarity==='epic'?'epic':'gold'));
+  addLog(`💰 +${formatNumber(bonusGold)} Gold!`,'gold');
+  playSound('snd-levelup');spawnParticles(window.innerWidth/2,window.innerHeight/2,'#f0c040',20);
+  renderInventory();updateUI();renderQuests();
 }
 
 // ── LEVEL UP ──
 function checkLevelUp(){
   while(state.xp>=state.xpNext&&state.level<state.maxLevel){
-    state.xp-=state.xpNext;
-    state.level++;
+    state.xp-=state.xpNext;state.level++;
     state.xpNext=Math.floor(state.level*100*20.00);
-    
-    // Level up BASE stats
-    state.baseStr+=2;
-    state.baseAgi+=2;
-    state.baseInt+=2;
-    state.baseSta+=2;
-    state.talentPoints+=5;
-    
-    calcStats();
-    state.hp=state.maxHp;
-    state.mp=state.maxMp;
+    state.baseStr+=2;state.baseAgi+=2;state.baseInt+=2;state.baseSta+=2;state.talentPoints+=5;
+    calcStats();state.hp=state.maxHp;state.mp=state.maxMp;
     document.getElementById('char-level').textContent=`Level ${state.level} / 100`;
     addLog(`🎉 LEVEL UP! Level ${state.level}! +5 Talent Points!`,'gold');
-    playSound('snd-levelup');
-    showLevelUpEffect();
-    notify(`🎉 Level Up! Now Level ${state.level}!`,'var(--gold)');
-    
+    playSound('snd-levelup');showLevelUpEffect();notify(`🎉 Level Up! Now Level ${state.level}!`,'var(--gold)');
     if(state.level>=5)state.quests.level5.done=true;
-    if(state.level>=10){
-      state.quests.level10.done=true;
-      if(!state.class)showClassSelection();
-      checkTalentUnlocks();
-    }
+    if(state.level>=10){state.quests.level10.done=true;if(!state.class)showClassSelection();checkTalentUnlocks();}
     if(state.level>=50)state.quests.level50.done=true;
     if(state.level>=100)state.quests.level100.done=true;
     if(state.class)document.getElementById('talent-btn').style.display='inline-block';
     updateTalentBtn();
   }
-  if(state.level>=state.maxLevel){
-    addLog('🌟 MAX LEVEL REACHED! You are a legend!','legendary');
-    state.xp=0;
-  }
+  if(state.level>=state.maxLevel){addLog('🌟 MAX LEVEL!','legendary');state.xp=0;}
 }
-
 function checkTalentUnlocks(){
   if(!state.class)return;
   const c=CLASSES[state.class];
-  
   Object.entries(c.trees).forEach(([treeId,tree])=>{
     tree.talents.forEach(talent=>{
       const flagKey=`${state.class}_${talent.id}`;
-      
-      // Only unlock once per talent, ever
       if(!state.talentUnlockedFlags[flagKey]){
         state.talentUnlockedFlags[flagKey]=true;
         state.unlockedTalents.push(talent.id);
-        talent.effect();
-        addLog(`🌟 Unlocked: ${talent.name}!`,'purple');
-      }
-    });
-  });
-}
-
-function checkTalentUnlocks(){
-  if(!state.class)return;
-  const c=CLASSES[state.class];
-  
-  Object.entries(c.trees).forEach(([treeId,tree])=>{
-    tree.talents.forEach(talent=>{
-      // Create a unique flag key for this talent
-      const flagKey=`${state.class}_${talent.id}`;
-      
-      // Only unlock once per talent, ever
-      if(!state.talentUnlockedFlags[flagKey]){
-        state.talentUnlockedFlags[flagKey]=true;
-        state.unlockedTalents.push(talent.id);
-        talent.effect();
-        addLog(`🌟 Unlocked: ${talent.name}!`,'purple');
+        talent.effect();addLog(`🌟 Unlocked: ${talent.name}!`,'purple');
       }
     });
   });
@@ -2752,43 +1609,22 @@ function showClassSelection(){
   const grid=document.getElementById('class-grid');
   grid.innerHTML=Object.entries(CLASSES).map(([id,c])=>`
     <div class="class-card" onclick="selectClass('${id}')">
-      <div class="class-icon">${c.icon}</div>
-      <div class="class-name">${c.name}</div>
+      <div class="class-icon">${c.icon}</div><div class="class-name">${c.name}</div>
       <div class="class-desc">${c.desc}</div>
       ${Object.entries(c.bonuses).map(([k,v])=>`<div class="class-stat"><span>${k.replace('Mult','').toUpperCase()}</span><span>+${Math.round(v*100)}%</span></div>`).join('')}
     </div>`).join('');
   document.getElementById('class-screen').style.display='block';
 }
 function selectClass(classId){
-  const c=CLASSES[classId];
-  state.class=classId;
-  state.quests.class.done=true;
-  
-  // ✅ Store class bonuses
-  Object.entries(c.bonuses).forEach(([k,v])=>{
-    state.classBonuses[k] = v;
-    state[k]=(state[k]||1)+v;
-  });
-  
+  const c=CLASSES[classId];state.class=classId;state.quests.class.done=true;
+  Object.entries(c.bonuses).forEach(([k,v])=>{state.classBonuses[k]=v;state[k]=(state[k]||1)+v;});
   state.skills=c.skills;
   document.getElementById('char-class').textContent=`${c.icon} ${c.name}`;
   document.getElementById('arena-player').innerHTML='<img src="warrior.jpg" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:2px solid var(--dark-gold);">';
-  document.getElementById('arena-player').textContent=c.icon;
   document.getElementById('class-screen').style.display='none';
   document.getElementById('talent-btn').style.display='inline-block';
-  
-  Object.entries(c.trees).forEach(([treeId,tree])=>{
-    tree.talents.forEach(talent=>{
-      const flagKey=`${classId}_${talent.id}`;
-      state.talentUnlockedFlags[flagKey]=false;
-    });
-  });
-  
-  addLog(`🎉 You are now a ${c.name}!`,'purple');
-  playSound('snd-levelup');
-  updateUI();
-  renderSkillBar();
-  renderQuests();
+  Object.entries(c.trees).forEach(([treeId,tree])=>{tree.talents.forEach(talent=>{state.talentUnlockedFlags[`${classId}_${talent.id}`]=false;});});
+  addLog(`🎉 You are now a ${c.name}!`,'purple');playSound('snd-levelup');updateUI();renderSkillBar();renderQuests();
 }
 
 // ── TALENTS ──
@@ -2798,52 +1634,27 @@ function openTalents(){
   document.getElementById('talent-title').textContent=`${c.icon} ${c.name} Talent Tree`;
   document.getElementById('talent-pts-val').textContent=state.talentPoints;
   document.getElementById('tree-grid').innerHTML=Object.entries(c.trees).map(([tid,tree])=>`
-    <div class="tree-col">
-      <div class="tree-name">${tree.name}</div>
-      ${tree.talents.map(t=>{
-        const rank=state.unlockedTalents.filter(u=>u===t.id).length;
-        const maxed=rank>=t.ranks;const locked=state.talentPoints<t.cost&&rank===0;
-        return `<div class="talent-node ${maxed?'unlocked':locked?'locked':''}" onclick="unlockTalent('${t.id}','${tid}')">
-          <span class="talent-node-rank">${rank}/${t.ranks}</span>
-          <div class="talent-node-name">${t.name}</div>
-          <div class="talent-node-desc">${t.desc}</div>
-          <div class="talent-node-cost">Cost: ${t.cost}pt ${maxed?'✅':''}</div>
-        </div>`;}).join('')}
-    </div>`).join('');
+    <div class="tree-col"><div class="tree-name">${tree.name}</div>
+    ${tree.talents.map(t=>{
+      const rank=state.unlockedTalents.filter(u=>u===t.id).length,maxed=rank>=t.ranks,locked=state.talentPoints<t.cost&&rank===0;
+      return `<div class="talent-node ${maxed?'unlocked':locked?'locked':''}" onclick="unlockTalent('${t.id}','${tid}')">
+        <span class="talent-node-rank">${rank}/${t.ranks}</span>
+        <div class="talent-node-name">${t.name}</div>
+        <div class="talent-node-desc">${t.desc}</div>
+        <div class="talent-node-cost">Cost: ${t.cost}pt ${maxed?'✅':''}</div>
+      </div>`;}).join('')}</div>`).join('');
   document.getElementById('talent-screen').style.display='block';
 }
 function unlockTalent(talentId,treeId){
-  const c=CLASSES[state.class];
-  const tree=c.trees[treeId];
-  const talent=tree.talents.find(t=>t.id===talentId);
-  if(!talent)return;
-  
+  const c=CLASSES[state.class],tree=c.trees[treeId],talent=tree.talents.find(t=>t.id===talentId);if(!talent)return;
   const rank=state.unlockedTalents.filter(u=>u===talentId).length;
-  if(rank>=talent.ranks){
-    addLog(`${talent.name} already maxed!`,'bad');
-    return;
-  }
-  if(state.talentPoints<talent.cost){
-    addLog('Not enough talent points!','bad');
-    return;
-  }
-
-  state.talentPoints-=talent.cost;
-  state.unlockedTalents.push(talentId);
-
-  const flagKey=`${state.class}_${talentId}`;
-  state.talentUnlockedFlags[flagKey]=true;
-  
-  // ✅ Call effect to update talentBonuses
-  talent.effect();
-  
-  state.quests.talent.done=true;
-  addLog(`🌟 Unlocked: ${talent.name}!`,'purple');
-  playSound('snd-magic');
-  openTalents();
-  updateUI();
-  renderQuests();
-  updateTalentBtn();
+  if(rank>=talent.ranks){addLog(`${talent.name} already maxed!`,'bad');return;}
+  if(state.talentPoints<talent.cost){addLog('Not enough talent points!','bad');return;}
+  state.talentPoints-=talent.cost;state.unlockedTalents.push(talentId);
+  state.talentUnlockedFlags[`${state.class}_${talentId}`]=true;
+  talent.effect();state.quests.talent.done=true;
+  addLog(`🌟 Unlocked: ${talent.name}!`,'purple');playSound('snd-magic');
+  openTalents();updateUI();renderQuests();updateTalentBtn();
 }
 function closeTalents(){document.getElementById('talent-screen').style.display='none';}
 function updateTalentBtn(){
@@ -2857,11 +1668,8 @@ function renderSkillBar(){
   if(!state.skills||!state.skills.length){document.getElementById('skills-bar').style.display='none';return;}
   document.getElementById('skills-bar').style.display='block';
   document.getElementById('skills-slot-row').innerHTML=state.skills.map(sid=>{
-    const sk=SKILLS[sid];if(!sk)return'';
-    const cd=state.skillCooldowns[sid]||0;
-    return `<div class="skill-slot" draggable="true" 
-      ondragstart="event.dataTransfer.setData('skillId','${sid}')"
-      onclick="useSkillInCombat('${sid}')">
+    const sk=SKILLS[sid];if(!sk)return'';const cd=state.skillCooldowns[sid]||0;
+    return `<div class="skill-slot" draggable="true" ondragstart="event.dataTransfer.setData('skillId','${sid}')" onclick="useSkillInCombat('${sid}')">
       <div class="skill-icon-wrap ${cd>0?'on-cd':''}">${sk.icon}</div>
       <div class="skill-lbl">${sk.name}</div>
       <div class="skill-cd-lbl">${cd>0?`CD:${cd}`:`${typeof sk.mp==='function'?sk.mp():sk.mp}MP`}</div>
@@ -2873,403 +1681,162 @@ function renderSkillBar(){
 function equipItem(uid){
   const item=state.inventory.find(i=>i.uid===uid);if(!item||item.category!=='equipment')return;
   if(state.equipped[item.slot])unequipSlot(item.slot,true);
-  
-  // Add to equipment bonus pool
-  Object.entries(item.stats||{}).forEach(([k,v])=>{
-    const equipKey='equip'+k.charAt(0).toUpperCase()+k.slice(1);
-    state[equipKey]=(state[equipKey]||0)+v;
-  });
-  
-  item.equipped=true;
-  state.equipped[item.slot]=uid;
-  state.quests.equip.done=true;
-  
-  calcStats(); // ← Recalculate with new equipment bonuses
-  addLog(`Equipped ${item.name}!`,'good');
-  playSound('snd-craft');
-  renderInventory();
-  renderEquipSlots();
-  updateUI();
-  renderQuests();
+  Object.entries(item.stats||{}).forEach(([k,v])=>{const ek='equip'+k.charAt(0).toUpperCase()+k.slice(1);state[ek]=(state[ek]||0)+v;});
+  item.equipped=true;state.equipped[item.slot]=uid;state.quests.equip.done=true;
+  calcStats();addLog(`Equipped ${item.name}!`,'good');playSound('snd-craft');renderInventory();renderEquipSlots();updateUI();renderQuests();
 }
 function unequipSlot(slot,silent=false){
   const uid=state.equipped[slot];if(!uid)return;
   const item=state.inventory.find(i=>i.uid===uid);
-  if(item){
-    Object.entries(item.stats||{}).forEach(([k,v])=>{
-      const equipKey='equip'+k.charAt(0).toUpperCase()+k.slice(1);
-      state[equipKey]=Math.max(0,(state[equipKey]||0)-v);
-    });
-    item.equipped=false;
-    if(!silent)addLog(`Unequipped ${item.name}!`,'info');
-  }
-  state.equipped[slot]=null;
-  calcStats(); // ← Recalculate without equipment bonuses
-  renderInventory();
-  renderEquipSlots();
-  updateUI();
+  if(item){Object.entries(item.stats||{}).forEach(([k,v])=>{const ek='equip'+k.charAt(0).toUpperCase()+k.slice(1);state[ek]=Math.max(0,(state[ek]||0)-v);});item.equipped=false;if(!silent)addLog(`Unequipped ${item.name}!`,'info');}
+  state.equipped[slot]=null;calcStats();renderInventory();renderEquipSlots();updateUI();
 }
 function renderEquipSlots(){
   ['weapon','armor','helmet','boots','ring','amulet'].forEach(slot=>{
-    const slotEl=document.getElementById(`slot-${slot}`);
-    const nameEl=document.getElementById(`slot-${slot}-name`);
+    const slotEl=document.getElementById(`slot-${slot}`),nameEl=document.getElementById(`slot-${slot}-name`);
+    slotEl.className='equip-slot';const existing=slotEl.querySelector('.equip-tooltip');if(existing)existing.remove();
     const uid=state.equipped[slot];
-    slotEl.className='equip-slot';
-    
-    // Clear existing tooltip if any
-    const existingTooltip=slotEl.querySelector('.equip-tooltip');
-    if(existingTooltip) existingTooltip.remove();
-    
     if(uid){
       const item=state.inventory.find(i=>i.uid===uid);
       if(item){
-        nameEl.textContent=item.name.replace(/^[^\s]+ /,'').substring(0,12);
-        slotEl.classList.add('has-item',item.rarity);
-        
-        // Build tooltip with display:none
-        const statsHtml=Object.entries(item.stats||{})
-          .map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`)
-          .join('');
-        
+        nameEl.textContent=item.name.replace(/^[^\s]+ /,'').substring(0,12);slotEl.classList.add('has-item',item.rarity);
+        const statsHtml=Object.entries(item.stats||{}).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join('');
         const rarity=RARITY[item.rarity]||RARITY.normal;
-        const tooltip=`
-          <div class="equip-tooltip" style="display:none;">
-            <div style="color:${rarity.color};font-weight:600;">${item.name}</div>
-            <div style="color:${rarity.color};font-size:0.8em;margin:3px 0;">${rarity.label}</div>
-            ${statsHtml}
-            <div style="color:#888;font-size:0.75em;margin-top:4px;">Sell: ${item.sellPrice}g</div>
-          </div>`;
-        
-        // Append tooltip to slot
-        slotEl.insertAdjacentHTML('beforeend', tooltip);
+        slotEl.insertAdjacentHTML('beforeend',`<div class="equip-tooltip" style="display:none;"><div style="color:${rarity.color};font-weight:600;">${item.name}</div><div style="color:${rarity.color};font-size:0.8em;margin:3px 0;">${rarity.label}</div>${statsHtml}<div style="color:#888;font-size:0.75em;margin-top:4px;">Sell: ${item.sellPrice}g</div></div>`);
       }
-    } else {
-      nameEl.textContent='Empty';
-    }
+    } else { nameEl.textContent='Empty'; }
   });
 }
 
-// ── INVENTORY (STACKING) ──
+// ── INVENTORY ──
 function addToInventory(item){
-  // Stack stackable items with same name and rarity
   if(item.stackable){
     const existing=state.inventory.find(i=>i.name===item.name&&i.rarity===item.rarity&&i.stackable&&!i.equipped);
     if(existing){existing.qty=(existing.qty||1)+(item.qty||1);renderInventory();return;}
   }
   state.inventory.push({...item,uid:item.uid||genUid()});renderInventory();
 }
-
 function switchInvTab(tab){
   currentInvTab=tab;state.invTab=tab;
   document.querySelectorAll('.inv-tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById(`inv-tab-${tab}`).classList.add('active');
-  renderInventory();
-}
-function showItemPopup(source, id){
-  const r_=r=>RARITY[r]||RARITY.normal;
-  let item, btns='';
-
-  if(source==='shop'){
-    const all=[...SHOP_EQUIP,...SHOP_CONS];
-    item=all.find(i=>i.id===id);
-    if(!item)return;
-    const desc=item.stats?Object.entries(item.stats).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join(''):
-      item.effect?`<div class="tooltip-stat">Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}</div>`:'';
-    btns=`<button class="start-btn" onclick="buyShopItem('${item.id}');closeItemPopup()">💰 Buy (${item.price}g)</button>`;
-    showPopup(item, desc, btns);
-  } else {
-    item=state.inventory.find(i=>i.uid===id);
-    if(!item)return;
-    const statsHtml=item.stats?Object.entries(item.stats).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join(''):
-      item.effect?`<div class="tooltip-stat">Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}</div>`:'';
-    if(item.category==='equipment'){
-  btns=item.equipped
-  
-    ?`<button class="start-btn red-btn" onclick="unequipSlot('${item.slot}');closeItemPopup()">Unequip</button>`
-    :`<button class="start-btn blue-btn" onclick="equipItem(${item.uid});closeItemPopup()">Equip</button>`;
-  btns+=`<button class="start-btn purple-btn" onclick="closeItemPopup();openEnhance(${item.uid})">⚒️ Enhance</button>`;
-  btns += `<button class="start-btn" onclick="closeItemPopup();listItemForAuction(${item.uid})" style="background:linear-gradient(135deg,#005580,#0088cc);">🏛️ List</button>`;
-}
-    if(item.category==='consumable'){
-      btns+=`<button class="start-btn" onclick="useItem(${item.uid});closeItemPopup()">Use</button>`;
-    }
-    if(!item.equipped){
-      btns+=`<button class="start-btn red-btn" onclick="sellItem(${item.uid});closeItemPopup()">Sell ${item.stackable&&item.qty>1?'All':''} (${(item.sellPrice||0)*(item.stackable?item.qty:1)}g)</button>`;
-    }
-    showPopup(item, statsHtml, btns);
-  }
-}
-
-function showPopup(item, statsHtml, btns){
-  const r=RARITY[item.rarity]||RARITY.normal;
-  document.getElementById('item-popup-content').innerHTML=`
-    <div style="text-align:center;margin-bottom:10px;">
-      <div style="font-size:2.5em;">${item.name.split(' ')[0]}</div>
-      <div style="color:${r.color};font-family:'Cinzel',serif;font-size:1em;font-weight:600;">${item.name}</div>
-      <div style="color:${r.color};font-size:.78em;">${r.label}</div>
-    </div>
-    <div style="margin:10px 0;">${statsHtml}</div>
-    <div style="color:#888;font-size:.75em;margin-bottom:12px;">Sell: ${item.sellPrice||0}g</div>
-    <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">${btns}</div>
-    <div style="margin-top:8px;text-align:center;">
-      <button class="start-btn" style="background:rgba(255,255,255,.1);color:#aaa;" onclick="closeItemPopup()">✖ Close</button>
-    </div>`;
-  document.getElementById('item-popup').style.display='flex';
-}
-
-function closeItemPopup(){
-  document.getElementById('item-popup').style.display='none';
+  document.getElementById(`inv-tab-${tab}`).classList.add('active');renderInventory();
 }
 function renderInventory(){
-  const list=document.getElementById('inventory-list');
-  const items=state.inventory.filter(i=>i.category===currentInvTab);
+  const list=document.getElementById('inventory-list'),items=state.inventory.filter(i=>i.category===currentInvTab);
   if(!items.length){list.innerHTML='<div class="inv-empty">No items here</div>';return;}
-  list.innerHTML=`
-    <div class="item-grid">
-      ${items.map(item=>{
-        const stackBadge=item.stackable&&item.qty>1?`<div class="item-icon-stack">×${item.qty}</div>`:'';
-        const equippedBadge=item.equipped?`<div class="item-icon-equipped">E</div>`:'';
-        const enh=item.enhLevel||0;
-        const enhBadge=enh>0?`<div class="item-icon-stack" style="top:2px;left:3px;right:auto;color:${enh>=7?'var(--legendary)':'var(--gold)'}">+${enh}</div>`:'';
-        const glowClass=enh>=15?'enh-glow-15':enh>=7?'enh-glow-7':'';
-        return `<div class="item-icon-box ${item.rarity} ${glowClass}" onclick="showItemPopup('inv',${item.uid})" title="${item.name}">
-          <div class="item-icon-emoji">${item.name.split(' ')[0]}</div>
-          ${stackBadge}${equippedBadge}${enhBadge}
-        </div>`;
-      }).join('')}
-    </div>`;
+  list.innerHTML=`<div class="item-grid">${items.map(item=>{
+    const stackBadge=item.stackable&&item.qty>1?`<div class="item-icon-stack">×${item.qty}</div>`:'';
+    const equippedBadge=item.equipped?`<div class="item-icon-equipped">E</div>`:'';
+    const enh=item.enhLevel||0;
+    const enhBadge=enh>0?`<div class="item-icon-stack" style="top:2px;left:3px;right:auto;color:${enh>=7?'var(--legendary)':'var(--gold)'}">+${enh}</div>`:'';
+    const glowClass=enh>=15?'enh-glow-15':enh>=7?'enh-glow-7':'';
+    return `<div class="item-icon-box ${item.rarity} ${glowClass}" onclick="showItemPopup('inv',${item.uid})" title="${item.name}">
+      <div class="item-icon-emoji">${item.name.split(' ')[0]}</div>${stackBadge}${equippedBadge}${enhBadge}
+    </div>`;}).join('')}</div>`;
 }
 
-function formatNumber(num) {
-  if (num >= 1000000) {
-    return (num / 1000000).toFixed(1) + 'M';
-  } else if (num >= 1000) {
-    return (num / 1000).toFixed(1) + 'K';
-  }
-  return num;
-}
+function formatNumber(num){if(num>=1000000)return(num/1000000).toFixed(1)+'M';if(num>=1000)return(num/1000).toFixed(1)+'K';return num;}
 
 // ── ENHANCEMENT ──
 const ENHANCE_COST=[0,500,1000,2000,3500,5000,8000,12000,18000,25000,35000,50000,70000,100000,150000,200000];
 const ENHANCE_RATE=[0,100,95,85,75,65,55,45,35,25,25,25,25,25,25,25];
-
-function openEnhance(uid){
-  const item=state.inventory.find(i=>i.uid===uid);
-  if(!item||item.category!=='equipment')return;
-  document.getElementById('enhance-screen').style.display='block';
-  renderEnhanceScreen(uid);
-}
-
-function closeEnhance(){
-  document.getElementById('enhance-screen').style.display='none';
-}
+function openEnhance(uid){const item=state.inventory.find(i=>i.uid===uid);if(!item||item.category!=='equipment')return;document.getElementById('enhance-screen').style.display='block';renderEnhanceScreen(uid);}
+function closeEnhance(){document.getElementById('enhance-screen').style.display='none';}
 function renderEnhanceScreen(uid){
-  const item=state.inventory.find(i=>i.uid===uid);
-  if(!item)return;
-  const r=RARITY[item.rarity]||RARITY.normal;
-  const enh=item.enhLevel||0;
-  const maxed=enh>=15;
-  const cost=ENHANCE_COST[enh+1]||0;
-  const rate=ENHANCE_RATE[enh+1]||0;
-
-  const pips=Array.from({length:15},(_,i)=>{
-    let cls='pip-empty';
-    if(i<enh)cls=enh>=11?'pip-high':'pip-filled';
-    return `<div class="enhance-pip ${cls}"></div>`;
-  }).join('');
-
-  const statsHtml=Object.entries(item.stats||{})
-    .map(([k,v])=>`<div class="enhance-stat-line">+${v<1?v.toFixed(3):v} ${k.toUpperCase()}</div>`)
-    .join('');
-
-  const nextStatsHtml=Object.entries(item.stats||{})
-    .map(([k,v])=>{
-      const next=v<1?Math.round(v*1.15*1000)/1000:Math.floor(v*1.15);
-      return `<div class="enhance-stat-line" style="color:var(--green)">+${v<1?next.toFixed(3):next} ${k.toUpperCase()}</div>`;
-    }).join('');
-
+  const item=state.inventory.find(i=>i.uid===uid);if(!item)return;
+  const r=RARITY[item.rarity]||RARITY.normal,enh=item.enhLevel||0,maxed=enh>=15,cost=ENHANCE_COST[enh+1]||0,rate=ENHANCE_RATE[enh+1]||0;
+  const pips=Array.from({length:15},(_,i)=>`<div class="enhance-pip ${i<enh?enh>=11?'pip-high':'pip-filled':'pip-empty'}"></div>`).join('');
+  const statsHtml=Object.entries(item.stats||{}).map(([k,v])=>`<div class="enhance-stat-line">+${v<1?v.toFixed(3):v} ${k.toUpperCase()}</div>`).join('');
+  const nextHtml=Object.entries(item.stats||{}).map(([k,v])=>{const n=v<1?Math.round(v*1.15*1000)/1000:Math.floor(v*1.15);return `<div class="enhance-stat-line" style="color:var(--green)">+${v<1?n.toFixed(3):n} ${k.toUpperCase()}</div>`;}).join('');
   document.getElementById('enhance-screen').innerHTML=`
     <div class="enhance-container">
       <div class="enhance-title">⚒️ Enhancement</div>
       <div class="enhance-item-card">
-        <div class="enhance-item-name" style="color:${r.color}">
-          ${item.name}
-          ${enh>0?`<span class="enh-badge ${enh>=7?'enh-high':'enh-low'}">+${enh}</span>`:''}
-        </div>
+        <div class="enhance-item-name" style="color:${r.color}">${item.name}${enh>0?`<span class="enh-badge ${enh>=7?'enh-high':'enh-low'}">+${enh}</span>`:''}</div>
         <div style="color:${r.color};font-size:.75em;text-align:center;margin-bottom:8px;">${r.label}</div>
         <div class="enhance-level-bar">${pips}</div>
         <div style="text-align:center;font-size:.72em;color:#888;margin-top:4px;">Level ${enh} / 15</div>
-        ${!maxed?`
-        <div class="enhance-stats-row">
-          <div class="enhance-stats-col">
-            <div class="enhance-stats-title">Current</div>
-            ${statsHtml}
-          </div>
-          <div class="enhance-arrow">→</div>
-          <div class="enhance-stats-col">
-            <div class="enhance-stats-title" style="color:var(--green)">After +${enh+1}</div>
-            ${nextStatsHtml}
-          </div>
-        </div>`:'<div style="text-align:center;color:var(--legendary);font-family:Cinzel,serif;margin:12px 0;">✨ MAX ENHANCED!</div>'}
-        ${!maxed?`
+        ${!maxed?`<div class="enhance-stats-row"><div class="enhance-stats-col"><div class="enhance-stats-title">Current</div>${statsHtml}</div><div class="enhance-arrow">→</div><div class="enhance-stats-col"><div class="enhance-stats-title" style="color:var(--green)">After +${enh+1}</div>${nextHtml}</div></div>
         <div class="enhance-cost-box">
           <div class="enhance-cost-title">Enhancement +${enh+1}</div>
           <div class="enhance-cost-row"><span>💰 Cost</span><span style="color:${state.gold>=cost?'var(--green)':'var(--red)'}">${cost.toLocaleString()}g</span></div>
           <div class="enhance-cost-row"><span>✅ Success Rate</span><span style="color:${rate>=80?'var(--green)':rate>=50?'var(--gold)':'var(--red)'}">${rate}%</span></div>
           <div class="enhance-cost-row"><span>❌ Fail Effect</span><span style="color:var(--red)">${enh>0?`Drop to +${enh-1}`:'Nothing'}</span></div>
-          <div class="enhance-cost-row"><span>💰 Your Gold</span><span>${state.gold.toLocaleString()}g</span></div>
         </div>
-        <div style="text-align:center;margin-top:12px;">
-          <button class="enhance-btn ${state.gold<cost?'enhance-btn-disabled':''}"
-            onclick="doEnhance(${uid})" ${state.gold<cost?'disabled':''}>
-            ⚒️ Enhance +${enh+1}
-          </button>
-        </div>`:''}
+        <div style="text-align:center;margin-top:12px;"><button class="enhance-btn ${state.gold<cost?'enhance-btn-disabled':''}" onclick="doEnhance(${uid})" ${state.gold<cost?'disabled':''}>⚒️ Enhance +${enh+1}</button></div>`:'<div style="text-align:center;color:var(--legendary);font-family:Cinzel,serif;margin:12px 0;">✨ MAX ENHANCED!</div>'}
       </div>
-      <div style="text-align:center;margin-top:12px;">
-        <button class="start-btn" onclick="closeEnhance()">✅ Close</button>
-      </div>
+      <div style="text-align:center;margin-top:12px;"><button class="start-btn" onclick="closeEnhance()">✅ Close</button></div>
     </div>`;
 }
-
 function doEnhance(uid){
-  const item=state.inventory.find(i=>i.uid===uid);
-  if(!item)return;
-  const enh=item.enhLevel||0;
-  if(enh>=15){notify('Already max enhanced!','var(--gold)');return;}
-  const cost=ENHANCE_COST[enh+1];
-  const rate=ENHANCE_RATE[enh+1];
+  const item=state.inventory.find(i=>i.uid===uid);if(!item)return;
+  const enh=item.enhLevel||0;if(enh>=15){notify('Already max enhanced!','var(--gold)');return;}
+  const cost=ENHANCE_COST[enh+1],rate=ENHANCE_RATE[enh+1];
   if(state.gold<cost){notify('Not enough gold!','var(--red)');return;}
-
   state.gold-=cost;
-  
-  // ✅ If equipped, REMOVE old bonuses first
-  if(item.equipped){
-    Object.entries(item.stats||{}).forEach(([k,v])=>{
-      const equipKey='equip'+k.charAt(0).toUpperCase()+k.slice(1);
-      state[equipKey]=Math.max(0,(state[equipKey]||0)-v);
-    });
-  }
-  
+  if(item.equipped){Object.entries(item.stats||{}).forEach(([k,v])=>{const ek='equip'+k.charAt(0).toUpperCase()+k.slice(1);state[ek]=Math.max(0,(state[ek]||0)-v);});}
   const success=Math.random()*100<rate;
-
   if(success){
-    Object.keys(item.stats||{}).forEach(k=>{
-      if(item.stats[k]<1){
-        item.stats[k]=Math.round(item.stats[k]*1.15*1000)/1000;
-      } else {
-        item.stats[k]=Math.floor(item.stats[k]*1.15);
-      }
-    });
-    item.enhLevel=(enh+1);
-    addLog(`⚒️ Enhancement SUCCESS! ${item.name} is now +${item.enhLevel}!`,'gold');
-    notify(`✨ SUCCESS! +${item.enhLevel}!`,'var(--gold)');
-    playSound('snd-levelup');
+    Object.keys(item.stats||{}).forEach(k=>{item.stats[k]=item.stats[k]<1?Math.round(item.stats[k]*1.15*1000)/1000:Math.floor(item.stats[k]*1.15);});
+    item.enhLevel=enh+1;addLog(`⚒️ SUCCESS! ${item.name} is now +${item.enhLevel}!`,'gold');notify(`✨ SUCCESS! +${item.enhLevel}!`,'var(--gold)');playSound('snd-levelup');
   } else {
-    if(enh>0){
-      Object.keys(item.stats||{}).forEach(k=>{
-        if(item.stats[k]<1){
-          item.stats[k]=Math.round(item.stats[k]/1.15*1000)/1000;
-        } else {
-          item.stats[k]=Math.floor(item.stats[k]/1.15);
-        }
-      });
-      item.enhLevel=enh-1;
-      addLog(`💔 Enhancement FAILED! ${item.name} dropped to +${item.enhLevel}!`,'bad');
-      notify(`💔 FAILED! Dropped to +${item.enhLevel}!`,'var(--red)');
-    } else {
-      addLog(`💔 Enhancement FAILED! Nothing happened.`,'bad');
-      notify('💔 FAILED! Nothing happened.','var(--red)');
-    }
+    if(enh>0){Object.keys(item.stats||{}).forEach(k=>{item.stats[k]=item.stats[k]<1?Math.round(item.stats[k]/1.15*1000)/1000:Math.floor(item.stats[k]/1.15);});item.enhLevel=enh-1;addLog(`💔 FAILED! Dropped to +${item.enhLevel}!`,'bad');notify(`💔 FAILED! Dropped to +${item.enhLevel}!`,'var(--red)');}
+    else{addLog(`💔 FAILED! Nothing happened.`,'bad');notify('💔 FAILED!','var(--red)');}
     playSound('snd-death');
   }
-
-  // ✅ If equipped, ADD new bonuses back
-  if(item.equipped){
-    Object.entries(item.stats||{}).forEach(([k,v])=>{
-      const equipKey='equip'+k.charAt(0).toUpperCase()+k.slice(1);
-      state[equipKey]=(state[equipKey]||0)+v;
-    });
-  }
-
-  if(item.equipped)calcStats();
-  updateUI();
-  renderInventory();
-  renderEnhanceScreen(uid);
+  if(item.equipped){Object.entries(item.stats||{}).forEach(([k,v])=>{const ek='equip'+k.charAt(0).toUpperCase()+k.slice(1);state[ek]=(state[ek]||0)+v;});}
+  if(item.equipped)calcStats();updateUI();renderInventory();renderEnhanceScreen(uid);
 }
 
 function useItem(uid){
-  
   const idx=state.inventory.findIndex(i=>i.uid===uid);if(idx===-1)return;
   const item=state.inventory[idx];
-
-  // ── TREASURE BOX ──
-  if(item.effect === 'treasure'){
-    openTreasureBox(item);
-    state.inventory.splice(idx, 1);
-    renderInventory();
-    updateUI();
-    return;
-  }
+  if(item.effect==='treasure'){openTreasureBox(item);state.inventory.splice(idx,1);renderInventory();updateUI();return;}
   if(item.category==='consumable'){
     if(item.effect==='hp'||item.effect==='both'){state.hp=Math.min(state.maxHp,state.hp+(item.val||40));addLog(`Used ${item.name}: +${item.val} HP`,'good');playSound('snd-heal');spawnDmgFloat(`+${item.val}HP`,false,'heal-float');}
     if(item.effect==='mp'||item.effect==='both'){state.mp=Math.min(state.maxMp,state.mp+(item.val||30));addLog(`Used ${item.name}: +${item.val} MP`,'info');spawnDmgFloat(`+${item.val}MP`,false,'mp-float');}
-    if(item.stackable&&item.qty>1){item.qty--;}else{state.inventory.splice(idx,1);}
+    if(item.stackable&&item.qty>1)item.qty--;else state.inventory.splice(idx,1);
     renderInventory();updateUI();
   }
 }
 
-function openTreasureBox(box) {
-  const stageId = box.stageId || 1;
-  const table = TREASURE_TABLES[stageId];
-  if (!table) return;
-
-  const diff = DIFFICULTY[box.difficulty || 'normal'];
-  const slots = ['weapon','armor','helmet','boots','ring','amulet'];
-  const items = [];
-
-  for (let i = 0; i < table.rolls; i++) {
-    // Roll rarity based on box tier
-    let rarity = rollTreasureRarity(table.tier);
-    // Apply difficulty bonus on top
-    rarity = applyRarityBonus(rarity);
-    const slot = slots[Math.floor(Math.random() * slots.length)];
-    const item = mkEquipDrop(slot, rarity);
-    addToInventory(item);
-    items.push(item);
-    if(item.rarity === 'legendary') state.quests.legendary.done = true;
+function showItemPopup(source,id){
+  const r_=r=>RARITY[r]||RARITY.normal;let item,btns='';
+  if(source==='shop'){
+    const all=[...SHOP_EQUIP,...SHOP_CONS];item=all.find(i=>i.id===id);if(!item)return;
+    const desc=item.stats?Object.entries(item.stats).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join(''):item.effect?`<div class="tooltip-stat">Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}</div>`:'';
+    btns=`<button class="start-btn" onclick="buyShopItem('${item.id}');closeItemPopup()">💰 Buy (${item.price}g)</button>`;
+    showPopup(item,desc,btns);
+  } else {
+    item=state.inventory.find(i=>i.uid===id);if(!item)return;
+    const statsHtml=item.stats?Object.entries(item.stats).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join(''):item.effect?`<div class="tooltip-stat">Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}</div>`:'';
+    if(item.category==='equipment'){
+      btns=item.equipped?`<button class="start-btn red-btn" onclick="unequipSlot('${item.slot}');closeItemPopup()">Unequip</button>`:`<button class="start-btn blue-btn" onclick="equipItem(${item.uid});closeItemPopup()">Equip</button>`;
+      btns+=`<button class="start-btn purple-btn" onclick="closeItemPopup();openEnhance(${item.uid})">⚒️ Enhance</button>`;
+      if(!item.equipped)btns+=`<button class="start-btn" onclick="closeItemPopup();listItemForAuction(${item.uid})" style="background:linear-gradient(135deg,#005580,#0088cc);">🏛️ Auction</button>`;
+    }
+    if(item.category==='consumable')btns+=`<button class="start-btn" onclick="useItem(${item.uid});closeItemPopup()">Use</button>`;
+    if(!item.equipped)btns+=`<button class="start-btn red-btn" onclick="sellItem(${item.uid});closeItemPopup()">Sell ${item.stackable&&item.qty>1?'All':''} (${(item.sellPrice||0)*(item.stackable?item.qty:1)}g)</button>`;
+    showPopup(item,statsHtml,btns);
   }
-
-  // Gold reward scales with stage and difficulty
-  const bonusGold = Math.floor(1000 * stageId * diff.goldMult);
-  state.gold += bonusGold;
-
-  // Show results
-  const r_ = r => RARITY[r] || RARITY.normal;
-  notify(`📦 Chest opened! ${items.length} items found!`, 'var(--gold)');
-  addLog(`📦 ${box.name} opened!`, 'legendary');
-  items.forEach(item => {
-    addLog(`  ${item.name} [${r_(item.rarity).label}]`,
-      item.rarity==='legendary'?'legendary':
-      item.rarity==='epic'?'epic':'gold');
-  });
-  addLog(`💰 +${formatNumber(bonusGold)} Gold!`, 'gold');
-
-  playSound('snd-levelup');
-  spawnParticles(window.innerWidth/2, window.innerHeight/2, '#f0c040', 20);
-  renderInventory();
-  updateUI();
-  renderQuests();
 }
+function showPopup(item,statsHtml,btns){
+  const r=RARITY[item.rarity]||RARITY.normal;
+  document.getElementById('item-popup-content').innerHTML=`
+    <div style="text-align:center;margin-bottom:10px;"><div style="font-size:2.5em;">${item.name.split(' ')[0]}</div><div style="color:${r.color};font-family:'Cinzel',serif;font-size:1em;font-weight:600;">${item.name}</div><div style="color:${r.color};font-size:.78em;">${r.label}</div></div>
+    <div style="margin:10px 0;">${statsHtml}</div><div style="color:#888;font-size:.75em;margin-bottom:12px;">Sell: ${item.sellPrice||0}g</div>
+    <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">${btns}</div>
+    <div style="margin-top:8px;text-align:center;"><button class="start-btn" style="background:rgba(255,255,255,.1);color:#aaa;" onclick="closeItemPopup()">✖ Close</button></div>`;
+  document.getElementById('item-popup').style.display='flex';
+}
+function closeItemPopup(){document.getElementById('item-popup').style.display='none';}
 
 function sellItem(uid){
   const idx=state.inventory.findIndex(i=>i.uid===uid);if(idx===-1)return;
-  const item=state.inventory[idx];
-  if(item.equipped)return;
+  const item=state.inventory[idx];if(item.equipped)return;
   const total=(item.sellPrice||0)*(item.stackable?item.qty:1);
-  state.gold+=total;addLog(`Sold ${item.name}${item.stackable&&item.qty>1?` ×${item.qty}`:''}for ${total}g`,'gold');
-  state.inventory.splice(idx,1);renderInventory();updateUI();
-  if(state.gold>=50)state.quests.gold50.done=true;renderQuests();
+  state.gold+=total;addLog(`Sold ${item.name} for ${total}g`,'gold');state.inventory.splice(idx,1);
+  renderInventory();updateUI();if(state.gold>=50)state.quests.gold50.done=true;renderQuests();
 }
 
 // ── AUTO SELL ──
@@ -3287,105 +1854,52 @@ function loadAutoSellUI(){
 }
 function autoSellAfterCombat(){
   if(!state.autoSell?.normal&&!state.autoSell?.uncommon&&!state.autoSell?.rare&&!state.autoSell?.epic)return;
-  let totalGold=0;let count=0;
+  let totalGold=0,count=0;
   const toSell=state.inventory.filter(i=>{
-    if(i.equipped)return false;
-    if(i.category!=='equipment'&&i.category!=='material')return false;
-    if(state.autoSell.normal&&i.rarity==='normal')return true;
-    if(state.autoSell.uncommon&&i.rarity==='uncommon')return true;
-    if(state.autoSell.rare&&i.rarity==='rare')return true;
-    if(state.autoSell.epic&&i.rarity==='epic')return true;
-    return false;
+    if(i.equipped||!(i.category==='equipment'||i.category==='material'))return false;
+    return(state.autoSell.normal&&i.rarity==='normal')||(state.autoSell.uncommon&&i.rarity==='uncommon')||(state.autoSell.rare&&i.rarity==='rare')||(state.autoSell.epic&&i.rarity==='epic');
   });
-  toSell.forEach(item=>{
-    const total=(item.sellPrice||0)*(item.stackable?item.qty:1);
-    totalGold+=total;count++;
-    const idx=state.inventory.findIndex(i=>i.uid===item.uid);
-    if(idx!==-1)state.inventory.splice(idx,1);
-  });
-  if(count>0){addLog(`🗑️ Auto-sold ${count} junk items for ${totalGold}g!`,'gold');state.gold+=totalGold;notify(`🗑️ Auto-sold ${count} items for ${totalGold}g`,'var(--gold)');renderInventory();updateUI();}
+  toSell.forEach(item=>{totalGold+=(item.sellPrice||0)*(item.stackable?item.qty:1);count++;const idx=state.inventory.findIndex(i=>i.uid===item.uid);if(idx!==-1)state.inventory.splice(idx,1);});
+  if(count>0){addLog(`🗑️ Auto-sold ${count} items for ${totalGold}g!`,'gold');state.gold+=totalGold;notify(`🗑️ Auto-sold ${count} items for ${totalGold}g`,'var(--gold)');renderInventory();updateUI();}
 }
-function autoSellNow(){
-  autoSellAfterCombat();
-  if(!document.getElementById('as-normal').checked&&!document.getElementById('as-uncommon').checked){notify('Enable auto-sell toggles first!','var(--red)');}
-}
+function autoSellNow(){ autoSellAfterCombat(); }
 
 // ── CRAFTING ──
-function openCrafting(){
-  document.getElementById('craft-screen').style.display='block';renderCrafting();
-}
+function openCrafting(){document.getElementById('craft-screen').style.display='block';renderCrafting();}
 function closeCrafting(){document.getElementById('craft-screen').style.display='none';}
-function getMaterialQty(name){
-  const item=state.inventory.find(i=>i.name===name&&i.stackable);
-  return item?item.qty:0;
-}
+function getMaterialQty(name){const item=state.inventory.find(i=>i.name===name&&i.stackable);return item?item.qty:0;}
 function renderCrafting(){
-  const grid=document.getElementById('craft-grid');
-  const r_=r=>RARITY[r]||RARITY.normal;
+  const grid=document.getElementById('craft-grid'),r_=r=>RARITY[r]||RARITY.normal;
   grid.innerHTML=CRAFTING.map(recipe=>{
-    const result=recipe.result;
-    const rColor=r_(result.rarity).color;
-    const reqHtml=recipe.req.map(r=>{
-      const have=r.name.includes('Crystal')||r.name.includes('Essence')||r.name.includes('Soul')||r.name.includes('Horn')||r.name.includes('Shard')||r.name.includes('Core')||r.name.includes('Feather')||r.name.includes('Flame')||r.name.includes('Fragment')||r.name.includes('Gem')||r.name.includes('Scale')||r.name.includes('Silk')||r.name.includes('Fang')||r.name.includes('Ink')||r.name.includes('Vial')||r.name.includes('Shard')||r.name.includes('Moon')||r.name.includes('Orc')||r.name.includes('Stone')||r.name.includes('Void')||r.name.includes('Chaos')||r.name.includes('Titan')||r.name.includes('Death')||r.name.includes('Divine')||r.name.includes('Dragon')||r.name.includes('Demon')||r.name.includes('Phoenix')||true?getMaterialQty(r.name):0;
-      const ok=have>=r.qty;
-      return `<div class="${ok?'ok':'no'}">• ${r.name}: ${have}/${r.qty} ${ok?'✅':'❌'}</div>`;
-    }).join('');
+    const result=recipe.result,rColor=r_(result.rarity).color;
+    const reqHtml=recipe.req.map(r=>{const have=getMaterialQty(r.name),ok=have>=r.qty;return `<div class="${ok?'ok':'no'}">• ${r.name}: ${have}/${r.qty} ${ok?'✅':'❌'}</div>`;}).join('');
     const canCraft=recipe.req.every(r=>getMaterialQty(r.name)>=r.qty);
-    return `<div class="craft-card">
-      <div class="craft-result" style="color:${rColor}">${result.name||result.slot} — <span style="color:${rColor}">${r_(result.rarity).label}</span></div>
-      <div style="font-size:.78em;color:#888;margin-bottom:5px;">${recipe.desc}</div>
-      <div class="craft-req">${reqHtml}</div>
-      <button class="craft-btn" onclick="craftItem('${recipe.id}')" ${canCraft?'':'disabled'}>⚗️ Craft</button>
-    </div>`;}).join('');
+    return `<div class="craft-card"><div class="craft-result" style="color:${rColor}">${result.name||result.slot} — <span style="color:${rColor}">${r_(result.rarity).label}</span></div><div style="font-size:.78em;color:#888;margin-bottom:5px;">${recipe.desc}</div><div class="craft-req">${reqHtml}</div><button class="craft-btn" onclick="craftItem('${recipe.id}')" ${canCraft?'':'disabled'}>⚗️ Craft</button></div>`;
+  }).join('');
 }
 function craftItem(recipeId){
   const recipe=CRAFTING.find(r=>r.id===recipeId);if(!recipe)return;
   if(!recipe.req.every(r=>getMaterialQty(r.name)>=r.qty)){notify('Missing materials!','var(--red)');return;}
-  // Consume materials
-  recipe.req.forEach(req=>{
-    let need=req.qty;
-    state.inventory.forEach(item=>{
-      if(item.name===req.name&&item.stackable&&need>0){
-        const take=Math.min(item.qty,need);item.qty-=take;need-=take;
-      }
-    });
-    state.inventory=state.inventory.filter(i=>!i.stackable||(i.qty||0)>0);
-  });
-  // Create result
+  recipe.req.forEach(req=>{let need=req.qty;state.inventory.forEach(item=>{if(item.name===req.name&&item.stackable&&need>0){const take=Math.min(item.qty,need);item.qty-=take;need-=take;}});state.inventory=state.inventory.filter(i=>!i.stackable||(i.qty||0)>0);});
   const result={...recipe.result,uid:genUid(),sellPrice:Math.round((RARITY[recipe.result.rarity]?.mult||1)*15*state.level*.5)};
-  if(result.stackable)result.qty=1;
-  if(result.category==='equipment')result.equipped=false;
-  addToInventory(result);
-  state.quests.craft.done=true;
-  addLog(`⚗️ Crafted: ${result.name}!`,result.rarity==='legendary'?'legendary':'purple');
-  notify(`⚗️ Crafted ${result.name}!`,'var(--purple)');
-  playSound('snd-craft');renderCrafting();renderInventory();renderQuests();
+  if(result.stackable)result.qty=1;if(result.category==='equipment')result.equipped=false;
+  addToInventory(result);state.quests.craft.done=true;
+  addLog(`⚗️ Crafted: ${result.name}!`,result.rarity==='legendary'?'legendary':'purple');notify(`⚗️ Crafted ${result.name}!`,'var(--purple)');playSound('snd-craft');renderCrafting();renderInventory();renderQuests();
 }
 
 // ── SHOP ──
 function switchShopTab(tab){
   currentShopTab=tab;
   document.querySelectorAll('.shop-tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById(`shop-tab-${tab}`).classList.add('active');
-  renderShop();
+  document.getElementById(`shop-tab-${tab}`).classList.add('active');renderShop();
 }
 function renderShop(){
-  const items=currentShopTab==='equipment'?SHOP_EQUIP:SHOP_CONS;
-  const r_=r=>RARITY[r]||RARITY.normal;
-  document.getElementById('shop-content').innerHTML=`
-    <div class="item-grid">
-      ${items.map(item=>{
-        const r=r_(item.rarity);
-        return `<div class="item-icon-box ${item.rarity}" onclick="showItemPopup('shop','${item.id}')" title="${item.name}">
-          <div class="item-icon-emoji">${item.name.split(' ')[0]}</div>
-          <div class="item-icon-price">💰${item.price}</div>
-        </div>`;
-      }).join('')}
-    </div>`;
+  const items=currentShopTab==='equipment'?SHOP_EQUIP:SHOP_CONS,r_=r=>RARITY[r]||RARITY.normal;
+  document.getElementById('shop-content').innerHTML=`<div class="item-grid">${items.map(item=>`<div class="item-icon-box ${item.rarity}" onclick="showItemPopup('shop','${item.id}')" title="${item.name}"><div class="item-icon-emoji">${item.name.split(' ')[0]}</div><div class="item-icon-price">💰${item.price}</div></div>`).join('')}</div>`;
 }
 function buyShopItem(itemId){
-  const all=[...SHOP_EQUIP,...SHOP_CONS];const item=all.find(i=>i.id===itemId);if(!item)return;
-  if(state.gold<item.price){addLog(`Not enough gold!`,'bad');return;}
+  const all=[...SHOP_EQUIP,...SHOP_CONS],item=all.find(i=>i.id===itemId);if(!item)return;
+  if(state.gold<item.price){addLog('Not enough gold!','bad');return;}
   state.gold-=item.price;
   if(item.slot){addToInventory({uid:genUid(),name:item.name,category:'equipment',slot:item.slot,rarity:item.rarity||'normal',stats:{...item.stats},equipped:false,sellPrice:Math.floor(item.price*.5)});}
   else{addToInventory({uid:genUid(),name:item.name,category:'consumable',rarity:item.rarity||'normal',effect:item.effect,val:item.val,sellPrice:Math.floor(item.price*.4),stackable:true,qty:1});}
@@ -3394,19 +1908,14 @@ function buyShopItem(itemId){
 }
 
 // ── QUESTS ──
-function renderQuests(){
-  document.getElementById('quest-list').innerHTML=Object.values(state.quests).map(q=>`
-    <div class="quest-item ${q.done?'quest-done':''}">${q.done?'✅':''} ${q.text}</div>`).join('');
-}
+function renderQuests(){document.getElementById('quest-list').innerHTML=Object.values(state.quests).map(q=>`<div class="quest-item ${q.done?'quest-done':''}">${q.done?'✅':''} ${q.text}</div>`).join('');}
 
 // ── LOGS ──
-function addLog(msg,type=''){const b=document.getElementById('log-box');const d=document.createElement('div');d.className=`log-entry ${type?'log-'+type:''}`;d.textContent=msg;b.appendChild(d);b.scrollTop=b.scrollHeight;}
-function addCombatLog(msg,type=''){const b=document.getElementById('combat-log');const d=document.createElement('div');d.className=`log-entry ${type?'log-'+type:''}`;d.textContent=msg;b.appendChild(d);b.scrollTop=b.scrollHeight;}
+function addLog(msg,type=''){const b=document.getElementById('log-box'),d=document.createElement('div');d.className=`log-entry ${type?'log-'+type:''}`;d.textContent=msg;b.appendChild(d);b.scrollTop=b.scrollHeight;}
 
-// ── UPDATE UI ──
+// ── UPDATE UI ── (fixed: only uses state.hp / state.maxHp, no more state.health)
 function updateUI(){
   calcStats();
- 
   const hp=Math.max(0,state.hp),mp=Math.max(0,state.mp);
   document.getElementById('hp-val').textContent=formatNumber(hp);
   document.getElementById('hp-max').textContent=formatNumber(state.maxHp);
@@ -3415,14 +1924,10 @@ function updateUI(){
   document.getElementById('xp-val').textContent=formatNumber(state.xp);
   document.getElementById('xp-next').textContent=formatNumber(state.xpNext);
   document.getElementById('gold-val').textContent=formatNumber(state.gold);
- 
-  // Primary stats
   document.getElementById('str-val').textContent=formatNumber(state.str);
   document.getElementById('agi-val').textContent=formatNumber(state.agi);
   document.getElementById('int-val').textContent=formatNumber(state.int);
   document.getElementById('sta-val').textContent=formatNumber(state.sta);
- 
-  // Derived stats
   document.getElementById('atk-val').textContent=formatNumber(state.attackPower);
   document.getElementById('armor-val').textContent=formatNumber(state.armor);
   document.getElementById('crit-val').textContent=state.crit+'%';
@@ -3430,369 +1935,243 @@ function updateUI(){
   document.getElementById('hit-val').textContent=formatNumber(state.hit);
   document.getElementById('hpregen-val').textContent=formatNumber(state.hpRegen);
   document.getElementById('mpregen-val').textContent=formatNumber(state.manaRegen);
-  document.getElementById('lifesteal-val').textContent=(state.lifeSteal*100).toFixed(1)+'%';
- 
+  document.getElementById('lifesteal-val').textContent=(state.lifeSteal*100).toFixed(2)+'%';
   document.getElementById('char-level').textContent=`Level ${state.level} / 100`;
   document.getElementById('hp-bar').style.width=Math.max(0,(hp/state.maxHp)*100)+'%';
   document.getElementById('mp-bar').style.width=Math.max(0,(mp/state.maxMp)*100)+'%';
   document.getElementById('xp-bar').style.width=Math.min(100,(state.xp/state.xpNext)*100)+'%';
   document.getElementById('arena-player-hp').style.width=Math.max(0,(hp/state.maxHp)*100)+'%';
+  document.getElementById('arena-player-mp').style.width=Math.max(0,(mp/state.maxHp)*100)+'%';
   updateTutorialStatus();
-}
-
-// ── SAVE / LOAD ──
-async function saveGame(){
-  await saveToCloud();
-}
-
-async function loadGame(){
-  await loadFromCloud();
-}
-
-// Save game to Supabase
-async function saveToCloud() {
-  if (!state.character_id || !state.name) {
-    alert("No character found! Please start a game first.");
-    return;
-  }
-
-  try {
-    // ✅ Step 1: Save character stats
-    const { error: charError } = await dbClient
-      .from("characters")
-      .update({
-        level: state.level,
-        exp: state.exp,
-        gold: state.gold,
-        stats: state.stats || {},
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", state.character_id);
-
-    if (charError) throw charError;
-
-    // ✅ Step 2: Save full game state
-    const { error: saveError } = await dbClient
-      .from("game_saves")
-      .upsert({
-        id: state.character_id, // Use character_id as primary key
-        character_id: state.character_id,
-        game_state: {
-          ...state,
-          inventory: state.inventory || [],
-          currentScene: state.currentScene || 'town'
-        },
-        updated_at: new Date().toISOString()
-      },
-      { onConflict: "id" });
-
-    if (saveError) throw saveError;
-
-    addLog('💾 Game saved to cloud!', 'gold');
-    alert("✅ Game saved to cloud!");
-  } catch (error) {
-    alert("❌ Cloud save failed: " + error.message);
-    console.error('Save error:', error);
-  }
-}
-
-// Load game from Supabase
-async function loadFromCloud() {
-  const playerName = prompt("Enter your character name to load:");
-  if (!playerName) return;
-
-  try {
-    console.log("Trying to load:", playerName);
-
-    // ✅ Fetch character and game save
-    const { data: character, error: charError } = await dbClient
-      .from("characters")
-      .select("*")
-      .eq("name", playerName)
-      .eq("user_id", (await dbClient.auth.getUser()).data.user.id)
-      .single();
-
-    if (charError || !character) {
-      alert("❌ No character found: " + playerName);
-      return;
-    }
-
-    const { data: gameSave, error: saveError } = await dbClient
-      .from("game_saves")
-      .select("game_state")
-      .eq("character_id", character.id)
-      .single();
-
-    if (saveError || !gameSave) {
-      alert("❌ No cloud save found for: " + playerName);
-      return;
-    }
-
-    console.log("Loaded save:", gameSave);
-
-    // ✅ Load into state
-    Object.assign(state, gameSave.game_state);
-    state.character_id = character.id; // Ensure character_id is set
-    localStorage.setItem("rpgSave5", JSON.stringify(state));
-    showGame();
-    loadScene(state.currentScene || 'town');
-    addLog(`☁️ Cloud save loaded! Welcome back ${state.name}!`, 'gold');
-    alert("✅ Game loaded from cloud!");
-  } catch (error) {
-    alert("❌ Load failed: " + error.message);
-    console.error('Load error:', error);
-  }
-}
-
-async function registerUser() {
-  const email = document.getElementById('auth-email').value.trim();
-  const password = document.getElementById('auth-password').value.trim();
-  const name = document.getElementById('name-input').value.trim();
-  const msg = document.getElementById('auth-msg');
-
-  if (!email || !password || !name) {
-    msg.textContent = 'Please fill in all fields!';
-    return;
-  }
-
-  try {
-    // ✅ Step 1: Sign up user
-    const { data: authData, error: authError } = await dbClient.auth.signUp({
-      email,
-      password
-    });
-
-    if (authError) {
-      msg.textContent = '❌ ' + authError.message;
-      return;
-    }
-
-    // ✅ Step 2: Immediately sign in to create session
-    const { data: signInData, error: signInError } = await dbClient.auth.signInWithPassword({
-      email,
-      password
-    });
-
-    if (signInError) {
-      msg.textContent = '❌ ' + signInError.message;
-      return;
-    }
-
-    const userId = signInData.user.id;
-
-    // ✅ Step 3: Create character with starter bonuses (NO class yet)
-    const { data: character, error: charError } = await dbClient
-      .from("characters")
-      .insert({
-        user_id: userId,
-        name: name,
-        level: 1,
-        exp: 0,
-        gold: 1550,
-        class: null, // ← No class until level 10
-        stats: {
-          strength: 8,
-          agility: 6,
-          vitality: 10,
-          intelligence: 4
-        }
-      })
-      .select()
-      .single();
-
-    if (charError) throw charError;
-
-    // ✅ Step 4: Initialize state with starter bonuses
-    state.character_id = character.id;
-    state.name = name;
-    state.level = 1;
-    state.exp = 0;
-    state.gold = 1550;
-    state.class = null; // ← No class until level 10
-    state.stats = {
-      strength: 8,
-      agility: 6,
-      vitality: 10,
-      intelligence: 4
-    };
-    state.inventory = [];
-    state.currentScene = 'town';
-    state.unlockedTalents = []; // ← Empty talents at start
-
-    // ✅ Step 5: Create initial game save
-    const { error: saveError } = await dbClient
-      .from("game_saves")
-      .insert({
-        character_id: character.id,
-        game_state: state,
-        updated_at: new Date().toISOString()
-      });
-
-    if (saveError) throw saveError;
-
-    addLog('💰 You start with 500g! Reach level 10 to choose your class.', 'gold');
-    msg.style.color = '#44ff44';
-    msg.textContent = '✅ Registered! Starting game...';
-    setTimeout(() => startGame(), 1000);
-
-  } catch (error) {
-    msg.textContent = '❌ Registration failed: ' + error.message;
-    console.error('Register error:', error);
-  }
-}
-
-async function loginUser() {
-  const email = document.getElementById('auth-email').value.trim();
-  const password = document.getElementById('auth-password').value.trim();
-  const name = document.getElementById('name-input').value.trim();
-  const msg = document.getElementById('auth-msg');
-
-  if (!email || !password) {
-    msg.textContent = 'Please enter email and password!';
-    return;
-  }
-
-  try {
-    // ✅ Step 1: Sign in user
-    const { data: authData, error: authError } = await dbClient.auth.signInWithPassword({
-      email,
-      password
-    });
-
-    if (authError) {
-      msg.textContent = '❌ ' + authError.message;
-      return;
-    }
-
-    const userId = authData.user.id;
-
-    // ✅ Step 2: Get user's characters
-    let characterName = name;
-    if (!characterName) {
-      const charList = prompt("Enter your character name:");
-      if (!charList) return;
-      characterName = charList;
-    }
-
-    const { data: character, error: charError } = await dbClient
-      .from("characters")
-      .select("*")
-      .eq("name", characterName)
-      .eq("user_id", userId)
-      .single();
-
-    if (charError || !character) {
-      msg.textContent = '❌ No character found: ' + characterName;
-      return;
-    }
-
-    // ✅ Step 3: Load game save
-    const { data: gameSave, error: saveError } = await dbClient
-      .from("game_saves")
-      .select("game_state")
-      .eq("character_id", character.id)
-      .single();
-
-    if (saveError || !gameSave) {
-      msg.textContent = '❌ No save found for: ' + characterName;
-      return;
-    }
-
-    // ✅ Step 4: Load into state
-    Object.assign(state, gameSave.game_state);
-    state.character_id = character.id;
-    localStorage.setItem("rpgSave5", JSON.stringify(state));
-    showGame();
-    loadScene(state.currentScene || 'town');
-    addLog(`☁️ Welcome back ${state.name}!`, 'gold');
-    msg.style.color = '#44ff44';
-    msg.textContent = '✅ Logged in!';
-  } catch (error) {
-    msg.textContent = '❌ Login failed: ' + error.message;
-    console.error('Login error:', error);
-  }
 }
 
 // ── LEADERBOARD ──
 async function fetchLeaderboard(){
   try {
-    document.getElementById('lb-list').innerHTML = '<div class="lb-empty">Loading...</div>';
-    
-    const { data, error } = await dbClient
-      .from('leaderboard')
-      .select(`
-        *,
-        player:player_id(name, class)
-      `)
-      .order('level', { ascending: false })
-      .order('gold', { ascending: false })
-      .limit(20);
-
-    if (error) throw error;
-    renderLeaderboard(data || []);
-  } catch (e) {
-    document.getElementById('lb-list').innerHTML = '<div class="lb-empty">Could not load leaderboard.</div>';
-    console.error('Leaderboard error:', e);
-  }
-}
-
-async function submitScore(){
-  if (!state.character_id || !state.name) {
-    alert('Start the game first!');
-    return;
-  }
-
-  try {
-    const { error } = await dbClient
-      .from('leaderboard')
-      .upsert({
-        player_id: state.character_id,
-        level: state.level,
-        gold: state.gold,
-        class: state.class ? CLASSES[state.class].name : 'Adventurer',
-        updated_at: new Date().toISOString()
-      },
-      { onConflict: 'player_id' });
-
-    if (error) throw error;
-
-    addLog('🏆 Score submitted!', 'gold');
-    notify('🏆 Score submitted!', 'var(--gold)');
-    fetchLeaderboard();
-  } catch (e) {
-    alert('Could not submit score: ' + e.message);
-    console.error('Submit score error:', e);
-  }
-}
-
-function renderLeaderboard(scores){
-  const list = document.getElementById('lb-list');
-  if (!scores || !scores.length) {
-    list.innerHTML = '<div class="lb-empty">No scores yet! 🏆</div>';
-    return;
-  }
-
-  const medals = ['🥇', '🥈', '🥉'];
-  const cls = ['gold', 'silver', 'bronze'];
-
-  list.innerHTML = scores.map((s, i) => `
-    <div class="lb-row">
-      <div class="lb-rank ${cls[i] || ''}">${medals[i] || '#' + (i + 1)}</div>
-      <div class="lb-name">${s.player?.name || 'Unknown'}</div>
-      <div class="lb-class">${s.player?.class || s.class || 'Adventurer'}</div>
-      <div class="lb-level">⭐ Lv.${s.level}</div>
-      <div class="lb-gold-col">💰 ${formatNumber(s.gold)}g</div>
-    </div>
-  `).join('');
-}
-
-// Click sound
-const clickSnd = document.getElementById('clickSound');
-document.addEventListener('click', e => {
-  if (['BUTTON', 'A'].includes(e.target.tagName)) {
-    if (clickSnd) {
-      clickSnd.currentTime = 0;
-      clickSnd.play().catch(() => {});
+    document.getElementById('lb-list').innerHTML='<div class="lb-empty">Loading...</div>';
+    // Two-step: fetch leaderboard, then get character names separately
+    const{data,error}=await dbClient.from('leaderboard').select('*').order('level',{ascending:false}).order('gold',{ascending:false}).limit(20);
+    if(error)throw error;
+    if(!data||!data.length){document.getElementById('lb-list').innerHTML='<div class="lb-empty">No scores yet! 🏆</div>';return;}
+    // Fetch character names for each player_id
+    const ids=[...new Set(data.map(r=>r.player_id).filter(Boolean))];
+    let nameMap={};
+    if(ids.length){
+      const{data:chars}=await dbClient.from('characters').select('id,name,class').in('id',ids);
+      if(chars)chars.forEach(c=>{nameMap[c.id]={name:c.name,class:c.class};});
     }
+    renderLeaderboard(data,nameMap);
+  } catch(e){ document.getElementById('lb-list').innerHTML='<div class="lb-empty">Could not load leaderboard.</div>';console.error('Leaderboard error:',e); }
+}
+async function submitScore(){
+  if(!state.character_id||!state.name){alert('Start the game first!');return;}
+  try {
+    const{data:{user}}=await dbClient.auth.getUser();if(!user){alert('You must be logged in.');return;}
+    const{error}=await dbClient.from('leaderboard').upsert({player_id:state.character_id,user_id:user.id,level:state.level,gold:state.gold,class:state.class?CLASSES[state.class].name:'Adventurer',updated_at:new Date().toISOString()},{onConflict:'player_id'});
+    if(error)throw error;
+    addLog('🏆 Score submitted!','gold');notify('🏆 Score submitted!','var(--gold)');fetchLeaderboard();
+  } catch(e){ alert('Could not submit score: '+e.message);console.error('Submit score error:',e); }
+}
+function renderLeaderboard(scores,nameMap={}){
+  const list=document.getElementById('lb-list');
+  if(!scores||!scores.length){list.innerHTML='<div class="lb-empty">No scores yet! 🏆</div>';return;}
+  const medals=['🥇','🥈','🥉'],cls=['gold','silver','bronze'];
+  list.innerHTML=scores.map((s,i)=>{
+    const charInfo=nameMap[s.player_id]||{};
+    return `<div class="lb-row"><div class="lb-rank ${cls[i]||''}">${medals[i]||'#'+(i+1)}</div><div class="lb-name">${charInfo.name||'Unknown'}</div><div class="lb-class">${charInfo.class||s.class||'Adventurer'}</div><div class="lb-level">⭐ Lv.${s.level}</div><div class="lb-gold-col">💰 ${formatNumber(s.gold)}g</div></div>`;
+  }).join('');
+}
+
+// ── AUCTION HOUSE ──
+const AUCTION_FEE=0.10;
+const SYSTEM_ITEMS_PER_DAY=5;
+
+async function checkAndSettleAuctions(){
+  try {
+    const{data:expired}=await dbClient.from('auctions').select('*').eq('status','active').lt('ends_at',new Date().toISOString());
+    if(!expired||!expired.length)return;
+    for(const auction of expired)await settleExpiredAuction(auction.id);
+
+    if(!state.character_id)return;
+    const{data:myAuctions}=await dbClient.from('auctions').select('*').eq('seller_id',state.character_id).eq('status','completed').eq('seller_collected',false);
+    if(myAuctions&&myAuctions.length){
+      let totalGold=0;
+      for(const auction of myAuctions){totalGold+=Math.floor(auction.current_bid*(1-AUCTION_FEE));await dbClient.from('auctions').update({seller_collected:true}).eq('id',auction.id);}
+      if(totalGold>0){state.gold+=totalGold;await savePlayerToSupabase();addLog(`🏛️ +${formatNumber(totalGold)}g from auctions!`,'legendary');notify(`💰 +${formatNumber(totalGold)}g from auctions!`,'var(--gold)');updateUI();}
+    }
+
+    const{data:wonAuctions}=await dbClient.from('auctions').select('*').eq('current_bidder_id',state.character_id).eq('status','completed').eq('winner_collected',false);
+    if(wonAuctions&&wonAuctions.length){
+      for(const auction of wonAuctions){
+        const item=auction.item_description?(typeof auction.item_description==='string'?JSON.parse(auction.item_description):auction.item_description):{name:auction.item_name,rarity:auction.rarity,uid:genUid()};
+        item.uid=genUid();addToInventory(item);await dbClient.from('auctions').update({winner_collected:true}).eq('id',auction.id);
+        addLog(`🏛️ Received ${auction.item_name} from auction!`,'legendary');
+      }
+      await savePlayerToSupabase();renderInventory();updateUI();notify(`📦 New items from auction!`,'var(--gold)');
+    }
+  } catch(error){console.error('Settle auctions error:',error);}
+}
+
+async function settleExpiredAuction(auctionId){
+  try {
+    const{data:auction}=await dbClient.from('auctions').select('*').eq('id',auctionId).single();
+    if(!auction||auction.status!=='active')return;
+    if(!auction.current_bidder_id||!auction.current_bid||auction.current_bid===0){
+      if(auction.source==='player'){
+        const{data:sc}=await dbClient.from('characters').select('inventory').eq('id',auction.seller_id).single();
+        if(sc){const inv=sc.inventory||[],item=auction.item_description?(typeof auction.item_description==='string'?JSON.parse(auction.item_description):auction.item_description):{name:auction.item_name,rarity:auction.rarity,uid:genUid()};item.uid=genUid();inv.push(item);await dbClient.from('characters').update({inventory:inv}).eq('id',auction.seller_id);}
+      }
+      await dbClient.from('auctions').update({status:'expired'}).eq('id',auctionId);return;
+    }
+    const goldAfterFee=Math.floor(auction.current_bid*(1-AUCTION_FEE));
+    if(auction.source==='player'){const{data:sc}=await dbClient.from('characters').select('gold').eq('id',auction.seller_id).single();if(sc)await dbClient.from('characters').update({gold:sc.gold+goldAfterFee}).eq('id',auction.seller_id);}
+    await dbClient.from('auctions').update({status:'completed',seller_collected:auction.source==='system',winner_collected:false,updated_at:new Date().toISOString()}).eq('id',auctionId);
+  } catch(error){console.error('Settle single auction error:',error);}
+}
+
+async function generateSystemAuctionItems(){
+  const today=new Date().toISOString().split('T')[0];
+  const{data:existing}=await dbClient.from('auctions').select('id').eq('source','system').gte('created_at',today+'T00:00:00Z').eq('status','active');
+  if(existing&&existing.length>=SYSTEM_ITEMS_PER_DAY)return;
+  const slots=['weapon','armor','helmet','boots','ring','amulet'],rarities=['rare','rare','epic','epic','legendary'];
+  const endsAt=new Date();endsAt.setHours(endsAt.getHours()+24);
+  for(let i=0;i<SYSTEM_ITEMS_PER_DAY;i++){
+    const slot=slots[Math.floor(Math.random()*slots.length)],rarity=rarities[Math.floor(Math.random()*rarities.length)];
+    const item=mkEquipDrop(slot,rarity),basePrice=Math.floor(item.sellPrice*(2+Math.random()*2));
+    await dbClient.from('auctions').insert({seller_id:null,item_name:item.name,item_description:JSON.stringify(item),rarity:item.rarity,start_price:basePrice,buyout_price:Math.floor(basePrice*2.5),current_bid:0,current_bidder_id:null,ends_at:endsAt.toISOString(),status:'active',source:'system',seller_collected:true,winner_collected:false});
   }
+}
+
+async function fetchAuctions(){
+  const container=document.getElementById('auction-list');if(!container)return;
+  container.innerHTML='<div style="text-align:center;color:#888;padding:20px;">Loading...</div>';
+  try {
+    await generateSystemAuctionItems();
+    const{data,error}=await dbClient.from('auctions').select('*').eq('status','active').gt('ends_at',new Date().toISOString()).order('ends_at',{ascending:true});
+    if(error)throw error;
+    if(!data||!data.length){container.innerHTML='<div style="text-align:center;color:#444;padding:20px;font-style:italic;">No active auctions!</div>';return;}
+    // Fetch seller names separately
+    const sellerIds=[...new Set(data.map(a=>a.seller_id).filter(Boolean))];
+    let sellerMap={};
+    if(sellerIds.length){const{data:chars}=await dbClient.from('characters').select('id,name').in('id',sellerIds);if(chars)chars.forEach(c=>{sellerMap[c.id]=c.name;});}
+    renderAuctions(data,sellerMap);
+  } catch(error){console.error('Fetch auctions error:',error);container.innerHTML='<div style="text-align:center;color:#f00;padding:20px;">Failed to load auctions</div>';}
+}
+
+function renderAuctions(auctions,sellerMap={}){
+  const container=document.getElementById('auction-list');if(!container)return;
+  const r_=r=>RARITY[r]||RARITY.normal;
+  container.innerHTML=auctions.map(auction=>{
+    const endsAt=new Date(auction.ends_at),timeLeft=endsAt-new Date();
+    const hoursLeft=Math.max(0,Math.floor(timeLeft/3600000)),minsLeft=Math.max(0,Math.floor((timeLeft%3600000)/60000));
+    const isExpired=timeLeft<=0,isOwn=auction.seller_id===state.character_id,isSystem=auction.source==='system';
+    const currentBid=auction.current_bid||auction.start_price,rColor=r_(auction.rarity).color;
+    const sellerName=isSystem?'🤖 Auction House':`👤 ${sellerMap[auction.seller_id]||'Unknown'}`;
+    return `<div style="background:linear-gradient(135deg,rgba(255,255,255,0.03),rgba(8,8,40,0.7));border:1px solid ${rColor};border-radius:8px;padding:10px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <div style="font-size:1.6em;">${auction.item_name.split(' ')[0]}</div>
+        <div style="flex:1;"><div style="color:${rColor};font-family:'Cinzel',serif;font-size:.82em;font-weight:600;">${auction.item_name}</div><div style="font-size:.7em;color:#888;">${r_(auction.rarity).label} · ${sellerName}</div></div>
+        <div style="font-size:.7em;color:${isExpired?'var(--red)':'#888'};">${isExpired?'❌ Expired':`⏱️ ${hoursLeft}h ${minsLeft}m`}</div>
+      </div>
+      ${auction.item_description?`<div style="font-size:.72em;color:#888;margin-bottom:6px;padding:4px;background:rgba(0,0,0,0.2);border-radius:4px;">${(()=>{try{const item=typeof auction.item_description==='string'?JSON.parse(auction.item_description):auction.item_description;return Object.entries(item.stats||{}).map(([k,v])=>`<span style="margin-right:6px;">+${v<1?v.toFixed(3):v} ${k.toUpperCase()}</span>`).join('');}catch(e){return '';}})()}</div>`:''}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div><div style="color:var(--gold);font-family:'Cinzel',serif;font-size:.9em;">💰 ${formatNumber(currentBid)}g${auction.current_bidder_id?'<span style="font-size:.7em;color:#888;"> (highest)</span>':'<span style="font-size:.7em;color:#888;"> (starting)</span>'}</div>${auction.buyout_price?`<div style="font-size:.72em;color:#aaa;">Buyout: ${formatNumber(auction.buyout_price)}g</div>`:''}</div>
+        <div style="font-size:.7em;color:#555;">Fee: 10%</div>
+      </div>
+      ${!isOwn&&!isExpired?`<div style="display:flex;gap:6px;"><button class="start-btn" onclick="placeBid('${auction.id}',${currentBid})" style="flex:1;font-size:.72em;padding:5px 8px;">⬆️ Bid</button>${auction.buyout_price?`<button class="start-btn" onclick="buyoutAuction('${auction.id}',${auction.buyout_price})" style="flex:1;font-size:.72em;padding:5px 8px;background:linear-gradient(135deg,#005500,#00aa44);">⚡ Buy ${formatNumber(auction.buyout_price)}g</button>`:''}</div>`:isOwn?`<div style="display:flex;gap:6px;"><div style="flex:1;text-align:center;font-size:.72em;color:#888;padding:4px;">Your listing</div><button class="start-btn red-btn" onclick="cancelAuction('${auction.id}')" style="flex:1;font-size:.72em;padding:5px 8px;">❌ Cancel</button></div>`:''}
+    </div>`;
+  }).join('');
+}
+
+async function placeBid(auctionId,currentBid){
+  const minBid=currentBid+Math.max(100,Math.floor(currentBid*0.05));
+  const bidAmount=parseInt(prompt(`Minimum bid: ${formatNumber(minBid)}g\nEnter your bid:`));
+  if(!bidAmount||isNaN(bidAmount))return;
+  if(bidAmount<minBid){notify(`❌ Minimum bid is ${formatNumber(minBid)}g!`,'var(--red)');return;}
+  if(bidAmount>state.gold){notify('❌ Not enough gold!','var(--red)');return;}
+  try {
+    const{data:auction}=await dbClient.from('auctions').select('*').eq('id',auctionId).single();
+    if(!auction||auction.status!=='active'){notify('❌ Auction no longer active!','var(--red)');return;}
+    if(auction.current_bidder_id&&auction.current_bid>0){
+      const{data:prev}=await dbClient.from('characters').select('gold').eq('id',auction.current_bidder_id).single();
+      if(prev){await dbClient.from('characters').update({gold:prev.gold+auction.current_bid}).eq('id',auction.current_bidder_id);}
+      if(auction.current_bidder_id===state.character_id)state.gold+=auction.current_bid;
+    }
+    state.gold-=bidAmount;
+    await dbClient.from('auctions').update({current_bid:bidAmount,current_bidder_id:state.character_id,updated_at:new Date().toISOString()}).eq('id',auctionId);
+    await savePlayerToSupabase();
+    addLog(`⬆️ Bid: ${formatNumber(bidAmount)}g on ${auction.item_name}!`,'gold');notify(`⬆️ Bid: ${formatNumber(bidAmount)}g!`,'var(--gold)');updateUI();fetchAuctions();
+  } catch(error){state.gold+=bidAmount;notify('❌ Bid failed: '+error.message,'var(--red)');console.error('Bid error:',error);}
+}
+
+async function buyoutAuction(auctionId,buyoutPrice){
+  if(buyoutPrice>state.gold){notify('❌ Not enough gold!','var(--red)');return;}
+  if(!confirm(`Buy now for ${formatNumber(buyoutPrice)}g?\n(10% fee applies to seller)`))return;
+  try {
+    const{data:auction}=await dbClient.from('auctions').select('*').eq('id',auctionId).single();
+    if(!auction||auction.status!=='active'){notify('❌ Auction no longer active!','var(--red)');return;}
+    if(auction.current_bidder_id&&auction.current_bid>0&&auction.current_bidder_id!==state.character_id){
+      const{data:prev}=await dbClient.from('characters').select('gold').eq('id',auction.current_bidder_id).single();
+      if(prev)await dbClient.from('characters').update({gold:prev.gold+auction.current_bid}).eq('id',auction.current_bidder_id);
+    }
+    state.gold-=buyoutPrice;
+    const item=auction.item_description?(typeof auction.item_description==='string'?JSON.parse(auction.item_description):auction.item_description):{name:auction.item_name,rarity:auction.rarity,uid:genUid(),category:'equipment',equipped:false};
+    item.uid=genUid();addToInventory(item);
+    if(auction.source==='player'&&auction.seller_id){
+      const goldAfterFee=Math.floor(buyoutPrice*(1-AUCTION_FEE));
+      const{data:sc}=await dbClient.from('characters').select('gold').eq('id',auction.seller_id).single();
+      if(sc)await dbClient.from('characters').update({gold:sc.gold+goldAfterFee}).eq('id',auction.seller_id);
+    }
+    await dbClient.from('auctions').update({status:'sold',current_bidder_id:state.character_id,current_bid:buyoutPrice,winner_collected:true,seller_collected:true,updated_at:new Date().toISOString()}).eq('id',auctionId);
+    await savePlayerToSupabase();
+    addLog(`🏛️ Bought ${auction.item_name} for ${formatNumber(buyoutPrice)}g!`,'legendary');notify(`🏛️ Item purchased!`,'var(--gold)');playSound('snd-craft');updateUI();renderInventory();fetchAuctions();
+  } catch(error){state.gold+=buyoutPrice;notify('❌ Purchase failed: '+error.message,'var(--red)');console.error('Buyout error:',error);}
+}
+
+async function listItemForAuction(uid){
+  const item=state.inventory.find(i=>i.uid===uid);if(!item){notify('❌ Item not found!','var(--red)');return;}
+  if(item.equipped){notify('❌ Unequip item first!','var(--red)');return;}
+  if(!state.character_id){notify('❌ Must be logged in to list items!','var(--red)');return;}
+  const startPrice=parseInt(prompt('Starting bid price (gold):'));if(!startPrice||isNaN(startPrice)||startPrice<=0)return;
+  const buyoutInput=prompt('Buyout price (leave empty for no buyout):');
+  const buyoutPrice=buyoutInput?parseInt(buyoutInput):null;
+  if(buyoutPrice&&buyoutPrice<=startPrice){notify('❌ Buyout must be higher than start price!','var(--red)');return;}
+  try {
+    const idx=state.inventory.findIndex(i=>i.uid===uid);state.inventory.splice(idx,1);
+    const endsAt=new Date();endsAt.setHours(endsAt.getHours()+24);
+    const{error}=await dbClient.from('auctions').insert({seller_id:state.character_id,item_name:item.name,item_description:JSON.stringify(item),rarity:item.rarity||'normal',start_price:startPrice,buyout_price:buyoutPrice||null,current_bid:0,current_bidder_id:null,ends_at:endsAt.toISOString(),status:'active',source:'player',seller_collected:false,winner_collected:false});
+    if(error)throw error;
+    await savePlayerToSupabase();
+    addLog(`🏛️ ${item.name} listed! Starts at ${formatNumber(startPrice)}g`,'gold');notify(`🏛️ Item listed for auction!`,'var(--gold)');renderInventory();updateUI();
+  } catch(error){state.inventory.push(item);notify('❌ Listing failed: '+error.message,'var(--red)');console.error('List error:',error);}
+}
+
+async function cancelAuction(auctionId){
+  if(!confirm('Cancel this auction? Item will be returned.'))return;
+  try {
+    const{data:auction}=await dbClient.from('auctions').select('*').eq('id',auctionId).single();
+    if(!auction){notify('❌ Auction not found!','var(--red)');return;}
+    if(auction.current_bidder_id&&auction.current_bid>0){
+      const{data:bidder}=await dbClient.from('characters').select('gold').eq('id',auction.current_bidder_id).single();
+      if(bidder){await dbClient.from('characters').update({gold:bidder.gold+auction.current_bid}).eq('id',auction.current_bidder_id);}
+      if(auction.current_bidder_id===state.character_id)state.gold+=auction.current_bid;
+    }
+    const item=auction.item_description?(typeof auction.item_description==='string'?JSON.parse(auction.item_description):auction.item_description):{name:auction.item_name,rarity:auction.rarity,uid:genUid(),category:'equipment',equipped:false};
+    item.uid=genUid();addToInventory(item);
+    await dbClient.from('auctions').update({status:'cancelled'}).eq('id',auctionId);
+    await savePlayerToSupabase();
+    notify('✅ Auction cancelled!','var(--gold)');addLog(`❌ Cancelled auction for ${auction.item_name}`,'info');renderInventory();updateUI();fetchAuctions();
+  } catch(error){notify('❌ Cancel failed: '+error.message,'var(--red)');console.error('Cancel error:',error);}
+}
+
+function switchMarketTab(tab){
+  document.getElementById('market-ah').style.display=tab==='auction'?'block':'none';
+  document.getElementById('market-tab-ah').classList.toggle('active',tab==='auction');
+  if(tab==='auction')fetchAuctions();
+}
+
+// ── CLICK SOUND ──
+const clickSnd=document.getElementById('clickSound');
+document.addEventListener('click',e=>{
+  if(['BUTTON','A'].includes(e.target.tagName)){if(clickSnd){clickSnd.currentTime=0;clickSnd.play().catch(()=>{});}}
 });

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -436,6 +437,7 @@
 <!-- ── GAME WRAPPER ──                            -->
 <!-- ══════════════════════════════════════════════ -->
 <div id="game-wrapper" style="display:none;width:100%;max-width:1080px;">
+      <button class="start-btn blue-btn" onclick="logoutUser()" style="flex:1;">🔑 Logout</button>
 
   <!-- ╔══════════════════════════════════╗ -->
   <!-- ║   CHARACTER SCENE               ║ -->
@@ -502,6 +504,26 @@
           <div class="panel-title">📜 Activity Log</div>
           <div id="log-box"></div>
         </div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+
+        <!-- Dungeon List -->
+        <div class="panel">
+          <div class="panel-title">🗺️ Dungeons</div>
+          <div id="choices-box" style="display:flex;flex-direction:column;gap:7px;"></div>
+        </div>
+        
+        <div id="tutorial-indicator"></div>
+        <!-- Difficulty -->
+        <div class="panel" id="difficulty-bar">
+          <div class="panel-title">⚙️ Difficulty</div>
+          <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
+            <button id="diff-btn-normal" onclick="setDifficulty('normal')" style="background:rgba(8,8,40,.8);border:2px solid #cccccc;color:#cccccc;padding:5px 10px;border-radius:6px;font-family:'Cinzel',serif;font-size:.72em;cursor:pointer;transition:all .3s;">⚔️ Normal</button>
+            <button id="diff-btn-hard" onclick="setDifficulty('hard')" style="background:rgba(8,8,40,.8);border:2px solid #ff8800;color:#ff8800;padding:5px 10px;border-radius:6px;font-family:'Cinzel',serif;font-size:.72em;cursor:pointer;opacity:0.4;transition:all .3s;">🔥 Hard</button>
+            <button id="diff-btn-hell" onclick="setDifficulty('hell')" style="background:rgba(8,8,40,.8);border:2px solid #ff2222;color:#ff2222;padding:5px 10px;border-radius:6px;font-family:'Cinzel',serif;font-size:.72em;cursor:pointer;opacity:0.4;transition:all .3s;">💀 Hell</button>
+          </div>
+        </div>
+
+      </div>
       </div>
 
       <!-- RIGHT: Inventory -->
