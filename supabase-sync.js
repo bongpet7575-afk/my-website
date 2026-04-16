@@ -1,9 +1,8 @@
-export { syncCharacterToState, loadPlayerFromSupabase, savePlayerToSupabase, startAutoSave, stopAutoSave, initializeSupabaseSync, cleanupSupabaseSync };
-
 // supabase-sync.js
 // Syncs game state with Supabase
+// ⚠️ This file must be loaded AFTER game.js
 
-//let autoSaveInterval = null;
+let autoSaveInterval = null;
 
 // ============================================
 // LOAD PLAYER FROM SUPABASE → STATE
@@ -33,22 +32,23 @@ async function loadPlayerFromSupabase(characterId) {
   }
 }
 
-/**
- * Sync database character → game state
- */
+// ============================================
+// SYNC DATABASE CHARACTER → GAME STATE
+// ============================================
+
 function syncCharacterToState(character) {
   // Basic info
   state.character_id = character.id;
   state.user_id = character.user_id;
   state.name = character.name;
   state.level = character.level || 1;
-  state.xp = character.exp || 0;
+  state.xp = character.exp || 0;                    // ✅ only 'exp' column — 'experience' was dropped
   state.xpNext = Math.floor((character.level || 1) * 100 * 20);
   state.gold = character.gold || 0;
   state.class = character.class || null;
   state.currentScene = character.current_scene || 'town';
 
-  // Health/Mana
+  // Health/Mana — maps to state.hp/state.mp used everywhere in game
   state.hp = character.health || 100;
   state.maxHp = character.max_health || 100;
   state.mp = character.mana || 50;
@@ -87,18 +87,18 @@ function syncCharacterToState(character) {
 
   // Class bonuses
   state.classBonuses = stats.classBonuses || {
-    strMult: 0, agiMult: 0, intMult: 0, staMult: 0,
-    hitMult: 0, critMult: 0, dodgeMult: 0, hpRegenMult: 0,
-    mpRegenMult: 0, armorMult: 0, mpMult: 0, lifeStealMult: 0,
-    attackPowerMult: 0, maxHpMult: 0,
+    strMult:0, agiMult:0, intMult:0, staMult:0,
+    hitMult:0, critMult:0, dodgeMult:0, hpRegenMult:0,
+    mpRegenMult:0, armorMult:0, mpMult:0, lifeStealMult:0,
+    attackPowerMult:0, maxHpMult:0,
   };
 
   // Talent bonuses
   state.talentBonuses = stats.talentBonuses || {
-    strMult: 0, agiMult: 0, intMult: 0, staMult: 0,
-    hitMult: 0, critMult: 0, dodgeMult: 0, hpRegenMult: 0,
-    mpRegenMult: 0, armorMult: 0, mpMult: 0, lifeStealMult: 0,
-    attackPowerMult: 0, maxHpMult: 0,
+    strMult:0, agiMult:0, intMult:0, staMult:0,
+    hitMult:0, critMult:0, dodgeMult:0, hpRegenMult:0,
+    mpRegenMult:0, armorMult:0, mpMult:0, lifeStealMult:0,
+    attackPowerMult:0, maxHpMult:0,
   };
 
   // Equipment bonuses
@@ -133,12 +133,7 @@ function syncCharacterToState(character) {
   // Inventory & Equipment
   state.inventory = character.inventory || [];
   state.equipped = character.equipped || {
-    weapon: null,
-    armor: null,
-    helmet: null,
-    boots: null,
-    ring: null,
-    amulet: null,
+    weapon:null, armor:null, helmet:null, boots:null, ring:null, amulet:null,
   };
 
   // Talents & Skills
@@ -150,37 +145,33 @@ function syncCharacterToState(character) {
 
   // Quests
   state.quests = character.quests || {
-    kill1: { text: '🗡️ Defeat your first enemy', done: false },
-    gold50: { text: '💰 Earn 50 gold', done: false },
-    level5: { text: '⭐ Reach Level 5', done: false },
-    level10: { text: '🏆 Reach Level 10', done: false },
-    boss: { text: '🐉 Defeat a Boss', done: false },
-    class: { text: '✨ Choose a Class', done: false },
-    talent: { text: '🌟 Unlock a Talent', done: false },
-    equip: { text: '🛡️ Equip an item', done: false },
-    legendary: { text: '🔱 Find a Legendary item', done: false },
-    craft: { text: '⚗️ Craft an item', done: false },
-    level50: { text: '👑 Reach Level 50', done: false },
-    level100: { text: '🌟 Reach Max Level 100', done: false },
+    kill1:     { text:'🗡️ Defeat your first enemy', done:false },
+    gold50:    { text:'💰 Earn 50 gold', done:false },
+    level5:    { text:'⭐ Reach Level 5', done:false },
+    level10:   { text:'🏆 Reach Level 10', done:false },
+    boss:      { text:'🐉 Defeat a Boss', done:false },
+    class:     { text:'✨ Choose a Class', done:false },
+    talent:    { text:'🌟 Unlock a Talent', done:false },
+    equip:     { text:'🛡️ Equip an item', done:false },
+    legendary: { text:'🔱 Find a Legendary item', done:false },
+    craft:     { text:'⚗️ Craft an item', done:false },
+    level50:   { text:'👑 Reach Level 50', done:false },
+    level100:  { text:'🌟 Reach Max Level 100', done:false },
   };
 
   // Debuffs
   state.activeDebuffs = character.active_debuffs || {
-    maxHpReduction: 0,
-    webTrapped: 0,
-    rageTimer: 0,
+    maxHpReduction:0, webTrapped:0, rageTimer:0,
   };
 
   // UI state
   state.difficulty = character.difficulty || 'normal';
   state.invTab = character.inv_tab || 'equipment';
   state.shopTab = character.shop_tab || 'equipment';
-  state.autoSell = character.auto_sell || { normal: false, uncommon: false };
+  state.autoSell = character.auto_sell || { normal:false, uncommon:false, rare:false, epic:false };
 
-  // Recalculate stats
-  if (typeof calcStats === 'function') {
-    calcStats();
-  }
+  // Recalculate stats after loading
+  if (typeof calcStats === 'function') calcStats();
 }
 
 // ============================================
@@ -190,7 +181,6 @@ function syncCharacterToState(character) {
 async function savePlayerToSupabase() {
   try {
     const { data: { user } } = await dbClient.auth.getUser();
-    
     if (!user) throw new Error('Not authenticated');
     if (!state.character_id) throw new Error('No character ID');
 
@@ -199,7 +189,7 @@ async function savePlayerToSupabase() {
       .update({
         name: state.name,
         level: state.level,
-        exp: state.xp,
+        exp: state.xp,                    // ✅ only 'exp' column
         gold: state.gold,
         class: state.class,
         health: state.hp,
@@ -296,7 +286,6 @@ async function savePlayerToSupabase() {
 
 function startAutoSave() {
   if (autoSaveInterval) clearInterval(autoSaveInterval);
-  
   autoSaveInterval = setInterval(async () => {
     try {
       await savePlayerToSupabase();
@@ -304,23 +293,16 @@ function startAutoSave() {
     } catch (error) {
       console.warn('Auto-save failed:', error);
     }
-  }, 30000); // Every 30 seconds
+  }, 30000); // every 30 seconds
 }
 
 function stopAutoSave() {
-  if (autoSaveInterval) {
-    clearInterval(autoSaveInterval);
-    autoSaveInterval = null;
-  }
+  if (autoSaveInterval) { clearInterval(autoSaveInterval); autoSaveInterval = null; }
 }
 
 function setupAutoSaveOnUnload() {
-  window.addEventListener('beforeunload', async (e) => {
-    try {
-      await savePlayerToSupabase();
-    } catch (error) {
-      console.error('Failed to save on unload:', error);
-    }
+  window.addEventListener('beforeunload', async () => {
+    try { await savePlayerToSupabase(); } catch (e) { console.error('Save on unload failed:', e); }
   });
 }
 
