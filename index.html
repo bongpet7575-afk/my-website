@@ -753,26 +753,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
           <button class="start-btn" style="margin-left:auto;" onclick="autoSellNow()">Sell Now</button>
         </div>
       </div>
-
-      <!-- Auto-Skill Slots -->
-      <div class="char-panel">
-        <div class="panel-title">Auto-Skill Slots <span style="font-size:.7em;color:var(--text-dim);font-family:var(--font-body);">drag skills here</span></div>
-        <div class="auto-slots-wrap" style="padding:0;margin:0;">
-          <div class="auto-slot" id="auto-slot-0" ondragover="event.preventDefault()" ondrop="dropSkillToSlot(event,0)">
-            <div class="auto-slot-icon" id="auto-slot-content-0" onclick="clearSlot(0)">➕</div>
-            <span class="skill-lbl">Slot 1</span>
-          </div>
-          <div class="auto-slot" id="auto-slot-1" ondragover="event.preventDefault()" ondrop="dropSkillToSlot(event,1)">
-            <div class="auto-slot-icon" id="auto-slot-content-1" onclick="clearSlot(1)">➕</div>
-            <span class="skill-lbl">Slot 2</span>
-          </div>
-          <div class="auto-slot" id="auto-slot-2" ondragover="event.preventDefault()" ondrop="dropSkillToSlot(event,2)">
-            <div class="auto-slot-icon" id="auto-slot-content-2" onclick="clearSlot(2)">➕</div>
-            <span class="skill-lbl">Slot 3</span>
-          </div>
-        </div>
-      </div>
-
+     
       <!-- Quests -->
       <div class="char-panel">
         <div class="panel-title">Quests</div>
@@ -795,8 +776,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
         <div class="arena-side">
           <div class="arena-avatar" id="arena-player" id="char-avatar">🧙</div>
           <div class="arena-label" id="arena-player-label">Hero</div>
-          <div class="arena-bar-wrap"><div class="arena-bar-fill arena-hp" id="arena-player-hp" style="width:100%;"></div></div>
-          <div class="arena-bar-wrap" style="margin-top:3px;"><div class="arena-bar-fill arena-mp" id="arena-player-mp" style="width:100%;"></div></div>
+          <div class="arena-bar-wrap">
+          <div class="arena-bar-fill arena-hp" id="arena-player-hp" style="width:100%;">
+          </div>
+          </div>
+          <div class="arena-bar-wrap" style="margin-top:3px;">
+          <div class="arena-bar-fill arena-mp" id="arena-player-mp" style="width:100%;">
+          </div>
+        </div>
         </div>
         <div class="arena-vs">VS</div>
         <div class="arena-side">
@@ -818,10 +805,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <!-- Combat box -->
       <div id="combat-box" style="display:none;flex-direction:column;flex:1;overflow:hidden;padding:0 10px 10px;">
         <div class="combat-btn-row" style="padding-top:8px;">
-          <button class="combat-btn" onclick="combatAction('attack')">⚔ Attack</button>
-          <button class="combat-btn" onclick="combatAction('magic')">✨ Magic</button>
-          <button class="combat-btn" onclick="combatAction('defend')">🛡 Defend</button>
-          <button class="combat-btn red" onclick="combatAction('flee')">🏃 Flee</button>
+         
         </div>
         <div id="combat-log" style="flex:1;overflow-y:auto;font-size:.78em;line-height:1.7;padding:4px 0;min-height:0;"></div>
       </div>
@@ -836,7 +820,24 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <div id="skills-bar" style="display:none;">
         <div id="skills-slot-row" style="display:flex;gap:6px;overflow-x:auto;padding:8px 10px;"></div>
       </div>
-
+        <!-- Auto-Skill Slots -->
+      <div class="char-panel">
+        <div class="panel-title">Auto-Skill Slots <span style="font-size:.7em;color:var(--text-dim);font-family:var(--font-body);">drag skills here</span></div>
+        <div class="auto-slots-wrap" style="padding:0;margin:0;">
+          <div class="auto-slot" id="auto-slot-0" ondragover="event.preventDefault()" ondrop="dropSkillToSlot(event,0)">
+            <div class="auto-slot-icon" id="auto-slot-content-0" onclick="clearSlot(0)">➕</div>
+            <span class="skill-lbl">Slot 1</span>
+          </div>
+          <div class="auto-slot" id="auto-slot-1" ondragover="event.preventDefault()" ondrop="dropSkillToSlot(event,1)">
+            <div class="auto-slot-icon" id="auto-slot-content-1" onclick="clearSlot(1)">➕</div>
+            <span class="skill-lbl">Slot 2</span>
+          </div>
+          <div class="auto-slot" id="auto-slot-2" ondragover="event.preventDefault()" ondrop="dropSkillToSlot(event,2)">
+            <div class="auto-slot-icon" id="auto-slot-content-2" onclick="clearSlot(2)">➕</div>
+            <span class="skill-lbl">Slot 3</span>
+          </div>
+        </div>
+      </div>
       <!-- Log box -->
       <div id="log-box"></div>
 
