@@ -543,7 +543,7 @@ const SCENES={
 // ── SHOP ITEMS ──
 const SHOP_EQUIP=[
   {id:'s1',name:'⚔️ Iron Sword',price:200,slot:'weapon',rarity:'normal',stats:{str:20,lifeSteal:0.05,hit:5,crit:0.1}},
-  {id:'s2',name:'⚔️ Steel Sword',price:500,slot:'weapon',rarity:'uncommon',stats:{str:45,equipLifeSteal:0.06,hit:25,crit:0.2}},
+  {id:'s2',name:'⚔️ Steel Sword',price:500,slot:'weapon',rarity:'uncommon',stats:{str:45,lifeSteal:0.06,hit:25,crit:0.2}},
   {id:'s5',name:'🛡️ Wooden Shield',price:200,slot:'armor',rarity:'normal',stats:{sta:15,armor:25,hpRegen:25,dodge:0.2}},
   {id:'s6',name:'🛡️ Chain Mail',price:400,slot:'armor',rarity:'uncommon',stats:{sta:25,armor:55,hpRegen:50,dodge:0.5}},
   {id:'s9',name:'👢 Leather Boots',price:220,slot:'boots',rarity:'normal',stats:{agi:15,crit:0.1}},
@@ -667,42 +667,115 @@ async function loginUser(){
 }
 
 // ── CHARACTER SELECT ──
-function showCharacterSelect(characters){
-  document.getElementById('auth-screen').style.display='none';
-  let screen=document.getElementById('char-select-screen');
-  if(!screen){ screen=document.createElement('div'); screen.id='char-select-screen'; screen.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:1000;background:rgba(0,0,0,0.85);'; document.body.appendChild(screen); }
-  screen.innerHTML='<div style="background:#0a0a1a;border:1px solid rgba(200,160,40,0.3);border-radius:16px;padding:32px 28px;min-width:340px;max-width:480px;width:90%;box-shadow:0 0 60px rgba(200,160,40,0.08);">'+
-    '<div style="font-family:Cinzel,serif;font-size:1.3em;color:var(--gold);text-align:center;margin-bottom:4px;letter-spacing:2px;">SELECT CHARACTER</div>'+
-    '<div style="font-size:.78em;color:#666;text-align:center;margin-bottom:20px;">Choose your hero to continue</div>'+
-    '<div id="char-select-list" style="display:flex;flex-direction:column;gap:10px;max-height:400px;overflow-y:auto;">'+
-    characters.map(c=>{
-      const cls=c.class?({warrior:'⚔️ Warrior',mage:'🔮 Mage',rogue:'🗡️ Rogue'}[c.class]||c.class):'No Class';
-      const inv=(c.inventory||[]).length;
-      const lastSeen=c.updated_at?new Date(c.updated_at).toLocaleDateString():'—';
-      return '<div onclick="selectCharacterAndPlay(\'"+c.id+"\')" style="background:rgba(255,255,255,0.03);border:1px solid rgba(200,160,40,0.2);border-radius:10px;padding:14px 16px;cursor:pointer;" onmouseover="this.style.borderColor=\'var(--gold)\'" onmouseout="this.style.borderColor=\'rgba(200,160,40,0.2)\'">'+
-        '<div style="display:flex;align-items:center;justify-content:space-between;">'+
-          '<div><div style="font-family:Cinzel,serif;color:var(--gold);font-size:1em;font-weight:600;">'+c.name+'</div>'+
-          '<div style="font-size:.78em;color:#888;margin-top:2px;">'+cls+' · Lv.'+c.level+' · 💰'+(c.gold||0).toLocaleString()+'g</div></div>'+
-          '<div style="text-align:right;font-size:.72em;color:#555;"><div>'+inv+' items</div><div>'+lastSeen+'</div></div>'+
-        '</div></div>';
-    }).join('')+
-    '</div>'+
-    '<div style="margin-top:16px;text-align:center;"><button onclick="document.getElementById(\'char-select-screen\').remove();document.getElementById(\'auth-screen\').style.display=\'flex\';" style="background:transparent;border:1px solid #333;border-radius:8px;color:#666;font-size:.8em;padding:8px 20px;cursor:pointer;">← Back</button></div>'+
-    '</div>';
+function showCharacterSelect(characters) {
+  document.getElementById('auth-screen').style.display = 'none';
+
+  let screen = document.getElementById('char-select-screen');
+  if (!screen) {
+    screen = document.createElement('div');
+    screen.id = 'char-select-screen';
+    screen.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:1000;background:rgba(0,0,0,0.85);';
+    document.body.appendChild(screen);
+  }
+
+  const characterCards = characters.map(c => {
+    const cls = c.class
+      ? ({ warrior: '⚔️ Warrior', mage: '🔮 Mage', rogue: '🗡️ Rogue' }[c.class] || c.class)
+      : 'No Class';
+    const inv = (c.inventory || []).length;
+    const lastSeen = c.updated_at ? new Date(c.updated_at).toLocaleDateString() : '—';
+
+    // ✅ Template literal — c.id is properly interpolated
+    return `
+      <div 
+        onclick="selectCharacterAndPlay('${c.id}')"
+        style="background:rgba(255,255,255,0.03);border:1px solid rgba(200,160,40,0.2);border-radius:10px;padding:14px 16px;cursor:pointer;"
+        onmouseover="this.style.borderColor='var(--gold)'"
+        onmouseout="this.style.borderColor='rgba(200,160,40,0.2)'"
+      >
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-family:Cinzel,serif;color:var(--gold);font-size:1em;font-weight:600;">${c.name}</div>
+            <div style="font-size:.78em;color:#888;margin-top:2px;">${cls} · Lv.${c.level} · 💰${(c.gold || 0).toLocaleString()}g</div>
+          </div>
+          <div style="text-align:right;font-size:.72em;color:#555;">
+            <div>${inv} items</div>
+            <div>${lastSeen}</div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  screen.innerHTML = `
+    <div style="background:#0a0a1a;border:1px solid rgba(200,160,40,0.3);border-radius:16px;padding:32px 28px;min-width:340px;max-width:480px;width:90%;box-shadow:0 0 60px rgba(200,160,40,0.08);">
+      <div style="font-family:Cinzel,serif;font-size:1.3em;color:var(--gold);text-align:center;margin-bottom:4px;letter-spacing:2px;">SELECT CHARACTER</div>
+      <div style="font-size:.78em;color:#666;text-align:center;margin-bottom:20px;">Choose your hero to continue</div>
+      <div id="char-select-list" style="display:flex;flex-direction:column;gap:10px;max-height:400px;overflow-y:auto;">
+        ${characterCards}
+      </div>
+      <div style="margin-top:16px;text-align:center;">
+        <button 
+          onclick="document.getElementById('char-select-screen').remove();document.getElementById('auth-screen').style.display='flex';"
+          style="background:transparent;border:1px solid #333;border-radius:8px;color:#666;font-size:.8em;padding:8px 20px;cursor:pointer;">
+          ← Back
+        </button>
+      </div>
+    </div>`;
 }
 
 async function selectCharacterAndPlay(characterId){
-  const screen=document.getElementById('char-select-screen');if(screen)screen.remove();
+  const screen=document.getElementById('char-select-screen');
+  if(screen) screen.remove();
+  
   try {
-    const{data:character,error}=await dbClient.from('characters').select('*').eq('id',characterId).single();
-    if(error||!character){notify('❌ Failed to load character','var(--red)');return;}
-    if(typeof syncCharacterToState==='function') syncCharacterToState(character);
+    // ✅ Add proper error checking BEFORE using the data
+    const{data:character, error}=await dbClient
+      .from('characters')
+      .select('*')
+      .eq('id', characterId)
+      .single();
+    
+    if(error) {
+      console.error('Supabase error:', error);
+      notify('❌ Failed to load character: ' + error.message, 'var(--red)');
+      return;
+    }
+    
+    if(!character) {
+      notify('❌ Character not found', 'var(--red)');
+      return;
+    }
+    
+    // ✅ Verify character data is valid before syncing
+    if(!character.id || !character.name) {
+      console.error('Invalid character data:', character);
+      notify('❌ Character data is corrupted', 'var(--red)');
+      return;
+    }
+    
+    // ✅ Now safely sync
+    if(typeof syncCharacterToState==='function') {
+      syncCharacterToState(character);
+    } else {
+      console.warn('syncCharacterToState not loaded yet');
+      notify('❌ Game initialization failed', 'var(--red)');
+      return;
+    }
+    
     showGame();
-    loadScene(state.currentScene||'town');
-    if(typeof initializeSupabaseSync==='function') initializeSupabaseSync();
+    loadScene(state.currentScene || 'town');
+    
+    if(typeof initializeSupabaseSync==='function') {
+      initializeSupabaseSync();
+    }
+    
     checkAndSettleAuctions();
-    addLog(`☁️ Welcome back ${state.name}! (Lv.${state.level})`,'gold');
-  } catch(e){ notify('❌ Load failed: '+e.message,'var(--red)'); console.error(e); }
+    addLog(`☁️ Welcome back ${state.name}! (Lv.${state.level})`, 'gold');
+    
+  } catch(e) {
+    console.error('Character load error:', e);
+    notify('❌ Load failed: ' + e.message, 'var(--red)');
+  }
 }
 
 // ── AUTH: LOGOUT ──
