@@ -113,7 +113,7 @@ const state={
 
   // Primary base stats
   baseStr:5,baseAgi:5,baseInt:5,baseSta:5,baseArmor:5,
-  baseHit:2,baseCrit:0.1,baseDodge:2,baseHpRegen:20,baseLifeSteal:0.05,baseAttackPower:10,
+  baseHit:2,baseCrit:0.1,baseDodge:2,baseHpRegen:20,baseLifeSteal:0.01,baseAttackPower:10,
 
   // Stat multipliers (starts at 1.0)
   strMult:1.0,agiMult:1.0,intMult:1.0,staMult:1.0,armorMult:1.0,

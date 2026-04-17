@@ -65,7 +65,7 @@ function syncCharacterToState(character) {
   state.baseCrit = stats.baseCrit || 0.1;
   state.baseDodge = stats.baseDodge || 2;
   state.baseHpRegen = stats.baseHpRegen || 20;
-  state.baseLifeSteal = stats.baseLifeSteal || 0.05;
+  state.baseLifeSteal = stats.baseLifeSteal || 0.01;
   state.baseAttackPower = stats.baseAttackPower || 10;
 
   // Multipliers
