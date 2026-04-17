@@ -618,7 +618,7 @@ async function registerUser(){
       talent_unlocked_flags:{},
       stats:{
         baseStr:5,baseAgi:5,baseInt:5,baseSta:5,baseArmor:5,baseHit:2,baseCrit:0.1,
-        baseDodge:2,baseHpRegen:20,baseLifeSteal:0.05,baseAttackPower:10,
+        baseDodge:2,baseHpRegen:20,baseLifeSteal:0.01,baseAttackPower:10,
         strMult:1.0,agiMult:1.0,intMult:1.0,staMult:1.0,armorMult:1.0,
         maxHpMult:1.0,hpRegenMult:1.0,maxMpMult:1.0,mpMult:1.0,critMult:1.0,
         dodgeMult:1.0,mpRegenMult:1.0,hitMult:1.0,lifeStealMult:1.0,attackPowerMult:1.0,
