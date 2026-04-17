@@ -179,18 +179,18 @@ function setDifficulty(diff){
 
 // ── CALC STATS ──
 function calcStats(){
-  const strMult      = state.strMult      + (state.classBonuses.strMult     ||0) + (state.talentBonuses.strMult     ||0);
-  const agiMult      = state.agiMult      + (state.classBonuses.agiMult     ||0) + (state.talentBonuses.agiMult     ||0);
-  const intMult      = state.intMult      + (state.classBonuses.intMult     ||0) + (state.talentBonuses.intMult     ||0);
-  const staMult      = state.staMult      + (state.classBonuses.staMult     ||0) + (state.talentBonuses.staMult     ||0);
-  const atkpMult     = state.attackPowerMult + (state.classBonuses.attackPowerMult||0) + (state.talentBonuses.attackPowerMult||0);
-  const armorMult    = state.armorMult    + (state.classBonuses.armorMult   ||0) + (state.talentBonuses.armorMult   ||0);
+  const strMult      = state.strMult      + (state.classBonuses.strMult     ||0) + (state.talentBonuses.strMult     ||0) + (state.equipStrMult || 0);
+  const agiMult      = state.agiMult      + (state.classBonuses.agiMult     ||0) + (state.talentBonuses.agiMult     ||0) + (state.equipAgiMult || 0);
+  const intMult      = state.intMult      + (state.classBonuses.intMult     ||0) + (state.talentBonuses.intMult     ||0) + (state.equipIntMult || 0);
+  const staMult      = state.staMult      + (state.classBonuses.staMult     ||0) + (state.talentBonuses.staMult     ||0) + (state.equipStaMult || 0);
+  const atkpMult     = state.attackPowerMult + (state.classBonuses.attackPowerMult||0) + (state.talentBonuses.attackPowerMult||0) + (state.equipAttackPowerMult || 0);
+  const armorMult    = state.armorMult    + (state.classBonuses.armorMult   ||0) + (state.talentBonuses.armorMult   ||0) + (state.equipAmorMult || 0);
   const critMult     = state.critMult     + (state.classBonuses.critMult    ||0) + (state.talentBonuses.critMult    ||0);
-  const dodgeMult    = state.dodgeMult    + (state.classBonuses.dodgeMult   ||0) + (state.talentBonuses.dodgeMult   ||0);
-  const hitMult      = state.hitMult      + (state.classBonuses.hitMult     ||0) + (state.talentBonuses.hitMult     ||0);
-  const mpMult       = state.mpMult       + (state.classBonuses.mpMult      ||0) + (state.talentBonuses.mpMult      ||0);
-  const hpRegenMult  = state.hpRegenMult  + (state.classBonuses.hpRegenMult ||0) + (state.talentBonuses.hpRegenMult ||0);
-  const mpRegenMult  = state.mpRegenMult  + (state.classBonuses.mpRegenMult ||0) + (state.talentBonuses.mpRegenMult ||0);
+  const dodgeMult    = state.dodgeMult    + (state.classBonuses.dodgeMult   ||0) + (state.talentBonuses.dodgeMult   ||0) + (state.equipDodgeMult || 0);
+  const hitMult      = state.hitMult      + (state.classBonuses.hitMult     ||0) + (state.talentBonuses.hitMult     ||0) + (state.equipHitMult || 0);
+  const mpMult       = state.mpMult       + (state.classBonuses.mpMult      ||0) + (state.talentBonuses.mpMult      ||0) + (state.equipMpMult || 0);
+  const hpRegenMult  = state.hpRegenMult  + (state.classBonuses.hpRegenMult ||0) + (state.talentBonuses.hpRegenMult ||0) + (state.equipHpRenMult || 0);
+  const mpRegenMult  = state.mpRegenMult  + (state.classBonuses.mpRegenMult ||0) + (state.talentBonuses.mpRegenMult ||0) + (state.equipMpRegenMult || 0);
 
   state.str = Math.floor(state.baseStr * strMult) + (state.equipStr||0) + (state.talentBonuses.baseStr||0);
   state.agi = Math.floor(state.baseAgi * agiMult) + (state.equipAgi||0) + (state.talentBonuses.baseAgi||0);
@@ -542,7 +542,7 @@ const SCENES={
 
 // ── SHOP ITEMS ──
 const SHOP_EQUIP=[
-  {id:'s1',name:'⚔️ Iron Sword',price:200,slot:'weapon',rarity:'normal',stats:{str:20,lifeSteal:0.05,hit:5,crit:0.1}},
+  {id:'s1',name:'⚔️ Iron Sword',price:200,slot:'weapon',rarity:'normal',stats:{str:20,lifeSteal:0.05,hit:15,crit:0.1}},
   {id:'s2',name:'⚔️ Steel Sword',price:500,slot:'weapon',rarity:'uncommon',stats:{str:45,lifeSteal:0.06,hit:25,crit:0.2}},
   {id:'s5',name:'🛡️ Wooden Shield',price:200,slot:'armor',rarity:'normal',stats:{sta:15,armor:25,hpRegen:25,dodge:0.2}},
   {id:'s6',name:'🛡️ Chain Mail',price:400,slot:'armor',rarity:'uncommon',stats:{sta:25,armor:55,hpRegen:50,dodge:0.5}},
@@ -1139,7 +1139,7 @@ function updateEnemyBar(){
 const SLOT_ICONS={weapon:'⚔️',armor:'🛡️',helmet:'⛑️',boots:'👢',ring:'💍',amulet:'📿'};
 const EQUIP_PREFIXES={legendary:['Divine','Mythic','Godforged','Ancient','Eternal','Celestial'],epic:['Heroic','Valiant','Exalted','Magnificent','Radiant'],rare:['Polished','Reinforced','Enchanted','Gleaming'],uncommon:['Sturdy','Sharpened','Improved','Sturdy'],normal:['Iron','Wooden','Basic','Simple']};
 const EQUIP_NAMES={weapon:['Blade','Sword','Axe','Spear','Dagger','Staff','Bow'],armor:['Plate','Chainmail','Robe','Leather','Cuirass'],helmet:['Helm','Crown','Hood','Circlet','Visor'],boots:['Greaves','Sabatons','Boots','Treads'],ring:['Band','Seal','Loop','Signet'],amulet:['Pendant','Amulet','Talisman','Necklace']};
-const EQUIP_STATS={weapon:{str:[15,35],lifeSteal:[0.01,0.02],crit:[0.01,0.05],hit:[0.01,0.05]},armor:{armor:[25,55],sta:[15,35],maxHp:[200,300],hpRegen:[25,75],dodge:[10,20]},helmet:{armor:[35,65],int:[15,35],hit:[10,20],dodge:[5,15]},boots:{agi:[15,35],dodge:[10,20]},ring:{str:[15,35],int:[15,35],agi:[15,35],sta:[15,35]},amulet:{strMult:[0.05,0.45],agiMult:[0.05,0.45],intMult:[0.05,0.45],staMult:[0.05,0.45],maxHpMult:[0.01,0.05],maxMpMult:[0.01,0.05]}};
+const EQUIP_STATS={weapon:{str:[15,35],strMult:[0.05,1.5],lifeSteal:[0.01,0.02],critMult:[0.01,0.05],hitMult:[0.01,0.05]},armor:{armor:[25,55],armorMult:[0.5,1.5],sta:[15,35],staMult:[0.5,1.5],maxHp:[200,300],maxHpMul:[0.5,1.5],hpRegen:[25,75],hpRegenMult:[0.5,1.5],dodge:[10,20]},dodgeMult:[0.5,1.5],helmet:{armor:[35,65],armorMult:[0.5,1.5],int:[15,35],intMult:[0.5,1.5],hit:[10,20],hitMult:[0.5,1.5],dodge:[5,15],dodgeMult:[0.5,1.5]},boots:{agi:[15,35],agiMult:[0.5,1.5],dodge:[10,20],dodgeMult:[0.5,1.5]},ring:{str:[15,35],strMult:[0.5,1.5],int:[15,35],intMult:[0.5,1.5],agi:[15,35],agiMult:[0.5,1.5],sta:[15,35],staMult:[0.5,1.5]},amulet:{strMult:[0.05,0.45],agiMult:[0.05,0.45],intMult:[0.05,0.45],staMult:[0.05,0.45],maxHpMult:[0.01,0.05],maxMpMult:[0.01,0.05]}};
 function mkEquipDrop(slot,rarity){
   rarity=applyRarityBonus(rarity);
   const mult=RARITY[rarity].mult;
