@@ -1768,14 +1768,15 @@ const TREASURE_TABLES={
   7:{rolls:4,tier:'epic'},    8:{rolls:4,tier:'epic'},
   9:{rolls:5,tier:'legendary'},10:{rolls:5,tier:'legendary'}
 };
+
 function rollTreasureRarity(tier){
   const r=Math.random();
   switch(tier){
-    case'normal':   return r<0.30?'uncommon':'normal';
-    case'uncommon': return r<0.30?'rare':'uncommon';
-    case'rare':     return r<0.30?'epic':'rare';
-    case'epic':     return r<0.05?'legendary':'epic';
-    case'legendary':return r<0.01?'legendary':'epic';
+    case'normal':   return r<0.25?'uncommon':'normal';
+    case'uncommon': return r<0.25?'rare':'uncommon';
+    case'rare':     return r<0.25?'epic':'rare';
+    case'epic':     return r<0.08?'legendary':'epic';
+    case'legendary':return r<0.15?'legendary':'epic';  // 15% legendary from Stage 9-10 boxes
     default:        return'normal';
   }
 }
@@ -1798,7 +1799,7 @@ function openTreasureBox(box){
   const items=[];
   // Equipment rolls
   for(let i=0;i<table.rolls;i++){
-    let rarity=rollTreasureRarity(table.tier); rarity=applyRarityBonus(rarity);
+    let rarity=rollTreasureRarity(table.tier);
     const slot=slots[Math.floor(Math.random()*slots.length)];
     const item=mkEquipDrop(slot,rarity); addToInventory(item); items.push(item);
     if(item.rarity==='legendary') state.quests.legendary.done=true;
