@@ -324,42 +324,42 @@ const MONSTER_TEMPLATES = {
   forest_wolf:     {id:'forest_wolf',    name:'🐺 Forest Wolf',     icon:'wolf',    hp:1500, atk:100, armor:80,  hit:100, dodge:80,  xp:1200, gold:[500,1000]},
   shadow_wolf:     {id:'shadow_wolf',    name:'🐺 Shadow Wolf',     icon:'wolf',    hp:2000, atk:130, armor:120, hit:140, dodge:120, xp:1600, gold:[800,1400]},
   dire_wolf:       {id:'dire_wolf',      name:'🐺 Dire Wolf',       icon:'wolf',    hp:2600, atk:160, armor:150, hit:180, dodge:150, xp:2000, gold:[1000,1800]},
-  cave_spider:     {id:'cave_spider',    name:'🕷️ Cave Spider',     icon:'spider',  hp:30000, atk:1800, armor:1500, hit:2000, dodge:2000, xp:2400, gold:[1200,2000]},
-  venom_spider:    {id:'venom_spider',   name:'🕷️ Venom Spider',    icon:'spider',  hp:40000, atk:2200, armor:1800, hit:4500, dodge:4500, xp:3000, gold:[1600,2600]},
-  giant_spider:    {id:'giant_spider',   name:'🕷️ Giant Spider',    icon:'spider',  hp:52000, atk:2700, armor:2200, hit:8000, dodge:8000, xp:3700, gold:[2000,3200]},
-  queen_spider:    {id:'queen_spider',   name:'🕷️ Queen Spider',    icon:'spider',  hp:68000, atk:3200, armor:2700, hit:13600, dodge:13600, xp:4500, gold:[2500,4000]},
-  goblin_scout:    {id:'goblin_scout',   name:'👹 Goblin Scout',    icon:'goblin',  hp:80000, atk:18000, armor:8000, hit:9400, dodge:9400, xp:5400, gold:[3000,4800]},
-  goblin_warrior:  {id:'goblin_warrior', name:'👹 Goblin Warrior',  icon:'goblin',  hp:100000,atk:25000, armor:16000, hit:15200, dodge:15200, xp:6500, gold:[3800,5800]},
-  goblin_shaman:   {id:'goblin_shaman',  name:'👹 Goblin Shaman',   icon:'goblin',  hp:130000,atk:32000, armor:19200, hit:16200, dodge:16200, xp:7800, gold:[4600,7000]},
-  goblin_elite:    {id:'goblin_elite',   name:'👹 Goblin Elite',    icon:'goblin',  hp:165000,atk:40000, armor:22600, hit:17400, dodge:17400, xp:9400, gold:[5600,8400]},
-  skeleton_archer: {id:'skeleton_archer',name:'💀 Skeleton Archer', icon:'skeleton',hp:200000,atk:52000, armor:41000,hit:22800, dodge:22880, xp:11000,gold:[6600,10000]},
-  skeleton_warrior:{id:'skeleton_warrior',name:'💀 Skeleton Warrior',icon:'skeleton',hp:250000,atk:68200,armor:51200,hit:28040,dodge:28040,xp:13200,gold:[8000,12000]},
-  skeleton_mage:   {id:'skeleton_mage',  name:'💀 Skeleton Mage',   icon:'skeleton',hp:310000,atk:79600, armor:61440,hit:31220,dodge:31220,xp:15800,gold:[9600,14400]},
-  skeleton_knight: {id:'skeleton_knight',name:'💀 Skeleton Knight', icon:'skeleton',hp:390000,atk:85200,armor:71700,hit:41440,dodge:41440,xp:19000,gold:[11600,17400]},
-  orc_grunt:       {id:'orc_grunt',      name:'👊 Orc Grunt',       icon:'orc',     hp:480000,atk:93000,armor:88000,hit:51700,dodge:51700,xp:22800,gold:[14000,21000]},
-  orc_warrior:     {id:'orc_warrior',    name:'👊 Orc Warrior',     icon:'orc',     hp:600000,atk:152000,armor:123600,hit:62000,dodge:62000,xp:27400,gold:[16800,25200]},
-  orc_shaman:      {id:'orc_shaman',     name:'👊 Orc Shaman',      icon:'orc',     hp:740000,atk:178000,armor:128000,hit:72340,dodge:72340,xp:32800,gold:[20200,30200]},
-  orc_berserker:   {id:'orc_berserker',  name:'👊 Orc Berserker',   icon:'orc',     hp:920000,atk:208000,armor:183260,hit:82740,dodge:82740,xp:39400,gold:[24200,36400]},
-  vampire_thrall:  {id:'vampire_thrall', name:'🧛 Vampire Thrall',  icon:'vampire', hp:1140000,atk:264000,armor:238200,hit:93220,dodge:93220,xp:47200,gold:[29000,43600]},
-  vampire_hunter:  {id:'vampire_hunter', name:'🧛 Vampire Hunter',  icon:'vampire', hp:1400000,atk:286000,armor:244800,hit:11780,dodge:11780,xp:56800,gold:[35000,52400]},
-  vampire_noble:   {id:'vampire_noble',  name:'🧛 Vampire Noble',   icon:'vampire', hp:1720000,atk:334000,armor:302400,hit:29420,dodge:29420,xp:68200,gold:[42000,63000]},
-  vampire_elder:   {id:'vampire_elder',  name:'🧛 Vampire Elder',   icon:'vampire', hp:2120000,atk:390000,armor:331400,hit:35180,dodge:35180,xp:81800,gold:[50400,75600]},
-  cave_troll:      {id:'cave_troll',     name:'👾 Cave Troll',      icon:'troll',   hp:2600000,atk:456000,armor:471800,hit:46060,dodge:46060,xp:98200,gold:[60500,90800]},
-  rock_troll:      {id:'rock_troll',     name:'👾 Rock Troll',      icon:'troll',   hp:3200000,atk:532000,armor:504000,hit:57080,dodge:57080,xp:117800,gold:[72600,109000]},
-  frost_troll:     {id:'frost_troll',    name:'👾 Frost Troll',     icon:'troll',   hp:3940000,atk:622000,armor:598200,hit:82800,dodge:82800,xp:141400,gold:[87200,130800]},
-  war_troll:       {id:'war_troll',      name:'👾 War Troll',       icon:'troll',   hp:4860000,atk:728000,armor:614800,hit:96800,dodge:96800,xp:169600,gold:[104600,157000]},
-  demon_scout:     {id:'demon_scout',    name:'😈 Demon Scout',     icon:'demon',   hp:5980000,atk:850000,armor:734200,hit:113200,dodge:113200,xp:203600,gold:[125600,188400]},
-  demon_warrior:   {id:'demon_warrior',  name:'😈 Demon Warrior',   icon:'demon',   hp:7360000,atk:994000,armor:856800,hit:132200,dodge:132200,xp:244400,gold:[150800,226200]},
-  demon_mage:      {id:'demon_mage',     name:'😈 Demon Mage',      icon:'demon',   hp:9060000,atk:1162000,armor:983200,hit:154600,dodge:154600,xp:293200,gold:[181000,271400]},
-  demon_knight:    {id:'demon_knight',   name:'😈 Demon Knight',    icon:'demon',   hp:11160000,atk:1358000,armor:1214000,hit:180600,dodge:180600,xp:351800,gold:[217200,325800]},
-  shadow_wraith:   {id:'shadow_wraith',  name:'🌑 Shadow Wraith',   icon:'werewolf',hp:13740000,atk:1588000,armor:1250000,hit:211200,dodge:211200,xp:422200,gold:[260600,391000]},
-  shadow_knight:   {id:'shadow_knight',  name:'🌑 Shadow Knight',   icon:'werewolf',hp:16920000,atk:1856000,armor:1292200,hit:246800,dodge:246800,xp:506600,gold:[312800,469200]},
-  shadow_mage:     {id:'shadow_mage',    name:'🌑 Shadow Mage',     icon:'werewolf',hp:20840000,atk:2170000,armor:1934160,hit:288600,dodge:288600,xp:608000,gold:[375400,563000]},
-  shadow_lord:     {id:'shadow_lord',    name:'🌑 Shadow Lord',     icon:'werewolf',hp:25680000,atk:2538000,armor:2239940,hit:337200,dodge:337200,xp:729600,gold:[450500,675800]},
-  eternal_guard:   {id:'eternal_guard',  name:'🌟 Eternal Guard',   icon:'phoenix', hp:31640000,atk:2968000,armor:2466800,hit:394200,dodge:394200,xp:875600,gold:[540600,811000]},
-  eternal_warrior: {id:'eternal_warrior',name:'🌟 Eternal Warrior', icon:'phoenix', hp:38980000,atk:3470000,armor:3146000,hit:460800,dodge:460800,xp:1050800,gold:[648800,973200]},
-  eternal_mage:    {id:'eternal_mage',   name:'🌟 Eternal Mage',    icon:'phoenix', hp:48020000,atk:4058000,armor:3638600,hit:538800,dodge:538800,xp:1261000,gold:[778600,1168000]},
-  eternal_champion:{id:'eternal_champion',name:'🌟 Eternal Champion',icon:'phoenix',hp:59160000,atk:4746000,armor:4446800,hit:630000,dodge:630000,xp:1513000,gold:[934400,1401600]},
+  cave_spider:     {id:'cave_spider',    name:'🕷️ Cave Spider',     icon:'spider',  hp:5000, atk:1800, armor:1500, hit:2000, dodge:2000, xp:2400, gold:[1200,2000]},
+  venom_spider:    {id:'venom_spider',   name:'🕷️ Venom Spider',    icon:'spider',  hp:8000, atk:2200, armor:1800, hit:4500, dodge:4500, xp:3000, gold:[1600,2600]},
+  giant_spider:    {id:'giant_spider',   name:'🕷️ Giant Spider',    icon:'spider',  hp:12000, atk:2700, armor:2200, hit:8000, dodge:8000, xp:3700, gold:[2000,3200]},
+  queen_spider:    {id:'queen_spider',   name:'🕷️ Queen Spider',    icon:'spider',  hp:20000, atk:3200, armor:2700, hit:13600, dodge:13600, xp:4500, gold:[2500,4000]},
+  goblin_scout:    {id:'goblin_scout',   name:'👹 Goblin Scout',    icon:'goblin',  hp:35000, atk:8000, armor:5000, hit:9400, dodge:9400, xp:5400, gold:[3000,4800]},
+  goblin_warrior:  {id:'goblin_warrior', name:'👹 Goblin Warrior',  icon:'goblin',  hp:50000,atk:15000, armor:8000, hit:15200, dodge:15200, xp:6500, gold:[3800,5800]},
+  goblin_shaman:   {id:'goblin_shaman',  name:'👹 Goblin Shaman',   icon:'goblin',  hp:80000,atk:22000, armor:16200, hit:16200, dodge:16200, xp:7800, gold:[4600,7000]},
+  goblin_elite:    {id:'goblin_elite',   name:'👹 Goblin Elite',    icon:'goblin',  hp:135000,atk:30000, armor:22600, hit:17400, dodge:17400, xp:9400, gold:[5600,8400]},
+  skeleton_archer: {id:'skeleton_archer',name:'💀 Skeleton Archer', icon:'skeleton',hp:180000,atk:42000, armor:31000,hit:22800, dodge:22880, xp:11000,gold:[6600,10000]},
+  skeleton_warrior:{id:'skeleton_warrior',name:'💀 Skeleton Warrior',icon:'skeleton',hp:250000,atk:58200,armor:41200,hit:28040,dodge:28040,xp:13200,gold:[8000,12000]},
+  skeleton_mage:   {id:'skeleton_mage',  name:'💀 Skeleton Mage',   icon:'skeleton',hp:310000,atk:69600, armor:51440,hit:31220,dodge:31220,xp:15800,gold:[9600,14400]},
+  skeleton_knight: {id:'skeleton_knight',name:'💀 Skeleton Knight', icon:'skeleton',hp:390000,atk:75200,armor:61700,hit:41440,dodge:41440,xp:19000,gold:[11600,17400]},
+  orc_grunt:       {id:'orc_grunt',      name:'👊 Orc Grunt',       icon:'orc',     hp:480000,atk:83000,armor:78000,hit:51700,dodge:51700,xp:22800,gold:[14000,21000]},
+  orc_warrior:     {id:'orc_warrior',    name:'👊 Orc Warrior',     icon:'orc',     hp:600000,atk:92000,armor:83600,hit:62000,dodge:62000,xp:27400,gold:[16800,25200]},
+  orc_shaman:      {id:'orc_shaman',     name:'👊 Orc Shaman',      icon:'orc',     hp:740000,atk:100000,armor:88800,hit:72340,dodge:72340,xp:32800,gold:[20200,30200]},
+  orc_berserker:   {id:'orc_berserker',  name:'👊 Orc Berserker',   icon:'orc',     hp:920000,atk:138000,armor:103260,hit:82740,dodge:82740,xp:39400,gold:[24200,36400]},
+  vampire_thrall:  {id:'vampire_thrall', name:'🧛 Vampire Thrall',  icon:'vampire', hp:1140000,atk:164000,armor:128200,hit:93220,dodge:93220,xp:47200,gold:[29000,43600]},
+  vampire_hunter:  {id:'vampire_hunter', name:'🧛 Vampire Hunter',  icon:'vampire', hp:1400000,atk:186000,armor:144800,hit:11780,dodge:11780,xp:56800,gold:[35000,52400]},
+  vampire_noble:   {id:'vampire_noble',  name:'🧛 Vampire Noble',   icon:'vampire', hp:1720000,atk:234000,armor:182400,hit:29420,dodge:29420,xp:68200,gold:[42000,63000]},
+  vampire_elder:   {id:'vampire_elder',  name:'🧛 Vampire Elder',   icon:'vampire', hp:2120000,atk:290000,armor:211400,hit:35180,dodge:35180,xp:81800,gold:[50400,75600]},
+  cave_troll:      {id:'cave_troll',     name:'👾 Cave Troll',      icon:'troll',   hp:2600000,atk:336000,armor:291800,hit:46060,dodge:46060,xp:98200,gold:[60500,90800]},
+  rock_troll:      {id:'rock_troll',     name:'👾 Rock Troll',      icon:'troll',   hp:3200000,atk:382000,armor:354000,hit:57080,dodge:57080,xp:117800,gold:[72600,109000]},
+  frost_troll:     {id:'frost_troll',    name:'👾 Frost Troll',     icon:'troll',   hp:3940000,atk:422000,armor:398200,hit:82800,dodge:82800,xp:141400,gold:[87200,130800]},
+  war_troll:       {id:'war_troll',      name:'👾 War Troll',       icon:'troll',   hp:4860000,atk:468000,armor:414800,hit:96800,dodge:96800,xp:169600,gold:[104600,157000]},
+  demon_scout:     {id:'demon_scout',    name:'😈 Demon Scout',     icon:'demon',   hp:5980000,atk:500000,armor:454200,hit:113200,dodge:113200,xp:203600,gold:[125600,188400]},
+  demon_warrior:   {id:'demon_warrior',  name:'😈 Demon Warrior',   icon:'demon',   hp:7360000,atk:554000,armor:486800,hit:132200,dodge:132200,xp:244400,gold:[150800,226200]},
+  demon_mage:      {id:'demon_mage',     name:'😈 Demon Mage',      icon:'demon',   hp:9060000,atk:612000,armor:553200,hit:154600,dodge:154600,xp:293200,gold:[181000,271400]},
+  demon_knight:    {id:'demon_knight',   name:'😈 Demon Knight',    icon:'demon',   hp:11160000,atk:658000,armor:594000,hit:180600,dodge:180600,xp:351800,gold:[217200,325800]},
+  shadow_wraith:   {id:'shadow_wraith',  name:'🌑 Shadow Wraith',   icon:'werewolf',hp:13740000,atk:698000,armor:625000,hit:211200,dodge:211200,xp:422200,gold:[260600,391000]},
+  shadow_knight:   {id:'shadow_knight',  name:'🌑 Shadow Knight',   icon:'werewolf',hp:16920000,atk:726000,armor:669200,hit:246800,dodge:246800,xp:506600,gold:[312800,469200]},
+  shadow_mage:     {id:'shadow_mage',    name:'🌑 Shadow Mage',     icon:'werewolf',hp:20840000,atk:740000,armor:691160,hit:288600,dodge:288600,xp:608000,gold:[375400,563000]},
+  shadow_lord:     {id:'shadow_lord',    name:'🌑 Shadow Lord',     icon:'werewolf',hp:25680000,atk:778000,armor:723940,hit:337200,dodge:337200,xp:729600,gold:[450500,675800]},
+  eternal_guard:   {id:'eternal_guard',  name:'🌟 Eternal Guard',   icon:'phoenix', hp:31640000,atk:816000,armor:755800,hit:394200,dodge:394200,xp:875600,gold:[540600,811000]},
+  eternal_warrior: {id:'eternal_warrior',name:'🌟 Eternal Warrior', icon:'phoenix', hp:38980000,atk:850000,armor:800000,hit:460800,dodge:460800,xp:1050800,gold:[648800,973200]},
+  eternal_mage:    {id:'eternal_mage',   name:'🌟 Eternal Mage',    icon:'phoenix', hp:48020000,atk:888000,armor:830600,hit:538800,dodge:538800,xp:1261000,gold:[778600,1168000]},
+  eternal_champion:{id:'eternal_champion',name:'🌟 Eternal Champion',icon:'phoenix',hp:59160000,atk:916000,armor:888800,hit:630000,dodge:630000,xp:1513000,gold:[934400,1401600]},
 };
 
 // ── STAGES ──
@@ -381,7 +381,7 @@ const STAGE_BOSSES={
   stage_boss_1:{id:'stage_boss_1',name:'🐺 Wolf King',icon:'🐺',hp:5000,atk:400,armor:80,hit:60,dodge:60,xp:2000,gold:[500,1000],
     ability:{name:'PACK HOWL!',color:'#ffdd00',triggerEvery:3,effect:(e)=>{const d=Math.floor(e.atk*0.5);state.hp=Math.max(1,state.hp-d);spawnAbilityFloat('🐺 PACK HOWL!','#ffdd00');addCombatLog(`🐺 Wolf King howls! Pack attacks for ${d}!`,'bad');animateAttack(false,d,false);}},
     cs:{title:'Wolf King',req:'Required: Stage 1 Clear',text:'The mighty Wolf King rises from the pack!'}},
-  stage_boss_2:{id:'stage_boss_2',name:'🕷️ Spider Queen',icon:'🕷️',hp:150000,atk:9000,armor:2000,hit:15500,dodge:15500,xp:5000,gold:[1200,2400],
+  stage_boss_2:{id:'stage_boss_2',name:'🕷️ Spider Queen',icon:'🕷️',hp:150000,atk:9000,armor:7000,hit:9500,dodge:7500,xp:5000,gold:[1200,2400],
     ability:{name:'WEB TRAP!',color:'#44ff44',triggerEvery:3,effect:(e)=>{state.webTrapped=2;spawnAbilityFloat('🕸️ WEB TRAP!','#44ff44');addCombatLog(`🕸️ Spider Queen webs you! Dodge 0 for 2 turns!`,'bad');}},
     cs:{title:'Spider Queen',req:'Required: Stage 2 Clear',text:'From the depths of her web kingdom, the Spider Queen descends!'}},
   stage_boss_3:{id:'stage_boss_3',name:'👹 Goblin Warlord',icon:'👹',hp:350000,atk:18000,armor:5000,hit:18500,dodge:18500,xp:10000,gold:[2500,5000],
@@ -413,7 +413,7 @@ const STAGE_BOSSES={
 function scaleMonster(templateId,stageLevel){
   const tmpl=MONSTER_TEMPLATES[templateId];if(!tmpl)return null;
   const diff=DIFFICULTY[state.difficulty||'normal'];
-  const stageScale=1+(stageLevel-1)*0.2;
+  const stageScale=1+(stageLevel-1)*0.3;
   return{...tmpl,hp:Math.floor(tmpl.hp*stageScale*diff.hpMult),maxHp:Math.floor(tmpl.hp*stageScale*diff.hpMult),atk:Math.floor(tmpl.atk*stageScale*diff.atkMult),armor:Math.floor(tmpl.armor*stageScale),hit:Math.floor(tmpl.hit*stageScale),dodge:Math.floor(tmpl.dodge*stageScale),xp:Math.floor(tmpl.xp*diff.xpMult),gold:[Math.floor(tmpl.gold[0]*diff.goldMult),Math.floor(tmpl.gold[1]*diff.goldMult)],poisoned:0,frozen:false,boss:false,_xpMult:1,_goldMult:3};
 }
 
@@ -482,7 +482,7 @@ function startStageBossFight(){
   const boss=STAGE_BOSSES[pendingBossId];if(!boss)return;
   const diff=DIFFICULTY[state.difficulty||'normal'];
   const stageLevel=currentStage?currentStage.id:1;
-  const stageScale=1+(stageLevel-1)*0.5;
+  const stageScale=1+(stageLevel-1)*0.3;
   const prefix=state.difficulty==='hell'?'💀 Hell ':state.difficulty==='hard'?'🔥 Hard ':'';
   currentEnemy={...boss,name:prefix+boss.name,hp:Math.floor(boss.hp*stageScale*diff.hpMult),maxHp:Math.floor(boss.hp*stageScale*diff.hpMult),atk:Math.floor(boss.atk*stageScale*diff.atkMult),armor:Math.floor(boss.armor*stageScale),hit:Math.floor(boss.hit*stageScale),dodge:Math.floor(boss.dodge*stageScale),xp:Math.floor(boss.xp*diff.xpMult),gold:[Math.floor(boss.gold[0]*diff.goldMult),Math.floor(boss.gold[1]*diff.goldMult)],poisoned:0,frozen:false,boss:true,abilityTurn:0,_xpMult:1,_goldMult:1};
   startCombatWith(currentEnemy);
@@ -1141,7 +1141,7 @@ function updateEnemyBar(){
 const SLOT_ICONS={weapon:'⚔️',armor:'🛡️',helmet:'⛑️',boots:'👢',ring:'💍',amulet:'📿'};
 const EQUIP_PREFIXES={legendary:['Divine','Mythic','Godforged','Ancient','Eternal','Celestial'],epic:['Heroic','Valiant','Exalted','Magnificent','Radiant'],rare:['Polished','Reinforced','Enchanted','Gleaming'],uncommon:['Sturdy','Sharpened','Improved','Sturdy'],normal:['Iron','Wooden','Basic','Simple']};
 const EQUIP_NAMES={weapon:['Blade','Sword','Axe','Spear','Dagger','Staff','Bow'],armor:['Plate','Chainmail','Robe','Leather','Cuirass'],helmet:['Helm','Crown','Hood','Circlet','Visor'],boots:['Greaves','Sabatons','Boots','Treads'],ring:['Band','Seal','Loop','Signet'],amulet:['Pendant','Amulet','Talisman','Necklace']};
-const EQUIP_STATS={weapon:{str:[150,350],lifeSteal:[0.01,0.02],crit:[0.01,0.05]},armor:{armor:[250,550],armorMult:[0.5,1.5],sta:[150,350],maxHp:[2000,3000],maxHpMult:[0.5,1.5],hpRegen:[250,750],dodge:[100,200]},helmet:{armor:[350,650],armorMult:[0.5,1.5],int:[150,350],hit:[100,200],dodge:[50,150]},boots:{agi:[150,350],dodge:[100,200]},ring:{str:[150,350],int:[150,350],agi:[150,350],sta:[150,350]},amulet:{strMult:[0.05,0.45],agiMult:[0.05,0.45],intMult:[0.05,0.45],staMult:[0.05,0.45],maxHpMult:[0.01,0.05],maxMpMult:[0.01,0.05],hitMult:[0.01,0.05],attackPowerMult:[0.01,0.05],dodgeMult:[0.01,0.05]}};
+const EQUIP_STATS={weapon:{str:[150,350],lifeSteal:[0.01,0.02],crit:[0.01,0.05]},armor:{armor:[250,550],sta:[150,350],maxHp:[2000,3000],hpRegen:[250,750],dodge:[100,200]},helmet:{armor:[350,650],int:[150,350],hit:[100,200],dodge:[50,150]},boots:{agi:[150,350],dodge:[100,200]},ring:{str:[150,350],int:[150,350],agi:[150,350],sta:[150,350]},amulet:{strMult:[2.5,3.9],agiMult:[2.5,3.9],intMult:[2.5,3.9],staMult:[2.5,3.9],maxHpMult:[0.5,0.9],hitMult:[0.05,0.09],attackPowerMult:[0.05,0.09],dodgeMult:[0.05,0.09]}};
 function mkEquipDrop(slot,rarity){
   rarity=applyRarityBonus(rarity);
   const mult=RARITY[rarity].mult;
