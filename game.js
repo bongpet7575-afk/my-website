@@ -74,15 +74,15 @@ function showCritEffect(){
 
 // ── RARITY ──
 const RARITY={
-  legendary:{label:'Legendary',color:'var(--legendary)',chance:.03,mult:5.5},
-  epic:{label:'Epic',color:'var(--epic)',chance:.08,mult:4.5},
-  rare:{label:'Rare',color:'var(--rare)',chance:.18,mult:3.8},
-  uncommon:{label:'Uncommon',color:'var(--uncommon)',chance:.35,mult:2.3},
+  legendary:{label:'Legendary',color:'var(--legendary)',chance:0.013,mult:3.1},
+  epic:{label:'Epic',color:'var(--epic)',chance:0.028,mult:2.6},
+  rare:{label:'Rare',color:'var(--rare)',chance:0.058,mult:2.1},
+  uncommon:{label:'Uncommon',color:'var(--uncommon)',chance:0.35,mult:1.5},
   normal:{label:'Normal',color:'#cccccc',chance:1,mult:1},
 };
 function rollRarity(isBoss=false){
   const r=Math.random();
-  if(isBoss){ if(r<0.15)return'legendary'; if(r<0.40)return'epic'; if(r<0.70)return'rare'; return'uncommon'; }
+  if(isBoss){ if(r<0.015)return'legendary'; if(r<0.040)return'epic'; if(r<0.070)return'rare'; return'uncommon'; }
   else { if(r<0.05)return'rare'; if(r<0.20)return'uncommon'; return'normal'; }
 }
 
@@ -177,9 +177,9 @@ const state={
 
 // ── DIFFICULTY ──
 const DIFFICULTY={
-  normal:{ label:'Normal',icon:'⚔️',color:'#cccccc',levelReq:0,hpMult:1,atkMult:1,hitMul:1,dodgeMult:1,goldMult:1,xpMult:1,rarityBonus:0,legendaryChance:0.001 },
-  hard:{   label:'Hard',  icon:'🔥',color:'#ff8800',levelReq:20,hpMult:3,atkMult:3,hitMul:3,dodgeMult:3,goldMult:3,xpMult:3,rarityBonus:2,legendaryChance:0.002 },
-  hell:{   label:'Hell',  icon:'💀',color:'#ff2222',levelReq:50,hpMult:5,atkMult:5,hitMul:5,dodgeMult:5,goldMult:5,xpMult:5,rarityBonus:3,legendaryChance:0.003 },
+  normal:{ label:'Normal',icon:'⚔️',color:'#cccccc',levelReq:0,hpMult:1,atkMult:1,hitMul:1,dodgeMult:1,goldMult:1,xpMult:1,rarityBonus:0,legendaryChance:0.0001 },
+  hard:{   label:'Hard',  icon:'🔥',color:'#ff8800',levelReq:20,hpMult:3,atkMult:3,hitMul:3,dodgeMult:3,goldMult:3,xpMult:3,rarityBonus:2,legendaryChance:0.0002 },
+  hell:{   label:'Hell',  icon:'💀',color:'#ff2222',levelReq:50,hpMult:5,atkMult:5,hitMul:5,dodgeMult:5,goldMult:5,xpMult:5,rarityBonus:3,legendaryChance:0.0003 },
 };
 function setDifficulty(diff){
   const d=DIFFICULTY[diff];
@@ -302,7 +302,7 @@ const SKILLS={
     const d=Math.floor(state.attackPower*2.2);e.hp-=d;addCombatLog(`💥 Power Strike! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
   battle_cry:{name:'Battle Cry',icon:'📯',mp:()=>Math.floor(state.maxMp*0.15),cd:5,use:(e)=>{
     if(state.battleCryActive){addCombatLog(`📯 Battle Cry already active!`,'info');return 0;}
-    state.battleCryActive=true;state.strMult*=2.5;state.armorMult*=2.4;state.critMult*=1.5;state.hitMult*=1.5;
+    state.battleCryActive=true;state.strMult*=2.5;state.armorMult*=2.4;state.hitMult*=1.5;
     addCombatLog(`📯 Battle Cry! +50% STR, +40% ARMOR!`,'good');playSound('snd-magic');calcStats();return 0;}},
   last_stand:{name:'Last Stand',icon:'🛡️',mp:()=>Math.floor(state.maxMp*0.20),cd:1,use:(e)=>{
     const h=Math.floor(state.maxHp*0.15);state.hp=Math.min(state.maxHp,state.hp+h);
@@ -594,7 +594,7 @@ function startStageBossFight(){
   const boss=STAGE_BOSSES[pendingBossId];if(!boss)return;
   const diff=DIFFICULTY[state.difficulty||'normal'];
   const stageLevel=currentStage?currentStage.id:1;
-  const stageScale=1+(stageLevel-1)*0.3;
+  const stageScale=1+(stageLevel-1)*0.4;
   const prefix=state.difficulty==='hell'?'💀 Hell ':state.difficulty==='hard'?'🔥 Hard ':'';
   currentEnemy={...boss,name:prefix+boss.name,hp:Math.floor(boss.hp*stageScale*diff.hpMult),maxHp:Math.floor(boss.hp*stageScale*diff.hpMult),atk:Math.floor(boss.atk*stageScale*diff.atkMult),armor:Math.floor(boss.armor*stageScale),hit:Math.floor(boss.hit*stageScale),dodge:Math.floor(boss.dodge*stageScale),xp:Math.floor(boss.xp*diff.xpMult),gold:[Math.floor(boss.gold[0]*diff.goldMult),Math.floor(boss.gold[1]*diff.goldMult)],poisoned:0,frozen:false,boss:true,abilityTurn:0,_xpMult:1,_goldMult:1};
   startCombatWith(currentEnemy);
@@ -1775,7 +1775,7 @@ function rollTreasureRarity(tier){
     case'uncommon': return r<0.30?'rare':'uncommon';
     case'rare':     return r<0.30?'epic':'rare';
     case'epic':     return r<0.05?'legendary':'epic';
-    case'legendary':return r<0.10?'legendary':'epic';
+    case'legendary':return r<0.01?'legendary':'epic';
     default:        return'normal';
   }
 }
