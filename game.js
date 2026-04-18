@@ -966,6 +966,8 @@ function endCombat(won){
     state.quests.kill1.done=true;
     if(state.gold>=50)state.quests.gold50.done=true;
     autoSellAfterCombat();
+    // Mat drop — only works inside dungeons (currentStage tells us which stage)
+    if(currentStage) rollMatDrop(currentStage.id, wasBoss);
     checkLevelUp();
     renderQuests();
 
@@ -1139,7 +1141,7 @@ function updateEnemyBar(){
 const SLOT_ICONS={weapon:'⚔️',armor:'🛡️',helmet:'⛑️',boots:'👢',ring:'💍',amulet:'📿'};
 const EQUIP_PREFIXES={legendary:['Divine','Mythic','Godforged','Ancient','Eternal','Celestial'],epic:['Heroic','Valiant','Exalted','Magnificent','Radiant'],rare:['Polished','Reinforced','Enchanted','Gleaming'],uncommon:['Sturdy','Sharpened','Improved','Sturdy'],normal:['Iron','Wooden','Basic','Simple']};
 const EQUIP_NAMES={weapon:['Blade','Sword','Axe','Spear','Dagger','Staff','Bow'],armor:['Plate','Chainmail','Robe','Leather','Cuirass'],helmet:['Helm','Crown','Hood','Circlet','Visor'],boots:['Greaves','Sabatons','Boots','Treads'],ring:['Band','Seal','Loop','Signet'],amulet:['Pendant','Amulet','Talisman','Necklace']};
-const EQUIP_STATS={weapon:{str:[150,350],strMult:[0.05,1.5],lifeSteal:[0.01,0.02],crit:[0.01,0.05],hitMult:[0.01,0.05]},armor:{armor:[250,550],armorMult:[0.5,1.5],sta:[150,350],staMult:[0.5,1.5],maxHp:[2000,3000],maxHpMul:[0.5,1.5],hpRegen:[250,750],hpRegenMult:[0.5,1.5],dodge:[100,200]},dodgeMult:[0.5,1.5],helmet:{armor:[350,650],armorMult:[0.5,1.5],int:[150,350],intMult:[0.5,1.5],hit:[100,200],hitMult:[0.5,1.5],dodge:[50,150],dodgeMult:[0.5,1.5]},boots:{agi:[150,350],agiMult:[0.5,1.5],dodge:[100,200],dodgeMult:[0.5,1.5]},ring:{str:[150,350],strMult:[0.5,1.5],int:[150,350],intMult:[0.5,1.5],agi:[150,350],agiMult:[0.5,1.5],sta:[150,350],staMult:[0.5,1.5]},amulet:{strMult:[0.05,0.45],agiMult:[0.05,0.45],intMult:[0.05,0.45],staMult:[0.05,0.45],maxHpMult:[0.01,0.05],maxMpMult:[0.01,0.05]}};
+const EQUIP_STATS={weapon:{str:[150,350],lifeSteal:[0.01,0.02],crit:[0.01,0.05]},armor:{armor:[250,550],armorMult:[0.5,1.5],sta:[150,350],maxHp:[2000,3000],maxHpMult:[0.5,1.5],hpRegen:[250,750],dodge:[100,200]},helmet:{armor:[350,650],armorMult:[0.5,1.5],int:[150,350],hit:[100,200],dodge:[50,150]},boots:{agi:[150,350],dodge:[100,200]},ring:{str:[150,350],int:[150,350],agi:[150,350],sta:[150,350]},amulet:{strMult:[0.05,0.45],agiMult:[0.05,0.45],intMult:[0.05,0.45],staMult:[0.05,0.45],maxHpMult:[0.01,0.05],maxMpMult:[0.01,0.05],hitMult:[0.01,0.05],attackPowerMult:[0.01,0.05],dodgeMult:[0.01,0.05]}};
 function mkEquipDrop(slot,rarity){
   rarity=applyRarityBonus(rarity);
   const mult=RARITY[rarity].mult;
@@ -1158,47 +1160,171 @@ function applyRarityBonus(rarity){
   return order[Math.min(order.length-1,order.indexOf(rarity)+bonus)];
 }
 
+// ── MAT TABLES (2 mats per stage: common + rare) ──
+const STAGE_MATS = {
+  1:  { common:{name:'🪶 Wolf Fang',      rarity:'normal'},   rare:{name:'🐺 Alpha Pelt',      rarity:'uncommon'} },
+  2:  { common:{name:'🕸️ Spider Silk',    rarity:'normal'},   rare:{name:'🕷️ Venom Gland',     rarity:'uncommon'} },
+  3:  { common:{name:'🪓 Goblin Scrap',   rarity:'uncommon'}, rare:{name:'👹 Warlord Crest',   rarity:'rare'}     },
+  4:  { common:{name:'💀 Bone Shard',     rarity:'uncommon'}, rare:{name:'💀 Death Essence',   rarity:'rare'}     },
+  5:  { common:{name:'🪨 Stone Core',     rarity:'uncommon'}, rare:{name:'👊 Chieftain Brand', rarity:'rare'}     },
+  6:  { common:{name:'🩸 Blood Vial',     rarity:'rare'},     rare:{name:'🧛 Vampire Fang',    rarity:'epic'}     },
+  7:  { common:{name:'💎 Troll Gem',      rarity:'rare'},     rare:{name:'👾 Troll Heart',      rarity:'epic'}     },
+  8:  { common:{name:'😈 Demon Horn',     rarity:'rare'},     rare:{name:'🔥 Hellfire Core',   rarity:'epic'}     },
+  9:  { common:{name:'🌑 Void Crystal',   rarity:'epic'},     rare:{name:'🌑 Shadow Essence',  rarity:'epic'}     },
+  10: { common:{name:'🌟 Eternal Shard',  rarity:'epic'},     rare:{name:'👑 Eternal Crown',   rarity:'legendary'} },
+};
+
+// Drop chance: common 25%, rare 8%. Boss: common 100%, rare 50%.
+function rollMatDrop(stageId, isBoss=false) {
+  const mats = STAGE_MATS[stageId]; if (!mats) return;
+  if (isBoss || Math.random() < 0.25) {
+    const mat = mkMat(mats.common.name, mats.common.rarity, 50 * stageId);
+    addToInventory(mat);
+    addLog(`🧪 ${mat.name} dropped!`, 'info');
+  }
+  if (isBoss ? Math.random() < 0.50 : Math.random() < 0.08) {
+    const mat = mkMat(mats.rare.name, mats.rare.rarity, 200 * stageId);
+    addToInventory(mat);
+    addLog(`🧪 ${mat.name} dropped!`, 'gold');
+  }
+}
+
 // ── CRAFTING ──
-const CRAFTING=[
-  {id:'craft_steel_sword',result:{name:'⚔️ Crafted Steel Sword',slot:'weapon',rarity:'rare',stats:{str:100},category:'equipment'},req:[{name:'🪓 Orc Fragment',qty:3},{name:'🪶 Wolf Fang',qty:2}],desc:'A powerful steel sword forged from orc metal'},
-  {id:'craft_shadow_blade',result:{name:'🗡️ Shadow Blade',slot:'weapon',rarity:'epic',stats:{str:80,agi:60},category:'equipment'},req:[{name:'🌕 Moon Shard',qty:2},{name:'🪶 Wolf Fang',qty:3},{name:'🕸️ Spider Silk',qty:2}],desc:'A blade imbued with shadow energy'},
-  {id:'craft_dragon_armor',result:{name:'🛡️ Dragon Scale Armor',slot:'armor',rarity:'epic',stats:{armor:320},category:'equipment'},req:[{name:'🐉 Dragon Scale',qty:3},{name:'🪨 Stone Core',qty:2}],desc:'Armor forged from dragon scales'},
-  {id:'craft_void_ring',result:{name:'💍 Void Ring',slot:'ring',rarity:'epic',stats:{str:150,int:150,agi:150},category:'equipment'},req:[{name:'🌑 Void Crystal',qty:2},{name:'💎 Troll Gem',qty:3}],desc:'A ring channeling the power of the void'},
-  {id:'craft_phoenix_amulet',result:{name:'📿 Phoenix Amulet',slot:'amulet',rarity:'legendary',stats:{int:150,maxMp:400},category:'equipment'},req:[{name:'🔥 Phoenix Feather',qty:2},{name:'🔥 Dragon Flame',qty:2},{name:'💎 Pure Crystal Core',qty:1}],desc:'Ultimate mage amulet'},
-  {id:'craft_titan_helm',result:{name:'⛑️ Titan Helm',slot:'helmet',rarity:'legendary',stats:{armor:200,str:80},category:'equipment'},req:[{name:'⚡ Titan Soul',qty:1},{name:'💀 Death Essence',qty:2},{name:'🪨 Stone Core',qty:3}],desc:'A helmet of godlike defense'},
-  {id:'craft_chaos_boots',result:{name:'👢 Chaos Treads',slot:'boots',rarity:'legendary',stats:{agi:180,str:50},category:'equipment'},req:[{name:'🌀 Chaos Essence',qty:2},{name:'🌕 Moon Shard',qty:3}],desc:'Boots that bend space'},
-  {id:'craft_mega_potion',result:{name:'❤️ Mega Elixir',category:'consumable',rarity:'epic',effect:'hp',val:1500,stackable:true,qty:1},req:[{name:'🩸 Blood Vial',qty:3},{name:'🔥 Phoenix Feather',qty:1}],desc:'Restores 1500 HP instantly'},
-  {id:'craft_divine_blade',result:{name:'⚔️ Divine Blade',slot:'weapon',rarity:'legendary',stats:{str:220},category:'equipment'},req:[{name:'☄️ Divine Shard',qty:2},{name:'🐉 Dragon Scale',qty:2},{name:'😈 Demon Horn',qty:1}],desc:'The ultimate weapon'},
+// All results have guaranteed high stats — better than random drops of same rarity.
+const CRAFTING = [
+  // ── STAGE 1-2 MATS → Rare weapons/armor ──
+  {
+    id:'craft_wolf_blade',
+    result:{name:'⚔️ Wolfstrike Blade',slot:'weapon',rarity:'rare',
+      stats:{str:580,strMul:0.5,crit:8,lifeSteal:0.15,hitMult:0.15},category:'equipment'},
+    req:[{name:'🪶 Wolf Fang',qty:50},{name:'🐺 Alpha Pelt',qty:10}],
+    desc:'A blade carved from the Alpha\'s fangs. Guaranteed crit and lifesteal.'
+  },
+  {
+    id:'craft_silk_armor',
+    result:{name:'🛡️ Spiderweave Armor',slot:'armor',rarity:'rare',
+      stats:{armor:2080,sta:1500,maxHp:15500,hpRegen:3300,dodge:500,staMul:4,dodgeMult:0.15},category:'equipment'},
+    req:[{name:'🕸️ Spider Silk',qty:50},{name:'🕷️ Venom Gland',qty:20}],
+    desc:'Woven from spider silk — light but incredibly resilient.'
+  },
+  // ── STAGE 3-4 MATS → Epic weapons/armor/helmet ──
+  {
+    id:'craft_goblin_axe',
+    result:{name:'⚔️ Warlord Cleaver',slot:'weapon',rarity:'epic',
+      stats:{str:2220,attackPower:5800,strMult:0.25,hitMult:0.25,crit:12},category:'equipment'},
+    req:[{name:'🪓 Goblin Scrap',qty:40},{name:'👹 Warlord Crest',qty:20}],
+    desc:'Forged from Goblin war-steel. Comes with a permanent STR multiplier.'
+  },
+  {
+    id:'craft_death_helm',
+    result:{name:'⛑️ Death Knight Helm',slot:'helmet',rarity:'epic',
+      stats:{armor:6800,int:3200,hit:1800,dodgeMult:0.25},category:'equipment'},
+    req:[{name:'💀 Bone Shard',qty:4},{name:'💀 Death Essence',qty:2}],
+    desc:'Forged from cursed bone. Boosts dodge permanently.'
+  },
+  // ── STAGE 5-6 MATS → Epic boots/ring + Legendary weapon ──
+  {
+    id:'craft_stone_ring',
+    result:{name:'💍 Warlord Signet',slot:'ring',rarity:'epic',
+      stats:{str:380,sta:380,agi:380,int:380},category:'equipment'},
+    req:[{name:'🪨 Stone Core',qty:4},{name:'👊 Chieftain Brand',qty:2}],
+    desc:'The Orc Chieftain\'s ring — balanced power across all stats.'
+  },
+  {
+    id:'craft_vampire_amulet',
+    result:{name:'📿 Blood Pact Amulet',slot:'amulet',rarity:'legendary',
+      stats:{strMult:0.35,agiMult:0.35,lifeSteal:0.03,maxHpMult:0.04},category:'equipment'},
+    req:[{name:'🩸 Blood Vial',qty:4},{name:'🧛 Vampire Fang',qty:2}],
+    desc:'A pact sealed in vampire blood. Massive lifesteal and stat multipliers.'
+  },
+  // ── STAGE 7-8 MATS → Legendary armor/weapon ──
+  {
+    id:'craft_troll_plate',
+    result:{name:'🛡️ Trollhide Plate',slot:'armor',rarity:'legendary',
+      stats:{armor:1200,sta:600,maxHp:8000,armorMult:0.4,hpRegenMult:0.5},category:'equipment'},
+    req:[{name:'💎 Troll Gem',qty:3},{name:'👾 Troll Heart',qty:2}],
+    desc:'Practically indestructible. The ultimate tank chest piece.'
+  },
+  {
+    id:'craft_hellfire_sword',
+    result:{name:'⚔️ Hellfire Greatsword',slot:'weapon',rarity:'legendary',
+      stats:{str:900,attackPower:400,strMult:0.4,crit:15},category:'equipment'},
+    req:[{name:'😈 Demon Horn',qty:3},{name:'🔥 Hellfire Core',qty:2}],
+    desc:'Forged in the Demon Citadel. The most powerful weapon in the mid-game.'
+  },
+  // ── STAGE 9-10 MATS → Legendary endgame gear ──
+  {
+    id:'craft_void_boots',
+    result:{name:'👢 Void Walker Boots',slot:'boots',rarity:'legendary',
+      stats:{agi:800,dodge:400,agiMult:0.45,dodgeMult:0.4},category:'equipment'},
+    req:[{name:'🌑 Void Crystal',qty:3},{name:'🌑 Shadow Essence',qty:2}],
+    desc:'Step between shadows. Best-in-slot boots for agility builds.'
+  },
+  {
+    id:'craft_eternal_ring',
+    result:{name:'💍 Eternal Dominion Ring',slot:'ring',rarity:'legendary',
+      stats:{str:1000,agi:1000,int:1000,sta:1000,strMult:0.5,agiMult:0.5,intMult:0.5,staMult:0.5},category:'equipment'},
+    req:[{name:'🌟 Eternal Shard',qty:3},{name:'👑 Eternal Crown',qty:2}],
+    desc:'The ultimate ring. Requires Stage 10 mats. Best-in-slot for any build.'
+  },
 ];
 
 // ── TREASURE CHEST ──
-const TREASURE_TABLES={1:{rolls:2,tier:'normal'},2:{rolls:2,tier:'uncommon'},3:{rolls:3,tier:'uncommon'},4:{rolls:3,tier:'rare'},5:{rolls:3,tier:'rare'},6:{rolls:4,tier:'epic'},7:{rolls:4,tier:'epic'},8:{rolls:4,tier:'epic'},9:{rolls:5,tier:'legendary'},10:{rolls:5,tier:'legendary'}};
+const TREASURE_TABLES={
+  1:{rolls:2,tier:'normal'},  2:{rolls:2,tier:'uncommon'},
+  3:{rolls:3,tier:'uncommon'},4:{rolls:3,tier:'rare'},
+  5:{rolls:3,tier:'rare'},    6:{rolls:4,tier:'epic'},
+  7:{rolls:4,tier:'epic'},    8:{rolls:4,tier:'epic'},
+  9:{rolls:5,tier:'legendary'},10:{rolls:5,tier:'legendary'}
+};
 function rollTreasureRarity(tier){
   const r=Math.random();
-  switch(tier){case'normal':return r<0.30?'uncommon':'normal';case'uncommon':return r<0.30?'rare':'uncommon';case'rare':return r<0.30?'epic':'rare';case'epic':return r<0.05?'legendary':'epic';case'legendary':return r<0.10?'legendary':'epic';default:return'normal';}
+  switch(tier){
+    case'normal':   return r<0.30?'uncommon':'normal';
+    case'uncommon': return r<0.30?'rare':'uncommon';
+    case'rare':     return r<0.30?'epic':'rare';
+    case'epic':     return r<0.05?'legendary':'epic';
+    case'legendary':return r<0.10?'legendary':'epic';
+    default:        return'normal';
+  }
 }
 function dropTreasureBox(stageId){
-  const names={1:'📦 Worn Chest',2:'📦 Wooden Chest',3:'📦 Iron Chest',4:'📦 Steel Chest',5:'📦 Golden Chest',6:'📦 Enchanted Chest',7:'📦 Ancient Chest',8:'📦 Demonic Chest',9:'📦 Shadow Chest',10:'📦 Eternal Chest'};
-  const box={uid:genUid(),name:names[stageId]||'📦 Mystery Chest',category:'consumable',rarity:stageId<=2?'normal':stageId<=4?'uncommon':stageId<=6?'rare':stageId<=8?'epic':'legendary',effect:'treasure',stageId,difficulty:state.difficulty||'normal',stackable:false,qty:1,sellPrice:1000*stageId};
-  addToInventory(box);addLog(`📦 ${box.name} added to inventory!`,'legendary');notify(`📦 ${box.name} dropped!`,'var(--gold)');playSound('snd-levelup');
+  const names={1:'📦 Worn Chest',2:'📦 Wooden Chest',3:'📦 Iron Chest',4:'📦 Steel Chest',
+    5:'📦 Golden Chest',6:'📦 Enchanted Chest',7:'📦 Ancient Chest',
+    8:'📦 Demonic Chest',9:'📦 Shadow Chest',10:'📦 Eternal Chest'};
+  const box={uid:genUid(),name:names[stageId]||'📦 Mystery Chest',category:'consumable',
+    rarity:stageId<=2?'normal':stageId<=4?'uncommon':stageId<=6?'rare':stageId<=8?'epic':'legendary',
+    effect:'treasure',stageId,difficulty:state.difficulty||'normal',stackable:false,qty:1,sellPrice:1000*stageId};
+  addToInventory(box);
+  addLog(`📦 ${box.name} added to inventory!`,'legendary');
+  notify(`📦 ${box.name} dropped!`,'var(--gold)');
+  playSound('snd-levelup');
 }
 function openTreasureBox(box){
-  const stageId=box.stageId||1,table=TREASURE_TABLES[stageId];if(!table)return;
+  const stageId=box.stageId||1, table=TREASURE_TABLES[stageId]; if(!table)return;
   const diff=DIFFICULTY[box.difficulty||'normal'];
   const slots=['weapon','armor','helmet','boots','ring','amulet'];
   const items=[];
+  // Equipment rolls
   for(let i=0;i<table.rolls;i++){
-    let rarity=rollTreasureRarity(table.tier);rarity=applyRarityBonus(rarity);
+    let rarity=rollTreasureRarity(table.tier); rarity=applyRarityBonus(rarity);
     const slot=slots[Math.floor(Math.random()*slots.length)];
-    const item=mkEquipDrop(slot,rarity);addToInventory(item);items.push(item);
-    if(item.rarity==='legendary')state.quests.legendary.done=true;
+    const item=mkEquipDrop(slot,rarity); addToInventory(item); items.push(item);
+    if(item.rarity==='legendary') state.quests.legendary.done=true;
   }
-  const bonusGold=Math.floor(1000*stageId*diff.goldMult);state.gold+=bonusGold;
-  notify(`📦 Chest opened! ${items.length} items found!`,'var(--gold)');addLog(`📦 ${box.name} opened!`,'legendary');
-  items.forEach(item=>addLog(`  ${item.name} [${(RARITY[item.rarity]||RARITY.normal).label}]`,item.rarity==='legendary'?'legendary':item.rarity==='epic'?'epic':'gold'));
+  // Bonus mat drops from chest (2-3 mats matching stage)
+  const matCount = 2 + Math.floor(Math.random()*2);
+  for(let i=0;i<matCount;i++) rollMatDrop(stageId, false);
+
+  const bonusGold=Math.floor(1000*stageId*diff.goldMult); state.gold+=bonusGold;
+  notify(`📦 Chest opened! ${items.length} items + mats found!`,'var(--gold)');
+  addLog(`📦 ${box.name} opened!`,'legendary');
+  items.forEach(item=>addLog(`  ${item.name} [${(RARITY[item.rarity]||RARITY.normal).label}]`,
+    item.rarity==='legendary'?'legendary':item.rarity==='epic'?'epic':'gold'));
   addLog(`💰 +${formatNumber(bonusGold)} Gold!`,'gold');
-  playSound('snd-levelup');spawnParticles(window.innerWidth/2,window.innerHeight/2,'#f0c040',20);
-  renderInventory();updateUI();renderQuests();
+  playSound('snd-levelup');
+  spawnParticles(window.innerWidth/2,window.innerHeight/2,'#f0c040',20);
+  renderInventory(); updateUI(); renderQuests();
 }
 
 // ── LEVEL UP ──
@@ -1405,16 +1531,38 @@ function doEnhance(uid){
   const cost=ENHANCE_COST[enh+1],rate=ENHANCE_RATE[enh+1];
   if(state.gold<cost){notify('Not enough gold!','var(--red)');return;}
   state.gold-=cost;
+
+  // ── Only these flat stats get enhanced. Mults, lifeSteal, special abilities are never touched.
+  const FLAT_STATS=new Set(['str','agi','int','sta','armor','maxHp','maxMp','crit','dodge','hit','hpRegen','mpRegen','attackPower']);
+
   if(item.equipped){Object.entries(item.stats||{}).forEach(([k,v])=>{const ek='equip'+k.charAt(0).toUpperCase()+k.slice(1);state[ek]=Math.max(0,(state[ek]||0)-v);});}
+
   const success=Math.random()*100<rate;
   if(success){
-    Object.keys(item.stats||{}).forEach(k=>{item.stats[k]=item.stats[k]<1?Math.round(item.stats[k]*1.15*1000)/1000:Math.floor(item.stats[k]*1.15);});
-    item.enhLevel=enh+1;addLog(`⚒️ SUCCESS! ${item.name} is now +${item.enhLevel}!`,'gold');notify(`✨ SUCCESS! +${item.enhLevel}!`,'var(--gold)');playSound('snd-levelup');
+    Object.keys(item.stats||{}).forEach(k=>{
+      if(!FLAT_STATS.has(k))return; // skip mults and specials
+      item.stats[k]=Math.floor(item.stats[k]*1.15);
+    });
+    item.enhLevel=enh+1;
+    addLog(`⚒️ SUCCESS! ${item.name} is now +${item.enhLevel}!`,'gold');
+    notify(`✨ SUCCESS! +${item.enhLevel}!`,'var(--gold)');
+    playSound('snd-levelup');
   } else {
-    if(enh>0){Object.keys(item.stats||{}).forEach(k=>{item.stats[k]=item.stats[k]<1?Math.round(item.stats[k]/1.15*1000)/1000:Math.floor(item.stats[k]/1.15);});item.enhLevel=enh-1;addLog(`💔 FAILED! Dropped to +${item.enhLevel}!`,'bad');notify(`💔 FAILED! Dropped to +${item.enhLevel}!`,'var(--red)');}
-    else{addLog(`💔 FAILED! Nothing happened.`,'bad');notify('💔 FAILED!','var(--red)');}
+    if(enh>0){
+      Object.keys(item.stats||{}).forEach(k=>{
+        if(!FLAT_STATS.has(k))return; // skip mults and specials
+        item.stats[k]=Math.max(1,Math.floor(item.stats[k]/1.15));
+      });
+      item.enhLevel=enh-1;
+      addLog(`💔 FAILED! Dropped to +${item.enhLevel}!`,'bad');
+      notify(`💔 FAILED! Dropped to +${item.enhLevel}!`,'var(--red)');
+    } else {
+      addLog(`💔 FAILED! Nothing happened.`,'bad');
+      notify('💔 FAILED!','var(--red)');
+    }
     playSound('snd-death');
   }
+
   if(item.equipped){Object.entries(item.stats||{}).forEach(([k,v])=>{const ek='equip'+k.charAt(0).toUpperCase()+k.slice(1);state[ek]=(state[ek]||0)+v;});}
   if(item.equipped)calcStats();updateUI();renderInventory();renderEnhanceScreen(uid);
 }
