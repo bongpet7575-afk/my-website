@@ -86,6 +86,22 @@ function rollRarity(isBoss=false){
   else { if(r<0.05)return'rare'; if(r<0.20)return'uncommon'; return'normal'; }
 }
 
+const enemies = {
+  goblinScout: {
+    name: "👹 Goblin Scout",
+    emoji: "👹",
+    level: 28,
+    hp: 56000,
+    maxHp: 56000,
+    attack: 1240,
+    armor: 320,
+    dodge: 8,       // percentage
+    hit: 85,        // percentage
+    crit: 12,       // percentage
+  },
+  // ... other enemies
+};
+
 // ── STATE ──
 const state={
   // Identity (set on login/register)
@@ -198,7 +214,7 @@ function calcStats(){
   state.sta = Math.floor(state.baseSta * staMult) + (state.equipSta||0) + (state.talentBonuses.baseSta||0);
   state.attackPower  = Math.floor((state.str*2+state.int*2)*atkpMult) + (state.equipAttackPower||0) + (state.talentBonuses.baseAttackPower||0);
   state.maxHp        = Math.floor(50+(state.str*10)+(state.sta*15)+(state.level*20)) + (state.equipMaxHp||0);
-  state.armor        = Math.floor((state.agi*3+state.baseArmor+(state.talentBonuses.baseArmor||0))*armorMult) + (state.equipArmor||0);
+  state.armor        = Math.floor(((state.agi*3+state.baseArmor+(state.talentBonuses.baseArmor||0))*armorMult) + (state.equipArmor||0));
   state.crit         = Math.floor(((state.agi*0.0005+state.baseCrit)*critMult) + (state.equipCrit||0) + (state.talentBonuses.baseCrit||0));
   state.dodge        = Math.floor(((state.agi*1.9+state.baseDodge)*dodgeMult) + (state.equipDodge||0) + (state.talentBonuses.baseDodge||0));
   state.hit          = Math.floor(((state.agi*5.3+state.baseHit)*hitMult) + (state.equipHit||0) + (state.talentBonuses.baseHit||0));
@@ -828,6 +844,55 @@ function loadScene(sceneId){
   updateUI();updateAutoFightBtn();
 }
 
+function renderEnemyStatPanel(enemy) {
+  return `
+    <div class="enemy-stat-panel">
+      <div class="enemy-stat-header">
+        <span class="enemy-name">${enemy.name}</span>
+        <span class="enemy-level">Lv. ${enemy.level}</span>
+      </div>
+
+      <!-- HP Bar -->
+      <div class="stat-row hp-row">
+        <span class="stat-label">❤️ HP</span>
+        <div class="hp-bar-wrapper">
+          <div class="hp-bar" style="width: ${(enemy.hp / enemy.maxHp) * 100}%"></div>
+        </div>
+        <span class="stat-value">${enemy.hp.toLocaleString()} / ${enemy.maxHp.toLocaleString()}</span>
+      </div>
+
+      <!-- Combat Stats Grid -->
+      <div class="enemy-stats-grid">
+        <div class="stat-item">
+          <span class="stat-icon">⚔️</span>
+          <span class="stat-name">ATK</span>
+          <span class="stat-val">${enemy.attack}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-icon">🛡️</span>
+          <span class="stat-name">ARM</span>
+          <span class="stat-val">${enemy.armor}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-icon">💨</span>
+          <span class="stat-name">DODGE</span>
+          <span class="stat-val">${enemy.dodge}%</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-icon">🎯</span>
+          <span class="stat-name">HIT</span>
+          <span class="stat-val">${enemy.hit}%</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-icon">💥</span>
+          <span class="stat-name">CRIT</span>
+          <span class="stat-val">${enemy.crit}%</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 // ── AUTO FIGHT ──
 function toggleAutoFight(){
   if(currentStage){
@@ -1014,6 +1079,64 @@ function useNextAutoSkill(enemy){
   spawnAbilityFloat(`${sk.icon} ${sk.name}!`,'#f0c040');return true;
 }
 
+// ===== ENEMY STATS DISPLAY MANAGER =====
+
+const enemyStatsPanel = document.getElementById('enemy-stats-panel');
+const enemyStats = {
+  name: document.getElementById('enemy-stats-name'),
+  level: document.getElementById('enemy-stats-level'),
+  hpBar: document.getElementById('enemy-hp-bar'),
+  hpValue: document.getElementById('enemy-hp-value'),
+  atk: document.getElementById('enemy-atk-value'),
+  arm: document.getElementById('enemy-arm-value'),
+  dodge: document.getElementById('enemy-dodge-value'),
+  hit: document.getElementById('enemy-hit-value'),
+  crit: document.getElementById('enemy-crit-value')
+};
+
+/**
+ * Show enemy stats panel when combat starts
+ */
+function showEnemyStats(enemy) {
+  if (!enemy) {
+    enemyStatsPanel.style.display = 'none';
+    return;
+  }
+
+  // Populate stats
+  enemyStats.name.textContent = enemy.name;
+  enemyStats.level.textContent = `Lv. ${enemy.level || '?'}`;
+  enemyStats.atk.textContent = enemy.atk || 0;
+  enemyStats.arm.textContent = enemy.armor || 0;
+  enemyStats.dodge.textContent = `${enemy.dodge || 0}%`;
+  enemyStats.hit.textContent = `${enemy.hit || 0}%`;
+  enemyStats.crit.textContent = `${enemy.crit || 0}%`;
+
+  // Update HP
+  updateEnemyHP(enemy.hp, enemy.maxHp);
+
+  // Show panel
+  enemyStatsPanel.style.display = 'block';
+}
+
+/**
+ * Update enemy HP bar and value
+ */
+function updateEnemyHP(currentHp, maxHp) {
+  if (!enemyStats.hpBar || !enemyStats.hpValue) return;
+
+  const percentage = (currentHp / maxHp) * 100;
+  enemyStats.hpBar.style.width = `${Math.max(0, Math.min(100, percentage))}%`;
+  enemyStats.hpValue.textContent = `${Math.floor(currentHp)} / ${Math.floor(maxHp)}`;
+}
+
+/**
+ * Hide enemy stats panel
+ */
+function hideEnemyStats() {
+  enemyStatsPanel.style.display = 'none';
+}
+
 // ── COMBAT ──
 function startCombat(enemyId,isBoss){
   const tmpl=MONSTER_TEMPLATES[enemyId];if(!tmpl)return;
@@ -1025,6 +1148,11 @@ function startCombat(enemyId,isBoss){
   currentEnemy=applyTutorialScaling(currentEnemy);
   startCombatWith(currentEnemy);
   if(isTutorialActive()){addCombatLog('📚 TUTORIAL MODE: Enemies are weaker!','info');showTutorialHint('firstCombat');}
+  const combatArea = document.getElementById('combat-area'); // your existing combat container
+  combatArea.insertAdjacentHTML('afterbegin', renderEnemyStatPanel(enemy));
+
+  // Store current enemy reference for HP updates
+  window.currentEnemy = enemy;
 }
 function startCombatWith(enemy){
   autoSkillIndex=0;
@@ -1043,65 +1171,340 @@ function startCombatWith(enemy){
   updateAutoFightBtn();
 }
 
-function combatAction(action){
-  if(!currentEnemy)return;
-  if(action==='attack'){
+function combatAction(action) {
+  if (!currentEnemy) return;
+
+  // Player action handling
+  if (action === 'attack') {
     showTutorialHint('firstCombat');
-    const eDodge=Math.max(0,(currentEnemy.dodge||0)-state.hit)/100;
-    if(Math.random()<eDodge){addCombatLog(`💨 ${currentEnemy.name} dodged!`,'bad');playSound('snd-attack');}
-    else {
-      let dmg=Math.max(1,state.attackPower+Math.floor(Math.random()*8)-Math.floor(currentEnemy.armor/2));
-      let isCrit=false;
-      const tutBonus=getTutorialDamageBonus();dmg=Math.floor(dmg*tutBonus);
-      if(state.unlockedTalents.includes('berserker')&&state.hp<state.maxHp*.5)dmg=Math.floor(dmg*1.35);
-      if(Math.random()<state.crit/100){dmg=Math.floor(dmg*2);isCrit=true;}
-      if(isCrit)showCritEffect();
-      if(state.unlockedTalents.includes('death_mark'))dmg=Math.floor(dmg*1.5);
-      if(state.unlockedTalents.includes('venom'))currentEnemy.poisoned=(currentEnemy.poisoned||0)+1;
-      currentEnemy.hp-=dmg;
-      const ls=state.lifeSteal||0;if(ls>0){const h=Math.floor(dmg*ls);if(h>0){state.hp=Math.min(state.maxHp,state.hp+h);addCombatLog(`🩸 Life Steal heals ${h} HP!`,'good');spawnDmgFloat(`🩸+${h}`,false,'heal-float');}}
-      addCombatLog(`⚔️ ${isCrit?'💥CRIT! ':''}You hit for ${dmg}!`,isCrit?'gold':'good');playSound('snd-attack');animateAttack(true,dmg,isCrit);
-    }
-    state.defending=false;
-  } else if(action==='magic'){
+    handlePlayerAttack();
+  } else if (action === 'magic') {
     showTutorialHint('firstMagic');
-    if(state.mp<10){addCombatLog('❌ Not enough MP!','bad');return;}
-    let dmg=Math.max(1,state.int*2+Math.floor(Math.random()*10));
-    if(state.unlockedTalents.includes('spell_power'))dmg=Math.floor(dmg*1.3);
-    if(state.unlockedTalents.includes('fire_mastery'))dmg=Math.floor(dmg*1.2);
-    currentEnemy.hp-=dmg;state.mp-=10;
-    addCombatLog(`✨ Magic hits for ${dmg}! (-10 MP)`,'info');playSound('snd-magic');animateAttack(true,dmg,false);state.defending=false;
-  } else if(action==='defend'){
-    showTutorialHint('firstDefend');state.defending=true;addCombatLog('🛡️ Bracing for impact!','info');
-  } else if(action==='flee'){
+    handlePlayerMagic();
+  } else if (action === 'defend') {
+    showTutorialHint('firstDefend');
+    state.defending = true;
+    addCombatLog('🛡️ Bracing for impact!', 'info');
+  } else if (action === 'flee') {
     showTutorialHint('firstFlee');
-    const ok=state.unlockedTalents.includes('smoke_bomb')?.99:state.agi>currentEnemy.armor?.7:.35;
-    if(Math.random()<ok){addLog('Fled from battle!','bad');currentEnemy=null;document.getElementById('combat-box').style.display='none';loadScene('town');return;}
-    addCombatLog('❌ Failed to flee!','bad');state.defending=false;
+    handleFlee();
   }
-  if(currentEnemy&&currentEnemy.hp<=0){currentEnemy.hp=0;updateEnemyBar();endCombat(true);return;}
-  if(state.hpRegen>0){const r=Math.floor(state.hpRegen);if(r>0&&state.hp<state.maxHp){state.hp=Math.min(state.maxHp,state.hp+r);addCombatLog(`💚 Regen +${r} HP`,'good');}}
-  if(state.manaRegen>0){const r=Math.floor(state.manaRegen);if(r>0&&state.mp<state.maxMp){state.mp=Math.min(state.maxMp,state.mp+r);addCombatLog(`💙 Mana Regen +${r} MP`,'info');}}
-  Object.keys(state.skillCooldowns).forEach(k=>{if(state.skillCooldowns[k]>0)state.skillCooldowns[k]--;});
-  if(currentEnemy&&currentEnemy.hp>0){
-    if(currentEnemy.frozen){currentEnemy.frozen=false;addCombatLog(`${currentEnemy.name} is frozen!`,'info');}
-    else {
-      const pDodge=Math.max(0,state.dodge-(currentEnemy.hit||0))/100;
-      let eDmg=Math.max(1,currentEnemy.atk+Math.floor(Math.random()*6)-Math.floor(state.armor/10));
-      if(isTutorialActive())eDmg=Math.floor(eDmg*TUTORIAL_CONFIG.enemyDamageMultiplier);
-      if(state.defending)eDmg=Math.floor(eDmg/(state.unlockedTalents.includes('fortress')?4:2));
-      if(state.unlockedTalents.includes('shield_wall'))eDmg=Math.floor(eDmg*.9);
-      if(state.manaShield){state.manaShield=false;addCombatLog('🔮 Mana Shield absorbed!','info');eDmg=0;}
-      if(Math.random()<pDodge){addCombatLog('💨 You dodged!','good');eDmg=0;}
-      state.hp-=eDmg;
-      if(eDmg>0){addCombatLog(`${currentEnemy.name} hits you for ${eDmg}!`,'bad');animateAttack(false,eDmg,false);}
-    }
-    if(currentEnemy.poisoned>0){const pd=8;currentEnemy.hp-=pd;currentEnemy.poisoned--;addCombatLog(`🐍 Poison deals ${pd}!`,'good');}
-    if(state.hp<=0&&state.unlockedTalents.includes('undying')&&!state.usedUndying){state.hp=1;state.usedUndying=true;addCombatLog('💪 Undying Will! Survived!','gold');}
-    if(state.hp<=0){state.hp=0;updateUI();endCombat(false);return;}
+
+  // Check if enemy is dead
+  if (currentEnemy && currentEnemy.hp <= 0) {
+    currentEnemy.hp = 0;
+    updateEnemyBar();
+    endCombat(true);
+    return;
   }
-  updateEnemyBar();updateUI();
+
+  // Apply player regeneration
+  applyPlayerRegeneration();
+
+  // Enemy turn (if alive)
+  if (currentEnemy && currentEnemy.hp > 0) {
+    handleEnemyTurn();
+  }
+
+  // Check if player is dead
+  if (state.hp <= 0) {
+    state.hp = 0;
+    updateUI();
+    endCombat(false);
+    return;
+  }
+
+  // Update UI
+  updateEnemyBar();
+  updateUI();
 }
+
+// ============================================
+// PLAYER ATTACK HANDLER
+// ============================================
+function handlePlayerAttack() {
+  // Check dodge
+  const enemyDodgeChance = calculateDodgeChance(currentEnemy.dodge, state.hit);
+  if (Math.random() < enemyDodgeChance) {
+    addCombatLog(`💨 ${currentEnemy.name} dodged!`, 'bad');
+    playSound('snd-attack');
+    state.defending = false;
+    return;
+  }
+
+  // Calculate base damage
+  let damage = calculateAttackDamage(state.attackPower, currentEnemy.armor);
+
+  // Apply tutorial bonus
+  const tutBonus = getTutorialDamageBonus();
+  damage = Math.floor(damage * tutBonus);
+
+  // Apply berserker talent (low HP bonus)
+  if (state.unlockedTalents.includes('berserker') && state.hp < state.maxHp * 0.5) {
+    damage = Math.floor(damage * 1.35);
+  }
+
+  // Check for critical hit
+  let isCrit = false;
+  if (Math.random() < state.crit / 100) {
+    damage = Math.floor(damage * 2);
+    isCrit = true;
+    showCritEffect();
+  }
+
+  // Apply death mark talent
+  if (state.unlockedTalents.includes('death_mark')) {
+    damage = Math.floor(damage * 1.5);
+  }
+
+  // Apply venom talent
+  if (state.unlockedTalents.includes('venom')) {
+    currentEnemy.poisoned = (currentEnemy.poisoned || 0) + 1;
+  }
+
+  // Deal damage to enemy
+  currentEnemy.hp -= damage;
+
+  // Apply life steal
+  applyLifeSteal(damage);
+
+  // Log and animate
+  addCombatLog(
+    `⚔️ ${isCrit ? '💥CRIT! ' : ''}You hit for ${damage}!`,
+    isCrit ? 'gold' : 'good'
+  );
+  playSound('snd-attack');
+  animateAttack(true, damage, isCrit);
+
+  state.defending = false;
+}
+
+// ============================================
+// PLAYER MAGIC HANDLER
+// ============================================
+function handlePlayerMagic() {
+  const magicCost = 10;
+  if (state.mp < magicCost) {
+    addCombatLog('❌ Not enough MP!', 'bad');
+    return;
+  }
+
+  // Calculate magic damage (INT-based)
+  let damage = calculateMagicDamage(state.int);
+
+  // Apply spell power talent
+  if (state.unlockedTalents.includes('spell_power')) {
+    damage = Math.floor(damage * 1.3);
+  }
+
+  // Apply fire mastery talent
+  if (state.unlockedTalents.includes('fire_mastery')) {
+    damage = Math.floor(damage * 1.2);
+  }
+
+  // Deal damage and consume mana
+  currentEnemy.hp -= damage;
+  state.mp -= magicCost;
+
+  addCombatLog(`✨ Magic hits for ${damage}! (-${magicCost} MP)`, 'info');
+  playSound('snd-magic');
+  animateAttack(true, damage, false);
+
+  state.defending = false;
+}
+
+// ============================================
+// FLEE HANDLER
+// ============================================
+function handleFlee() {
+  let fleeChance = 0.35; // Base flee chance
+
+  // Smoke bomb talent gives high flee chance
+  if (state.unlockedTalents.includes('smoke_bomb')) {
+    fleeChance = 0.99;
+  }
+  // Agility vs enemy armor (higher agility = better flee)
+  else if (state.agi > currentEnemy.armor) {
+    fleeChance = 0.7;
+  }
+
+  if (Math.random() < fleeChance) {
+    addLog('Fled from battle!', 'bad');
+    currentEnemy = null;
+    document.getElementById('combat-box').style.display = 'none';
+    loadScene('town');
+    return;
+  }
+
+  addCombatLog('❌ Failed to flee!', 'bad');
+  state.defending = false;
+}
+
+// ============================================
+// DAMAGE CALCULATION FUNCTIONS
+// ============================================
+
+/**
+ * Calculate physical attack damage using armor scaling
+ * Formula: damage * (100 / (100 + armor))
+ */
+function calculateAttackDamage(attackPower, enemyArmor) {
+  const baseVariance = Math.floor(Math.random() * 8); // 0-8 variance
+  const baseDamage = attackPower + baseVariance;
+
+  // Armor scaling formula (prevents infinite stacking)
+  const armorMitigation = 100 / (100 + Math.max(0, enemyArmor));
+  const finalDamage = Math.floor(baseDamage * armorMitigation);
+
+  return Math.max(1, finalDamage);
+}
+
+/**
+ * Calculate magic damage (INT-based)
+ */
+function calculateMagicDamage(intelligence) {
+  const baseVariance = Math.floor(Math.random() * 10); // 0-10 variance
+  return Math.max(1, intelligence * 2 + baseVariance);
+}
+
+/**
+ * Calculate dodge chance
+ * Dodge is reduced by player's hit chance
+ */
+function calculateDodgeChance(enemyDodge, playerHit) {
+  const netDodge = Math.max(0, enemyDodge - playerHit);
+  return netDodge / 100;
+}
+
+/**
+ * Apply life steal effect
+ */
+function applyLifeSteal(damageDealt) {
+  const lifeStealPercent = state.lifeSteal || 0;
+  if (lifeStealPercent > 0) {
+    const healAmount = Math.floor(damageDealt * (lifeStealPercent / 100));
+    if (healAmount > 0) {
+      state.hp = Math.min(state.maxHp, state.hp + healAmount);
+      addCombatLog(`🩸 Life Steal heals ${healAmount} HP!`, 'good');
+      spawnDmgFloat(`🩸+${healAmount}`, false, 'heal-float');
+    }
+  }
+}
+
+// ============================================
+// ENEMY TURN HANDLER
+// ============================================
+function handleEnemyTurn() {
+  // Check if enemy is frozen
+  if (currentEnemy.frozen) {
+    currentEnemy.frozen = false;
+    addCombatLog(`${currentEnemy.name} is frozen!`, 'info');
+    return;
+  }
+
+  // Calculate enemy dodge chance (player trying to dodge enemy attack)
+  const playerDodgeChance = calculateDodgeChance(state.dodge, currentEnemy.hit);
+  if (Math.random() < playerDodgeChance) {
+    addCombatLog('💨 You dodged!', 'good');
+    return; // No damage taken
+  }
+
+  // Calculate enemy damage
+  let enemyDamage = calculateEnemyAttackDamage(currentEnemy.atk, state.armor);
+
+  // Apply tutorial difficulty modifier
+  if (isTutorialActive()) {
+    enemyDamage = Math.floor(enemyDamage * TUTORIAL_CONFIG.enemyDamageMultiplier);
+  }
+
+  // Apply defending reduction
+  if (state.defending) {
+    const defenseReduction = state.unlockedTalents.includes('fortress') ? 4 : 2;
+    enemyDamage = Math.floor(enemyDamage / defenseReduction);
+  }
+
+  // Apply shield wall talent
+  if (state.unlockedTalents.includes('shield_wall')) {
+    enemyDamage = Math.floor(enemyDamage * 0.9);
+  }
+
+  // Apply mana shield (absorbs hit)
+  if (state.manaShield) {
+    state.manaShield = false;
+    addCombatLog('🔮 Mana Shield absorbed!', 'info');
+    enemyDamage = 0;
+  }
+
+  // Deal damage to player
+  state.hp -= enemyDamage;
+
+  if (enemyDamage > 0) {
+    addCombatLog(`${currentEnemy.name} hits you for ${enemyDamage}!`, 'bad');
+    animateAttack(false, enemyDamage, false);
+  }
+
+  // Apply poison damage
+  if (currentEnemy.poisoned > 0) {
+    const poisonDamage = 8;
+    currentEnemy.hp -= poisonDamage;
+    currentEnemy.poisoned--;
+    addCombatLog(`🐍 Poison deals ${poisonDamage}!`, 'good');
+  }
+
+  // Check for undying talent (survive lethal blow)
+  if (state.hp <= 0 && state.unlockedTalents.includes('undying') && !state.usedUndying) {
+    state.hp = 1;
+    state.usedUndying = true;
+    addCombatLog('💪 Undying Will! Survived!', 'gold');
+  }
+}
+
+/**
+ * Calculate enemy attack damage using armor scaling
+ */
+function calculateEnemyAttackDamage(enemyAttack, playerArmor) {
+  const baseVariance = Math.floor(Math.random() * 8); // 0-8 variance (same as player for balance)
+  const baseDamage = enemyAttack + baseVariance;
+
+  // Armor scaling formula (same as player)
+  const armorMitigation = 100 / (100 + Math.max(0, playerArmor));
+  const finalDamage = Math.floor(baseDamage * armorMitigation);
+
+  return Math.max(1, finalDamage);
+}
+
+// ============================================
+// PLAYER REGENERATION
+// ============================================
+function applyPlayerRegeneration() {
+  // HP Regen
+  if (state.hpRegen > 0) {
+    const regenAmount = Math.floor(state.hpRegen);
+    if (regenAmount > 0 && state.hp < state.maxHp) {
+      state.hp = Math.min(state.maxHp, state.hp + regenAmount);
+      addCombatLog(`💚 Regen +${regenAmount} HP`, 'good');
+    }
+  }
+
+  // Mana Regen
+  if (state.manaRegen > 0) {
+    const regenAmount = Math.floor(state.manaRegen);
+    if (regenAmount > 0 && state.mp < state.maxMp) {
+      state.mp = Math.min(state.maxMp, state.mp + regenAmount);
+      addCombatLog(`💙 Mana Regen +${regenAmount} MP`, 'info');
+    }
+  }
+
+  // Skill cooldown reduction
+  Object.keys(state.skillCooldowns).forEach(k => {
+    if (state.skillCooldowns[k] > 0) {
+      state.skillCooldowns[k]--;
+    }
+  });
+}
+
+
+
 
 function useSkillInCombat(skillId){
   if(!currentEnemy)return;
@@ -1141,7 +1544,7 @@ function updateEnemyBar(){
 const SLOT_ICONS={weapon:'⚔️',armor:'🛡️',helmet:'⛑️',boots:'👢',ring:'💍',amulet:'📿'};
 const EQUIP_PREFIXES={legendary:['Divine','Mythic','Godforged','Ancient','Eternal','Celestial'],epic:['Heroic','Valiant','Exalted','Magnificent','Radiant'],rare:['Polished','Reinforced','Enchanted','Gleaming'],uncommon:['Sturdy','Sharpened','Improved','Sturdy'],normal:['Iron','Wooden','Basic','Simple']};
 const EQUIP_NAMES={weapon:['Blade','Sword','Axe','Spear','Dagger','Staff','Bow'],armor:['Plate','Chainmail','Robe','Leather','Cuirass'],helmet:['Helm','Crown','Hood','Circlet','Visor'],boots:['Greaves','Sabatons','Boots','Treads'],ring:['Band','Seal','Loop','Signet'],amulet:['Pendant','Amulet','Talisman','Necklace']};
-const EQUIP_STATS={weapon:{str:[150,350],lifeSteal:[0.01,0.02],crit:[0.01,0.05]},armor:{armor:[250,550],sta:[150,350],maxHp:[2000,3000],hpRegen:[250,750],dodge:[100,200]},helmet:{armor:[350,650],int:[150,350],hit:[100,200],dodge:[50,150]},boots:{agi:[150,350],dodge:[100,200]},ring:{str:[150,350],int:[150,350],agi:[150,350],sta:[150,350]},amulet:{strMult:[2.5,3.9],agiMult:[2.5,3.9],intMult:[2.5,3.9],staMult:[2.5,3.9],maxHpMult:[0.5,0.9],hitMult:[0.05,0.09],attackPowerMult:[0.05,0.09],dodgeMult:[0.05,0.09]}};
+const EQUIP_STATS={weapon:{str:[150,350],lifeSteal:[0.01,0.02],crit:[0.01,0.05]},armor:{armor:[250,550],sta:[150,350],maxHp:[2000,3000],hpRegen:[250,750],dodge:[100,200]},helmet:{armor:[350,650],int:[150,350],hit:[100,200],dodge:[50,150]},boots:{agi:[150,350],dodge:[100,200]},ring:{str:[150,350],int:[150,350],agi:[150,350],sta:[150,350]},amulet:{strMult:[2.5,5.9],agiMult:[2.5,5.9],intMult:[2.5,5.9],staMult:[2.5,5.9],maxHpMult:[1.5,3.9],hitMult:[0.5,0.9],attackPowerMult:[0.5,0.9],dodgeMult:[0.5,0.9]}};
 function mkEquipDrop(slot,rarity){
   rarity=applyRarityBonus(rarity);
   const mult=RARITY[rarity].mult;

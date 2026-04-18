@@ -118,14 +118,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 #char-level{font-family:var(--font-title);font-size:.72em;color:var(--deep-gold);}
 
 .top-bars{display:flex;flex-direction:column;gap:3px;flex:1;max-width:260px;margin:0 8px;}
-.bar-row{display:flex;align-items:center;gap:6px;font-size:.72em;}
+.bar-row{display:flex;align-items:center;gap:6px;font-size:.82em;}
 .bar-label{width:16px;text-align:center;}
-.bar-wrap{flex:1;height:7px;background:rgba(255,255,255,0.07);border-radius:4px;overflow:hidden;}
+.bar-wrap{flex:1;height:9px;background:rgba(255,255,255,0.07);border-radius:4px;overflow:hidden;}
 .bar-fill{height:100%;border-radius:4px;transition:width .3s;}
 #hp-bar{background:linear-gradient(90deg,#7a1515,#cc3333);box-shadow:0 0 16px rgba(204,51,51,0.5);}
 #mp-bar{background:linear-gradient(90deg,#15157a,#3355cc);box-shadow:0 0 16px rgba(51,85,204,0.5);}
 #xp-bar{background:linear-gradient(90deg,#5a4500,var(--deep-gold));box-shadow:0 0 16px rgba(240,192,64,0.3);}
-.bar-vals{font-size:.7em;color:var(--text-dim);white-space:nowrap;}
+.bar-vals{font-size:.85em;color:var(--text);white-space:nowrap;font-family:var(--font-title);min-width:72px;text-align:right;}
 
 #top-btns{display:none;align-items:center;gap:6px;flex-shrink:0;}
 .top-btn{
@@ -379,16 +379,27 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 /* ═══════════════════════════════ BOTTOM NAV ════ */
 #bottom-nav{
-  display:none;align-items:stretch;background:rgba(6,6,16,0.98);
-  border-top:1px solid var(--border);flex-shrink:0;height:54px;
+  display:flex !important;
+  align-items:stretch;
+  background:rgba(6,6,16,0.98);
+  border-top:1px solid var(--border);
+  flex-shrink:0;
+  height:58px;
+  position:relative;
+  z-index:100;
+  width:100%;
 }
 .nav-btn{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:2px;background:transparent;border:none;color:var(--text-dim);
-  font-family:var(--font-title);font-size:.6em;letter-spacing:1px;cursor:pointer;transition:.15s;
+  gap:3px;background:transparent;border:none;color:var(--text-dim);
+  font-family:var(--font-title);font-size:.62em;letter-spacing:1px;
+  cursor:pointer;transition:.15s;
+  min-height:58px;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
 }
 .nav-btn.active,.nav-btn:hover{color:var(--gold);}
-.nav-btn .nav-icon{font-size:1.4em;}
+.nav-btn .nav-icon{font-size:1.6em;}
 .nav-btn.active .nav-icon{filter:drop-shadow(0 0 6px var(--gold));}
 
 /* ═══════════════════════════════ OVERLAYS & SCREENS ════ */
@@ -783,13 +794,58 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
         </div>
         </div>
         <div class="arena-vs">VS</div>
-        <div class="arena-side">
-          <div class="arena-avatar" id="arena-enemy">👾</div>
-          <div class="arena-label" id="arena-enemy-label">—</div>
-          <div class="enemy-hp-row" style="width:100%;padding:0;">
+          <div class="arena-side">
+            <div class="arena-avatar" id="arena-enemy">👾</div>
+            <div class="arena-label" id="arena-enemy-label">—</div>
+            <div class="enemy-hp-row" style="width:100%;padding:0;">
             <div class="enemy-hp-bar-wrap"><div id="arena-enemy-hp" style="width:0%;"></div></div>
             <span style="font-size:.7em;color:var(--text-dim);white-space:nowrap;"><span id="enemy-hp-val">0</span>/<span id="enemy-hp-max">0</span></span>
+            <div id="enemy-stats-panel" class="enemy-stats-panel" style="display:none;">
+  <div class="enemy-stats-header">
+    <span id="enemy-stats-name" class="enemy-name">?</span>
+    <span id="enemy-stats-level" class="enemy-level">Lv. ?</span>
+  </div>
+
+  <!-- HP Bar -->
+  <div class="enemy-stats-row hp-row">
+    <span class="stat-label">❤️ HP</span>
+    <div class="hp-bar-wrapper">
+      <div id="enemy-hp-bar" class="hp-bar" style="width:100%"></div>
+    </div>
+    <span id="enemy-hp-value" class="stat-value">0 / 0</span>
+  </div>
+
+  <!-- Stats Grid -->
+  <div class="enemy-stats-grid">
+    <div class="stat-item">
+      <span class="stat-icon">⚔️</span>
+      <span class="stat-name">ATK</span>
+      <span id="enemy-atk-value" class="stat-val">0</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-icon">🛡️</span>
+      <span class="stat-name">ARM</span>
+      <span id="enemy-arm-value" class="stat-val">0</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-icon">💨</span>
+      <span class="stat-name">DODGE</span>
+      <span id="enemy-dodge-value" class="stat-val">0%</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-icon">🎯</span>
+      <span class="stat-name">HIT</span>
+      <span id="enemy-hit-value" class="stat-val">0%</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-icon">💥</span>
+      <span class="stat-name">CRIT</span>
+      <span id="enemy-crit-value" class="stat-val">0%</span>
+    </div>
+  </div>
+</div>
           </div>
+                    
         </div>
       </div>
 
