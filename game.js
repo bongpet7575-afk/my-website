@@ -177,9 +177,9 @@ const state={
 
 // ── DIFFICULTY ──
 const DIFFICULTY={
-  normal:{ label:'Normal',icon:'⚔️',color:'#cccccc',levelReq:0,hpMult:1,atkMult:1,hitMul:1,dodgeMult:1,goldMult:1,xpMult:1,rarityBonus:0,legendaryChance:0.003 },
-  hard:{   label:'Hard',  icon:'🔥',color:'#ff8800',levelReq:20,hpMult:3,atkMult:3,hitMul:3,dodgeMult:3,goldMult:3,xpMult:3,rarityBonus:2,legendaryChance:0.007 },
-  hell:{   label:'Hell',  icon:'💀',color:'#ff2222',levelReq:50,hpMult:5,atkMult:5,hitMul:5,dodgeMult:5,goldMult:5,xpMult:5,rarityBonus:3,legendaryChance:0.009 },
+  normal:{ label:'Normal',icon:'⚔️',color:'#cccccc',levelReq:0,hpMult:1,atkMult:1,hitMul:1,dodgeMult:1,goldMult:1,xpMult:1,rarityBonus:0,legendaryChance:0.001 },
+  hard:{   label:'Hard',  icon:'🔥',color:'#ff8800',levelReq:20,hpMult:3,atkMult:3,hitMul:3,dodgeMult:3,goldMult:3,xpMult:3,rarityBonus:2,legendaryChance:0.002 },
+  hell:{   label:'Hell',  icon:'💀',color:'#ff2222',levelReq:50,hpMult:5,atkMult:5,hitMul:5,dodgeMult:5,goldMult:5,xpMult:5,rarityBonus:3,legendaryChance:0.003 },
 };
 function setDifficulty(diff){
   const d=DIFFICULTY[diff];
@@ -302,10 +302,10 @@ const SKILLS={
     const d=Math.floor(state.attackPower*2.2);e.hp-=d;addCombatLog(`💥 Power Strike! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
   battle_cry:{name:'Battle Cry',icon:'📯',mp:()=>Math.floor(state.maxMp*0.15),cd:5,use:(e)=>{
     if(state.battleCryActive){addCombatLog(`📯 Battle Cry already active!`,'info');return 0;}
-    state.battleCryActive=true;state.strMult*=2.5;state.armorMult*=2.4;state.critMult*=2.5;state.hitMult*=1.5;
+    state.battleCryActive=true;state.strMult*=2.5;state.armorMult*=2.4;state.critMult*=1.5;state.hitMult*=1.5;
     addCombatLog(`📯 Battle Cry! +50% STR, +40% ARMOR!`,'good');playSound('snd-magic');calcStats();return 0;}},
   last_stand:{name:'Last Stand',icon:'🛡️',mp:()=>Math.floor(state.maxMp*0.20),cd:1,use:(e)=>{
-    const h=Math.floor(state.maxHp*0.35);state.hp=Math.min(state.maxHp,state.hp+h);
+    const h=Math.floor(state.maxHp*0.15);state.hp=Math.min(state.maxHp,state.hp+h);
     addCombatLog(`🛡️ Last Stand! +${h} HP!`,'good');playSound('snd-heal');spawnDmgFloat(`+${h}HP`,false,'heal-float');calcStats();return 0;}},
   fireball:{name:'Fireball',icon:'🔥',mp:()=>Math.floor(state.maxMp*0.12),cd:1,use:(e)=>{
     const d=Math.floor(state.int*6+Math.random()*state.int*2);e.hp-=d;addCombatLog(`🔥 Fireball! ${d} dmg!`,'good');playSound('snd-magic');animateAttack(true,d,false);return d;}},
@@ -526,7 +526,7 @@ function scaleMonster(templateId,stageLevel){
   const tmpl=MONSTER_TEMPLATES[templateId];if(!tmpl)return null;
   const diff=DIFFICULTY[state.difficulty||'normal'];
   const stageScale=1+(stageLevel-1)*0.3;
-  return{...tmpl,hp:Math.floor(tmpl.hp*stageScale*diff.hpMult),maxHp:Math.floor(tmpl.hp*stageScale*diff.hpMult),atk:Math.floor(tmpl.atk*stageScale*diff.atkMult),armor:Math.floor(tmpl.armor*stageScale),hit:Math.floor(tmpl.hit*stageScale),dodge:Math.floor(tmpl.dodge*stageScale),xp:Math.floor(tmpl.xp*diff.xpMult),gold:[Math.floor(tmpl.gold[0]*diff.goldMult),Math.floor(tmpl.gold[1]*diff.goldMult)],poisoned:0,frozen:false,boss:false,_xpMult:1,_goldMult:3};
+  return{...tmpl,hp:Math.floor(tmpl.hp*stageScale*diff.hpMult),maxHp:Math.floor(tmpl.hp*stageScale*diff.hpMult),atk:Math.floor(tmpl.atk*stageScale*diff.atkMult),armor:Math.floor(tmpl.armor*stageScale),hit:Math.floor(tmpl.hit*stageScale),dodge:Math.floor(tmpl.dodge*stageScale),xp:Math.floor(tmpl.xp*diff.xpMult),gold:[Math.floor(tmpl.gold[0]*diff.goldMult),Math.floor(tmpl.gold[1]*diff.goldMult)],poisoned:0,frozen:false,boss:false,_xpMult:1,_goldMult:1};
 }
 
 // ── DUNGEON FLOW ──
@@ -1632,7 +1632,7 @@ function updateEnemyBar(){
 const SLOT_ICONS={weapon:'⚔️',armor:'🛡️',helmet:'⛑️',boots:'👢',ring:'💍',amulet:'📿'};
 const EQUIP_PREFIXES={legendary:['Divine','Mythic','Godforged','Ancient','Eternal','Celestial'],epic:['Heroic','Valiant','Exalted','Magnificent','Radiant'],rare:['Polished','Reinforced','Enchanted','Gleaming'],uncommon:['Sturdy','Sharpened','Improved','Sturdy'],normal:['Iron','Wooden','Basic','Simple']};
 const EQUIP_NAMES={weapon:['Blade','Sword','Axe','Spear','Dagger','Staff','Bow'],armor:['Plate','Chainmail','Robe','Leather','Cuirass'],helmet:['Helm','Crown','Hood','Circlet','Visor'],boots:['Greaves','Sabatons','Boots','Treads'],ring:['Band','Seal','Loop','Signet'],amulet:['Pendant','Amulet','Talisman','Necklace']};
-const EQUIP_STATS={weapon:{str:[15,35],lifeSteal:[0.01,0.02],crit:[0.01,0.05]},armor:{armor:[25,55],sta:[15,35],maxHp:[2000,3000],hpRegen:[25,75],dodge:[10,20]},helmet:{armor:[35,65],int:[15,35],hit:[10,20],dodge:[5,15]},boots:{agi:[15,35],dodge:[10,20]},ring:{str:[15,35],int:[15,35],agi:[15,35],sta:[15,35]},amulet:{strMult:[0.5,2.9],agiMult:[0.5,2.9],intMult:[0.5,2.9],staMult:[0.5,2.9],maxHpMult:[0.5,2.9],hitMult:[0.5,0.9],attackPowerMult:[0.5,2.9],dodgeMult:[0.5,2.9]}};
+const EQUIP_STATS={weapon:{str:[15,35],lifeSteal:[0.01,0.02],crit:[0.01,0.05]},armor:{armor:[25,55],sta:[15,35],maxHp:[2000,3000],hpRegen:[25,75],dodge:[10,20]},helmet:{armor:[35,65],int:[15,35],hit:[10,20],dodge:[5,15]},boots:{agi:[15,35],dodge:[10,20]},ring:{str:[15,35],int:[15,35],agi:[15,35],sta:[15,35]},amulet:{strMult:[0.5,0.9],agiMult:[0.5,0.9],intMult:[0.5,0.9],staMult:[0.5,0.9],maxHpMult:[0.5,0.9],hitMult:[0.5,0.9],attackPowerMult:[0.5,0.9],dodgeMult:[0.5,0.9]}};
 function mkEquipDrop(slot,rarity){
   rarity=applyRarityBonus(rarity);
   const mult=RARITY[rarity].mult;
@@ -2024,7 +2024,7 @@ function doEnhance(uid){
   state.gold-=cost;
 
   // ── Only these flat stats get enhanced. Mults, lifeSteal, special abilities are never touched.
-  const FLAT_STATS=new Set(['str','agi','int','sta','armor','maxHp','maxMp','crit','dodge','hit','hpRegen','mpRegen','attackPower']);
+  const FLAT_STATS=new Set(['str','agi','int','sta','armor','maxHp','maxMp']);
 
   if(item.equipped){Object.entries(item.stats||{}).forEach(([k,v])=>{const ek='equip'+k.charAt(0).toUpperCase()+k.slice(1);state[ek]=Math.max(0,(state[ek]||0)-v);});}
 
@@ -2032,7 +2032,7 @@ function doEnhance(uid){
   if(success){
     Object.keys(item.stats||{}).forEach(k=>{
       if(!FLAT_STATS.has(k))return; // skip mults and specials
-      item.stats[k]=Math.floor(item.stats[k]*1.15);
+      item.stats[k]=Math.floor(item.stats[k]*1.05);
     });
     item.enhLevel=enh+1;
     addLog(`⚒️ SUCCESS! ${item.name} is now +${item.enhLevel}!`,'gold');
@@ -2042,7 +2042,7 @@ function doEnhance(uid){
     if(enh>0){
       Object.keys(item.stats||{}).forEach(k=>{
         if(!FLAT_STATS.has(k))return; // skip mults and specials
-        item.stats[k]=Math.max(1,Math.floor(item.stats[k]/1.15));
+        item.stats[k]=Math.max(1,Math.floor(item.stats[k]/1.05));
       });
       item.enhLevel=enh-1;
       addLog(`💔 FAILED! Dropped to +${item.enhLevel}!`,'bad');
