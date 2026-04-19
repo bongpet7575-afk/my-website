@@ -1178,6 +1178,558 @@ function useNextAutoSkill(enemy){
   spawnAbilityFloat(`${sk.icon} ${sk.name}!`,'#f0c040');return true;
 }
 
+// ══════════════════════════════════════════
+// ARENA SYSTEM
+// ══════════════════════════════════════════
+
+const ARENA_TITLES = [
+  { title:'Rookie',   min:0,    color:'#cccccc' },
+  { title:'Fighter',  min:1000, color:'#22c55e' },
+  { title:'Warrior',  min:1500, color:'#3b82f6' },
+  { title:'Champion', min:2000, color:'#a855f7' },
+  { title:'Legend',   min:2500, color:'#ff9900' },
+  { title:'Eternal',  min:3000, color:'#ff2244' },
+];
+
+const TOURNAMENT_SIZE = 8; // must be power of 2
+
+const DAILY_REWARDS = {
+  1: { gold: 50000,  title:'🏆 Tournament Champion' },
+  2: { gold: 25000,  title:'🥈 Tournament Runner-up' },
+  3: { gold: 12000,  title:'🥉 Tournament Third Place' },
+  4: { gold: 6000,   title:null },
+  participation: { gold: 1000, title:null },
+};
+
+// ── GET ARENA TITLE FROM POINTS ──
+function getArenaTitle(points) {
+  for(let i=ARENA_TITLES.length-1;i>=0;i--){
+    if(points>=ARENA_TITLES[i].min) return ARENA_TITLES[i];
+  }
+  return ARENA_TITLES[0];
+}
+
+// ── SIMULATE BATTLE BETWEEN TWO SNAPSHOTS ──
+function simulateBattle(attacker, defender) {
+  const log = [];
+  let aHp = attacker.maxHp;
+  let dHp = defender.maxHp;
+  let turn = 0;
+  const MAX_TURNS = 50;
+
+  while(aHp > 0 && dHp > 0 && turn < MAX_TURNS) {
+    turn++;
+
+    // Attacker hits defender
+    const aDodge = Math.max(0, (defender.dodge||0) - (attacker.hit||0)) / 100;
+    if(Math.random() < aDodge) {
+      log.push(`Turn ${turn}: ${attacker.name} missed! ${defender.name} dodged.`);
+    } else {
+      const aReduction = Math.min(0.85, (defender.armor||0) / ((defender.armor||0) + 80000));
+      let aDmg = Math.max(1, Math.floor((attacker.attackPower * (0.95 + Math.random()*0.1)) * (1 - aReduction)));
+      // Crit check
+      if(Math.random() < (attacker.crit||0) / 100) {
+        aDmg = Math.floor(aDmg * 2);
+        log.push(`Turn ${turn}: ${attacker.name} CRITS ${defender.name} for ${formatNumber(aDmg)}!`);
+      } else {
+        log.push(`Turn ${turn}: ${attacker.name} hits ${defender.name} for ${formatNumber(aDmg)}.`);
+      }
+      dHp -= aDmg;
+      // Lifesteal
+      if(attacker.lifeSteal > 0) aHp = Math.min(attacker.maxHp, aHp + Math.floor(aDmg * attacker.lifeSteal));
+    }
+    if(dHp <= 0) break;
+
+    // Defender hits attacker
+    const dDodge = Math.max(0, (attacker.dodge||0) - (defender.hit||0)) / 100;
+    if(Math.random() < dDodge) {
+      log.push(`Turn ${turn}: ${defender.name} missed! ${attacker.name} dodged.`);
+    } else {
+      const dReduction = Math.min(0.85, (attacker.armor||0) / ((attacker.armor||0) + 80000));
+      let dDmg = Math.max(1, Math.floor((defender.attackPower * (0.95 + Math.random()*0.1)) * (1 - dReduction)));
+      if(Math.random() < (defender.crit||0) / 100) {
+        dDmg = Math.floor(dDmg * 2);
+        log.push(`Turn ${turn}: ${defender.name} CRITS ${attacker.name} for ${formatNumber(dDmg)}!`);
+      } else {
+        log.push(`Turn ${turn}: ${defender.name} hits ${attacker.name} for ${formatNumber(dDmg)}.`);
+      }
+      aHp -= dDmg;
+      if(defender.lifeSteal > 0) dHp = Math.min(defender.maxHp, dHp + Math.floor(dDmg * defender.lifeSteal));
+    }
+  }
+
+  // Determine winner
+  let winnerId, reason;
+  if(aHp > dHp) {
+    winnerId = attacker.character_id;
+    reason = turn >= MAX_TURNS ? `${attacker.name} wins by HP advantage after ${MAX_TURNS} turns!` : `${attacker.name} wins!`;
+  } else {
+    winnerId = defender.character_id;
+    reason = turn >= MAX_TURNS ? `${defender.name} wins by HP advantage after ${MAX_TURNS} turns!` : `${defender.name} wins!`;
+  }
+  log.push(`⚔️ RESULT: ${reason}`);
+
+  return { winnerId, log, turns: turn, attackerHpLeft: Math.max(0, aHp), defenderHpLeft: Math.max(0, dHp) };
+}
+
+// ── SNAPSHOT CURRENT PLAYER STATS ──
+function getPlayerSnapshot() {
+  return {
+    character_id: state.character_id,
+    name: state.name,
+    level: state.level,
+    class: state.class,
+    attackPower: state.attackPower,
+    maxHp: state.maxHp,
+    armor: state.armor,
+    hit: state.hit,
+    dodge: state.dodge,
+    crit: state.crit,
+    lifeSteal: state.lifeSteal,
+    arena_points: state.arena_points || 1000,
+  };
+}
+
+// ── REGISTER FOR TOURNAMENT ──
+async function registerForTournament() {
+  if(!state.character_id) { notify('Must be logged in!', 'var(--red)'); return; }
+
+  try {
+    // Find open tournament or create one
+    let { data: tournament } = await dbClient
+      .from('arena_tournaments')
+      .select('*')
+      .eq('status', 'open')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if(!tournament) {
+      // Create new tournament
+      const startsAt = new Date();
+      startsAt.setHours(startsAt.getHours() + 1);
+      const endsAt = new Date(startsAt);
+      endsAt.setHours(endsAt.getHours() + 24);
+
+      const { data: newT } = await dbClient.from('arena_tournaments').insert({
+        status: 'open',
+        bracket: [],
+        round: 0,
+        starts_at: startsAt.toISOString(),
+        ends_at: endsAt.toISOString(),
+      }).select().single();
+      tournament = newT;
+    }
+
+    // Check if already registered
+    const { data: existing } = await dbClient
+      .from('arena_registrations')
+      .select('id')
+      .eq('tournament_id', tournament.id)
+      .eq('character_id', state.character_id)
+      .single();
+
+    if(existing) { notify('Already registered!', 'var(--gold)'); return; }
+
+    // Register
+    await dbClient.from('arena_registrations').insert({
+      tournament_id: tournament.id,
+      character_id: state.character_id,
+    });
+
+    addLog(`⚔️ Registered for tournament! Waiting for ${TOURNAMENT_SIZE} players.`, 'gold');
+    notify('⚔️ Registered for Arena Tournament!', 'var(--gold)');
+    renderArena();
+
+    // Auto-start if enough players
+    const { count } = await dbClient
+      .from('arena_registrations')
+      .select('*', { count: 'exact' })
+      .eq('tournament_id', tournament.id);
+
+    if(count >= TOURNAMENT_SIZE) await startTournament(tournament.id);
+
+  } catch(e) { notify('Registration failed: ' + e.message, 'var(--red)'); console.error(e); }
+}
+
+// ── START TOURNAMENT ──
+async function startTournament(tournamentId) {
+  try {
+    // Get all registrations with character snapshots
+    const { data: regs } = await dbClient
+      .from('arena_registrations')
+      .select('character_id')
+      .eq('tournament_id', tournamentId)
+      .limit(TOURNAMENT_SIZE);
+
+    const charIds = regs.map(r => r.character_id);
+    const { data: chars } = await dbClient
+      .from('characters')
+      .select('id, name, level, class, stats, arena_points')
+      .in('id', charIds);
+
+    // Build snapshots
+    const snapshots = chars.map(c => {
+      const s = c.stats || {};
+      return {
+        character_id: c.id,
+        name: c.name,
+        level: c.level,
+        class: c.class,
+        attackPower: s.attackPower || 100,
+        maxHp: s.maxHp || 1000,
+        armor: s.armor || 0,
+        hit: s.hit || 0,
+        dodge: s.dodge || 0,
+        crit: s.crit || 0,
+        lifeSteal: s.lifeSteal || 0,
+        arena_points: c.arena_points || 1000,
+      };
+    });
+
+    // Shuffle and create bracket
+    const shuffled = snapshots.sort(() => Math.random() - 0.5);
+    const bracket = [];
+    for(let i = 0; i < shuffled.length; i += 2) {
+      bracket.push({
+        round: 1,
+        player1: shuffled[i],
+        player2: shuffled[i+1] || null,
+        winner: null,
+      });
+    }
+
+    await dbClient.from('arena_tournaments').update({
+      status: 'in_progress',
+      bracket: bracket,
+      round: 1,
+    }).eq('id', tournamentId);
+
+    await runTournamentRound(tournamentId, bracket, 1);
+  } catch(e) { console.error('Start tournament error:', e); }
+}
+
+// ── RUN A TOURNAMENT ROUND ──
+async function runTournamentRound(tournamentId, bracket, round) {
+  try {
+    const roundMatches = bracket.filter(m => m.round === round);
+    const nextBracket = [...bracket];
+    const winners = [];
+
+    for(const match of roundMatches) {
+      if(!match.player2) {
+        // Bye — player1 advances automatically
+        match.winner = match.player1;
+        winners.push(match.player1);
+        continue;
+      }
+
+      const result = simulateBattle(match.player1, match.player2);
+      match.winner = result.winnerId === match.player1.character_id ? match.player1 : match.player2;
+      match.battleLog = result.log;
+      match.turns = result.turns;
+      winners.push(match.winner);
+
+      // Save battle record
+      await dbClient.from('arena_battles').insert({
+        attacker_id: match.player1.character_id,
+        defender_id: match.player2.character_id,
+        winner_id: result.winnerId,
+        attacker_snapshot: match.player1,
+        defender_snapshot: match.player2,
+        battle_log: result.log,
+        points_change: 25,
+      });
+
+      // Update arena points
+      const loserId = result.winnerId === match.player1.character_id
+        ? match.player2.character_id : match.player1.character_id;
+      await dbClient.from('characters')
+        .update({ arena_wins: dbClient.rpc('increment', { x: 1 }) })
+        .eq('id', result.winnerId);
+      // Points: winner +25, loser -15
+      const { data: winChar } = await dbClient.from('characters').select('arena_points').eq('id', result.winnerId).single();
+      const { data: loseChar } = await dbClient.from('characters').select('arena_points').eq('id', loserId).single();
+      if(winChar) await dbClient.from('characters').update({ arena_points: (winChar.arena_points||1000) + 25 }).eq('id', result.winnerId);
+      if(loseChar) await dbClient.from('characters').update({ arena_points: Math.max(0,(loseChar.arena_points||1000) - 15) }).eq('id', loserId);
+    }
+
+    // Check if tournament is over
+    if(winners.length === 1) {
+      await finalizeTournament(tournamentId, nextBracket, winners[0]);
+      return;
+    }
+
+    // Create next round matches
+    const nextRound = round + 1;
+    for(let i = 0; i < winners.length; i += 2) {
+      nextBracket.push({
+        round: nextRound,
+        player1: winners[i],
+        player2: winners[i+1] || null,
+        winner: null,
+      });
+    }
+
+    await dbClient.from('arena_tournaments').update({
+      bracket: nextBracket,
+      round: nextRound,
+    }).eq('id', tournamentId);
+
+    await runTournamentRound(tournamentId, nextBracket, nextRound);
+  } catch(e) { console.error('Run round error:', e); }
+}
+
+// ── FINALIZE TOURNAMENT ──
+async function finalizeTournament(tournamentId, bracket, champion) {
+  try {
+    // Get top 4 from bracket
+    const { data: regs } = await dbClient
+      .from('arena_registrations')
+      .select('character_id')
+      .eq('tournament_id', tournamentId);
+
+    // Give participation gold to all
+    for(const reg of regs) {
+      const { data: c } = await dbClient.from('characters').select('gold').eq('id', reg.character_id).single();
+      if(c) await dbClient.from('characters').update({ gold: c.gold + DAILY_REWARDS.participation.gold }).eq('id', reg.character_id);
+    }
+
+    // Give champion rewards
+    const { data: champ } = await dbClient.from('characters').select('gold, arena_points').eq('id', champion.character_id).single();
+    if(champ) {
+      await dbClient.from('characters').update({
+        gold: champ.gold + DAILY_REWARDS[1].gold,
+        arena_points: (champ.arena_points||1000) + 100,
+        arena_title: DAILY_REWARDS[1].title,
+      }).eq('id', champion.character_id);
+    }
+
+    await dbClient.from('arena_tournaments').update({
+      status: 'completed',
+      bracket: bracket,
+      winner_id: champion.character_id,
+    }).eq('id', tournamentId);
+
+    addLog(`🏆 Tournament complete! Champion: ${champion.name}!`, 'legendary');
+    notify(`🏆 ${champion.name} wins the tournament!`, 'var(--gold)');
+
+    // Refresh if current player is champion
+    if(champion.character_id === state.character_id) {
+      state.gold += DAILY_REWARDS[1].gold;
+      state.arena_points = (state.arena_points||1000) + 100;
+      updateUI();
+      notify(`🏆 You are the Champion! +${formatNumber(DAILY_REWARDS[1].gold)}g!`, 'var(--gold)');
+    }
+
+    renderArena();
+  } catch(e) { console.error('Finalize tournament error:', e); }
+}
+
+// ── RENDER ARENA UI ──
+async function renderArena() {
+  const container = document.getElementById('arena-content');
+  if(!container) return;
+
+  container.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:20px;">Loading...</div>';
+
+  try {
+    // Get player arena stats
+    const { data: me } = await dbClient
+      .from('characters')
+      .select('arena_points, arena_title, arena_wins, arena_losses')
+      .eq('id', state.character_id)
+      .single();
+
+    const points = me?.arena_points || 1000;
+    const titleInfo = getArenaTitle(points);
+    const wins = me?.arena_wins || 0;
+    const losses = me?.arena_losses || 0;
+
+    // Get current open tournament
+    const { data: tournament } = await dbClient
+      .from('arena_tournaments')
+      .select('*')
+      .in('status', ['open','in_progress'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    // Get registration count
+    let regCount = 0;
+    let isRegistered = false;
+    if(tournament) {
+      const { count } = await dbClient
+        .from('arena_registrations')
+        .select('*', { count: 'exact' })
+        .eq('tournament_id', tournament.id);
+      regCount = count || 0;
+
+      const { data: myReg } = await dbClient
+        .from('arena_registrations')
+        .select('id')
+        .eq('tournament_id', tournament.id)
+        .eq('character_id', state.character_id)
+        .single();
+      isRegistered = !!myReg;
+    }
+
+    // Get recent battles
+    const { data: battles } = await dbClient
+      .from('arena_battles')
+      .select('*')
+      .or(`attacker_id.eq.${state.character_id},defender_id.eq.${state.character_id}`)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    // Get top players
+    const { data: topPlayers } = await dbClient
+      .from('characters')
+      .select('name, class, level, arena_points, arena_title')
+      .order('arena_points', { ascending: false })
+      .limit(10);
+
+    container.innerHTML = `
+      <!-- Player Arena Card -->
+      <div class="char-panel" style="margin-bottom:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div>
+            <div style="font-family:var(--font-title);font-size:1em;color:${titleInfo.color};">${titleInfo.title}</div>
+            <div style="font-size:.78em;color:var(--text-dim);">${points} Arena Points</div>
+          </div>
+          <div style="text-align:right;font-size:.78em;">
+            <div style="color:var(--green);">W: ${wins}</div>
+            <div style="color:var(--red);">L: ${losses}</div>
+          </div>
+        </div>
+        <div style="height:6px;background:rgba(255,255,255,0.07);border-radius:3px;overflow:hidden;">
+          <div style="height:100%;width:${Math.min(100,(points/3000)*100)}%;background:${titleInfo.color};border-radius:3px;transition:width .3s;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:.65em;color:var(--text-dim);margin-top:3px;">
+          <span>0</span><span>Fighter 1000</span><span>Champion 2000</span><span>Eternal 3000</span>
+        </div>
+      </div>
+
+      <!-- Tournament Status -->
+      <div class="char-panel" style="margin-bottom:12px;">
+        <div class="panel-title">⚔️ Tournament</div>
+        ${tournament ? `
+          <div style="font-size:.82em;margin-bottom:10px;">
+            <div style="color:${tournament.status==='open'?'var(--green)':'var(--gold)'};">
+              ${tournament.status==='open'?'🟢 Open — Accepting Players':'🟡 In Progress'}
+            </div>
+            <div style="color:var(--text-dim);margin-top:4px;">
+              Players: ${regCount}/${TOURNAMENT_SIZE}
+              ${tournament.status==='open'?`<div style="height:4px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden;margin-top:4px;"><div style="height:100%;width:${(regCount/TOURNAMENT_SIZE)*100}%;background:var(--gold);border-radius:2px;"></div></div>`:''}
+            </div>
+          </div>
+          ${tournament.status==='open' && !isRegistered ?
+            `<button class="start-btn" onclick="registerForTournament()" style="width:100%;padding:10px;">⚔️ Join Tournament (+1,000g participation)</button>` :
+            tournament.status==='open' && isRegistered ?
+            `<div style="text-align:center;color:var(--green);font-size:.82em;padding:8px;">✅ Registered! Waiting for more players...</div>` :
+            `<button class="start-btn" onclick="viewBracket()" style="width:100%;padding:10px;">📊 View Bracket</button>`
+          }
+        ` : `
+          <div style="text-align:center;color:var(--text-dim);font-size:.82em;padding:8px 0 12px;">No active tournament</div>
+          <button class="start-btn" onclick="registerForTournament()" style="width:100%;padding:10px;">⚔️ Start New Tournament</button>
+        `}
+        <div style="margin-top:8px;font-size:.72em;color:var(--text-dim);">
+          🏆 1st: +50,000g &nbsp; 🥈 2nd: +25,000g &nbsp; 🥉 3rd: +12,000g &nbsp; All: +1,000g
+        </div>
+      </div>
+
+      <!-- Recent Battles -->
+      ${battles && battles.length ? `
+        <div class="char-panel" style="margin-bottom:12px;">
+          <div class="panel-title">Recent Battles</div>
+          ${battles.map(b => {
+            const isWinner = b.winner_id === state.character_id;
+            const opponent = b.attacker_id === state.character_id ? b.defender_snapshot : b.attacker_snapshot;
+            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:.78em;">
+              <span style="color:${isWinner?'var(--green)':'var(--red)'};">${isWinner?'WIN':'LOSS'}</span>
+              <span>vs ${opponent?.name||'Unknown'} (Lv.${opponent?.level||'?'})</span>
+              <span style="color:${isWinner?'var(--green)':'var(--red)'};">${isWinner?'+25':'-15'} pts</span>
+              <button onclick="viewBattleLog('${b.id}')" style="background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text-dim);font-size:.7em;padding:2px 8px;cursor:pointer;">Log</button>
+            </div>`;
+          }).join('')}
+        </div>
+      ` : ''}
+
+      <!-- Top Players -->
+      <div class="char-panel">
+        <div class="panel-title">🏆 Arena Rankings</div>
+        ${topPlayers ? topPlayers.map((p,i) => {
+          const t = getArenaTitle(p.arena_points||1000);
+          return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:.78em;">
+            <span style="width:20px;color:var(--text-dim);">${i+1}</span>
+            <span style="flex:1;font-family:var(--font-title);font-size:.85em;">${p.name}</span>
+            <span style="color:var(--text-dim);">Lv.${p.level}</span>
+            <span style="color:${t.color};font-size:.75em;">${t.title}</span>
+            <span style="color:var(--gold);font-family:var(--font-title);font-size:.8em;">${p.arena_points||1000}</span>
+          </div>`;
+        }).join('') : ''}
+      </div>`;
+
+  } catch(e) { container.innerHTML = '<div style="text-align:center;color:var(--red);padding:20px;">Failed to load arena.</div>'; console.error(e); }
+}
+
+// ── VIEW BATTLE LOG ──
+async function viewBattleLog(battleId) {
+  const { data: battle } = await dbClient.from('arena_battles').select('*').eq('id', battleId).single();
+  if(!battle) return;
+
+  const log = battle.battle_log || [];
+  const popup = document.getElementById('item-popup');
+  document.getElementById('item-popup-content').innerHTML = `
+    <div style="font-family:var(--font-title);color:var(--gold);margin-bottom:12px;font-size:.9em;">⚔️ Battle Log</div>
+    <div style="max-height:300px;overflow-y:auto;font-size:.75em;line-height:1.9;color:var(--text);">
+      ${log.map(l => `<div style="border-bottom:1px solid rgba(255,255,255,0.04);padding:2px 0;">${l}</div>`).join('')}
+    </div>
+    <div style="text-align:center;margin-top:12px;">
+      <button class="start-btn" onclick="closeItemPopup()">✖ Close</button>
+    </div>`;
+  popup.style.display = 'flex';
+}
+
+// ── VIEW BRACKET ──
+async function viewBracket() {
+  const { data: tournament } = await dbClient
+    .from('arena_tournaments')
+    .select('*')
+    .in('status', ['open','in_progress'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if(!tournament) return;
+  const bracket = tournament.bracket || [];
+  const rounds = [...new Set(bracket.map(m => m.round))].sort();
+
+  document.getElementById('item-popup-content').innerHTML = `
+    <div style="font-family:var(--font-title);color:var(--gold);margin-bottom:12px;font-size:.9em;">📊 Tournament Bracket</div>
+    <div style="max-height:380px;overflow-y:auto;">
+      ${rounds.map(r => `
+        <div style="margin-bottom:12px;">
+          <div style="font-family:var(--font-title);font-size:.72em;color:var(--text-dim);letter-spacing:2px;margin-bottom:6px;">ROUND ${r}</div>
+          ${bracket.filter(m=>m.round===r).map(m=>`
+            <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:6px;font-size:.78em;">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span style="color:${m.winner?.character_id===m.player1?.character_id?'var(--green)':'var(--text)'};">${m.player1?.name||'TBD'}</span>
+                <span style="color:var(--text-dim);font-size:.7em;">VS</span>
+                <span style="color:${m.winner?.character_id===m.player2?.character_id?'var(--green)':'var(--text)'};">${m.player2?.name||'BYE'}</span>
+              </div>
+              ${m.winner?`<div style="text-align:center;color:var(--gold);font-size:.7em;margin-top:4px;">Winner: ${m.winner.name}</div>`:''}
+            </div>
+          `).join('')}
+        </div>
+      `).join('')}
+    </div>
+    <div style="text-align:center;margin-top:8px;">
+      <button class="start-btn" onclick="closeItemPopup()">✖ Close</button>
+    </div>`;
+  document.getElementById('item-popup').style.display = 'flex';
+}
+
 // ===== ENEMY STATS DISPLAY MANAGER =====
 
 const enemyStatsPanel = document.getElementById('enemy-stats-panel');
