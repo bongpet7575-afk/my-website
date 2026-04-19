@@ -626,8 +626,9 @@ const SCENES={
       {text:'😈 Demon Citadel (Lv 70+)',  next:'dungeon_8'},
       {text:'🌑 Shadow Realm (Lv 80+)',   next:'dungeon_9'},
       {text:'🌟 Eternal Kingdom (Lv 90+)',next:'dungeon_10'},
-      {text:'🏪 Shop',                    next:'shop_scene'},
+      {text:'🏪 Shop', action:()=>{ switchMainScene('town'); switchTownPanel('shop', document.querySelector('.town-tab:nth-child(2)')); }},
       {text:'⛪ Inn (+50% HP and MP, 5g)',       next:'inn'},
+      {text:'👤 Character', action:()=>{ switchMainScene('char'); }},
     ]},
   dungeon_1:{title:'🐺 Wolf Mountain',text:'The howling mountain awaits.',choices:[{text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:1},{text:'🏘️ Town',next:'town'}]},
   dungeon_2:{title:'🕷️ Spider Cavern',text:'Dark webs cover every surface.',choices:[{text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:2},{text:'🏘️ Town',next:'town'}]},
@@ -931,10 +932,11 @@ function loadScene(sceneId){
   const box=document.getElementById('choices-box');box.innerHTML='';box.style.display='flex';
   scene.choices.forEach(c=>{
     const btn=document.createElement('button');btn.className='choice-btn fade-in';btn.innerHTML=c.text;
-    if(c.enemy)btn.onclick=()=>startCombat(c.enemy,false);
-    else if(c.bossId)btn.onclick=()=>triggerBoss(c.bossId);
-    else if(c.next==='enter_dungeon')btn.onclick=()=>enterDungeon(c.stageId);
-    else btn.onclick=()=>loadScene(c.next);
+    if(c.action)btn.onclick=()=>c.action();
+else if(c.enemy)btn.onclick=()=>startCombat(c.enemy,false);
+else if(c.bossId)btn.onclick=()=>triggerBoss(c.bossId);
+else if(c.next==='enter_dungeon')btn.onclick=()=>enterDungeon(c.stageId);
+else btn.onclick=()=>loadScene(c.next);
     box.appendChild(btn);
   });
   updateUI();updateAutoFightBtn();

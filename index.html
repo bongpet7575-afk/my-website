@@ -700,6 +700,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <div id="main-scene-char" class="main-scene" style="display:none;flex-direction:column;overflow-y:auto;padding:12px;gap:12px;background:var(--bg);">
 
       <div id="tutorial-indicator"></div>
+      <!-- Scene Nav -->
+      <div style="display:flex;gap:8px;flex-shrink:0;margin-bottom:4px;">
+        <button onclick="switchMainScene('adv')" style="flex:1;padding:10px;background:rgba(200,168,75,0.08);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-dim);font-family:var(--font-title);font-size:.68em;letter-spacing:1px;cursor:pointer;">⚔️ Adventure</button>
+        <button onclick="switchMainScene('town')" style="flex:1;padding:10px;background:rgba(200,168,75,0.08);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-dim);font-family:var(--font-title);font-size:.68em;letter-spacing:1px;cursor:pointer;">🏘️ Town</button>
+      </div>
 
       <!-- Primary Stats -->
       <div class="char-panel">
@@ -906,7 +911,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
         <button class="town-tab" onclick="switchTownPanel('craft',this)">⚗️ Craft</button>
         <button class="town-tab" onclick="switchTownPanel('auction',this)">🏛️ AH</button>
       </div>
-
+        <!-- Scene Nav -->
+      <div style="display:flex;gap:8px;padding:8px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;">
+         <button onclick="switchMainScene('char')" style="flex:1;padding:10px;background:rgba(200,168,75,0.08);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-dim);font-family:var(--font-title);font-size:.68em;letter-spacing:1px;cursor:pointer;">👤 Character</button>
+         <button onclick="switchMainScene('adv')" style="flex:1;padding:10px;background:rgba(200,168,75,0.08);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-dim);font-family:var(--font-title);font-size:.68em;letter-spacing:1px;cursor:pointer;">⚔️ Adventure</button>
+      </div>
       <div class="town-content">
 
         <!-- INVENTORY -->
