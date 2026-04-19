@@ -1078,6 +1078,7 @@ function autoFightStep(){
 
 // ── END COMBAT ── (fixed: no more double gold/XP)
 function endCombat(won){
+  const es=document.getElementById('enemy-stats');if(es)es.style.display='none';
   if(!currentEnemy)return;
 
   // Clear boss debuffs
@@ -1254,8 +1255,8 @@ function startCombat(enemyId,isBoss){
 }
 function startCombatWith(enemy){
   autoSkillIndex=0;
-  document.getElementById('enemy-hp-val').textContent=enemy.hp;
-  document.getElementById('enemy-hp-max').textContent=enemy.maxHp;
+  document.getElementById('enemy-hp-val').textContent=formatNumber(enemy.hp);
+  document.getElementById('enemy-hp-max').textContent=formatNumber(enemy.maxHp);
   const el=document.getElementById('arena-enemy');
   if(enemy.icon&&!enemy.icon.includes(' ')&&enemy.icon.length<20){el.innerHTML=`<img src="${enemy.icon}.jpg" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:2px solid var(--red);">`;}
   else{el.textContent=enemy.icon;}
@@ -1264,7 +1265,25 @@ function startCombatWith(enemy){
   document.getElementById('combat-log').innerHTML='';
   document.getElementById('combat-box').style.display='block';
   document.getElementById('choices-box').style.display='none';
-  document.getElementById('story-content').innerHTML=`<div class="scene-title">⚔️ Combat!</div><p><strong style="color:var(--red)">${enemy.name}</strong> appears!${enemy.boss?'<br><span style="color:var(--gold)">⚠️ BOSS BATTLE!</span>':''}</p>`;
+
+  // Enemy stats under their HP bar
+  const es=document.getElementById('enemy-stats');
+  if(es){
+    es.style.display='block';
+    es.innerHTML=`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 6px;font-size:.65em;">
+        <span style="color:var(--text-dim);">⚔️ ATK <strong style="color:var(--red)">${formatNumber(enemy.atk)}</strong></span>
+        <span style="color:var(--text-dim);">🛡️ ARM <strong style="color:var(--text)">${formatNumber(enemy.armor||0)}</strong></span>
+        <span style="color:var(--text-dim);">🎯 HIT <strong style="color:var(--text)">${formatNumber(enemy.hit||0)}</strong></span>
+        <span style="color:var(--text-dim);">💨 DDG <strong style="color:var(--text)">${formatNumber(enemy.dodge||0)}</strong></span>
+        ${enemy.ability?`<span style="color:var(--red);grid-column:span 2;">⚡ ${enemy.ability.name}</span>`:''}
+      </div>`;
+  }
+
+  document.getElementById('story-content').innerHTML=`
+    <div class="scene-title">⚔️ Combat!</div>
+    <p><strong style="color:var(--red)">${enemy.name}</strong> appears!${enemy.boss?'<span style="color:var(--gold);margin-left:6px;">⚠️ BOSS BATTLE!</span>':''}</p>`;
+
   document.getElementById('arena-player').innerHTML='<img src="warrior.jpg" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:2px solid var(--dark-gold);">';
   updateAutoFightBtn();
 }
