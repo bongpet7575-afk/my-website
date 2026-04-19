@@ -177,9 +177,9 @@ const state={
 
 // ── DIFFICULTY ──
 const DIFFICULTY={
-  normal:{ label:'Normal',icon:'⚔️',color:'#cccccc',levelReq:0,hpMult:1,atkMult:1,hitMul:1,dodgeMult:1,goldMult:1,xpMult:1,rarityBonus:0,legendaryChance:0.0001 },
-  hard:{   label:'Hard',  icon:'🔥',color:'#ff8800',levelReq:20,hpMult:3,atkMult:3,hitMul:3,dodgeMult:3,goldMult:3,xpMult:3,rarityBonus:2,legendaryChance:0.0002 },
-  hell:{   label:'Hell',  icon:'💀',color:'#ff2222',levelReq:50,hpMult:5,atkMult:5,hitMul:5,dodgeMult:5,goldMult:5,xpMult:5,rarityBonus:3,legendaryChance:0.0003 },
+  normal:{ label:'Normal',icon:'⚔️',color:'#cccccc',levelReq:0,hpMult:1,atkMult:1,armorMult:1,hitMul:1,dodgeMult:1,goldMult:1,xpMult:1,rarityBonus:0,legendaryChance:0.0001 },
+  hard:{   label:'Hard',  icon:'🔥',color:'#ff8800',levelReq:40,hpMult:4,atkMult:4,armorMult:10,hitMul:10,dodgeMult:10,goldMult:1.5,xpMult:1.5,rarityBonus:0,legendaryChance:0.0002 },
+  hell:{   label:'Hell',  icon:'💀',color:'#ff2222',levelReq:80,hpMult:8,atkMult:8,armorMult:20,hitMul:20,dodgeMult:20,goldMult:2,xpMult:2,rarityBonus:1,legendaryChance:0.0003 },
 };
 function setDifficulty(diff){
   const d=DIFFICULTY[diff];
@@ -343,63 +343,63 @@ function switchMainScene(scene){
 const MONSTER_TEMPLATES = {
   // Stage 1 — Level 1-9 — atk ~player lvl1 ATK (80), HP takes ~15 hits
   young_wolf:      {id:'young_wolf',     name:'🐺 Young Wolf',      icon:'wolf',    hp:1200,   atk:60,    armor:40,   hit:80,   dodge:50,   xp:800,   gold:[300,600]},
-  forest_wolf:     {id:'forest_wolf',    name:'🐺 Forest Wolf',     icon:'wolf',    hp:1800,   atk:80,    armor:60,   hit:100,  dodge:70,   xp:1200,  gold:[500,1000]},
-  shadow_wolf:     {id:'shadow_wolf',    name:'🐺 Shadow Wolf',     icon:'wolf',    hp:2400,   atk:100,   armor:80,   hit:120,  dodge:90,   xp:1600,  gold:[800,1400]},
-  dire_wolf:       {id:'dire_wolf',      name:'🐺 Dire Wolf',       icon:'wolf',    hp:3200,   atk:130,   armor:100,  hit:150,  dodge:110,  xp:2000,  gold:[1000,1800]},
+  forest_wolf:     {id:'forest_wolf',    name:'🐺 Forest Wolf',     icon:'wolf',    hp:1800,   atk:120,    armor:100,   hit:160,  dodge:130,   xp:1200,  gold:[500,1000]},
+  shadow_wolf:     {id:'shadow_wolf',    name:'🐺 Shadow Wolf',     icon:'wolf',    hp:2400,   atk:240,   armor:200,   hit:220,  dodge:190,   xp:1600,  gold:[800,1400]},
+  dire_wolf:       {id:'dire_wolf',      name:'🐺 Dire Wolf',       icon:'wolf',    hp:3200,   atk:400,   armor:380,  hit:350,  dodge:250,  xp:2000,  gold:[1000,1800]},
 
   // Stage 2 — Level 10-19 — player ATK ~290, HP ~1730
-  cave_spider:     {id:'cave_spider',    name:'🕷️ Cave Spider',     icon:'spider',  hp:8000,   atk:220,   armor:200,  hit:250,  dodge:200,  xp:2400,  gold:[1200,2000]},
-  venom_spider:    {id:'venom_spider',   name:'🕷️ Venom Spider',    icon:'spider',  hp:12000,  atk:280,   armor:260,  hit:320,  dodge:260,  xp:3000,  gold:[1600,2600]},
-  giant_spider:    {id:'giant_spider',   name:'🕷️ Giant Spider',    icon:'spider',  hp:18000,  atk:340,   armor:320,  hit:400,  dodge:320,  xp:3700,  gold:[2000,3200]},
-  queen_spider:    {id:'queen_spider',   name:'🕷️ Queen Spider',    icon:'spider',  hp:26000,  atk:420,   armor:400,  hit:500,  dodge:400,  xp:4500,  gold:[2500,4000]},
+  cave_spider:     {id:'cave_spider',    name:'🕷️ Cave Spider',     icon:'spider',  hp:8000,   atk:2200,   armor:2000,  hit:1200,  dodge:800,  xp:2400,  gold:[1200,2000]},
+  venom_spider:    {id:'venom_spider',   name:'🕷️ Venom Spider',    icon:'spider',  hp:12000,  atk:2800,   armor:2600,  hit:1800,  dodge:1000,  xp:3000,  gold:[1600,2600]},
+  giant_spider:    {id:'giant_spider',   name:'🕷️ Giant Spider',    icon:'spider',  hp:18000,  atk:3400,   armor:3200,  hit:2000,  dodge:1600,  xp:3700,  gold:[2000,3200]},
+  queen_spider:    {id:'queen_spider',   name:'🕷️ Queen Spider',    icon:'spider',  hp:26000,  atk:4200,   armor:4000,  hit:2500,  dodge:1900,  xp:4500,  gold:[2500,4000]},
 
   // Stage 3 — Level 20-29 — player ATK ~620, HP ~3580
-  goblin_scout:    {id:'goblin_scout',   name:'👹 Goblin Scout',    icon:'goblin',  hp:40000,  atk:480,   armor:500,  hit:600,  dodge:480,  xp:5400,  gold:[3000,4800]},
-  goblin_warrior:  {id:'goblin_warrior', name:'👹 Goblin Warrior',  icon:'goblin',  hp:60000,  atk:580,   armor:620,  hit:720,  dodge:580,  xp:6500,  gold:[3800,5800]},
-  goblin_shaman:   {id:'goblin_shaman',  name:'👹 Goblin Shaman',   icon:'goblin',  hp:85000,  atk:700,   armor:760,  hit:870,  dodge:700,  xp:7800,  gold:[4600,7000]},
-  goblin_elite:    {id:'goblin_elite',   name:'👹 Goblin Elite',    icon:'goblin',  hp:120000, atk:860,   armor:940,  hit:1050, dodge:860,  xp:9400,  gold:[5600,8400]},
+  goblin_scout:    {id:'goblin_scout',   name:'👹 Goblin Scout',    icon:'goblin',  hp:40000,  atk:4800,   armor:3000,  hit:2000,  dodge:1000,  xp:5400,  gold:[3000,4800]},
+  goblin_warrior:  {id:'goblin_warrior', name:'👹 Goblin Warrior',  icon:'goblin',  hp:60000,  atk:5800,   armor:4200,  hit:3500,  dodge:2800,  xp:6500,  gold:[3800,5800]},
+  goblin_shaman:   {id:'goblin_shaman',  name:'👹 Goblin Shaman',   icon:'goblin',  hp:85000,  atk:7000,   armor:5000,  hit:4000,  dodge:3000,  xp:7800,  gold:[4600,7000]},
+  goblin_elite:    {id:'goblin_elite',   name:'👹 Goblin Elite',    icon:'goblin',  hp:120000, atk:8600,   armor:6400,  hit:5500, dodge:4800,  xp:9400,  gold:[5600,8400]},
 
   // Stage 4 — Level 30-39 — player ATK ~1050, HP ~6280
-  skeleton_archer: {id:'skeleton_archer',name:'💀 Skeleton Archer', icon:'skeleton',hp:160000, atk:1000,  armor:1100, hit:1250, dodge:1000, xp:11000, gold:[6600,10000]},
-  skeleton_warrior:{id:'skeleton_warrior',name:'💀 Skeleton Warrior',icon:'skeleton',hp:220000, atk:1200,  armor:1380, hit:1500, dodge:1200, xp:13200, gold:[8000,12000]},
-  skeleton_mage:   {id:'skeleton_mage',  name:'💀 Skeleton Mage',   icon:'skeleton',hp:300000, atk:1450,  armor:1700, hit:1820, dodge:1450, xp:15800, gold:[9600,14400]},
-  skeleton_knight: {id:'skeleton_knight',name:'💀 Skeleton Knight', icon:'skeleton',hp:420000, atk:1750,  armor:2100, hit:2200, dodge:1750, xp:19000, gold:[11600,17400]},
+  skeleton_archer: {id:'skeleton_archer',name:'💀 Skeleton Archer', icon:'skeleton',hp:160000, atk:10000,  armor:8000, hit:6500, dodge:5000, xp:11000, gold:[6600,10000]},
+  skeleton_warrior:{id:'skeleton_warrior',name:'💀 Skeleton Warrior',icon:'skeleton',hp:220000, atk:12000,  armor:10800, hit:8000, dodge:6000, xp:13200, gold:[8000,12000]},
+  skeleton_mage:   {id:'skeleton_mage',  name:'💀 Skeleton Mage',   icon:'skeleton',hp:300000, atk:14500,  armor:12700, hit:10200, dodge:9500, xp:15800, gold:[9600,14400]},
+  skeleton_knight: {id:'skeleton_knight',name:'💀 Skeleton Knight', icon:'skeleton',hp:420000, atk:17500,  armor:14100, hit:12000, dodge:10500, xp:19000, gold:[11600,17400]},
 
   // Stage 5 — Level 40-49 — player ATK ~1580, HP ~9780
-  orc_grunt:       {id:'orc_grunt',      name:'👊 Orc Grunt',       icon:'orc',     hp:560000, atk:2000,  armor:2500, hit:2500, dodge:2000, xp:22800, gold:[14000,21000]},
-  orc_warrior:     {id:'orc_warrior',    name:'👊 Orc Warrior',     icon:'orc',     hp:760000, atk:2400,  armor:3100, hit:3000, dodge:2400, xp:27400, gold:[16800,25200]},
-  orc_shaman:      {id:'orc_shaman',     name:'👊 Orc Shaman',      icon:'orc',     hp:1000000,atk:2900,  armor:3800, hit:3600, dodge:2900, xp:32800, gold:[20200,30200]},
-  orc_berserker:   {id:'orc_berserker',  name:'👊 Orc Berserker',   icon:'orc',     hp:1400000,atk:3500,  armor:4700, hit:4400, dodge:3500, xp:39400, gold:[24200,36400]},
+  orc_grunt:       {id:'orc_grunt',      name:'👊 Orc Grunt',       icon:'orc',     hp:560000, atk:20000,  armor:17000, hit:15000, dodge:12000, xp:22800, gold:[14000,21000]},
+  orc_warrior:     {id:'orc_warrior',    name:'👊 Orc Warrior',     icon:'orc',     hp:760000, atk:24000,  armor:21000, hit:18000, dodge:13000, xp:27400, gold:[16800,25200]},
+  orc_shaman:      {id:'orc_shaman',     name:'👊 Orc Shaman',      icon:'orc',     hp:1000000,atk:29000,  armor:24000, hit:20000, dodge:17000, xp:32800, gold:[20200,30200]},
+  orc_berserker:   {id:'orc_berserker',  name:'👊 Orc Berserker',   icon:'orc',     hp:1400000,atk:35000,  armor:29000, hit:22000, dodge:19000, xp:39400, gold:[24200,36400]},
 
   // Stage 6 — Level 50-59 — player ATK ~2210, HP ~14080
-  vampire_thrall:  {id:'vampire_thrall', name:'🧛 Vampire Thrall',  icon:'vampire', hp:1800000,atk:4200,  armor:5800, hit:5200, dodge:4200, xp:47200, gold:[29000,43600]},
-  vampire_hunter:  {id:'vampire_hunter', name:'🧛 Vampire Hunter',  icon:'vampire', hp:2400000,atk:5000,  armor:7000, hit:6200, dodge:5000, xp:56800, gold:[35000,52400]},
-  vampire_noble:   {id:'vampire_noble',  name:'🧛 Vampire Noble',   icon:'vampire', hp:3200000,atk:6000,  armor:8500, hit:7500, dodge:6000, xp:68200, gold:[42000,63000]},
-  vampire_elder:   {id:'vampire_elder',  name:'🧛 Vampire Elder',   icon:'vampire', hp:4200000,atk:7200,  armor:10000,hit:9000, dodge:7200, xp:81800, gold:[50400,75600]},
+  vampire_thrall:  {id:'vampire_thrall', name:'🧛 Vampire Thrall',  icon:'vampire', hp:1800000,atk:42000,  armor:35000, hit:26000, dodge:22000, xp:47200, gold:[29000,43600]},
+  vampire_hunter:  {id:'vampire_hunter', name:'🧛 Vampire Hunter',  icon:'vampire', hp:2400000,atk:50000,  armor:40000, hit:30000, dodge:25000, xp:56800, gold:[35000,52400]},
+  vampire_noble:   {id:'vampire_noble',  name:'🧛 Vampire Noble',   icon:'vampire', hp:3200000,atk:60000,  armor:50000, hit:40000, dodge:30000, xp:68200, gold:[42000,63000]},
+  vampire_elder:   {id:'vampire_elder',  name:'🧛 Vampire Elder',   icon:'vampire', hp:4200000,atk:72000,  armor:60000,hit:48000, dodge:38200, xp:81800, gold:[50400,75600]},
 
   // Stage 7 — Level 60-69 — player ATK ~2940, HP ~19180
-  cave_troll:      {id:'cave_troll',     name:'👾 Cave Troll',      icon:'troll',   hp:5500000,atk:8500,  armor:12000,hit:10500,dodge:8500, xp:98200, gold:[60500,90800]},
-  rock_troll:      {id:'rock_troll',     name:'👾 Rock Troll',      icon:'troll',   hp:7200000,atk:10000, armor:14500,hit:12500,dodge:10000,xp:117800,gold:[72600,109000]},
-  frost_troll:     {id:'frost_troll',    name:'👾 Frost Troll',     icon:'troll',   hp:9500000,atk:12000, armor:17500,hit:15000,dodge:12000,xp:141400,gold:[87200,130800]},
-  war_troll:       {id:'war_troll',      name:'👾 War Troll',       icon:'troll',   hp:12500000,atk:14500,armor:21000,hit:18000,dodge:14500,xp:169600,gold:[104600,157000]},
+  cave_troll:      {id:'cave_troll',     name:'👾 Cave Troll',      icon:'troll',   hp:5500000,atk:85000,  armor:66000,hit:40500,dodge:30500, xp:98200, gold:[60500,90800]},
+  rock_troll:      {id:'rock_troll',     name:'👾 Rock Troll',      icon:'troll',   hp:7200000,atk:100000, armor:84500,hit:62500,dodge:45000,xp:117800,gold:[72600,109000]},
+  frost_troll:     {id:'frost_troll',    name:'👾 Frost Troll',     icon:'troll',   hp:9500000,atk:120000, armor:97500,hit:75000,dodge:55000,xp:141400,gold:[87200,130800]},
+  war_troll:       {id:'war_troll',      name:'👾 War Troll',       icon:'troll',   hp:12500000,atk:145000,armor:111000,hit:80000,dodge:70500,xp:169600,gold:[104600,157000]},
 
   // Stage 8 — Level 70-79 — player ATK ~3770, HP ~25080
-  demon_scout:     {id:'demon_scout',    name:'😈 Demon Scout',     icon:'demon',   hp:16000000,atk:17000,armor:25000,hit:21000,dodge:17000,xp:203600,gold:[125600,188400]},
-  demon_warrior:   {id:'demon_warrior',  name:'😈 Demon Warrior',   icon:'demon',   hp:21000000,atk:20000,armor:30000,hit:25000,dodge:20000,xp:244400,gold:[150800,226200]},
-  demon_mage:      {id:'demon_mage',     name:'😈 Demon Mage',      icon:'demon',   hp:27000000,atk:24000,armor:36000,hit:30000,dodge:24000,xp:293200,gold:[181000,271400]},
-  demon_knight:    {id:'demon_knight',   name:'😈 Demon Knight',    icon:'demon',   hp:35000000,atk:29000,armor:43000,hit:36000,dodge:29000,xp:351800,gold:[217200,325800]},
+  demon_scout:     {id:'demon_scout',    name:'😈 Demon Scout',     icon:'demon',   hp:16000000,atk:170000,armor:140000,hit:121000,dodge:87000,xp:203600,gold:[125600,188400]},
+  demon_warrior:   {id:'demon_warrior',  name:'😈 Demon Warrior',   icon:'demon',   hp:21000000,atk:200000,armor:170000,hit:125000,dodge:99000,xp:244400,gold:[150800,226200]},
+  demon_mage:      {id:'demon_mage',     name:'😈 Demon Mage',      icon:'demon',   hp:27000000,atk:240000,armor:206000,hit:160000,dodge:124000,xp:293200,gold:[181000,271400]},
+  demon_knight:    {id:'demon_knight',   name:'😈 Demon Knight',    icon:'demon',   hp:35000000,atk:290000,armor:223000,hit:186000,dodge:169000,xp:351800,gold:[217200,325800]},
 
   // Stage 9 — Level 80-89 — player ATK ~4700, HP ~31780
-  shadow_wraith:   {id:'shadow_wraith',  name:'🌑 Shadow Wraith',   icon:'werewolf',hp:44000000,atk:34000,armor:51000,hit:42000,dodge:34000,xp:422200,gold:[260600,391000]},
-  shadow_knight:   {id:'shadow_knight',  name:'🌑 Shadow Knight',   icon:'werewolf',hp:56000000,atk:40000,armor:60000,hit:50000,dodge:40000,xp:506600,gold:[312800,469200]},
-  shadow_mage:     {id:'shadow_mage',    name:'🌑 Shadow Mage',     icon:'werewolf',hp:70000000,atk:47000,armor:71000,hit:59000,dodge:47000,xp:608000,gold:[375400,563000]},
-  shadow_lord:     {id:'shadow_lord',    name:'🌑 Shadow Lord',     icon:'werewolf',hp:88000000,atk:55000,armor:83000,hit:69000,dodge:55000,xp:729600,gold:[450500,675800]},
+  shadow_wraith:   {id:'shadow_wraith',  name:'🌑 Shadow Wraith',   icon:'werewolf',hp:44000000,atk:340000,armor:310000,hit:220000,dodge:190000,xp:422200,gold:[260600,391000]},
+  shadow_knight:   {id:'shadow_knight',  name:'🌑 Shadow Knight',   icon:'werewolf',hp:56000000,atk:400000,armor:360000,hit:280000,dodge:220000,xp:506600,gold:[312800,469200]},
+  shadow_mage:     {id:'shadow_mage',    name:'🌑 Shadow Mage',     icon:'werewolf',hp:70000000,atk:470000,armor:411000,hit:340000,dodge:267000,xp:608000,gold:[375400,563000]},
+  shadow_lord:     {id:'shadow_lord',    name:'🌑 Shadow Lord',     icon:'werewolf',hp:88000000,atk:550000,armor:503000,hit:409000,dodge:305000,xp:729600,gold:[450500,675800]},
 
   // Stage 10 — Level 90-100 — player ATK ~5730, HP ~39280
-  eternal_guard:   {id:'eternal_guard',  name:'🌟 Eternal Guard',   icon:'phoenix', hp:110000000,atk:64000,armor:96000, hit:80000, dodge:64000,xp:875600, gold:[540600,811000]},
-  eternal_warrior: {id:'eternal_warrior',name:'🌟 Eternal Warrior', icon:'phoenix', hp:140000000,atk:75000,armor:112000,hit:94000, dodge:75000,xp:1050800,gold:[648800,973200]},
-  eternal_mage:    {id:'eternal_mage',   name:'🌟 Eternal Mage',    icon:'phoenix', hp:175000000,atk:88000,armor:130000,hit:110000,dodge:88000,xp:1261000,gold:[778600,1168000]},
-  eternal_champion:{id:'eternal_champion',name:'🌟 Eternal Champion',icon:'phoenix',hp:220000000,atk:104000,armor:152000,hit:130000,dodge:104000,xp:1513000,gold:[934400,1401600]},
+  eternal_guard:   {id:'eternal_guard',  name:'🌟 Eternal Guard',   icon:'phoenix', hp:110000000,atk:640000,armor:556000, hit:380000, dodge:334000,xp:875600, gold:[540600,811000]},
+  eternal_warrior: {id:'eternal_warrior',name:'🌟 Eternal Warrior', icon:'phoenix', hp:140000000,atk:750000,armor:612000,hit:444000, dodge:375000,xp:1050800,gold:[648800,973200]},
+  eternal_mage:    {id:'eternal_mage',   name:'🌟 Eternal Mage',    icon:'phoenix', hp:175000000,atk:880000,armor:730000,hit:511000,dodge:458000,xp:1261000,gold:[778600,1168000]},
+  eternal_champion:{id:'eternal_champion',name:'🌟 Eternal Champion',icon:'phoenix',hp:220000000,atk:1040000,armor:852000,hit:613000,dodge:504000,xp:1513000,gold:[934400,1401600]},
 };
 
 // ── STAGES ──
@@ -420,7 +420,7 @@ const STAGES=[
 const STAGE_BOSSES={
   // Boss 1 — after Stage 1 (player ~Lv9, ATK ~260, HP ~1580)
   stage_boss_1:{id:'stage_boss_1',name:'🐺 Wolf King',icon:'🐺',
-    hp:18000,atk:500,armor:400,hit:600,dodge:400,xp:12000,gold:[3000,6000],
+    hp:18000,atk:500,armor:400,hit:600,dodge:400,xp:4000,gold:[3000,6000],
     ability:{name:'PACK HOWL!',color:'#ffdd00',triggerEvery:3,effect:(e)=>{
       const d=Math.floor(e.atk*0.5);state.hp=Math.max(1,state.hp-d);
       spawnAbilityFloat('🐺 PACK HOWL!','#ffdd00');
@@ -430,7 +430,7 @@ const STAGE_BOSSES={
 
   // Boss 2 — after Stage 2 (player ~Lv19, ATK ~560, HP ~3380)
   stage_boss_2:{id:'stage_boss_2',name:'🕷️ Spider Queen',icon:'🕷️',
-    hp:120000,atk:1600,armor:1600,hit:2000,dodge:1600,xp:28000,gold:[8000,16000],
+    hp:120000,atk:8600,armor:6600,hit:5500,dodge:4600,xp:8000,gold:[8000,16000],
     ability:{name:'WEB TRAP!',color:'#44ff44',triggerEvery:3,effect:(e)=>{
       state.webTrapped=2;
       spawnAbilityFloat('🕸️ WEB TRAP!','#44ff44');
@@ -439,7 +439,7 @@ const STAGE_BOSSES={
 
   // Boss 3 — after Stage 3 (player ~Lv29, ATK ~940, HP ~6080)
   stage_boss_3:{id:'stage_boss_3',name:'👹 Goblin Warlord',icon:'👹',
-    hp:480000,atk:3200,armor:3500,hit:4000,dodge:3200,xp:56000,gold:[15000,28000],
+    hp:480000,atk:13200,armor:10500,hit:12000,dodge:10200,xp:16000,gold:[15000,28000],
     ability:{name:'GOLD STEAL!',color:'#f0c040',triggerEvery:3,effect:(e)=>{
       const s=Math.floor(state.gold*0.10);state.gold=Math.max(0,state.gold-s);
       spawnAbilityFloat('💰 GOLD STEAL!','#f0c040');
@@ -448,7 +448,7 @@ const STAGE_BOSSES={
 
   // Boss 4 — after Stage 4 (player ~Lv39, ATK ~1460, HP ~9480)
   stage_boss_4:{id:'stage_boss_4',name:'💀 Skeleton Lord',icon:'💀',
-    hp:1800000,atk:6500,armor:7500,hit:8500,dodge:6500,xp:110000,gold:[30000,55000],
+    hp:1800000,atk:29500,armor:22500,hit:18500,dodge:16500,xp:21000,gold:[30000,55000],
     ability:{name:'DEATH CURSE!',color:'#aa44ff',triggerEvery:3,effect:(e)=>{
       const r=Math.floor(state.maxHp*0.05);
       state.activeDebuffs.maxHpReduction+=r;
@@ -460,7 +460,7 @@ const STAGE_BOSSES={
 
   // Boss 5 — after Stage 5 (player ~Lv49, ATK ~2090, HP ~13880)
   stage_boss_5:{id:'stage_boss_5',name:'👊 Orc Chieftain',icon:'👊',
-    hp:6000000,atk:13000,armor:17000,hit:16000,dodge:13000,xp:220000,gold:[60000,110000],
+    hp:6000000,atk:63000,armor:53000,hit:46000,dodge:33000,xp:42000,gold:[60000,110000],
     ability:{name:'BERSERKER RAGE!',color:'#ff8800',triggerEvery:5,effect:(e)=>{
       currentEnemy.atk=Math.floor(currentEnemy.atk*2);
       currentEnemy.rageTimer=3;
@@ -470,7 +470,7 @@ const STAGE_BOSSES={
 
   // Boss 6 — after Stage 6 (player ~Lv59, ATK ~2820, HP ~19480)
   stage_boss_6:{id:'stage_boss_6',name:'🧛 Vampire Lord',icon:'🧛',
-    hp:18000000,atk:26000,armor:36000,hit:32000,dodge:26000,xp:420000,gold:[110000,200000],
+    hp:18000000,atk:120000,armor:96000,hit:72000,dodge:56000,xp:80000,gold:[110000,200000],
     ability:{name:'LIFE DRAIN!',color:'#ff2244',triggerEvery:3,effect:(e)=>{
       const h=Math.floor(currentEnemy.atk*0.2);
       currentEnemy.hp=Math.min(currentEnemy.maxHp,currentEnemy.hp+h);
@@ -481,7 +481,7 @@ const STAGE_BOSSES={
 
   // Boss 7 — after Stage 7 (player ~Lv69, ATK ~3650, HP ~26180)
   stage_boss_7:{id:'stage_boss_7',name:'👾 Troll King',icon:'👾',
-    hp:55000000,atk:52000,armor:76000,hit:65000,dodge:52000,xp:800000,gold:[200000,380000],
+    hp:55000000,atk:222000,armor:156000,hit:125000,dodge:92000,xp:160000,gold:[200000,380000],
     ability:{name:'REGENERATION!',color:'#00ff88',triggerEvery:2,effect:(e)=>{
       const h=Math.floor(currentEnemy.maxHp*0.03);
       currentEnemy.hp=Math.min(currentEnemy.maxHp,currentEnemy.hp+h);
@@ -492,7 +492,7 @@ const STAGE_BOSSES={
 
   // Boss 8 — after Stage 8 (player ~Lv79, ATK ~4580, HP ~33980)
   stage_boss_8:{id:'stage_boss_8',name:'😈 Demon Prince',icon:'😈',
-    hp:160000000,atk:105000,armor:155000,hit:130000,dodge:105000,xp:1500000,gold:[380000,700000],
+    hp:160000000,atk:405000,armor:255000,hit:160000,dodge:135000,xp:300000,gold:[380000,700000],
     ability:{name:'HELLFIRE!',color:'#ff4400',triggerEvery:3,effect:(e)=>{
       const d=Math.floor(currentEnemy.atk*0.8);
       state.hp=Math.max(1,state.hp-d);
@@ -503,7 +503,7 @@ const STAGE_BOSSES={
 
   // Boss 9 — after Stage 9 (player ~Lv89, ATK ~5660, HP ~43280)
   stage_boss_9:{id:'stage_boss_9',name:'🌑 Shadow Emperor',icon:'🌑',
-    hp:450000000,atk:210000,armor:300000,hit:260000,dodge:210000,xp:2800000,gold:[700000,1300000],
+    hp:450000000,atk:810000,armor:500000,hit:460000,dodge:210000,xp:600000,gold:[700000,1300000],
     ability:{name:'PHASE SHIFT!',color:'#4488ff',triggerEvery:3,effect:(e)=>{
       currentEnemy.phaseShifted=true;
       spawnAbilityFloat('🌑 PHASE SHIFT!','#4488ff');
@@ -512,7 +512,7 @@ const STAGE_BOSSES={
 
   // Boss 10 — FINAL BOSS (player ~Lv99, ATK ~6790, HP ~53580)
   stage_boss_10:{id:'stage_boss_10',name:'🌟 Eternal King',icon:'🌟',
-    hp:1200000000,atk:400000,armor:560000,hit:500000,dodge:400000,xp:6000000,gold:[1500000,3000000],
+    hp:1200000000,atk:1400000,armor:1060000,hit:800000,dodge:400000,xp:1000000,gold:[1500000,3000000],
     ability:{name:'ALL POWERS!',color:'#ffffff',triggerEvery:2,effect:(e)=>{
       const d=Math.floor(currentEnemy.atk*0.6);
       state.hp=Math.max(1,state.hp-d);
@@ -656,17 +656,17 @@ const SCENES={
 // ── SHOP ITEMS ──
 const SHOP_EQUIP=[
   {id:'s1',name:'⚔️ Iron Sword',price:200,slot:'weapon',rarity:'normal',stats:{str:20,lifeSteal:0.05,hit:15,crit:0.1}},
-  {id:'s2',name:'⚔️ Steel Sword',price:500,slot:'weapon',rarity:'uncommon',stats:{str:45,lifeSteal:0.06,hit:25,crit:0.2}},
+  {id:'s2',name:'⚔️ Steel Sword',price:500,slot:'weapon',rarity:'uncommon',levelReq:10,stats:{str:45,lifeSteal:0.06,hit:25,crit:0.2}},
   {id:'s5',name:'🛡️ Wooden Shield',price:200,slot:'armor',rarity:'normal',stats:{sta:15,armor:25,hpRegen:25,dodge:0.2}},
-  {id:'s6',name:'🛡️ Chain Mail',price:400,slot:'armor',rarity:'uncommon',stats:{sta:25,armor:55,hpRegen:50,dodge:0.5}},
+  {id:'s6',name:'🛡️ Chain Mail',price:400,slot:'armor',rarity:'uncommon',levelReq:10,stats:{sta:25,armor:55,hpRegen:50,dodge:0.5}},
   {id:'s9',name:'👢 Leather Boots',price:220,slot:'boots',rarity:'normal',stats:{agi:15,crit:0.1}},
-  {id:'s10',name:'👢 Swift Treads',price:550,slot:'boots',rarity:'uncommon',stats:{agi:30,dodge:0.2}},
+  {id:'s10',name:'👢 Swift Treads',price:550,slot:'boots',rarity:'uncommon',levelReq:10,stats:{agi:30,dodge:0.2}},
   {id:'s13',name:'💍 Copper Band',price:350,slot:'ring',rarity:'normal',stats:{str:10,int:10,crit:0.10}},
-  {id:'s14',name:'💍 Silver Seal',price:550,slot:'ring',rarity:'uncommon',stats:{str:25,int:25,crit:0.20}},
+  {id:'s14',name:'💍 Silver Seal',price:550,slot:'ring',rarity:'uncommon',levelReq:10,stats:{str:25,int:25,crit:0.20}},
   {id:'s17',name:'⛑️ Iron Helm',price:280,slot:'helmet',rarity:'normal',stats:{armor:25,int:10,crit:0.10}},
-  {id:'s18',name:'⛑️ Steel Visor',price:580,slot:'helmet',rarity:'uncommon',stats:{armor:55,int:25,crit:0.20}},
+  {id:'s18',name:'⛑️ Steel Visor',price:580,slot:'helmet',rarity:'uncommon',levelReq:10,stats:{armor:55,int:25,crit:0.20}},
   {id:'s21',name:'📿 Novice Pendant',price:250,slot:'amulet',rarity:'normal',stats:{int:15,maxMp:150,crit:0.10}},
-  {id:'s22',name:'📿 Mage Talisman',price:550,slot:'amulet',rarity:'uncommon',stats:{int:35,maxMp:350,crit:0.20}},
+  {id:'s22',name:'📿 Mage Talisman',price:550,slot:'amulet',rarity:'uncommon',levelReq:10,stats:{int:35,maxMp:350,crit:0.20}},
 ];
 const SHOP_CONS=[
   {id:'c1',name:'❤️ Health Potion',price:100,rarity:'normal',effect:'hp',val:400},
@@ -1792,8 +1792,11 @@ function hideEnemyStats() {
 function startCombat(enemyId,isBoss){
   const tmpl=MONSTER_TEMPLATES[enemyId];if(!tmpl)return;
   const diff=DIFFICULTY[state.difficulty||'normal'];
-  const scale=(1+Math.max(0,(state.level-1))*0.01)*diff.hpMult;
-  const atkScale=(1+Math.max(0,(state.level-1))*0.01)*diff.atkMult;
+  const scale=(1+Math.max(0,(state.level-1))*0.3)*diff.hpMult;
+  const atkScale=(1+Math.max(0,(state.level-1))*0.3)*diff.atkMult;
+  const armorScale=(1+Math.max(0,(state.level-1))*0.3)*diff.armorMult;
+  const hitScale=(1+Math.max(0,(state.level-1))*0.3)*diff.hitMult;
+  const dodgeScale=(1+Math.max(0,(state.level-1))*0.3)*diff.dodgeMult;
   const prefix=state.difficulty==='hell'?'💀 Hell ':state.difficulty==='hard'?'🔥 Hard ':'';
   currentEnemy={...tmpl,name:prefix+tmpl.name,hp:Math.floor(tmpl.hp*scale),maxHp:Math.floor(tmpl.hp*scale),atk:Math.floor(tmpl.atk*atkScale),armor:tmpl.armor,hit:Math.floor((tmpl.hit||0)*5),dodge:Math.floor((tmpl.dodge||0)*5),poisoned:0,frozen:false,crippled:0,boss:false,_xpMult:diff.xpMult,_goldMult:diff.goldMult};
   currentEnemy=applyTutorialScaling(currentEnemy);
@@ -2206,14 +2209,16 @@ const SLOT_ICONS={weapon:'⚔️',armor:'🛡️',helmet:'⛑️',boots:'👢',r
 const EQUIP_PREFIXES={legendary:['Divine','Mythic','Godforged','Ancient','Eternal','Celestial'],epic:['Heroic','Valiant','Exalted','Magnificent','Radiant'],rare:['Polished','Reinforced','Enchanted','Gleaming'],uncommon:['Sturdy','Sharpened','Improved','Sturdy'],normal:['Iron','Wooden','Basic','Simple']};
 const EQUIP_NAMES={weapon:['Blade','Sword','Axe','Spear','Dagger','Staff','Bow'],armor:['Plate','Chainmail','Robe','Leather','Cuirass'],helmet:['Helm','Crown','Hood','Circlet','Visor'],boots:['Greaves','Sabatons','Boots','Treads'],ring:['Band','Seal','Loop','Signet'],amulet:['Pendant','Amulet','Talisman','Necklace']};
 const EQUIP_STATS={weapon:{str:[15,35],lifeSteal:[0.01,0.02],crit:[0.01,0.05]},armor:{armor:[25,55],sta:[15,35],maxHp:[2000,3000],hpRegen:[25,75],dodge:[10,20]},helmet:{armor:[35,65],int:[15,35],hit:[10,20],dodge:[5,15]},boots:{agi:[15,35],dodge:[10,20]},ring:{str:[15,35],int:[15,35],agi:[15,35],sta:[15,35]},amulet:{strMult:[0.5,0.9],agiMult:[0.5,0.9],intMult:[0.5,0.9],staMult:[0.5,0.9],maxHpMult:[0.5,0.9],hitMult:[0.5,0.9],attackPowerMult:[0.5,0.9],dodgeMult:[0.5,0.9]}};
-function mkEquipDrop(slot,rarity){
+function mkEquipDrop(slot,rarity,stageId=1){
   rarity=applyRarityBonus(rarity);
   const mult=RARITY[rarity].mult;
   const prefix=EQUIP_PREFIXES[rarity][Math.floor(Math.random()*EQUIP_PREFIXES[rarity].length)];
   const suffix=EQUIP_NAMES[slot][Math.floor(Math.random()*EQUIP_NAMES[slot].length)];
   const stats={};
   Object.entries(EQUIP_STATS[slot]).forEach(([k,[mn,mx]])=>{const raw=(Math.random()*(mx-mn)+mn)*mult;stats[k]=mx<1?Math.round(raw*1000)/1000:Math.round(raw);});
-  return{uid:genUid(),name:`${SLOT_ICONS[slot]} ${prefix} ${suffix}`,category:'equipment',slot,rarity,stats,equipped:false,sellPrice:Math.round(50*mult*(state.level||1)*.10)};
+  return{uid:genUid(),name:`${SLOT_ICONS[slot]} ${prefix} ${suffix}`,category:'equipment',slot,rarity,stats,equipped:false,
+  levelReq:(stageId-1)*10,
+  sellPrice:Math.round(50*mult*(state.level||1)*.10)};
 }
 function mkMat(name,rarity,sellPrice){return{uid:genUid(),name,category:'material',rarity,sellPrice,stackable:true,qty:1};}
 function mkCons(name,rarity,sellPrice,hpVal){return{uid:genUid(),name,category:'consumable',rarity,sellPrice,stackable:true,qty:1,effect:'hp',val:hpVal};}
@@ -2259,29 +2264,29 @@ const CRAFTING = [
   // ── STAGE 1-2 MATS → Rare weapons/armor ──
   {
     id:'craft_wolf_blade',
-    result:{name:'⚔️ Wolfstrike Blade',slot:'weapon',rarity:'rare',
-      stats:{str:580,strMul:0.5,crit:8,lifeSteal:0.15,hitMult:0.15},category:'equipment'},
+    result:{name:'⚔️ Wolfstrike Blade',slot:'weapon',rarity:'rare',levelReq:20,
+      stats:{str:280,strMul:0.5,crit:8,lifeSteal:0.15,hitMult:0.15},category:'equipment'},
     req:[{name:'🪶 Wolf Fang',qty:50},{name:'🐺 Alpha Pelt',qty:10}],
     desc:'A blade carved from the Alpha\'s fangs. Guaranteed crit and lifesteal.'
   },
   {
     id:'craft_silk_armor',
-    result:{name:'🛡️ Spiderweave Armor',slot:'armor',rarity:'rare',
-      stats:{armor:2080,sta:1500,maxHp:15500,hpRegen:3300,dodge:500,staMul:4,dodgeMult:0.15},category:'equipment'},
+    result:{name:'🛡️ Spiderweave Armor',slot:'armor',rarity:'rare',levelReq:30,
+      stats:{armor:2080,sta:1500,maxHp:15500,hpRegen:3300,dodge:500,staMul:0.5,dodgeMult:0.15},category:'equipment'},
     req:[{name:'🕸️ Spider Silk',qty:50},{name:'🕷️ Venom Gland',qty:20}],
     desc:'Woven from spider silk — light but incredibly resilient.'
   },
   // ── STAGE 3-4 MATS → Epic weapons/armor/helmet ──
   {
     id:'craft_goblin_axe',
-    result:{name:'⚔️ Warlord Cleaver',slot:'weapon',rarity:'epic',
-      stats:{str:2220,attackPower:5800,strMult:0.25,hitMult:0.25,crit:12},category:'equipment'},
-    req:[{name:'🪓 Goblin Scrap',qty:40},{name:'👹 Warlord Crest',qty:20}],
+    result:{name:'⚔️ Warlord Cleaver',slot:'weapon',rarity:'epic',levelReq:40,
+      stats:{str:2220,attackPower:5800,strMult:0.55,hitMult:0.5,crit:3},category:'equipment'},
+    req:[{name:'🪓 Goblin Scrap',qty:50},{name:'👹 Warlord Crest',qty:20}],
     desc:'Forged from Goblin war-steel. Comes with a permanent STR multiplier.'
   },
   {
     id:'craft_death_helm',
-    result:{name:'⛑️ Death Knight Helm',slot:'helmet',rarity:'epic',
+    result:{name:'⛑️ Death Knight Helm',slot:'helmet',rarity:'epic',levelReq:50,
       stats:{armor:6800,int:3200,hit:1800,dodgeMult:0.25},category:'equipment'},
     req:[{name:'💀 Bone Shard',qty:4},{name:'💀 Death Essence',qty:2}],
     desc:'Forged from cursed bone. Boosts dodge permanently.'
@@ -2289,46 +2294,46 @@ const CRAFTING = [
   // ── STAGE 5-6 MATS → Epic boots/ring + Legendary weapon ──
   {
     id:'craft_stone_ring',
-    result:{name:'💍 Warlord Signet',slot:'ring',rarity:'epic',
-      stats:{str:380,sta:380,agi:380,int:380},category:'equipment'},
-    req:[{name:'🪨 Stone Core',qty:4},{name:'👊 Chieftain Brand',qty:2}],
+    result:{name:'💍 Warlord Signet',slot:'ring',rarity:'epic',levelReq:60,
+      stats:{str:3800,sta:3800,agi:3800,int:3800},category:'equipment'},
+    req:[{name:'🪨 Stone Core',qty:50},{name:'👊 Chieftain Brand',qty:20}],
     desc:'The Orc Chieftain\'s ring — balanced power across all stats.'
   },
   {
     id:'craft_vampire_amulet',
-    result:{name:'📿 Blood Pact Amulet',slot:'amulet',rarity:'legendary',
-      stats:{strMult:0.35,agiMult:0.35,lifeSteal:0.03,maxHpMult:0.04},category:'equipment'},
+    result:{name:'📿 Blood Pact Amulet',slot:'amulet',rarity:'legendary',levelReq:70,
+      stats:{strMult:0.35,agiMult:0.35,lifeSteal:0.05,maxHpMult:0.05},category:'equipment'},
     req:[{name:'🩸 Blood Vial',qty:4},{name:'🧛 Vampire Fang',qty:2}],
     desc:'A pact sealed in vampire blood. Massive lifesteal and stat multipliers.'
   },
   // ── STAGE 7-8 MATS → Legendary armor/weapon ──
   {
     id:'craft_troll_plate',
-    result:{name:'🛡️ Trollhide Plate',slot:'armor',rarity:'legendary',
-      stats:{armor:1200,sta:600,maxHp:8000,armorMult:0.4,hpRegenMult:0.5},category:'equipment'},
-    req:[{name:'💎 Troll Gem',qty:3},{name:'👾 Troll Heart',qty:2}],
+    result:{name:'🛡️ Trollhide Plate',slot:'armor',rarity:'legendary',levelReq:80,
+      stats:{armor:12000,sta:6000,maxHp:80000,armorMult:0.5,hpRegenMult:0.5},category:'equipment'},
+    req:[{name:'💎 Troll Gem',qty:50},{name:'👾 Troll Heart',qty:20}],
     desc:'Practically indestructible. The ultimate tank chest piece.'
   },
   {
     id:'craft_hellfire_sword',
-    result:{name:'⚔️ Hellfire Greatsword',slot:'weapon',rarity:'legendary',
-      stats:{str:900,attackPower:400,strMult:0.4,crit:15},category:'equipment'},
-    req:[{name:'😈 Demon Horn',qty:3},{name:'🔥 Hellfire Core',qty:2}],
+    result:{name:'⚔️ Hellfire Greatsword',slot:'weapon',rarity:'legendary',levelReq:90,
+      stats:{str:9000,attackPower:4000,strMult:0.5,crit:5},category:'equipment'},
+    req:[{name:'😈 Demon Horn',qty:50},{name:'🔥 Hellfire Core',qty:20}],
     desc:'Forged in the Demon Citadel. The most powerful weapon in the mid-game.'
   },
   // ── STAGE 9-10 MATS → Legendary endgame gear ──
   {
     id:'craft_void_boots',
-    result:{name:'👢 Void Walker Boots',slot:'boots',rarity:'legendary',
-      stats:{agi:800,dodge:400,agiMult:0.45,dodgeMult:0.4},category:'equipment'},
-    req:[{name:'🌑 Void Crystal',qty:3},{name:'🌑 Shadow Essence',qty:2}],
+    result:{name:'👢 Void Walker Boots',slot:'boots',rarity:'legendary',levelReq:95,
+      stats:{agi:8000,dodge:4000,agiMult:0.45,dodgeMult:0.4},category:'equipment'},
+    req:[{name:'🌑 Void Crystal',qty:50},{name:'🌑 Shadow Essence',qty:20}],
     desc:'Step between shadows. Best-in-slot boots for agility builds.'
   },
   {
     id:'craft_eternal_ring',
-    result:{name:'💍 Eternal Dominion Ring',slot:'ring',rarity:'legendary',
-      stats:{str:1000,agi:1000,int:1000,sta:1000,strMult:0.5,agiMult:0.5,intMult:0.5,staMult:0.5},category:'equipment'},
-    req:[{name:'🌟 Eternal Shard',qty:3},{name:'👑 Eternal Crown',qty:2}],
+    result:{name:'💍 Eternal Dominion Ring',slot:'ring',rarity:'legendary',levelReq:100,
+      stats:{str:10000,agi:10000,int:10000,sta:10000,strMult:0.5,agiMult:0.5,intMult:0.5,staMult:0.5},category:'equipment'},
+    req:[{name:'🌟 Eternal Shard',qty:50},{name:'👑 Eternal Crown',qty:20}],
     desc:'The ultimate ring. Requires Stage 10 mats. Best-in-slot for any build.'
   },
 ];
@@ -2374,7 +2379,7 @@ function openTreasureBox(box){
   for(let i=0;i<table.rolls;i++){
     let rarity=rollTreasureRarity(table.tier);
     const slot=slots[Math.floor(Math.random()*slots.length)];
-    const item=mkEquipDrop(slot,rarity); addToInventory(item); items.push(item);
+    const item=mkEquipDrop(slot,rarity,stageId); addToInventory(item); items.push(item);
     if(item.rarity==='legendary') state.quests.legendary.done=true;
   }
   // Bonus mat drops from chest (2-3 mats matching stage)
@@ -2396,7 +2401,7 @@ function openTreasureBox(box){
 function checkLevelUp(){
   while(state.xp>=state.xpNext&&state.level<state.maxLevel){
     state.xp-=state.xpNext;state.level++;
-    state.xpNext=Math.floor(state.level*100*20.00);
+    state.xpNext=Math.floor(state.level*100*50.00);
     state.baseStr+=3;state.baseAgi+=3;state.baseInt+=3;state.baseSta+=3;state.talentPoints+=5;
     calcStats();state.hp=state.maxHp;state.mp=state.maxMp;
     document.getElementById('char-level').textContent=`Level ${state.level} / 100`;
@@ -2502,6 +2507,12 @@ function renderSkillBar(){
 // ── EQUIPMENT ──
 function equipItem(uid){
   const item=state.inventory.find(i=>i.uid===uid);if(!item||item.category!=='equipment')return;
+  const req=item.levelReq||0;
+  if(state.level<req){
+    notify(`❌ Need Level ${req} to equip ${item.name}!`,'var(--red)');
+    addLog(`❌ Need Level ${req} to equip ${item.name}!`,'bad');
+    return;
+  }
   if(state.equipped[item.slot])unequipSlot(item.slot,true);
   Object.entries(item.stats||{}).forEach(([k,v])=>{const ek='equip'+k.charAt(0).toUpperCase()+k.slice(1);state[ek]=(state[ek]||0)+v;});
   item.equipped=true;state.equipped[item.slot]=uid;state.quests.equip.done=true;
@@ -2552,9 +2563,15 @@ function renderInventory(){
     const enh=item.enhLevel||0;
     const enhBadge=enh>0?`<div class="item-icon-stack" style="top:2px;left:3px;right:auto;color:${enh>=7?'var(--legendary)':'var(--gold)'}">+${enh}</div>`:'';
     const glowClass=enh>=15?'enh-glow-15':enh>=7?'enh-glow-7':'';
-    return `<div class="item-icon-box ${item.rarity} ${glowClass}" onclick="showItemPopup('inv',${item.uid})" title="${item.name}">
-      <div class="item-icon-emoji">${item.name.split(' ')[0]}</div>${stackBadge}${equippedBadge}${enhBadge}
-    </div>`;}).join('')}</div>`;
+    const isLocked=item.levelReq&&item.levelReq>state.level;
+    const lockBadge=isLocked?`<div style="position:absolute;top:2px;left:3px;font-size:.6em;color:var(--red);">🔒${item.levelReq}</div>`:'';
+    return `<div class="item-icon-box ${item.rarity} ${glowClass}"
+      onclick="showItemPopup('inv',${item.uid})" title="${item.name}"
+      style="${isLocked?'opacity:0.5;':''}">
+      <div class="item-icon-emoji">${item.name.split(' ')[0]}</div>
+      ${stackBadge}${equippedBadge}${enhBadge}${lockBadge}
+    </div>`;
+  }).join('')}</div>`;
 }
 
 function formatNumber(num){if(num>=1000000)return(num/1000000).toFixed(1)+'M';if(num>=1000)return(num/1000).toFixed(1)+'K';return num;}
@@ -2646,11 +2663,12 @@ function useItem(uid){
 
 function showItemPopup(source,id){
   const r_=r=>RARITY[r]||RARITY.normal;let item,btns='';
-  if(source==='shop'){
+  if(source==='shop'){    
     const all=[...SHOP_EQUIP,...SHOP_CONS];item=all.find(i=>i.id===id);if(!item)return;
     const desc=item.stats?Object.entries(item.stats).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join(''):item.effect?`<div class="tooltip-stat">Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}</div>`:'';
     btns=`<button class="start-btn" onclick="buyShopItem('${item.id}');closeItemPopup()">💰 Buy (${item.price}g)</button>`;
-    showPopup(item,desc,btns);
+    const statsHtml=item.stats?Object.entries(item.stats).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join(''):item.effect?`<div class="tooltip-stat">Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}</div>`:'';
+  showPopup(item,statsHtml,btns);
   } else {
     item=state.inventory.find(i=>i.uid===id);if(!item)return;
     const statsHtml=item.stats?Object.entries(item.stats).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join(''):item.effect?`<div class="tooltip-stat">Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}</div>`:'';
@@ -2661,7 +2679,11 @@ function showItemPopup(source,id){
     }
     if(item.category==='consumable')btns+=`<button class="start-btn" onclick="useItem(${item.uid});closeItemPopup()">Use</button>`;
     if(!item.equipped)btns+=`<button class="start-btn red-btn" onclick="sellItem(${item.uid});closeItemPopup()">Sell ${item.stackable&&item.qty>1?'All':''} (${(item.sellPrice||0)*(item.stackable?item.qty:1)}g)</button>`;
-    showPopup(item,statsHtml,btns);
+    const reqLine = (item.levelReq&&item.levelReq>0)
+  ? `<div style="font-size:.78em;margin-bottom:6px;color:${state.level>=item.levelReq?'var(--green)':'var(--red)'};">
+      ${state.level>=item.levelReq?'✅':'🔒'} Level ${item.levelReq} Required
+    </div>` : '';
+showPopup(item, reqLine+statsHtml, btns);
   }
 }
 function showPopup(item,statsHtml,btns){
