@@ -307,8 +307,8 @@ const SKILLS={
     const d=Math.floor(state.attackPower*2.2);e.hp-=d;addCombatLog(`💥 Power Strike! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
   battle_cry:{name:'Battle Cry',icon:'📯',mp:()=>Math.floor(state.maxMp*0.15),cd:5,use:(e)=>{
     if(state.battleCryActive){addCombatLog(`📯 Battle Cry already active!`,'info');return 0;}
-    state.battleCryActive=true;state.strMult*=2.5;state.armorMult*=2.4;state.hitMult*=1.5;
-    addCombatLog(`📯 Battle Cry! +50% STR, +40% ARMOR!`,'good');playSound('snd-magic');calcStats();return 0;}},
+    state.battleCryActive=true;state.strMult*=2.5;state.attackPowerMult*=2.4;state.hitMult*=1.5;
+    addCombatLog(`📯 Battle Cry! +25% STR, +25% ATTACK POWER!`,'good');playSound('snd-magic');calcStats();return 0;}},
   last_stand:{name:'Last Stand',icon:'🛡️',mp:()=>Math.floor(state.maxMp*0.20),cd:1,use:(e)=>{
     const h=Math.floor(state.maxHp*0.15);state.hp=Math.min(state.maxHp,state.hp+h);
     addCombatLog(`🛡️ Last Stand! +${h} HP!`,'good');playSound('snd-heal');spawnDmgFloat(`+${h}HP`,false,'heal-float');calcStats();return 0;}},
