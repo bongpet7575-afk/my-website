@@ -124,11 +124,11 @@ const state={
 
   // Core
   name:'',level:1,xp:0,xpNext:2000,maxLevel:100,
-  hp:100,maxHp:100,mp:50,maxMp:50,
+  hp:100,maxHp:100,mp:50,maxMp:50,baseArmor:5000,
   gold:0,goldMult:1.0,difficulty:'normal',
 
   // Primary base stats
-  baseStr:5,baseAgi:5,baseInt:5,baseSta:5,baseArmor:5,
+  baseStr:5,baseAgi:5,baseInt:5,baseSta:5,baseArmor:5000,
   baseHit:2,baseCrit:0.1,baseDodge:2,baseHpRegen:20,baseLifeSteal:0.01,baseAttackPower:10,
 
   // Stat multipliers (starts at 1.0)
