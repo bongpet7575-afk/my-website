@@ -662,7 +662,7 @@ const SCENES={
 const SHOP_EQUIP=[
   {id:'s1',name:'⚔️ Iron Sword',price:200,slot:'weapon',rarity:'normal',stats:{str:20,lifeSteal:0.05,hit:15,crit:0.1}},
   {id:'s2',name:'⚔️ Steel Sword',price:500,slot:'weapon',rarity:'uncommon',levelReq:10,stats:{str:45,lifeSteal:0.06,hit:25,crit:0.2}},
-  {id:'s5',name:'🛡️ Wooden Shield',price:200,slot:'armor',rarity:'normal',stats:{sta:15,armor:5000,hpRegen:25,dodge:0.2}},
+  {id:'s5',name:'🛡️ Wooden Shield',price:200,slot:'armor',rarity:'normal',stats:{sta:15,armor:5000,hpRegen:35,dodge:0.2}},
   {id:'s6',name:'🛡️ Chain Mail',price:400,slot:'armor',rarity:'uncommon',levelReq:10,stats:{sta:25,armor:5000,hpRegen:50,dodge:0.5}},
   {id:'s9',name:'👢 Leather Boots',price:220,slot:'boots',rarity:'normal',stats:{agi:15,crit:0.1,armor:5000}},
   {id:'s10',name:'👢 Swift Treads',price:550,slot:'boots',rarity:'uncommon',levelReq:10,stats:{agi:30,dodge:0.2,armor:5000}},
