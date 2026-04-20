@@ -425,7 +425,7 @@ const STAGES=[
 const STAGE_BOSSES={
   // Boss 1 — after Stage 1 (player ~Lv9, ATK ~260, HP ~1580)
   stage_boss_1:{id:'stage_boss_1',name:'🐺 Wolf King',icon:'🐺',
-    hp:18000,atk:500,armor:5000,hit:600,dodge:400,xp:4000,gold:[3000,6000],
+    hp:18000,atk:500,armor:20000,hit:600,dodge:400,xp:4000,gold:[3000,6000],
     ability:{name:'PACK HOWL!',color:'#ffdd00',triggerEvery:3,effect:(e)=>{
       const d=Math.floor(e.atk*0.5);state.hp=Math.max(1,state.hp-d);
       spawnAbilityFloat('🐺 PACK HOWL!','#ffdd00');
@@ -435,7 +435,7 @@ const STAGE_BOSSES={
 
   // Boss 2 — after Stage 2 (player ~Lv19, ATK ~560, HP ~3380)
   stage_boss_2:{id:'stage_boss_2',name:'🕷️ Spider Queen',icon:'🕷️',
-    hp:120000,atk:8600,armor:20000,hit:5500,dodge:4600,xp:8000,gold:[8000,16000],
+    hp:120000,atk:8600,armor:50000,hit:5500,dodge:4600,xp:8000,gold:[8000,16000],
     ability:{name:'WEB TRAP!',color:'#44ff44',triggerEvery:3,effect:(e)=>{
       state.webTrapped=2;
       spawnAbilityFloat('🕸️ WEB TRAP!','#44ff44');
@@ -465,7 +465,7 @@ const STAGE_BOSSES={
 
   // Boss 5 — after Stage 5 (player ~Lv49, ATK ~2090, HP ~13880)
   stage_boss_5:{id:'stage_boss_5',name:'👊 Orc Chieftain',icon:'👊',
-    hp:6000000,atk:63000,armor:50000,hit:46000,dodge:33000,xp:42000,gold:[60000,110000],
+    hp:6000000,atk:63000,armor:80000,hit:46000,dodge:33000,xp:42000,gold:[60000,110000],
     ability:{name:'BERSERKER RAGE!',color:'#ff8800',triggerEvery:5,effect:(e)=>{
       currentEnemy.atk=Math.floor(currentEnemy.atk*2);
       currentEnemy.rageTimer=3;
