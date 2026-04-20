@@ -124,12 +124,12 @@ const state={
 
   // Core
   name:'',level:1,xp:0,xpNext:2000,maxLevel:100,
-  hp:100,maxHp:100,mp:50,maxMp:50,baseArmor:5000,
+  hp:100,maxHp:100,mp:50,maxMp:50,
   gold:0,goldMult:1.0,difficulty:'normal',
 
   // Primary base stats
-  baseStr:5,baseAgi:5,baseInt:5,baseSta:5,baseArmor:5000,
-  baseHit:2,baseCrit:0.1,baseDodge:2,baseHpRegen:20,baseLifeSteal:0.01,baseAttackPower:10,
+  baseStr:5,baseAgi:5,baseInt:5,baseSta:5,baseArmor:0,
+  baseHit:2,baseCrit:0.1,baseDodge:2,baseHpRegen:20,baseLifeSteal:0,baseAttackPower:10,
 
   // Stat multipliers (starts at 1.0)
   strMult:1.0,agiMult:1.0,intMult:1.0,staMult:1.0,armorMult:1.0,
@@ -139,7 +139,7 @@ const state={
   skillStrMult:1.0,skillStaMult:1.0,skillMaxHp:1.0,skillArmorMult:1.0,
 
   // Effective stats (calculated by calcStats)
-  str:5,agi:5,int:5,sta:5,armor:0,
+  str:15,agi:15,int:15,sta:15,armor:0,
   hit:0,crit:0,dodge:0,lifeSteal:0,attackPower:0,
   hpRegen:0,manaRegen:0,
 
@@ -727,7 +727,7 @@ async function registerUser(){
 
     const{data:character,error:charError}=await dbClient.from('characters').insert({
       user_id:userId,name,level:1,exp:0,gold:1550,class:null,
-      health:100,max_health:100,mana:50,max_mana:50,baseArmor:5000,baseHit:2,baseCrit:0.1,baseDodge:2,baseHpRegen:20,baseLifeSteal:0.01,baseAttackPower:10,
+      health:100,max_health:100,mana:50,max_mana:50,baseHit:2,baseCrit:0.1,baseDodge:2,baseHpRegen:20,baseLifeSteal:0,baseAttackPower:10,
       inventory:[],current_scene:'town',unlocked_talents:[],talent_points:0,
       difficulty:'normal',inv_tab:'equipment',shop_tab:'equipment',
       equipped:{weapon:null,armor:null,helmet:null,boots:null,ring:null,amulet:null},
@@ -735,8 +735,8 @@ async function registerUser(){
       active_debuffs:{maxHpReduction:0,webTrapped:0,rageTimer:0},
       talent_unlocked_flags:{},
       stats:{
-        baseStr:5,baseAgi:5,baseInt:5,baseSta:5,baseArmor:5000,baseHit:2,baseCrit:0.1,
-        baseDodge:2,baseHpRegen:20,baseLifeSteal:0.01,baseAttackPower:10,
+        baseStr:15,baseAgi:15,baseInt:15,baseSta:15,baseArmor:0,baseHit:2,baseCrit:0.1,
+        baseDodge:2,baseHpRegen:20,baseLifeSteal:0,baseAttackPower:10,
         strMult:1.0,agiMult:1.0,intMult:1.0,staMult:1.0,armorMult:1.0,
         maxHpMult:1.0,hpRegenMult:1.0,maxMpMult:1.0,mpMult:1.0,critMult:1.0,
         dodgeMult:1.0,mpRegenMult:1.0,hitMult:1.0,lifeStealMult:1.0,attackPowerMult:1.0,
@@ -2891,7 +2891,7 @@ function checkLevelUp(){
   while(state.xp>=state.xpNext&&state.level<state.maxLevel){
     state.xp-=state.xpNext;state.level++;
     state.xpNext=Math.floor(state.level*100*50.00);
-    state.baseStr+=3;state.baseAgi+=3;state.baseInt+=3;state.baseSta+=3;state.talentPoints+=5;state.baseArmor+=2500;
+    state.baseStr+=10;state.baseAgi+=10;state.baseInt+=10;state.baseSta+=10;state.talentPoints+=5;
     calcStats();state.hp=state.maxHp;state.mp=state.maxMp;
     document.getElementById('char-level').textContent=`Level ${state.level} / 100`;
     addLog(`🎉 LEVEL UP! Level ${state.level}! +5 Talent Points!`,'gold');
