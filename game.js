@@ -2583,8 +2583,8 @@ const CRAFTING = [
     desc:'Forged from Goblin war-steel. Comes with a permanent AGI multiplier.'
   },
   {
-    id:'craft_goblin_boots',
-    result:{name:'👢 Warlord Boots',slot:'boots',rarity:'epic',levelReq:40,
+    id:'craft_goblin_helm',
+    result:{name:'⛑️ Warlord Helm',slot:'helmet',rarity:'epic',levelReq:40,
       stats:{armor:2220,int:2000,maxHp:25500,hpRegen:5300,dodge:1000,intMul:0.25,dodgeMult:0.25},category:'equipment'},
     req:[{name:'🪓 Goblin Scrap',qty:50},{name:'👹 Warlord Crest',qty:20}],
     desc:'Forged from Goblin war-steel. Comes with a permanent INT multiplier.'
@@ -2692,10 +2692,10 @@ const CRAFTING = [
   // ── STAGE 9-10 MATS → Legendary endgame gear ──
   {
     id:'craft_void_amulet',
-    result:{name:'👢 Void Walker Boots',slot:'boots',rarity:'legendary',levelReq:95,
+    result:{name:'📿 Void Walker Amulet',slot:'amulet',rarity:'legendary',levelReq:95,
       stats:{strMult:4,agiMult:4,intMult:4,staMult:4},category:'equipment'},
     req:[{name:'🌑 Void Crystal',qty:350},{name:'🌑 Shadow Essence',qty:250}],
-    desc:'Step between shadows. Best-in-slot boots for agility builds.'
+    desc:'Step between shadows. Best-in-slot amulet for any build.'
   },
   {
     id:'craft_eternal_ring',
