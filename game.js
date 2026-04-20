@@ -842,6 +842,7 @@ function showCharacterSelect(characters) {
 }
 
 async function selectCharacterAndPlay(characterId){
+  setTimeout(()=>collectArenaRewards(), 2000);
   setTimeout(()=>resumeStuckTournaments(), 3000);
   const screen=document.getElementById('char-select-screen');
   if(screen) screen.remove();
@@ -1187,6 +1188,45 @@ function useNextAutoSkill(enemy){
 // ══════════════════════════════════════════
 // ARENA SYSTEM
 // ══════════════════════════════════════════
+async function collectArenaRewards() {
+  if(!state.character_id) return;
+  try {
+    const { data: c } = await dbClient.from('characters')
+      .select('arena_rewards, gold_mult, gold_mult_expiry')
+      .eq('id', state.character_id).single();
+    if(!c || !c.arena_rewards || !c.arena_rewards.length) return;
+
+    const uncollected = c.arena_rewards.filter(r => !r.collected);
+    if(!uncollected.length) return;
+
+    // Apply gold mult from DB in case we missed it
+    if(c.gold_mult && c.gold_mult > 1) {
+      state.goldMult = c.gold_mult;
+      state.goldMultExpiry = c.gold_mult_expiry;
+    }
+
+    // Show reward logs
+    uncollected.forEach(r => {
+      addLog(`━━━━━━━━━━━━━━━━━━━━━━━━`, 'gold');
+      addLog(`🏟️ ARENA REWARD — ${r.placeText}`, 'legendary');
+      addLog(`💰 +${formatNumber(r.gold)}g awarded!`, 'gold');
+      if(r.goldMult) addLog(`⚡ +${Math.round((r.goldMult-1)*100)}% Gold Multiplier for 24hrs!`, 'gold');
+      if(r.title) addLog(`🎖️ Title awarded: ${r.title}`, 'legendary');
+      r.items.forEach(name => addLog(`🎁 ${name} added to inventory!`, 'legendary'));
+      addLog(`━━━━━━━━━━━━━━━━━━━━━━━━`, 'gold');
+      notify(`🏆 Arena reward collected! Check your log!`, 'var(--gold)');
+    });
+
+    // Mark all as collected
+    const updatedRewards = c.arena_rewards.map(r => ({...r, collected: true}));
+    await dbClient.from('characters').update({
+      arena_rewards: updatedRewards,
+    }).eq('id', state.character_id);
+
+    updateUI();
+    renderInventory();
+  } catch(e){ console.error('Collect arena rewards error:', e); }
+}
 
 const ARENA_TITLES = [
   { title:'Rookie',   min:0,    color:'#cccccc' },
@@ -1198,6 +1238,7 @@ const ARENA_TITLES = [
 ];
 
 const TOURNAMENT_SIZE = 8; // must be power of 2
+
 
 const DAILY_REWARDS = {
   1: { gold: 50000,  title:'🏆 Tournament Champion' },
@@ -1354,19 +1395,40 @@ async function registerForTournament() {
 
     if(!tournament) {
       // Create new tournament
-      const startsAt = new Date();
-      startsAt.setHours(startsAt.getHours() + 1);
-      const endsAt = new Date(startsAt);
-      endsAt.setHours(endsAt.getHours() + 24);
+      // Create new tournament with fixed schedule
+const now = new Date();
 
-      const { data: newT } = await dbClient.from('arena_tournaments').insert({
-        status: 'open',
-        bracket: [],
-        round: 0,
-        starts_at: startsAt.toISOString(),
-        ends_at: endsAt.toISOString(),
-      }).select().single();
-      tournament = newT;
+// Convert to Cambodia time (UTC+7)
+const cambodiaOffset = 7 * 60;
+const utcMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+const cambodiaMinutes = (utcMinutes + cambodiaOffset) % (24 * 60);
+const cambodiaHour = Math.floor(cambodiaMinutes / 60);
+
+// Registration open: 7am-5pm Cambodia, tournament starts 8pm, rewards at 9pm
+const isRegistrationOpen = cambodiaHour >= 7 && cambodiaHour < 17;
+const isTournamentTime = cambodiaHour >= 20;
+
+if(!isRegistrationOpen && !isTournamentTime) {
+  notify(`⏰ Registration opens at 7:00 AM Cambodia time!`, 'var(--gold)');
+  return;
+}
+
+// Next 8pm Cambodia = UTC 1pm
+const startsAt = new Date();
+startsAt.setUTCHours(13, 0, 0, 0); // 8pm Cambodia = 1pm UTC
+if(startsAt < now) startsAt.setUTCDate(startsAt.getUTCDate() + 1);
+
+const endsAt = new Date(startsAt);
+endsAt.setUTCHours(14, 0, 0, 0); // 9pm Cambodia = 2pm UTC rewards time
+
+const { data: newT } = await dbClient.from('arena_tournaments').insert({
+  status: 'open',
+  bracket: [],
+  round: 0,
+  starts_at: startsAt.toISOString(),
+  ends_at: endsAt.toISOString(),
+}).select().single();
+tournament = newT;
     }
 
     // Check if already registered
@@ -1663,24 +1725,31 @@ async function finalizeTournament(tournamentId, bracket, champion) {
 
     // ── PARTICIPATION REWARD (everyone except top 3) ──
     for(const reg of regs) {
-      if(topIds.includes(reg.character_id)) continue;
-      const { data: c } = await dbClient.from('characters').select('gold, inventory').eq('id', reg.character_id).single();
-      if(!c) continue;
-      const rewardItem = getArenaRewardItem('rare');
-      const inv = c.inventory || [];
-      inv.push(rewardItem);
-      await dbClient.from('characters').update({
-        gold: c.gold + DAILY_REWARDS.participation.gold,
-        inventory: inv,
-      }).eq('id', reg.character_id);
-
-      if(reg.character_id === state.character_id) {
-        state.gold += DAILY_REWARDS.participation.gold;
-        addToInventory(rewardItem);
-        addLog(`⚔️ Tournament ended! Participation reward: +${formatNumber(DAILY_REWARDS.participation.gold)}g + ${rewardItem.name}!`, 'gold');
-        notify(`📦 Tournament reward received!`, 'var(--gold)');
-      }
-    }
+  if(topIds.includes(reg.character_id)) continue;
+  const { data: c } = await dbClient.from('characters')
+    .select('gold, inventory, arena_rewards')
+    .eq('id', reg.character_id).single();
+  if(!c) continue;
+  const rewardItem = getArenaRewardItem('rare');
+  const inv = c.inventory || [];
+  inv.push(rewardItem);
+  const pendingRewards = c.arena_rewards || [];
+  pendingRewards.push({
+    place: 'participation',
+    placeText: '🎖️ Participation',
+    gold: DAILY_REWARDS.participation.gold,
+    goldMult: null,
+    title: null,
+    items: [rewardItem.name],
+    collected: false,
+    timestamp: new Date().toISOString(),
+  });
+  await dbClient.from('characters').update({
+    gold: c.gold + DAILY_REWARDS.participation.gold,
+    inventory: inv,
+    arena_rewards: pendingRewards,
+  }).eq('id', reg.character_id);
+}
 
     // ── 3RD PLACE ──
     if(third) await givePlacementReward(third, 3);
@@ -1709,66 +1778,52 @@ async function givePlacementReward(player, place) {
   if(!player) return;
   try {
     const { data: c } = await dbClient.from('characters')
-      .select('gold, inventory, arena_points')
+      .select('gold, inventory, arena_points, arena_rewards')
       .eq('id', player.character_id).single();
     if(!c) return;
 
     const reward = DAILY_REWARDS[place];
     const inv = c.inventory || [];
     const items = [];
-
-    // Item rewards
-    if(place === 1) {
-      // 3 legendary items
-      for(let i=0;i<3;i++){
-        const item = getArenaRewardItem('legendary');
-        inv.push(item); items.push(item);
-      }
-    } else if(place === 2) {
-      // 2 epic items
-      for(let i=0;i<2;i++){
-        const item = getArenaRewardItem('epic');
-        inv.push(item); items.push(item);
-      }
-    } else if(place === 3) {
-      // 1 epic item
-      const item = getArenaRewardItem('epic');
-      inv.push(item); items.push(item);
-    }
-
-    // Gold multiplier expiry (24hrs from now)
+    const goldMult = place===1?1.5:place===2?1.25:1.10;
     const goldMultExpiry = new Date();
-    goldMultExpiry.setHours(goldMultExpiry.getHours() + 24);
-    const goldMult = place === 1 ? 1.5 : place === 2 ? 1.25 : 1.10;
+    goldMultExpiry.setHours(goldMultExpiry.getHours()+24);
+
+    if(place===1){ for(let i=0;i<3;i++){ const item=getArenaRewardItem('legendary'); inv.push(item); items.push(item); } }
+    else if(place===2){ for(let i=0;i<2;i++){ const item=getArenaRewardItem('epic'); inv.push(item); items.push(item); } }
+    else if(place===3){ const item=getArenaRewardItem('epic'); inv.push(item); items.push(item); }
+
+    const placeText = place===1?'🏆 1st Place':place===2?'🥈 2nd Place':'🥉 3rd Place';
+
+    // Save pending reward notification to DB
+    const pendingRewards = c.arena_rewards || [];
+    pendingRewards.push({
+      place, placeText,
+      gold: reward.gold,
+      goldMult,
+      goldMultExpiry: goldMultExpiry.toISOString(),
+      title: reward.title || null,
+      items: items.map(i=>i.name),
+      collected: false,
+      timestamp: new Date().toISOString(),
+    });
 
     await dbClient.from('characters').update({
       gold: c.gold + reward.gold,
       inventory: inv,
-      arena_points: (c.arena_points || 1000) + (place === 1 ? 150 : place === 2 ? 75 : 40),
+      arena_points: (c.arena_points||1000) + (place===1?150:place===2?75:40),
       arena_title: reward.title || c.arena_title,
       gold_mult: goldMult,
+      gold_mult_expiry: goldMultExpiry.toISOString(),
+      arena_rewards: pendingRewards,
     }).eq('id', player.character_id);
 
-    // If current player is one of the winners
-    if(player.character_id === state.character_id) {
-      state.gold += reward.gold;
-      state.goldMult = goldMult;
-      items.forEach(item => addToInventory(item));
-
-      const placeText = place === 1 ? '🏆 1st Place' : place === 2 ? '🥈 2nd Place' : '🥉 3rd Place';
-      addLog(`${placeText} — Tournament Champion!`, 'legendary');
-      addLog(`💰 +${formatNumber(reward.gold)}g reward!`, 'gold');
-      addLog(`⚡ +${Math.round((goldMult-1)*100)}% Gold Multiplier for 24 hours!`, 'gold');
-      items.forEach(item => addLog(`🎁 ${item.name} [${item.rarity}] — Arena Exclusive!`, 'legendary'));
-      notify(`${placeText} Champion! Check your inventory!`, 'var(--gold)');
-      updateUI();
-      renderInventory();
-    }
-  } catch(e) { console.error(`Reward place ${place} error:`, e); }
+  } catch(e){ console.error(`Reward place ${place} error:`,e); }
 }
 
 // ── RENDER ARENA UI ──
 async function renderArena() {
+  await collectArenaRewards();
   await resumeStuckTournaments();
   const container = document.getElementById('arena-content');
   if(!container) return;
@@ -1853,9 +1908,14 @@ async function renderArena() {
       </div>
 
       <!-- Tournament Status -->
+      
+      
       <div class="char-panel" style="margin-bottom:12px;">
+      
         <div class="panel-title">⚔️ Tournament</div>
+        
         ${tournament ? `
+          
           <div style="font-size:.82em;margin-bottom:10px;">
             <div style="color:${tournament.status==='open'?'var(--green)':'var(--gold)'};">
               ${tournament.status==='open'?'🟢 Open — Accepting Players':'🟡 In Progress'}
@@ -1911,6 +1971,15 @@ async function renderArena() {
           </div>`;
         }).join('') : ''}
       </div>`;
+      // Show schedule info
+const scheduleHtml = `
+  <div style="font-size:.72em;color:var(--text-dim);margin-top:8px;line-height:1.8;
+    background:rgba(255,255,255,0.03);border-radius:6px;padding:8px;">
+    🕖 Registration: 7:00 AM – 5:00 PM (Cambodia)<br>
+    ⚔️ Tournament starts: 8:00 PM (Cambodia)<br>
+    🏆 Rewards distributed: 9:00 PM (Cambodia)<br>
+    📅 Resets daily
+  </div>`;
 
   } catch(e) { container.innerHTML = '<div style="text-align:center;color:var(--red);padding:20px;">Failed to load arena.</div>'; console.error(e); }
 }
