@@ -1480,22 +1480,72 @@ async function startTournament(tournamentId) {
 
     // Build snapshots
     const snapshots = chars.map(c => {
-      const s = c.stats || {};
-      return {
-        character_id: c.id,
-        name: c.name,
-        level: c.level,
-        class: c.class,
-        attackPower: s.attackPower || 100,
-        maxHp: s.maxHp || 1000,
-        armor: s.armor || 0,
-        hit: s.hit || 0,
-        dodge: s.dodge || 0,
-        crit: s.crit || 0,
-        lifeSteal: s.lifeSteal || 0,
-        arena_points: c.arena_points || 1000,
-      };
-    });
+  const s = c.stats || {};
+
+  // Rebuild base stats
+  const level = c.level || 1;
+  const baseStr = s.baseStr || 5;
+  const baseAgi = s.baseAgi || 5;
+  const baseInt = s.baseInt || 5;
+  const baseSta = s.baseSta || 5;
+  const baseArmor = s.baseArmor || 5;
+
+  // Multipliers (base + class + talent bonuses)
+  const classBonuses = s.classBonuses || {};
+  const talentBonuses = s.talentBonuses || {};
+
+  const strMult  = (s.strMult||1.0)  + (classBonuses.strMult||0)  + (talentBonuses.strMult||0);
+  const agiMult  = (s.agiMult||1.0)  + (classBonuses.agiMult||0)  + (talentBonuses.agiMult||0);
+  const intMult  = (s.intMult||1.0)  + (classBonuses.intMult||0)  + (talentBonuses.intMult||0);
+  const staMult  = (s.staMult||1.0)  + (classBonuses.staMult||0)  + (talentBonuses.staMult||0);
+  const atkpMult = (s.attackPowerMult||1.0) + (classBonuses.attackPowerMult||0) + (talentBonuses.attackPowerMult||0);
+  const armorMult= (s.armorMult||1.0) + (classBonuses.armorMult||0) + (talentBonuses.armorMult||0);
+  const critMult = (s.critMult||1.0)  + (classBonuses.critMult||0)  + (talentBonuses.critMult||0);
+  const dodgeMult= (s.dodgeMult||1.0) + (classBonuses.dodgeMult||0) + (talentBonuses.dodgeMult||0);
+  const hitMult  = (s.hitMult||1.0)   + (classBonuses.hitMult||0)   + (talentBonuses.hitMult||0);
+
+  // Equipment bonuses
+  const equipStr         = s.equipStr||0;
+  const equipAgi         = s.equipAgi||0;
+  const equipInt         = s.equipInt||0;
+  const equipSta         = s.equipSta||0;
+  const equipAttackPower = s.equipAttackPower||0;
+  const equipMaxHp       = s.equipMaxHp||0;
+  const equipArmor       = s.equipArmor||0;
+  const equipCrit        = s.equipCrit||0;
+  const equipDodge       = s.equipDodge||0;
+  const equipHit         = s.equipHit||0;
+  const equipLifeSteal   = s.equipLifeSteal||0;
+
+  // Calculate effective stats — same formula as calcStats()
+  const str = Math.floor(baseStr * strMult) + equipStr + (talentBonuses.baseStr||0);
+  const agi = Math.floor(baseAgi * agiMult) + equipAgi + (talentBonuses.baseAgi||0);
+  const int = Math.floor(baseInt * intMult) + equipInt + (talentBonuses.baseInt||0);
+  const sta = Math.floor(baseSta * staMult) + equipSta + (talentBonuses.baseSta||0);
+
+  const attackPower = Math.floor((str*4 + int*3 + level*15) * atkpMult) + equipAttackPower + (talentBonuses.baseAttackPower||0);
+  const maxHp       = Math.floor(100 + str*20 + sta*30 + level*80) + equipMaxHp;
+  const armor       = Math.floor((agi*8 + baseArmor + level*10) * armorMult) + equipArmor;
+  const crit        = Math.floor(((agi*0.0005 + (s.baseCrit||0.1)) * critMult) + equipCrit + (talentBonuses.baseCrit||0));
+  const dodge       = Math.floor(((agi*1.9 + (s.baseDodge||2)) * dodgeMult) + equipDodge + (talentBonuses.baseDodge||0));
+  const hit         = Math.floor(((agi*5.3 + (s.baseHit||2)) * hitMult) + equipHit + (talentBonuses.baseHit||0));
+  const lifeSteal   = ((s.baseLifeSteal||0.05) * (s.lifeStealMult||1.0)) + equipLifeSteal;
+
+  return {
+    character_id: c.id,
+    name: c.name,
+    level,
+    class: c.class,
+    attackPower,
+    maxHp,
+    armor,
+    crit,
+    dodge,
+    hit,
+    lifeSteal,
+    arena_points: c.arena_points || 1000,
+  };
+});
 
     // Shuffle and create bracket
     const shuffled = snapshots.sort(() => Math.random() - 0.5);
@@ -1507,6 +1557,8 @@ async function startTournament(tournamentId) {
         player2: shuffled[i+1] || null,
         winner: null,
       });
+      // Debug: log first player snapshot to verify stats
+      console.log('Arena snapshot sample:', snapshots[0]);
     }
 
     await dbClient.from('arena_tournaments').update({
