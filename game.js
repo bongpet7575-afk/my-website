@@ -362,7 +362,7 @@ const MONSTER_TEMPLATES = {
   goblin_scout:    {id:'goblin_scout',   name:'👹 Goblin Scout',    icon:'goblin',  hp:40000,  atk:4800,   armor:20000,  hit:2000,  dodge:1000,  xp:5400,  gold:[3000,4800]},
   goblin_warrior:  {id:'goblin_warrior', name:'👹 Goblin Warrior',  icon:'goblin',  hp:60000,  atk:5800,   armor:20000,  hit:3500,  dodge:2800,  xp:6500,  gold:[3800,5800]},
   goblin_shaman:   {id:'goblin_shaman',  name:'👹 Goblin Shaman',   icon:'goblin',  hp:85000,  atk:7000,   armor:20000,  hit:4000,  dodge:3000,  xp:7800,  gold:[4600,7000]},
-  goblin_elite:    {id:'goblin_elite',   name:'👹 Goblin Elite',    icon:'goblin',  hp:120000, atk:8600,   armor:20000,  hit:5500, dodge:480<PASSWORD>,  xp:94<PASSWORD>,  gold:[56<PASSWORD>,84<PASSWORD>]},
+  goblin_elite:    {id:'goblin_elite',   name:'👹 Goblin Elite',    icon:'goblin',  hp:120000, atk:8600,   armor:20000,  hit:5500, dodge:4800,  xp:9400,  gold:[5600,8400]},
 
   // Stage 4 — Level 30-39 — player ATK ~1050, HP ~6280
   skeleton_archer: {id:'skeleton_archer',name:'💀 Skeleton Archer', icon:'skeleton',hp:160000, atk:10000,  armor:20000, hit:6500, dodge:5000, xp:11000, gold:[6600,10000]},
