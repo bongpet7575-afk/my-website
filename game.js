@@ -2270,9 +2270,37 @@ const CRAFTING = [
     desc:'A blade carved from the Alpha\'s fangs. Guaranteed crit and lifesteal.'
   },
   {
+    id:'craft_wolf_armor',
+    result:{name:'🛡️ Wolfstrike Armor',slot:'armor',rarity:'rare',levelReq:20,
+      stats:{armor:280,sta:150,maxHp:1550,hpRegen:330,dodge:50,staMul:0.15,dodgeMult:0.1},category:'equipment'},
+    req:[{name:'🪶 Wolf Fang',qty:50},{name:'🐺 Alpha Pelt',qty:10}],
+    desc:'An armor crafted from the Alpha\'s pelt. Guaranteed survival.'
+  },
+  {
+    id:'craft_wolf_boot',
+    result:{name:'👢 Wolfstrike Boots',slot:'boots',rarity:'rare',levelReq:20,
+      stats:{armor:280,agi:150,maxHp:1550,hpRegen:330,dodge:50,agiMul:0.15,dodgeMult:0.1},category:'equipment'},
+    req:[{name:'🪶 Wolf Fang',qty:50},{name:'🐺 Alpha Pelt',qty:10}],
+    desc:'A pair of boots crafted from the Alpha\'s pelt. Guaranteed agility.'
+  },
+  {
+    id:'craft_silk_blade',
+    result:{name:'⚔️ Spiderweave Blade',slot:'weapon',rarity:'rare',levelReq:30,
+      stats:{str:1500,attackPower:3300,strMult:0.5,hitMult:0.15,crit:0.5},category:'equipment'},
+    req:[{name:'🕸️ Spider Silk',qty:50},{name:'🕷️ Venom Gland',qty:20}],
+    desc:'A blade crafted from spider silk — light but incredibly sharp.'
+  },
+  {
     id:'craft_silk_armor',
     result:{name:'🛡️ Spiderweave Armor',slot:'armor',rarity:'rare',levelReq:30,
       stats:{armor:2080,sta:1500,maxHp:15500,hpRegen:3300,dodge:500,staMul:0.5,dodgeMult:0.15},category:'equipment'},
+    req:[{name:'🕸️ Spider Silk',qty:50},{name:'🕷️ Venom Gland',qty:20}],
+    desc:'Woven from spider silk — light but incredibly resilient.'
+  },
+  {
+    id:'craft_silk_boot',
+    result:{name:'� Spiderweave Boots',slot:'boots',rarity:'rare',levelReq:30,
+      stats:{armor:2080,agi:1500,maxHp:15500,hpRegen:3300,dodge:500,agiMul:0.5,dodgeMult:0.15},category:'equipment'},
     req:[{name:'🕸️ Spider Silk',qty:50},{name:'🕷️ Venom Gland',qty:20}],
     desc:'Woven from spider silk — light but incredibly resilient.'
   },
@@ -2280,9 +2308,23 @@ const CRAFTING = [
   {
     id:'craft_goblin_axe',
     result:{name:'⚔️ Warlord Cleaver',slot:'weapon',rarity:'epic',levelReq:40,
-      stats:{str:2220,attackPower:5800,strMult:0.55,hitMult:0.5,crit:3},category:'equipment'},
+      stats:{str:2220,attackPower:5800,strMult:0.55,hitMult:0.5,crit:1.5},category:'equipment'},
     req:[{name:'🪓 Goblin Scrap',qty:50},{name:'👹 Warlord Crest',qty:20}],
     desc:'Forged from Goblin war-steel. Comes with a permanent STR multiplier.'
+  },
+  {
+    id:'craft_goblin_armor',
+    result:{name:'🛡️ Warlord Armor',slot:'armor',rarity:'epic',levelReq:40,
+      stats:{armor:2220,sta:2000,maxHp:25500,hpRegen:5300,dodge:1000,staMul:0.7,dodgeMult:0.3},category:'equipment'},
+    req:[{name:'🪓 Goblin Scrap',qty:50},{name:'👹 Warlord Crest',qty:20}],
+    desc:'Forged from Goblin war-steel. Comes with a permanent STR multiplier.'
+  },
+  {
+    id:'craft_goblin_boots',
+    result:{name:'👢 Warlord Boots',slot:'boots',rarity:'epic',levelReq:40,
+      stats:{armor:2220,agi:2000,maxHp:25500,hpRegen:5300,dodge:1000,agiMul:0.7,dodgeMult:0.3},category:'equipment'},
+    req:[{name:'🪓 Goblin Scrap',qty:50},{name:'👹 Warlord Crest',qty:20}],
+    desc:'Forged from Goblin war-steel. Comes with a permanent AGI multiplier.'
   },
   {
     id:'craft_death_helm',
@@ -2302,7 +2344,7 @@ const CRAFTING = [
   {
     id:'craft_vampire_amulet',
     result:{name:'📿 Blood Pact Amulet',slot:'amulet',rarity:'legendary',levelReq:70,
-      stats:{strMult:0.35,agiMult:0.35,lifeSteal:0.05,maxHpMult:0.05},category:'equipment'},
+      stats:{strMult:2.35,agiMult:2.35,lifeSteal:0.5,maxHpMult:2.5},category:'equipment'},
     req:[{name:'🩸 Blood Vial',qty:4},{name:'🧛 Vampire Fang',qty:2}],
     desc:'A pact sealed in vampire blood. Massive lifesteal and stat multipliers.'
   },
@@ -2310,14 +2352,14 @@ const CRAFTING = [
   {
     id:'craft_troll_plate',
     result:{name:'🛡️ Trollhide Plate',slot:'armor',rarity:'legendary',levelReq:80,
-      stats:{armor:12000,sta:6000,maxHp:80000,armorMult:0.5,hpRegenMult:0.5},category:'equipment'},
+      stats:{armor:12000,sta:6000,maxHp:80000,armorMult:2.5,hpRegenMult:2.5},category:'equipment'},
     req:[{name:'💎 Troll Gem',qty:50},{name:'👾 Troll Heart',qty:20}],
     desc:'Practically indestructible. The ultimate tank chest piece.'
   },
   {
     id:'craft_hellfire_sword',
     result:{name:'⚔️ Hellfire Greatsword',slot:'weapon',rarity:'legendary',levelReq:90,
-      stats:{str:9000,attackPower:4000,strMult:0.5,crit:5},category:'equipment'},
+      stats:{str:9000,attackPower:4000,strMult:3.5,crit:5},category:'equipment'},
     req:[{name:'😈 Demon Horn',qty:50},{name:'🔥 Hellfire Core',qty:20}],
     desc:'Forged in the Demon Citadel. The most powerful weapon in the mid-game.'
   },
@@ -2325,14 +2367,14 @@ const CRAFTING = [
   {
     id:'craft_void_boots',
     result:{name:'👢 Void Walker Boots',slot:'boots',rarity:'legendary',levelReq:95,
-      stats:{agi:8000,dodge:4000,agiMult:0.45,dodgeMult:0.4},category:'equipment'},
+      stats:{agi:8000,dodge:4000,agiMult:5.45,dodgeMult:5.4},category:'equipment'},
     req:[{name:'🌑 Void Crystal',qty:50},{name:'🌑 Shadow Essence',qty:20}],
     desc:'Step between shadows. Best-in-slot boots for agility builds.'
   },
   {
     id:'craft_eternal_ring',
     result:{name:'💍 Eternal Dominion Ring',slot:'ring',rarity:'legendary',levelReq:100,
-      stats:{str:10000,agi:10000,int:10000,sta:10000,strMult:0.5,agiMult:0.5,intMult:0.5,staMult:0.5},category:'equipment'},
+      stats:{str:10000,agi:10000,int:10000,sta:10000,strMult:8.5,agiMult:8.5,intMult:8.5,staMult:8.5},category:'equipment'},
     req:[{name:'🌟 Eternal Shard',qty:50},{name:'👑 Eternal Crown',qty:20}],
     desc:'The ultimate ring. Requires Stage 10 mats. Best-in-slot for any build.'
   },
