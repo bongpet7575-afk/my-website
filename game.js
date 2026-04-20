@@ -837,6 +837,7 @@ function showCharacterSelect(characters) {
 }
 
 async function selectCharacterAndPlay(characterId){
+  setTimeout(()=>resumeStuckTournaments(), 3000);
   const screen=document.getElementById('char-select-screen');
   if(screen) screen.remove();
   
@@ -1201,6 +1202,48 @@ const DAILY_REWARDS = {
   participation: { gold: 1000, title:null },
 };
 
+async function resumeStuckTournaments() {
+  try {
+    const { data: tournament } = await dbClient
+      .from('arena_tournaments')
+      .select('*')
+      .eq('status', 'in_progress')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!tournament) return;
+
+    const bracket = tournament.bracket || [];
+    const currentRound = tournament.round || 1;
+
+    // Check if current round is fully resolved
+    const currentMatches = bracket.filter(m => m.round === currentRound);
+    const allDone = currentMatches.every(m => m.winner !== null);
+
+    if (!allDone) {
+      // Current round not finished — run it
+      addLog(`⚔️ Resuming tournament round ${currentRound}...`, 'gold');
+      await runTournamentRound(tournament.id, bracket, currentRound);
+    } else {
+      // Current round done but next round not started — check if next round exists
+      const nextRound = currentRound + 1;
+      const nextMatches = bracket.filter(m => m.round === nextRound);
+
+      if (nextMatches.length === 0) {
+        // Next round not created yet — get winners and continue
+        const winners = currentMatches.map(m => m.winner).filter(Boolean);
+        if (winners.length === 1) {
+          await finalizeTournament(tournament.id, bracket, winners[0]);
+        } else {
+          addLog(`⚔️ Resuming tournament round ${nextRound}...`, 'gold');
+          await runTournamentRound(tournament.id, bracket, nextRound);
+        }
+      }
+    }
+  } catch(e) { console.error('Resume tournament error:', e); }
+}
+
 // ── GET ARENA TITLE FROM POINTS ──
 function getArenaTitle(points) {
   for(let i=ARENA_TITLES.length-1;i>=0;i--){
@@ -1528,6 +1571,7 @@ async function finalizeTournament(tournamentId, bracket, champion) {
 
 // ── RENDER ARENA UI ──
 async function renderArena() {
+  await resumeStuckTournaments();
   const container = document.getElementById('arena-content');
   if(!container) return;
 
