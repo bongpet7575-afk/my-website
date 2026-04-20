@@ -195,6 +195,11 @@ function setDifficulty(diff){
 
 // ── CALC STATS ──
 function calcStats(){
+  // Check gold multiplier expiry
+if(state.goldMultExpiry && new Date() > new Date(state.goldMultExpiry)) {
+  state.goldMult = 1.0;
+  state.goldMultExpiry = null;
+}
   const strMult      = state.strMult      + (state.classBonuses.strMult     ||0) + (state.talentBonuses.strMult     ||0) + (state.equipStrMult || 0);
   const agiMult      = state.agiMult      + (state.classBonuses.agiMult     ||0) + (state.talentBonuses.agiMult     ||0) + (state.equipAgiMult || 0);
   const intMult      = state.intMult      + (state.classBonuses.intMult     ||0) + (state.talentBonuses.intMult     ||0) + (state.equipIntMult || 0);
@@ -1523,31 +1528,170 @@ async function runTournamentRound(tournamentId, bracket, round) {
   } catch(e) { console.error('Run round error:', e); }
 }
 
+// ══════════════════════════════════════════
+// ARENA EXCLUSIVE ITEMS
+// ══════════════════════════════════════════
+
+const ARENA_ITEMS = {
+  // ── LEGENDARY (1st place pool) ──
+  arena_sword_legend: {
+    name:'⚔️ Gladiator\'s Eternal Blade', slot:'weapon', rarity:'legendary',
+    arenaExclusive:true, levelReq:0,
+    stats:{ str:1200, attackPower:600, strMult:0.5, crit:20, lifeSteal:0.04 },
+    sellPrice:500000
+  },
+  arena_armor_legend: {
+    name:'🛡️ Champion\'s Immortal Plate', slot:'armor', rarity:'legendary',
+    arenaExclusive:true, levelReq:0,
+    stats:{ armor:2000, sta:800, maxHp:15000, armorMult:0.6, hpRegenMult:0.5 },
+    sellPrice:500000
+  },
+  arena_helmet_legend: {
+    name:'⛑️ Warlord\'s Crown of Glory', slot:'helmet', rarity:'legendary',
+    arenaExclusive:true, levelReq:0,
+    stats:{ armor:1800, int:800, hit:600, dodgeMult:0.5, hitMult:0.4 },
+    sellPrice:500000
+  },
+  arena_boots_legend: {
+    name:'👢 Phantom Stride Boots', slot:'boots', rarity:'legendary',
+    arenaExclusive:true, levelReq:0,
+    stats:{ agi:1200, dodge:800, agiMult:0.6, dodgeMult:0.5 },
+    sellPrice:500000
+  },
+  arena_ring_legend: {
+    name:'💍 Ring of the Eternal Champion', slot:'ring', rarity:'legendary',
+    arenaExclusive:true, levelReq:0,
+    stats:{ str:800, agi:800, int:800, sta:800, strMult:0.4, agiMult:0.4 },
+    sellPrice:500000
+  },
+  arena_amulet_legend: {
+    name:'📿 Amulet of Undying Glory', slot:'amulet', rarity:'legendary',
+    arenaExclusive:true, levelReq:0,
+    stats:{ strMult:0.5, agiMult:0.5, intMult:0.5, staMult:0.5, lifeSteal:0.05 },
+    sellPrice:500000
+  },
+
+  // ── EPIC (2nd & 3rd place pool) ──
+  arena_sword_epic: {
+    name:'⚔️ Gladiator\'s War Blade', slot:'weapon', rarity:'epic',
+    arenaExclusive:true, levelReq:0,
+    stats:{ str:800, attackPower:350, strMult:0.3, crit:12, lifeSteal:0.025 },
+    sellPrice:200000
+  },
+  arena_armor_epic: {
+    name:'🛡️ Champion\'s Battle Plate', slot:'armor', rarity:'epic',
+    arenaExclusive:true, levelReq:0,
+    stats:{ armor:1200, sta:500, maxHp:8000, armorMult:0.35, hpRegenMult:0.3 },
+    sellPrice:200000
+  },
+  arena_helmet_epic: {
+    name:'⛑️ Warlord\'s Iron Crown', slot:'helmet', rarity:'epic',
+    arenaExclusive:true, levelReq:0,
+    stats:{ armor:1000, int:500, hit:400, dodgeMult:0.3, hitMult:0.25 },
+    sellPrice:200000
+  },
+  arena_boots_epic: {
+    name:'👢 Shadow Runner Boots', slot:'boots', rarity:'epic',
+    arenaExclusive:true, levelReq:0,
+    stats:{ agi:700, dodge:500, agiMult:0.35, dodgeMult:0.3 },
+    sellPrice:200000
+  },
+  arena_ring_epic: {
+    name:'💍 Ring of the Arena', slot:'ring', rarity:'epic',
+    arenaExclusive:true, levelReq:0,
+    stats:{ str:500, agi:500, int:500, sta:500, strMult:0.25 },
+    sellPrice:200000
+  },
+  arena_amulet_epic: {
+    name:'📿 Amulet of Battle', slot:'amulet', rarity:'epic',
+    arenaExclusive:true, levelReq:0,
+    stats:{ strMult:0.3, agiMult:0.3, intMult:0.3, lifeSteal:0.03 },
+    sellPrice:200000
+  },
+
+  // ── RARE (participation box) ──
+  arena_sword_rare: {
+    name:'⚔️ Arena Combatant\'s Blade', slot:'weapon', rarity:'rare',
+    arenaExclusive:true, levelReq:0,
+    stats:{ str:400, attackPower:150, crit:6, lifeSteal:0.012 },
+    sellPrice:50000
+  },
+  arena_armor_rare: {
+    name:'🛡️ Arena Combatant\'s Shield', slot:'armor', rarity:'rare',
+    arenaExclusive:true, levelReq:0,
+    stats:{ armor:600, sta:250, maxHp:3000, hpRegen:200 },
+    sellPrice:50000
+  },
+};
+
+// Give a random arena item from a tier
+function getArenaRewardItem(tier) {
+  const keys = Object.keys(ARENA_ITEMS).filter(k => ARENA_ITEMS[k].rarity === tier);
+  const key = keys[Math.floor(Math.random() * keys.length)];
+  const template = ARENA_ITEMS[key];
+  return { ...template, uid: genUid(), category: 'equipment', equipped: false };
+}
+
 // ── FINALIZE TOURNAMENT ──
 async function finalizeTournament(tournamentId, bracket, champion) {
   try {
-    // Get top 4 from bracket
+    // Get all placements from bracket
+    const allRounds = [...new Set(bracket.map(m => m.round))].sort((a,b) => b-a);
+    const finalRound = allRounds[0];
+    const semiFinalRound = allRounds[1];
+
+    // Find top 3
+    const finalMatch = bracket.find(m => m.round === finalRound);
+    const semiMatches = bracket.filter(m => m.round === semiFinalRound);
+
+    const first  = champion;
+    const second = finalMatch ?
+      (finalMatch.player1?.character_id === champion.character_id ? finalMatch.player2 : finalMatch.player1)
+      : null;
+    const thirds = semiMatches
+      .map(m => m.player1?.character_id === m.winner?.character_id ? m.player2 : m.player1)
+      .filter(Boolean);
+    const third = thirds[0] || null;
+
+    // Get all registrations for participation reward
     const { data: regs } = await dbClient
       .from('arena_registrations')
       .select('character_id')
       .eq('tournament_id', tournamentId);
 
-    // Give participation gold to all
+    const topIds = [first?.character_id, second?.character_id, third?.character_id].filter(Boolean);
+
+    // ── PARTICIPATION REWARD (everyone except top 3) ──
     for(const reg of regs) {
-      const { data: c } = await dbClient.from('characters').select('gold').eq('id', reg.character_id).single();
-      if(c) await dbClient.from('characters').update({ gold: c.gold + DAILY_REWARDS.participation.gold }).eq('id', reg.character_id);
-    }
-
-    // Give champion rewards
-    const { data: champ } = await dbClient.from('characters').select('gold, arena_points').eq('id', champion.character_id).single();
-    if(champ) {
+      if(topIds.includes(reg.character_id)) continue;
+      const { data: c } = await dbClient.from('characters').select('gold, inventory').eq('id', reg.character_id).single();
+      if(!c) continue;
+      const rewardItem = getArenaRewardItem('rare');
+      const inv = c.inventory || [];
+      inv.push(rewardItem);
       await dbClient.from('characters').update({
-        gold: champ.gold + DAILY_REWARDS[1].gold,
-        arena_points: (champ.arena_points||1000) + 100,
-        arena_title: DAILY_REWARDS[1].title,
-      }).eq('id', champion.character_id);
+        gold: c.gold + DAILY_REWARDS.participation.gold,
+        inventory: inv,
+      }).eq('id', reg.character_id);
+
+      if(reg.character_id === state.character_id) {
+        state.gold += DAILY_REWARDS.participation.gold;
+        addToInventory(rewardItem);
+        addLog(`⚔️ Tournament ended! Participation reward: +${formatNumber(DAILY_REWARDS.participation.gold)}g + ${rewardItem.name}!`, 'gold');
+        notify(`📦 Tournament reward received!`, 'var(--gold)');
+      }
     }
 
+    // ── 3RD PLACE ──
+    if(third) await givePlacementReward(third, 3);
+
+    // ── 2ND PLACE ──
+    if(second) await givePlacementReward(second, 2);
+
+    // ── 1ST PLACE ──
+    await givePlacementReward(first, 1);
+
+    // Mark tournament complete
     await dbClient.from('arena_tournaments').update({
       status: 'completed',
       bracket: bracket,
@@ -1556,17 +1700,71 @@ async function finalizeTournament(tournamentId, bracket, champion) {
 
     addLog(`🏆 Tournament complete! Champion: ${champion.name}!`, 'legendary');
     notify(`🏆 ${champion.name} wins the tournament!`, 'var(--gold)');
+    renderArena();
 
-    // Refresh if current player is champion
-    if(champion.character_id === state.character_id) {
-      state.gold += DAILY_REWARDS[1].gold;
-      state.arena_points = (state.arena_points||1000) + 100;
-      updateUI();
-      notify(`🏆 You are the Champion! +${formatNumber(DAILY_REWARDS[1].gold)}g!`, 'var(--gold)');
+  } catch(e) { console.error('Finalize tournament error:', e); }
+}
+
+async function givePlacementReward(player, place) {
+  if(!player) return;
+  try {
+    const { data: c } = await dbClient.from('characters')
+      .select('gold, inventory, arena_points')
+      .eq('id', player.character_id).single();
+    if(!c) return;
+
+    const reward = DAILY_REWARDS[place];
+    const inv = c.inventory || [];
+    const items = [];
+
+    // Item rewards
+    if(place === 1) {
+      // 3 legendary items
+      for(let i=0;i<3;i++){
+        const item = getArenaRewardItem('legendary');
+        inv.push(item); items.push(item);
+      }
+    } else if(place === 2) {
+      // 2 epic items
+      for(let i=0;i<2;i++){
+        const item = getArenaRewardItem('epic');
+        inv.push(item); items.push(item);
+      }
+    } else if(place === 3) {
+      // 1 epic item
+      const item = getArenaRewardItem('epic');
+      inv.push(item); items.push(item);
     }
 
-    renderArena();
-  } catch(e) { console.error('Finalize tournament error:', e); }
+    // Gold multiplier expiry (24hrs from now)
+    const goldMultExpiry = new Date();
+    goldMultExpiry.setHours(goldMultExpiry.getHours() + 24);
+    const goldMult = place === 1 ? 1.5 : place === 2 ? 1.25 : 1.10;
+
+    await dbClient.from('characters').update({
+      gold: c.gold + reward.gold,
+      inventory: inv,
+      arena_points: (c.arena_points || 1000) + (place === 1 ? 150 : place === 2 ? 75 : 40),
+      arena_title: reward.title || c.arena_title,
+      gold_mult: goldMult,
+    }).eq('id', player.character_id);
+
+    // If current player is one of the winners
+    if(player.character_id === state.character_id) {
+      state.gold += reward.gold;
+      state.goldMult = goldMult;
+      items.forEach(item => addToInventory(item));
+
+      const placeText = place === 1 ? '🏆 1st Place' : place === 2 ? '🥈 2nd Place' : '🥉 3rd Place';
+      addLog(`${placeText} — Tournament Champion!`, 'legendary');
+      addLog(`💰 +${formatNumber(reward.gold)}g reward!`, 'gold');
+      addLog(`⚡ +${Math.round((goldMult-1)*100)}% Gold Multiplier for 24 hours!`, 'gold');
+      items.forEach(item => addLog(`🎁 ${item.name} [${item.rarity}] — Arena Exclusive!`, 'legendary'));
+      notify(`${placeText} Champion! Check your inventory!`, 'var(--gold)');
+      updateUI();
+      renderInventory();
+    }
+  } catch(e) { console.error(`Reward place ${place} error:`, e); }
 }
 
 // ── RENDER ARENA UI ──
@@ -2359,7 +2557,7 @@ const CRAFTING = [
   {
     id:'craft_goblin_axe',
     result:{name:'⚔️ Warlord Cleaver',slot:'weapon',rarity:'epic',levelReq:40,
-      stats:{str:2220,attackPower:5800,strMult:0.55,hitMult:0.5,crit:1.5},category:'equipment'},
+      stats:{str:2220,attackPower:5800,strMult:0.55,hitMult:0.5,crit:1.5,lifesteal:0.2},category:'equipment'},
     req:[{name:'🪓 Goblin Scrap',qty:50},{name:'👹 Warlord Crest',qty:20}],
     desc:'Forged from Goblin war-steel. Comes with a permanent STR multiplier.'
   },
@@ -2387,7 +2585,7 @@ const CRAFTING = [
   {
     id:'craft_death_blade',
     result:{name:'⚔️ Death Knight Blade',slot:'weapon',rarity:'epic',levelReq:50,
-      stats:{str:3200,hit:8000,hitMult:1.5,attackPower:12000,strMult:1.8},category:'equipment'},
+      stats:{str:3200,hit:8000,hitMult:1.5,attackPower:12000,strMult:1.8,lifeSteal:0.25},category:'equipment'},
     req:[{name:'💀 Bone Shard',qty:50},{name:'💀 Death Essence',qty:20}],
     desc:'Forged from cursed bone. Boosts dodge permanently.'
   },
@@ -2431,7 +2629,7 @@ const CRAFTING = [
   {
     id:'craft_troll_sword',
     result:{name:'⚔️ Trollhide Sword',slot:'weapon',rarity:'legendary',levelReq:80,
-      stats:{str:12000,attackPower:30000,hit:20000,hitMult:4.5,strMult:4.5,attackPowerMult:4.5},category:'equipment'},
+      stats:{str:12000,attackPower:30000,hit:20000,hitMult:4.5,strMult:4.5,attackPowerMult:4.5,lifeSteal:0.3},category:'equipment'},
     req:[{name:'💎 Troll Gem',qty:200},{name:'👾 Troll Heart',qty:150}],
     desc:'Practically indestructible. The ultimate dps weapon.'
   },
