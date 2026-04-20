@@ -347,64 +347,64 @@ function switchMainScene(scene){
 
 const MONSTER_TEMPLATES = {
   // Stage 1 — Level 1-9 — atk ~player lvl1 ATK (80), HP takes ~15 hits
-  young_wolf:      {id:'young_wolf',     name:'🐺 Young Wolf',      icon:'wolf',    hp:1200,   atk:60,    armor:40,   hit:80,   dodge:50,   xp:800,   gold:[300,600]},
-  forest_wolf:     {id:'forest_wolf',    name:'🐺 Forest Wolf',     icon:'wolf',    hp:1800,   atk:120,    armor:100,   hit:160,  dodge:130,   xp:1200,  gold:[500,1000]},
-  shadow_wolf:     {id:'shadow_wolf',    name:'🐺 Shadow Wolf',     icon:'wolf',    hp:2400,   atk:240,   armor:200,   hit:220,  dodge:190,   xp:1600,  gold:[800,1400]},
-  dire_wolf:       {id:'dire_wolf',      name:'🐺 Dire Wolf',       icon:'wolf',    hp:3200,   atk:400,   armor:380,  hit:350,  dodge:250,  xp:2000,  gold:[1000,1800]},
+  young_wolf:      {id:'young_wolf',     name:'🐺 Young Wolf',      icon:'wolf',    hp:1200,   atk:60,    armor:5000,   hit:80,   dodge:50,   xp:800,   gold:[300,600]},
+  forest_wolf:     {id:'forest_wolf',    name:'🐺 Forest Wolf',     icon:'wolf',    hp:1800,   atk:120,    armor:5000,   hit:160,  dodge:130,   xp:1200,  gold:[500,1000]},
+  shadow_wolf:     {id:'shadow_wolf',    name:'🐺 Shadow Wolf',     icon:'wolf',    hp:2400,   atk:240,   armor:5000,   hit:220,  dodge:190,   xp:1600,  gold:[800,1400]},
+  dire_wolf:       {id:'dire_wolf',      name:'🐺 Dire Wolf',       icon:'wolf',    hp:3200,   atk:400,   armor:5000,  hit:350,  dodge:250,  xp:2000,  gold:[1000,1800]},
 
   // Stage 2 — Level 10-19 — player ATK ~290, HP ~1730
-  cave_spider:     {id:'cave_spider',    name:'🕷️ Cave Spider',     icon:'spider',  hp:8000,   atk:2200,   armor:2000,  hit:1200,  dodge:800,  xp:2400,  gold:[1200,2000]},
-  venom_spider:    {id:'venom_spider',   name:'🕷️ Venom Spider',    icon:'spider',  hp:12000,  atk:2800,   armor:2600,  hit:1800,  dodge:1000,  xp:3000,  gold:[1600,2600]},
-  giant_spider:    {id:'giant_spider',   name:'🕷️ Giant Spider',    icon:'spider',  hp:18000,  atk:3400,   armor:3200,  hit:2000,  dodge:1600,  xp:3700,  gold:[2000,3200]},
-  queen_spider:    {id:'queen_spider',   name:'🕷️ Queen Spider',    icon:'spider',  hp:26000,  atk:4200,   armor:4000,  hit:2500,  dodge:1900,  xp:4500,  gold:[2500,4000]},
+  cave_spider:     {id:'cave_spider',    name:'🕷️ Cave Spider',     icon:'spider',  hp:8000,   atk:2200,   armor:5000,  hit:1200,  dodge:800,  xp:2400,  gold:[1200,2000]},
+  venom_spider:    {id:'venom_spider',   name:'🕷️ Venom Spider',    icon:'spider',  hp:12000,  atk:2800,   armor:5000,  hit:1800,  dodge:1000,  xp:3000,  gold:[1600,2600]},
+  giant_spider:    {id:'giant_spider',   name:'🕷️ Giant Spider',    icon:'spider',  hp:18000,  atk:3400,   armor:5000,  hit:2000,  dodge:1600,  xp:3700,  gold:[2000,3200]},
+  queen_spider:    {id:'queen_spider',   name:'🕷️ Queen Spider',    icon:'spider',  hp:26000,  atk:4200,   armor:5000,  hit:2500,  dodge:1900,  xp:4500,  gold:[2500,4000]},
 
   // Stage 3 — Level 20-29 — player ATK ~620, HP ~3580
-  goblin_scout:    {id:'goblin_scout',   name:'👹 Goblin Scout',    icon:'goblin',  hp:40000,  atk:4800,   armor:3000,  hit:2000,  dodge:1000,  xp:5400,  gold:[3000,4800]},
-  goblin_warrior:  {id:'goblin_warrior', name:'👹 Goblin Warrior',  icon:'goblin',  hp:60000,  atk:5800,   armor:4200,  hit:3500,  dodge:2800,  xp:6500,  gold:[3800,5800]},
-  goblin_shaman:   {id:'goblin_shaman',  name:'👹 Goblin Shaman',   icon:'goblin',  hp:85000,  atk:7000,   armor:5000,  hit:4000,  dodge:3000,  xp:7800,  gold:[4600,7000]},
-  goblin_elite:    {id:'goblin_elite',   name:'👹 Goblin Elite',    icon:'goblin',  hp:120000, atk:8600,   armor:6400,  hit:5500, dodge:4800,  xp:9400,  gold:[5600,8400]},
+  goblin_scout:    {id:'goblin_scout',   name:'👹 Goblin Scout',    icon:'goblin',  hp:40000,  atk:4800,   armor:20000,  hit:2000,  dodge:1000,  xp:5400,  gold:[3000,4800]},
+  goblin_warrior:  {id:'goblin_warrior', name:'👹 Goblin Warrior',  icon:'goblin',  hp:60000,  atk:5800,   armor:20000,  hit:3500,  dodge:2800,  xp:6500,  gold:[3800,5800]},
+  goblin_shaman:   {id:'goblin_shaman',  name:'👹 Goblin Shaman',   icon:'goblin',  hp:85000,  atk:7000,   armor:20000,  hit:4000,  dodge:3000,  xp:7800,  gold:[4600,7000]},
+  goblin_elite:    {id:'goblin_elite',   name:'👹 Goblin Elite',    icon:'goblin',  hp:120000, atk:8600,   armor:20000,  hit:5500, dodge:480<PASSWORD>,  xp:94<PASSWORD>,  gold:[56<PASSWORD>,84<PASSWORD>]},
 
   // Stage 4 — Level 30-39 — player ATK ~1050, HP ~6280
-  skeleton_archer: {id:'skeleton_archer',name:'💀 Skeleton Archer', icon:'skeleton',hp:160000, atk:10000,  armor:8000, hit:6500, dodge:5000, xp:11000, gold:[6600,10000]},
-  skeleton_warrior:{id:'skeleton_warrior',name:'💀 Skeleton Warrior',icon:'skeleton',hp:220000, atk:12000,  armor:10800, hit:8000, dodge:6000, xp:13200, gold:[8000,12000]},
-  skeleton_mage:   {id:'skeleton_mage',  name:'💀 Skeleton Mage',   icon:'skeleton',hp:300000, atk:14500,  armor:12700, hit:10200, dodge:9500, xp:15800, gold:[9600,14400]},
-  skeleton_knight: {id:'skeleton_knight',name:'💀 Skeleton Knight', icon:'skeleton',hp:420000, atk:17500,  armor:14100, hit:12000, dodge:10500, xp:19000, gold:[11600,17400]},
+  skeleton_archer: {id:'skeleton_archer',name:'💀 Skeleton Archer', icon:'skeleton',hp:160000, atk:10000,  armor:20000, hit:6500, dodge:5000, xp:11000, gold:[6600,10000]},
+  skeleton_warrior:{id:'skeleton_warrior',name:'💀 Skeleton Warrior',icon:'skeleton',hp:220000, atk:12000,  armor:20000, hit:8000, dodge:6000, xp:13200, gold:[8000,12000]},
+  skeleton_mage:   {id:'skeleton_mage',  name:'💀 Skeleton Mage',   icon:'skeleton',hp:300000, atk:14500,  armor:20000, hit:10200, dodge:9500, xp:15800, gold:[9600,14400]},
+  skeleton_knight: {id:'skeleton_knight',name:'💀 Skeleton Knight', icon:'skeleton',hp:420000, atk:17500,  armor:20000, hit:12000, dodge:10500, xp:19000, gold:[11600,17400]},
 
   // Stage 5 — Level 40-49 — player ATK ~1580, HP ~9780
-  orc_grunt:       {id:'orc_grunt',      name:'👊 Orc Grunt',       icon:'orc',     lifeSteal:1.5, hp:560000, atk:20000,  armor:17000, hit:15000, dodge:12000, xp:22800, gold:[14000,21000]},
-  orc_warrior:     {id:'orc_warrior',    name:'👊 Orc Warrior',     icon:'orc',     lifeSteal:1.5, hp:760000, atk:24000,  armor:21000, hit:18000, dodge:13000, xp:27400, gold:[16800,25200]},
-  orc_shaman:      {id:'orc_shaman',     name:'👊 Orc Shaman',      icon:'orc',     lifeSteal:1.5, hp:1000000,atk:29000,  armor:24000, hit:20000, dodge:17000, xp:32800, gold:[20200,30200]},
-  orc_berserker:   {id:'orc_berserker',  name:'👊 Orc Berserker',   icon:'orc',     lifeSteal:1.5, hp:1400000,atk:35000,  armor:29000, hit:22000, dodge:19000, xp:39400, gold:[24200,36400]},
+  orc_grunt:       {id:'orc_grunt',      name:'👊 Orc Grunt',       icon:'orc',     lifeSteal:1.5, hp:560000, atk:20000,  armor:50000, hit:15000, dodge:12000, xp:22800, gold:[14000,21000]},
+  orc_warrior:     {id:'orc_warrior',    name:'👊 Orc Warrior',     icon:'orc',     lifeSteal:1.5, hp:760000, atk:24000,  armor:50000, hit:18000, dodge:13000, xp:27400, gold:[16800,25200]},
+  orc_shaman:      {id:'orc_shaman',     name:'👊 Orc Shaman',      icon:'orc',     lifeSteal:1.5, hp:1000000,atk:29000,  armor:50000, hit:20000, dodge:17000, xp:32800, gold:[20200,30200]},
+  orc_berserker:   {id:'orc_berserker',  name:'👊 Orc Berserker',   icon:'orc',     lifeSteal:1.5, hp:1400000,atk:35000,  armor:50000, hit:22000, dodge:19000, xp:39400, gold:[24200,36400]},
 
   // Stage 6 — Level 50-59 — player ATK ~2210, HP ~14080
-  vampire_thrall:  {id:'vampire_thrall', name:'🧛 Vampire Thrall',  icon:'vampire', hp:1800000,atk:42000,  armor:35000, hit:26000, dodge:22000, xp:47200, gold:[29000,43600]},
-  vampire_hunter:  {id:'vampire_hunter', name:'🧛 Vampire Hunter',  icon:'vampire', hp:2400000,atk:50000,  armor:40000, hit:30000, dodge:25000, xp:56800, gold:[35000,52400]},
+  vampire_thrall:  {id:'vampire_thrall', name:'🧛 Vampire Thrall',  icon:'vampire', hp:1800000,atk:42000,  armor:50000, hit:26000, dodge:22000, xp:47200, gold:[29000,43600]},
+  vampire_hunter:  {id:'vampire_hunter', name:'🧛 Vampire Hunter',  icon:'vampire', hp:2400000,atk:50000,  armor:50000, hit:30000, dodge:25000, xp:56800, gold:[35000,52400]},
   vampire_noble:   {id:'vampire_noble',  name:'🧛 Vampire Noble',   icon:'vampire', hp:3200000,atk:60000,  armor:50000, hit:40000, dodge:30000, xp:68200, gold:[42000,63000]},
-  vampire_elder:   {id:'vampire_elder',  name:'🧛 Vampire Elder',   icon:'vampire', hp:4200000,atk:72000,  armor:60000,hit:48000, dodge:38200, xp:81800, gold:[50400,75600]},
+  vampire_elder:   {id:'vampire_elder',  name:'🧛 Vampire Elder',   icon:'vampire', hp:4200000,atk:72000,  armor:50000, hit:48000, dodge:38200, xp:81800, gold:[50400,75600]},
 
   // Stage 7 — Level 60-69 — player ATK ~2940, HP ~19180
-  cave_troll:      {id:'cave_troll',     name:'👾 Cave Troll',      icon:'troll',   hp:5500000,atk:85000,  armor:66000,hit:40500,dodge:30500, xp:98200, gold:[60500,90800]},
-  rock_troll:      {id:'rock_troll',     name:'👾 Rock Troll',      icon:'troll',   hp:7200000,atk:100000, armor:84500,hit:62500,dodge:45000,xp:117800,gold:[72600,109000]},
-  frost_troll:     {id:'frost_troll',    name:'👾 Frost Troll',     icon:'troll',   hp:9500000,atk:120000, armor:97500,hit:75000,dodge:55000,xp:141400,gold:[87200,130800]},
-  war_troll:       {id:'war_troll',      name:'👾 War Troll',       icon:'troll',   hp:12500000,atk:145000,armor:111000,hit:80000,dodge:70500,xp:169600,gold:[104600,157000]},
+  cave_troll:      {id:'cave_troll',     name:'👾 Cave Troll',      icon:'troll',   hp:5500000,atk:85000,  armor:80000,hit:40500,dodge:30500, xp:98200, gold:[60500,90800]},
+  rock_troll:      {id:'rock_troll',     name:'👾 Rock Troll',      icon:'troll',   hp:7200000,atk:100000, armor:80000,hit:62500,dodge:45000,xp:117800,gold:[72600,109000]},
+  frost_troll:     {id:'frost_troll',    name:'👾 Frost Troll',     icon:'troll',   hp:9500000,atk:120000, armor:80000,hit:75000,dodge:55000,xp:141400,gold:[87200,130800]},
+  war_troll:       {id:'war_troll',      name:'👾 War Troll',       icon:'troll',   hp:12500000,atk:145000,armor:80000,hit:80000,dodge:70500,xp:169600,gold:[104600,157000]},
 
   // Stage 8 — Level 70-79 — player ATK ~3770, HP ~25080
-  demon_scout:     {id:'demon_scout',    name:'😈 Demon Scout',     icon:'demon',   hp:16000000,atk:170000,armor:140000,hit:121000,dodge:87000,xp:203600,gold:[125600,188400]},
-  demon_warrior:   {id:'demon_warrior',  name:'😈 Demon Warrior',   icon:'demon',   hp:21000000,atk:200000,armor:170000,hit:125000,dodge:99000,xp:244400,gold:[150800,226200]},
-  demon_mage:      {id:'demon_mage',     name:'😈 Demon Mage',      icon:'demon',   hp:27000000,atk:240000,armor:206000,hit:160000,dodge:124000,xp:293200,gold:[181000,271400]},
-  demon_knight:    {id:'demon_knight',   name:'😈 Demon Knight',    icon:'demon',   hp:35000000,atk:290000,armor:223000,hit:186000,dodge:169000,xp:351800,gold:[217200,325800]},
+  demon_scout:     {id:'demon_scout',    name:'😈 Demon Scout',     icon:'demon',   hp:16000000,atk:170000,armor:80000,hit:121000,dodge:87000,xp:203600,gold:[125600,188400]},
+  demon_warrior:   {id:'demon_warrior',  name:'😈 Demon Warrior',   icon:'demon',   hp:21000000,atk:200000,armor:80000,hit:125000,dodge:99000,xp:244400,gold:[150800,226200]},
+  demon_mage:      {id:'demon_mage',     name:'😈 Demon Mage',      icon:'demon',   hp:27000000,atk:240000,armor:80000,hit:160000,dodge:124000,xp:293200,gold:[181000,271400]},
+  demon_knight:    {id:'demon_knight',   name:'😈 Demon Knight',    icon:'demon',   hp:35000000,atk:290000,armor:80000,hit:186000,dodge:169000,xp:351800,gold:[217200,325800]},
 
   // Stage 9 — Level 80-89 — player ATK ~4700, HP ~31780
-  shadow_wraith:   {id:'shadow_wraith',  name:'🌑 Shadow Wraith',   icon:'werewolf',hp:44000000,atk:340000,armor:310000,hit:220000,dodge:190000,xp:422200,gold:[260600,391000]},
-  shadow_knight:   {id:'shadow_knight',  name:'🌑 Shadow Knight',   icon:'werewolf',hp:56000000,atk:400000,armor:360000,hit:280000,dodge:220000,xp:506600,gold:[312800,469200]},
-  shadow_mage:     {id:'shadow_mage',    name:'🌑 Shadow Mage',     icon:'werewolf',hp:70000000,atk:470000,armor:411000,hit:340000,dodge:267000,xp:608000,gold:[375400,563000]},
-  shadow_lord:     {id:'shadow_lord',    name:'🌑 Shadow Lord',     icon:'werewolf',hp:88000000,atk:550000,armor:503000,hit:409000,dodge:305000,xp:729600,gold:[450500,675800]},
+  shadow_wraith:   {id:'shadow_wraith',  name:'🌑 Shadow Wraith',   icon:'werewolf',hp:44000000,atk:340000,armor:160000,hit:220000,dodge:190000,xp:422200,gold:[260600,391000]},
+  shadow_knight:   {id:'shadow_knight',  name:'🌑 Shadow Knight',   icon:'werewolf',hp:56000000,atk:400000,armor:160000,hit:280000,dodge:220000,xp:506600,gold:[312800,469200]},
+  shadow_mage:     {id:'shadow_mage',    name:'🌑 Shadow Mage',     icon:'werewolf',hp:70000000,atk:470000,armor:160000,hit:340000,dodge:267000,xp:608000,gold:[375400,563000]},
+  shadow_lord:     {id:'shadow_lord',    name:'🌑 Shadow Lord',     icon:'werewolf',hp:88000000,atk:550000,armor:160000,hit:409000,dodge:305000,xp:729600,gold:[450500,675800]},
 
   // Stage 10 — Level 90-100 — player ATK ~5730, HP ~39280
-  eternal_guard:   {id:'eternal_guard',  name:'🌟 Eternal Guard',   icon:'phoenix', hp:110000000,atk:640000,armor:556000, hit:380000, dodge:334000,xp:875600, gold:[540600,811000]},
-  eternal_warrior: {id:'eternal_warrior',name:'🌟 Eternal Warrior', icon:'phoenix', hp:140000000,atk:750000,armor:612000,hit:444000, dodge:375000,xp:1050800,gold:[648800,973200]},
-  eternal_mage:    {id:'eternal_mage',   name:'🌟 Eternal Mage',    icon:'phoenix', hp:175000000,atk:880000,armor:730000,hit:511000,dodge:458000,xp:1261000,gold:[778600,1168000]},
-  eternal_champion:{id:'eternal_champion',name:'🌟 Eternal Champion',icon:'phoenix',hp:220000000,atk:1040000,armor:852000,hit:613000,dodge:504000,xp:1513000,gold:[934400,1401600]},
+  eternal_guard:   {id:'eternal_guard',  name:'🌟 Eternal Guard',   icon:'phoenix', hp:110000000,atk:640000,armor:160000, hit:380000, dodge:334000,xp:875600, gold:[540600,811000]},
+  eternal_warrior: {id:'eternal_warrior',name:'🌟 Eternal Warrior', icon:'phoenix', hp:140000000,atk:750000,armor:160000,hit:444000, dodge:375000,xp:1050800,gold:[648800,973200]},
+  eternal_mage:    {id:'eternal_mage',   name:'🌟 Eternal Mage',    icon:'phoenix', hp:175000000,atk:880000,armor:160000,hit:511000,dodge:458000,xp:1261000,gold:[778600,1168000]},
+  eternal_champion:{id:'eternal_champion',name:'🌟 Eternal Champion',icon:'phoenix',hp:220000000,atk:1040000,armor:160000,hit:613000,dodge:504000,xp:1513000,gold:[934400,1401600]},
 };
 
 // ── STAGES ──
@@ -425,7 +425,7 @@ const STAGES=[
 const STAGE_BOSSES={
   // Boss 1 — after Stage 1 (player ~Lv9, ATK ~260, HP ~1580)
   stage_boss_1:{id:'stage_boss_1',name:'🐺 Wolf King',icon:'🐺',
-    hp:18000,atk:500,armor:400,hit:600,dodge:400,xp:4000,gold:[3000,6000],
+    hp:18000,atk:500,armor:5000,hit:600,dodge:400,xp:4000,gold:[3000,6000],
     ability:{name:'PACK HOWL!',color:'#ffdd00',triggerEvery:3,effect:(e)=>{
       const d=Math.floor(e.atk*0.5);state.hp=Math.max(1,state.hp-d);
       spawnAbilityFloat('🐺 PACK HOWL!','#ffdd00');
@@ -435,7 +435,7 @@ const STAGE_BOSSES={
 
   // Boss 2 — after Stage 2 (player ~Lv19, ATK ~560, HP ~3380)
   stage_boss_2:{id:'stage_boss_2',name:'🕷️ Spider Queen',icon:'🕷️',
-    hp:120000,atk:8600,armor:6600,hit:5500,dodge:4600,xp:8000,gold:[8000,16000],
+    hp:120000,atk:8600,armor:20000,hit:5500,dodge:4600,xp:8000,gold:[8000,16000],
     ability:{name:'WEB TRAP!',color:'#44ff44',triggerEvery:3,effect:(e)=>{
       state.webTrapped=2;
       spawnAbilityFloat('🕸️ WEB TRAP!','#44ff44');
@@ -444,7 +444,7 @@ const STAGE_BOSSES={
 
   // Boss 3 — after Stage 3 (player ~Lv29, ATK ~940, HP ~6080)
   stage_boss_3:{id:'stage_boss_3',name:'👹 Goblin Warlord',icon:'👹',
-    hp:480000,atk:13200,armor:10500,hit:12000,dodge:10200,xp:16000,gold:[15000,28000],
+    hp:480000,atk:13200,armor:50000,hit:12000,dodge:10200,xp:16000,gold:[15000,28000],
     ability:{name:'GOLD STEAL!',color:'#f0c040',triggerEvery:3,effect:(e)=>{
       const s=Math.floor(state.gold*0.10);state.gold=Math.max(0,state.gold-s);
       spawnAbilityFloat('💰 GOLD STEAL!','#f0c040');
@@ -453,7 +453,7 @@ const STAGE_BOSSES={
 
   // Boss 4 — after Stage 4 (player ~Lv39, ATK ~1460, HP ~9480)
   stage_boss_4:{id:'stage_boss_4',name:'💀 Skeleton Lord',icon:'💀',
-    hp:1800000,atk:29500,armor:22500,hit:18500,dodge:16500,xp:21000,gold:[30000,55000],
+    hp:1800000,atk:29500,armor:50000,hit:18500,dodge:16500,xp:21000,gold:[30000,55000],
     ability:{name:'DEATH CURSE!',color:'#aa44ff',triggerEvery:3,effect:(e)=>{
       const r=Math.floor(state.maxHp*0.05);
       state.activeDebuffs.maxHpReduction+=r;
@@ -465,7 +465,7 @@ const STAGE_BOSSES={
 
   // Boss 5 — after Stage 5 (player ~Lv49, ATK ~2090, HP ~13880)
   stage_boss_5:{id:'stage_boss_5',name:'👊 Orc Chieftain',icon:'👊',
-    hp:6000000,atk:63000,armor:53000,hit:46000,dodge:33000,xp:42000,gold:[60000,110000],
+    hp:6000000,atk:63000,armor:50000,hit:46000,dodge:33000,xp:42000,gold:[60000,110000],
     ability:{name:'BERSERKER RAGE!',color:'#ff8800',triggerEvery:5,effect:(e)=>{
       currentEnemy.atk=Math.floor(currentEnemy.atk*2);
       currentEnemy.rageTimer=3;
@@ -475,7 +475,7 @@ const STAGE_BOSSES={
 
   // Boss 6 — after Stage 6 (player ~Lv59, ATK ~2820, HP ~19480)
   stage_boss_6:{id:'stage_boss_6',name:'🧛 Vampire Lord',icon:'🧛',
-    hp:18000000,atk:120000,armor:96000,hit:72000,dodge:56000,xp:80000,gold:[110000,200000],
+    hp:18000000,atk:120000,armor:80000,hit:72000,dodge:56000,xp:80000,gold:[110000,200000],
     ability:{name:'LIFE DRAIN!',color:'#ff2244',triggerEvery:3,effect:(e)=>{
       const h=Math.floor(currentEnemy.atk*0.2);
       currentEnemy.hp=Math.min(currentEnemy.maxHp,currentEnemy.hp+h);
@@ -486,7 +486,7 @@ const STAGE_BOSSES={
 
   // Boss 7 — after Stage 7 (player ~Lv69, ATK ~3650, HP ~26180)
   stage_boss_7:{id:'stage_boss_7',name:'👾 Troll King',icon:'👾',
-    hp:55000000,atk:222000,armor:156000,hit:125000,dodge:92000,xp:160000,gold:[200000,380000],
+    hp:55000000,atk:222000,armor:160000,hit:125000,dodge:92000,xp:160000,gold:[200000,380000],
     ability:{name:'REGENERATION!',color:'#00ff88',triggerEvery:2,effect:(e)=>{
       const h=Math.floor(currentEnemy.maxHp*0.03);
       currentEnemy.hp=Math.min(currentEnemy.maxHp,currentEnemy.hp+h);
@@ -497,7 +497,7 @@ const STAGE_BOSSES={
 
   // Boss 8 — after Stage 8 (player ~Lv79, ATK ~4580, HP ~33980)
   stage_boss_8:{id:'stage_boss_8',name:'😈 Demon Prince',icon:'😈',
-    hp:160000000,atk:405000,armor:255000,hit:160000,dodge:135000,xp:300000,gold:[380000,700000],
+    hp:160000000,atk:405000,armor:160000,hit:160000,dodge:135000,xp:300000,gold:[380000,700000],
     ability:{name:'HELLFIRE!',color:'#ff4400',triggerEvery:3,effect:(e)=>{
       const d=Math.floor(currentEnemy.atk*0.8);
       state.hp=Math.max(1,state.hp-d);
@@ -508,7 +508,7 @@ const STAGE_BOSSES={
 
   // Boss 9 — after Stage 9 (player ~Lv89, ATK ~5660, HP ~43280)
   stage_boss_9:{id:'stage_boss_9',name:'🌑 Shadow Emperor',icon:'🌑',
-    hp:450000000,atk:810000,armor:500000,hit:460000,dodge:210000,xp:600000,gold:[700000,1300000],
+    hp:450000000,atk:810000,armor:400000,hit:460000,dodge:210000,xp:600000,gold:[700000,1300000],
     ability:{name:'PHASE SHIFT!',color:'#4488ff',triggerEvery:3,effect:(e)=>{
       currentEnemy.phaseShifted=true;
       spawnAbilityFloat('🌑 PHASE SHIFT!','#4488ff');
@@ -517,7 +517,7 @@ const STAGE_BOSSES={
 
   // Boss 10 — FINAL BOSS (player ~Lv99, ATK ~6790, HP ~53580)
   stage_boss_10:{id:'stage_boss_10',name:'🌟 Eternal King',icon:'🌟',
-    hp:1200000000,atk:1400000,armor:1060000,hit:800000,dodge:400000,xp:1000000,gold:[1500000,3000000],
+    hp:1200000000,atk:1400000,armor:400000,hit:800000,dodge:400000,xp:1000000,gold:[1500000,3000000],
     ability:{name:'ALL POWERS!',color:'#ffffff',triggerEvery:2,effect:(e)=>{
       const d=Math.floor(currentEnemy.atk*0.6);
       state.hp=Math.max(1,state.hp-d);
