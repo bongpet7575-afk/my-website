@@ -2891,7 +2891,7 @@ function checkLevelUp(){
   while(state.xp>=state.xpNext&&state.level<state.maxLevel){
     state.xp-=state.xpNext;state.level++;
     state.xpNext=Math.floor(state.level*100*50.00);
-    state.baseStr+=3;state.baseAgi+=3;state.baseInt+=3;state.baseSta+=3;state.talentPoints+=5;baseArmor+=2500;
+    state.baseStr+=3;state.baseAgi+=3;state.baseInt+=3;state.baseSta+=3;state.talentPoints+=5;state.baseArmor+=2500;
     calcStats();state.hp=state.maxHp;state.mp=state.maxMp;
     document.getElementById('char-level').textContent=`Level ${state.level} / 100`;
     addLog(`🎉 LEVEL UP! Level ${state.level}! +5 Talent Points!`,'gold');
