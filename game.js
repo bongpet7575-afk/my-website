@@ -2299,7 +2299,7 @@ const CRAFTING = [
   },
   {
     id:'craft_silk_boot',
-    result:{name:'� Spiderweave Boots',slot:'boots',rarity:'rare',levelReq:30,
+    result:{name:'👢 Spiderweave Boots',slot:'boots',rarity:'rare',levelReq:30,
       stats:{armor:2080,agi:1500,maxHp:15500,hpRegen:3300,dodge:500,agiMul:0.5,dodgeMult:0.15},category:'equipment'},
     req:[{name:'🕸️ Spider Silk',qty:50},{name:'🕷️ Venom Gland',qty:20}],
     desc:'Woven from spider silk — light but incredibly resilient.'
