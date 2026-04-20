@@ -2532,10 +2532,16 @@ function renderEquipSlots(){
     if(uid){
       const item=state.inventory.find(i=>i.uid===uid);
       if(item){
-        nameEl.textContent=item.name.replace(/^[^\s]+ /,'').substring(0,12);slotEl.classList.add('has-item',item.rarity);
+        nameEl.textContent=item.name.replace(/^[^\s]+ /,'').substring(0,12);
+        slotEl.classList.add('has-item',item.rarity);
+        // Add glow for enhanced items
+        const enh=item.enhLevel||0;
+        if(enh>=15)slotEl.classList.add('enh-glow-15');
+        else if(enh>=7)slotEl.classList.add('enh-glow-7');
         const statsHtml=Object.entries(item.stats||{}).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join('');
         const rarity=RARITY[item.rarity]||RARITY.normal;
-        slotEl.insertAdjacentHTML('beforeend',`<div class="equip-tooltip" style="display:none;"><div style="color:${rarity.color};font-weight:600;">${item.name}</div><div style="color:${rarity.color};font-size:0.8em;margin:3px 0;">${rarity.label}</div>${statsHtml}<div style="color:#888;font-size:0.75em;margin-top:4px;">Sell: ${item.sellPrice}g</div></div>`);
+        const enh_label=enh>0?`<div style="color:${enh>=7?'var(--legendary)':'var(--gold)'};font-size:0.75em;">+${enh} Enhanced</div>`:'';
+        slotEl.insertAdjacentHTML('beforeend',`<div class="equip-tooltip" style="display:none;"><div style="color:${rarity.color};font-weight:600;">${item.name}</div><div style="color:${rarity.color};font-size:0.8em;margin:3px 0;">${rarity.label}</div>${enh_label}${statsHtml}<div style="color:#888;font-size:0.75em;margin-top:4px;">Sell: ${item.sellPrice}g</div></div>`);
       }
     } else { nameEl.textContent='Empty'; }
   });
@@ -2662,29 +2668,38 @@ function useItem(uid){
 }
 
 function showItemPopup(source,id){
-  const r_=r=>RARITY[r]||RARITY.normal;let item,btns='';
-  if(source==='shop'){    
-    const all=[...SHOP_EQUIP,...SHOP_CONS];item=all.find(i=>i.id===id);if(!item)return;
-    const desc=item.stats?Object.entries(item.stats).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join(''):item.effect?`<div class="tooltip-stat">Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}</div>`:'';
+  const r_=r=>RARITY[r]||RARITY.normal;
+  let item,btns='',statsHtml='',reqLine='';
+
+  if(source==='shop'){
+    const all=[...SHOP_EQUIP,...SHOP_CONS];
+    item=all.find(i=>i.id===id);if(!item)return;
+    statsHtml=item.stats
+      ?Object.entries(item.stats).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join('')
+      :item.effect?`<div class="tooltip-stat">Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}</div>`:'';
+    reqLine=(item.levelReq&&item.levelReq>0)
+      ?`<div style="font-size:.78em;margin-bottom:6px;color:${state.level>=item.levelReq?'var(--green)':'var(--red)'};">${state.level>=item.levelReq?'✅':'🔒'} Level ${item.levelReq} Required</div>`:'';
     btns=`<button class="start-btn" onclick="buyShopItem('${item.id}');closeItemPopup()">💰 Buy (${item.price}g)</button>`;
-    const statsHtml=item.stats?Object.entries(item.stats).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join(''):item.effect?`<div class="tooltip-stat">Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}</div>`:'';
-  showPopup(item,statsHtml,btns);
+
   } else {
     item=state.inventory.find(i=>i.uid===id);if(!item)return;
-    const statsHtml=item.stats?Object.entries(item.stats).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join(''):item.effect?`<div class="tooltip-stat">Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}</div>`:'';
+    statsHtml=item.stats
+      ?Object.entries(item.stats).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join('')
+      :item.effect?`<div class="tooltip-stat">Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}</div>`:'';
+    reqLine=(item.levelReq&&item.levelReq>0)
+      ?`<div style="font-size:.78em;margin-bottom:6px;color:${state.level>=item.levelReq?'var(--green)':'var(--red)'};">${state.level>=item.levelReq?'✅':'🔒'} Level ${item.levelReq} Required</div>`:'';
     if(item.category==='equipment'){
-      btns=item.equipped?`<button class="start-btn red-btn" onclick="unequipSlot('${item.slot}');closeItemPopup()">Unequip</button>`:`<button class="start-btn blue-btn" onclick="equipItem(${item.uid});closeItemPopup()">Equip</button>`;
+      btns=item.equipped
+        ?`<button class="start-btn red-btn" onclick="unequipSlot('${item.slot}');closeItemPopup()">Unequip</button>`
+        :`<button class="start-btn blue-btn" onclick="equipItem(${item.uid});closeItemPopup()">Equip</button>`;
       btns+=`<button class="start-btn purple-btn" onclick="closeItemPopup();openEnhance(${item.uid})">⚒️ Enhance</button>`;
       if(!item.equipped)btns+=`<button class="start-btn" onclick="closeItemPopup();listItemForAuction(${item.uid})" style="background:linear-gradient(135deg,#005580,#0088cc);">🏛️ Auction</button>`;
     }
     if(item.category==='consumable')btns+=`<button class="start-btn" onclick="useItem(${item.uid});closeItemPopup()">Use</button>`;
     if(!item.equipped)btns+=`<button class="start-btn red-btn" onclick="sellItem(${item.uid});closeItemPopup()">Sell ${item.stackable&&item.qty>1?'All':''} (${(item.sellPrice||0)*(item.stackable?item.qty:1)}g)</button>`;
-    const reqLine = (item.levelReq&&item.levelReq>0)
-  ? `<div style="font-size:.78em;margin-bottom:6px;color:${state.level>=item.levelReq?'var(--green)':'var(--red)'};">
-      ${state.level>=item.levelReq?'✅':'🔒'} Level ${item.levelReq} Required
-    </div>` : '';
-showPopup(item, reqLine+statsHtml, btns);
   }
+
+  showPopup(item, reqLine+statsHtml, btns);
 }
 function showPopup(item,statsHtml,btns){
   const r=RARITY[item.rarity]||RARITY.normal;
@@ -2767,7 +2782,7 @@ function buyShopItem(itemId){
   const all=[...SHOP_EQUIP,...SHOP_CONS],item=all.find(i=>i.id===itemId);if(!item)return;
   if(state.gold<item.price){addLog('Not enough gold!','bad');return;}
   state.gold-=item.price;
-  if(item.slot){addToInventory({uid:genUid(),name:item.name,category:'equipment',slot:item.slot,rarity:item.rarity||'normal',stats:{...item.stats},equipped:false,sellPrice:Math.floor(item.price*.5)});}
+  if(item.slot){addToInventory({uid:genUid(),name:item.name,category:'equipment',slot:item.slot,rarity:item.rarity||'normal',stats:{...item.stats},equipped:false,levelReq:item.levelReq||0,sellPrice:Math.floor(item.price*.5)});}
   else{addToInventory({uid:genUid(),name:item.name,category:'consumable',rarity:item.rarity||'normal',effect:item.effect,val:item.val,sellPrice:Math.floor(item.price*.4),stackable:true,qty:1});}
   addLog(`Bought ${item.name} for ${item.price}g!`,'gold');updateUI();
   if(state.gold>=50)state.quests.gold50.done=true;renderQuests();
