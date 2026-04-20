@@ -727,7 +727,7 @@ async function registerUser(){
 
     const{data:character,error:charError}=await dbClient.from('characters').insert({
       user_id:userId,name,level:1,exp:0,gold:1550,class:null,
-      health:100,max_health:100,mana:50,max_mana:50,baseHit:2,baseCrit:0.1,baseDodge:2,baseHpRegen:20,baseLifeSteal:0,baseAttackPower:10,
+      health:100,max_health:100,mana:50,max_mana:50,
       inventory:[],current_scene:'town',unlocked_talents:[],talent_points:0,
       difficulty:'normal',inv_tab:'equipment',shop_tab:'equipment',
       equipped:{weapon:null,armor:null,helmet:null,boots:null,ring:null,amulet:null},
@@ -2891,7 +2891,7 @@ function checkLevelUp(){
   while(state.xp>=state.xpNext&&state.level<state.maxLevel){
     state.xp-=state.xpNext;state.level++;
     state.xpNext=Math.floor(state.level*100*50.00);
-    state.baseStr+=10;state.baseAgi+=10;state.baseInt+=10;state.baseSta+=10;state.talentPoints+=5;
+    state.baseStr+=15;state.baseAgi+=15;state.baseInt+=15;state.baseSta+=15;state.talentPoints+=5;
     calcStats();state.hp=state.maxHp;state.mp=state.maxMp;
     document.getElementById('char-level').textContent=`Level ${state.level} / 100`;
     addLog(`🎉 LEVEL UP! Level ${state.level}! +5 Talent Points!`,'gold');
