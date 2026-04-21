@@ -355,7 +355,7 @@ paladin:{
 
 necromancer:{
   name:'Necromancer',icon:'💀',desc:'Master of death magic. +20% INT, lifedrain on every spell.',
-  levelReq:50,
+  levelReq:40,
   bonuses:{intMult:0.20,mpMult:0.10},
   skills:['death_bolt','soul_drain','plague_nova'],
   trees:{
@@ -379,7 +379,7 @@ necromancer:{
 
 shaman:{
   name:'Shaman',icon:'⚡',desc:'Elemental warrior. +10% STR, +10% INT, elemental burst damage.',
-  levelReq:70,
+  levelReq:40,
   bonuses:{strMult:0.10,intMult:0.10},
   skills:['lightning_bolt','earth_totem','wind_burst'],
   trees:{
@@ -403,7 +403,7 @@ shaman:{
 
 berserker:{
   name:'Berserker',icon:'🐉',desc:'Pure rage fighter. +25% STR, damage multiplies as HP drops.',
-  levelReq:90,
+  levelReq:40,
   bonuses:{strMult:0.25,attackPowerMult:0.10},
   skills:['reckless_strike','blood_rage','death_wish'],
   trees:{
