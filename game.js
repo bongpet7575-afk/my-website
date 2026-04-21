@@ -511,9 +511,9 @@ lightning_bolt:{name:'Lightning Bolt',icon:'⚡',mp:()=>Math.floor(state.maxMp*0
   addCombatLog(`⚡ Lightning Bolt! ${d} dmg!`,'good');
   playSound('snd-magic');animateAttack(true,d,false);return d;}},
 
-earth_totem:{name:'Earth Totem',icon:'🪨',mp:()=>Math.floor(state.maxMp*0.15),cd:3,use:(e)=>{
+earth_totem:{name:'Earth Totem',icon:'🪨',mp:()=>Math.floor(state.maxMp*0.15),cd:5,use:(e)=>{
   const healAmt=Math.floor(state.maxHp*0.20);state.hp=Math.min(state.maxHp,state.hp+healAmt);
-  state.armorMult*=1.3;
+  state.armorMult*=1.2;
   addCombatLog(`🪨 Earth Totem! +${healAmt} HP, +30% ARMOR!`,'good');
   playSound('snd-heal');calcStats();return 0;}},
 
