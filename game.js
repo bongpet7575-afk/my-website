@@ -429,78 +429,78 @@ berserker:{
 
 // ── SKILLS ──
 const SKILLS={
-  power_strike:{name:'Power Strike',icon:'💥',mp:()=>Math.floor(state.maxMp*0.10),cd:1,use:(e)=>{
+  power_strike:{name:'Power Strike',icon:'💥',mp:()=>Math.floor(state.maxMp*0.10),cd:4,use:(e)=>{
     const d=Math.floor(state.attackPower*2.2);e.hp-=d;addCombatLog(`💥 Power Strike! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
-  battle_cry:{name:'Battle Cry',icon:'📯',mp:()=>Math.floor(state.maxMp*0.15),cd:5,use:(e)=>{
+  battle_cry:{name:'Battle Cry',icon:'📯',mp:()=>Math.floor(state.maxMp*0.15),cd:10,use:(e)=>{
     if(state.battleCryActive){addCombatLog(`📯 Battle Cry already active!`,'info');return 0;}
     state.battleCryActive=true;state.strMult*=2.5;state.attackPowerMult*=2.4;state.hitMult*=1.5;
     addCombatLog(`📯 Battle Cry! +25% STR, +25% ATTACK POWER!`,'good');playSound('snd-magic');calcStats();return 0;}},
-  last_stand:{name:'Last Stand',icon:'🛡️',mp:()=>Math.floor(state.maxMp*0.20),cd:1,use:(e)=>{
+  last_stand:{name:'Last Stand',icon:'🛡️',mp:()=>Math.floor(state.maxMp*0.20),cd:6,use:(e)=>{
     const h=Math.floor(state.maxHp*0.15);state.hp=Math.min(state.maxHp,state.hp+h);
     addCombatLog(`🛡️ Last Stand! +${h} HP!`,'good');playSound('snd-heal');spawnDmgFloat(`+${h}HP`,false,'heal-float');calcStats();return 0;}},
-  fireball:{name:'Fireball',icon:'🔥',mp:()=>Math.floor(state.maxMp*0.12),cd:1,use:(e)=>{
+  fireball:{name:'Fireball',icon:'🔥',mp:()=>Math.floor(state.maxMp*0.12),cd:4,use:(e)=>{
     const d=Math.floor(state.int*6+Math.random()*state.int*2);e.hp-=d;addCombatLog(`🔥 Fireball! ${d} dmg!`,'good');playSound('snd-magic');animateAttack(true,d,false);return d;}},
-  ice_lance:{name:'Ice Lance',icon:'❄️',mp:()=>Math.floor(state.maxMp*0.10),cd:2,use:(e)=>{
+  ice_lance:{name:'Ice Lance',icon:'❄️',mp:()=>Math.floor(state.maxMp*0.10),cd:6,use:(e)=>{
     const d=Math.floor(state.int*4.5);e.hp-=d;e.frozen=true;
     addCombatLog(`❄️ Ice Lance! ${d} dmg — Frozen!`,'info');playSound('snd-magic');animateAttack(true,d,false);return d;}},
-  mana_shield:{name:'Mana Shield',icon:'🔮',mp:()=>Math.floor(state.maxMp*0.25),cd:4,use:(e)=>{
+  mana_shield:{name:'Mana Shield',icon:'🔮',mp:()=>Math.floor(state.maxMp*0.25),cd:10,use:(e)=>{
     state.manaShield=true;addCombatLog(`🔮 Mana Shield active!`,'info');playSound('snd-heal');return 0;}},
-  backstab:{name:'Backstab',icon:'🗡️',mp:()=>Math.floor(state.maxMp*0.08),cd:1,use:(e)=>{
+  backstab:{name:'Backstab',icon:'🗡️',mp:()=>Math.floor(state.maxMp*0.08),cd:4,use:(e)=>{
     const d=Math.floor(state.attackPower*1.5+state.agi*3);e.hp-=d;addCombatLog(`🗡️ Backstab! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
-  poison_blade:{name:'Poison Blade',icon:'🐍',mp:()=>Math.floor(state.maxMp*0.12),cd:2,use:(e)=>{
+  poison_blade:{name:'Poison Blade',icon:'🐍',mp:()=>Math.floor(state.maxMp*0.12),cd:5,use:(e)=>{
     const stacks=5,tick=Math.floor(state.agi*1.8+state.attackPower*1.3);
     e.poisoned=(e.poisoned||0)+stacks;e.poisonDmg=tick;
     addCombatLog(`🐍 Poisoned! ${tick} dmg/tick for ${stacks} turns!`,'good');playSound('snd-magic');return 0;}},
-  shadow_step:{name:'Shadow Step',icon:'🌑',mp:()=>Math.floor(state.maxMp*0.15),cd:3,use:(e)=>{
+  shadow_step:{name:'Shadow Step',icon:'🌑',mp:()=>Math.floor(state.maxMp*0.15),cd:10,use:(e)=>{
     const d=Math.floor(state.attackPower*2.0+state.agi*4);e.hp-=d;addCombatLog(`🌑 Shadow Step! ${d} dmg!`,'purple');playSound('snd-magic');animateAttack(true,d,false);return d;}},
     // 🏹 HUNTER SKILLS
-precise_shot:{name:'Precise Shot',icon:'🎯',mp:()=>Math.floor(state.maxMp*0.10),cd:1,use:(e)=>{
+precise_shot:{name:'Precise Shot',icon:'🎯',mp:()=>Math.floor(state.maxMp*0.10),cd:4,use:(e)=>{
   const d=Math.floor(state.attackPower*2.0+state.agi*4);e.hp-=d;
   addCombatLog(`🎯 Precise Shot! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
 
-bleed_arrow:{name:'Bleed Arrow',icon:'🏹',mp:()=>Math.floor(state.maxMp*0.12),cd:2,use:(e)=>{
+bleed_arrow:{name:'Bleed Arrow',icon:'🏹',mp:()=>Math.floor(state.maxMp*0.12),cd:6,use:(e)=>{
   const stacks=4,tick=Math.floor(state.agi*2.0+state.attackPower*1.0);
   e.poisoned=(e.poisoned||0)+stacks;e.poisonDmg=tick;
   addCombatLog(`🏹 Bleed! ${tick} dmg/tick for ${stacks} turns!`,'good');playSound('snd-attack');return 0;}},
 
-shadow_trap:{name:'Shadow Trap',icon:'🪤',mp:()=>Math.floor(state.maxMp*0.15),cd:3,use:(e)=>{
+shadow_trap:{name:'Shadow Trap',icon:'🪤',mp:()=>Math.floor(state.maxMp*0.15),cd:10,use:(e)=>{
   e.frozen=true;const d=Math.floor(state.agi*3.0+state.attackPower*1.5);e.hp-=d;
   addCombatLog(`🪤 Shadow Trap! ${d} dmg + Frozen!`,'good');playSound('snd-magic');animateAttack(true,d,false);return d;}},
 
 // 🛡️ PALADIN SKILLS
-holy_strike:{name:'Holy Strike',icon:'✨',mp:()=>Math.floor(state.maxMp*0.10),cd:1,use:(e)=>{
+holy_strike:{name:'Holy Strike',icon:'✨',mp:()=>Math.floor(state.maxMp*0.10),cd:4,use:(e)=>{
   const d=Math.floor(state.attackPower*2.0+state.str*3);e.hp-=d;
   const heal=Math.floor(d*0.15);state.hp=Math.min(state.maxHp,state.hp+heal);
   addCombatLog(`✨ Holy Strike! ${d} dmg, healed ${heal} HP!`,'good');
   playSound('snd-attack');animateAttack(true,d,false);spawnDmgFloat(`+${heal}`,false,'heal-float');return d;}},
 
-divine_shield:{name:'Divine Shield',icon:'🛡️',mp:()=>Math.floor(state.maxMp*0.20),cd:4,use:(e)=>{
+divine_shield:{name:'Divine Shield',icon:'🛡️',mp:()=>Math.floor(state.maxMp*0.20),cd:6,use:(e)=>{
   state.manaShield=true;
   const healAmt=Math.floor(state.maxHp*0.25);state.hp=Math.min(state.maxHp,state.hp+healAmt);
   addCombatLog(`🛡️ Divine Shield! +${healAmt} HP + absorb!`,'good');
   playSound('snd-heal');spawnDmgFloat(`+${healAmt}`,false,'heal-float');return 0;}},
 
-consecration:{name:'Consecration',icon:'🌟',mp:()=>Math.floor(state.maxMp*0.15),cd:2,use:(e)=>{
+consecration:{name:'Consecration',icon:'🌟',mp:()=>Math.floor(state.maxMp*0.15),cd:10,use:(e)=>{
   const d=Math.floor(state.str*4+state.int*3);e.hp-=d;
   e.poisoned=(e.poisoned||0)+3;e.poisonDmg=Math.floor(d*0.2);
   addCombatLog(`🌟 Consecration! ${d} dmg + holy burn!`,'good');
   playSound('snd-magic');animateAttack(true,d,false);return d;}},
 
 // 💀 NECROMANCER SKILLS
-death_bolt:{name:'Death Bolt',icon:'💀',mp:()=>Math.floor(state.maxMp*0.12),cd:1,use:(e)=>{
+death_bolt:{name:'Death Bolt',icon:'💀',mp:()=>Math.floor(state.maxMp*0.12),cd:4,use:(e)=>{
   const d=Math.floor(state.int*7+Math.random()*state.int*2);e.hp-=d;
   const drain=Math.floor(d*0.20);state.hp=Math.min(state.maxHp,state.hp+drain);
   addCombatLog(`💀 Death Bolt! ${d} dmg, drained ${drain} HP!`,'good');
   playSound('snd-magic');animateAttack(true,d,false);spawnDmgFloat(`+${drain}`,false,'heal-float');return d;}},
 
-soul_drain:{name:'Soul Drain',icon:'🌑',mp:()=>Math.floor(state.maxMp*0.15),cd:2,use:(e)=>{
+soul_drain:{name:'Soul Drain',icon:'🌑',mp:()=>Math.floor(state.maxMp*0.15),cd:6,use:(e)=>{
   const d=Math.floor(state.int*5);e.hp-=d;
   const drain=Math.floor(d*0.35);state.hp=Math.min(state.maxHp,state.hp+drain);
   state.mp=Math.min(state.maxMp,state.mp+Math.floor(state.maxMp*0.10));
   addCombatLog(`🌑 Soul Drain! ${d} dmg, +${drain} HP, +MP!`,'good');
   playSound('snd-magic');animateAttack(true,d,false);return d;}},
 
-plague_nova:{name:'Plague Nova',icon:'☠️',mp:()=>Math.floor(state.maxMp*0.20),cd:3,use:(e)=>{
+plague_nova:{name:'Plague Nova',icon:'☠️',mp:()=>Math.floor(state.maxMp*0.20),cd:10,use:(e)=>{
   const stacks=6,tick=Math.floor(state.int*2.5);
   e.poisoned=(e.poisoned||0)+stacks;e.poisonDmg=tick;
   const d=Math.floor(state.int*3);e.hp-=d;
@@ -508,37 +508,37 @@ plague_nova:{name:'Plague Nova',icon:'☠️',mp:()=>Math.floor(state.maxMp*0.20
   playSound('snd-magic');animateAttack(true,d,false);return d;}},
 
 // ⚡ SHAMAN SKILLS
-lightning_bolt:{name:'Lightning Bolt',icon:'⚡',mp:()=>Math.floor(state.maxMp*0.12),cd:3,use:(e)=>{
+lightning_bolt:{name:'Lightning Bolt',icon:'⚡',mp:()=>Math.floor(state.maxMp*0.12),cd:4,use:(e)=>{
   const d=Math.floor((state.int*5+state.str*3)*1.2);e.hp-=d;
   addCombatLog(`⚡ Lightning Bolt! ${d} dmg!`,'good');
   playSound('snd-magic');animateAttack(true,d,false);return d;}},
 
-earth_totem:{name:'Earth Totem',icon:'🪨',mp:()=>Math.floor(state.maxMp*0.15),cd:8,use:(e)=>{
+earth_totem:{name:'Earth Totem',icon:'🪨',mp:()=>Math.floor(state.maxMp*0.15),cd:6,use:(e)=>{
   const healAmt=Math.floor(state.maxHp*0.20);state.hp=Math.min(state.maxHp,state.hp+healAmt);
   state.armorMult*=1.2;
   addCombatLog(`🪨 Earth Totem! +${healAmt} HP, +30% ARMOR!`,'good');
   playSound('snd-heal');calcStats();return 0;}},
 
-wind_burst:{name:'Wind Burst',icon:'🌪️',mp:()=>Math.floor(state.maxMp*0.18),cd:4,use:(e)=>{
+wind_burst:{name:'Wind Burst',icon:'🌪️',mp:()=>Math.floor(state.maxMp*0.18),cd:10,use:(e)=>{
   const d=Math.floor(state.agi*4+state.int*4);e.hp-=d;e.frozen=true;
   addCombatLog(`🌪️ Wind Burst! ${d} dmg + Frozen!`,'good');
   playSound('snd-magic');animateAttack(true,d,false);return d;}},
 
 // 🐉 BERSERKER SKILLS
-reckless_strike:{name:'Reckless Strike',icon:'🐉',mp:()=>Math.floor(state.maxMp*0.08),cd:1,use:(e)=>{
+reckless_strike:{name:'Reckless Strike',icon:'🐉',mp:()=>Math.floor(state.maxMp*0.08),cd:4,use:(e)=>{
   const hpPct=state.hp/state.maxHp;
   const rageMult=1+(1-hpPct)*2.0; // up to 3x damage at 0 HP
   const d=Math.floor(state.attackPower*2.5*rageMult);e.hp-=d;
   addCombatLog(`🐉 Reckless Strike! ${d} dmg! (${Math.round((1-hpPct)*100)}% rage)`,hpPct<0.3?'legendary':'good');
   playSound('snd-attack');animateAttack(true,d,false);return d;}},
 
-blood_rage:{name:'Blood Rage',icon:'🩸',mp:()=>Math.floor(state.maxMp*0.15),cd:4,use:(e)=>{
+blood_rage:{name:'Blood Rage',icon:'🩸',mp:()=>Math.floor(state.maxMp*0.15),cd:6,use:(e)=>{
   if(state.battleCryActive){addCombatLog(`🩸 Blood Rage already active!`,'info');return 0;}
   state.battleCryActive=true;state.strMult*=3.0;state.attackPowerMult*=2.5;
   addCombatLog(`🩸 BLOOD RAGE! +200% STR, +150% ATK POWER!`,'legendary');
   playSound('snd-magic');calcStats();return 0;}},
 
-death_wish:{name:'Death Wish',icon:'💢',mp:()=>Math.floor(state.maxMp*0.25),cd:5,use:(e)=>{
+death_wish:{name:'Death Wish',icon:'💢',mp:()=>Math.floor(state.maxMp*0.25),cd:10,use:(e)=>{
   // Sacrifice 30% current HP for massive damage
   const sacrifice=Math.floor(state.hp*0.30);
   state.hp=Math.max(1,state.hp-sacrifice);
