@@ -108,6 +108,8 @@ const state={
   character_id: null,
   user_id: null,
 
+  
+
   respecCount: 0,
 
   // Active debuffs (cleared after combat)
@@ -207,7 +209,8 @@ if(state.goldMultExpiry && new Date() > new Date(state.goldMultExpiry)) {
   const intMult      = state.intMult      + (state.classBonuses.intMult     ||0) + (state.talentBonuses.intMult     ||0) + (state.equipIntMult || 0);
   const staMult      = state.staMult      + (state.classBonuses.staMult     ||0) + (state.talentBonuses.staMult     ||0) + (state.equipStaMult || 0);
   const atkpMult     = state.attackPowerMult + (state.classBonuses.attackPowerMult||0) + (state.talentBonuses.attackPowerMult||0) + (state.equipAttackPowerMult || 0);
-  const armorMult    = state.armorMult    + (state.classBonuses.armorMult   ||0) + (state.talentBonuses.armorMult   ||0) + (state.equipAmorMult || 0);
+  const lifeStealMult     = state.lifeStealMult + (state.classBonuses.lifeStealMult||0) + (state.talentBonuses.lifeStealMult||0) + (state.equipLifeStealMult || 0);
+  const armorMult    = state.armorMult    + (state.classBonuses.armorMult   ||0) + (state.talentBonuses.armorMult   ||0) + (state.equipArmorMult || 0);
   const critMult     = state.critMult     + (state.classBonuses.critMult    ||0) + (state.talentBonuses.critMult    ||0);
   const dodgeMult    = state.dodgeMult    + (state.classBonuses.dodgeMult   ||0) + (state.talentBonuses.dodgeMult   ||0) + (state.equipDodgeMult || 0);
   const hitMult      = state.hitMult      + (state.classBonuses.hitMult     ||0) + (state.talentBonuses.hitMult     ||0) + (state.equipHitMult || 0);
@@ -1517,11 +1520,11 @@ const TOURNAMENT_SIZE = 8; // must be power of 2
 
 
 const DAILY_REWARDS = {
-  1: { gold: 50000,  title:'🏆 Tournament Champion' },
-  2: { gold: 25000,  title:'🥈 Tournament Runner-up' },
-  3: { gold: 12000,  title:'🥉 Tournament Third Place' },
-  4: { gold: 6000,   title:null },
-  participation: { gold: 1000, title:null },
+  1: { gold: 500000,  title:'🏆 Tournament Champion' },
+  2: { gold: 250000,  title:'🥈 Tournament Runner-up' },
+  3: { gold: 120000,  title:'🥉 Tournament Third Place' },
+  4: { gold: 60000,   title:null },
+  participation: { gold: 10000, title:null },
 };
 
 async function resumeStuckTournaments() {
@@ -1681,11 +1684,11 @@ const cambodiaMinutes = (utcMinutes + cambodiaOffset) % (24 * 60);
 const cambodiaHour = Math.floor(cambodiaMinutes / 60);
 
 // Registration open: 7am-5pm Cambodia, tournament starts 8pm, rewards at 9pm
-const isRegistrationOpen = cambodiaHour >= 7 && cambodiaHour < 17;
+const isRegistrationOpen = cambodiaHour >= 18 && cambodiaHour < 19;
 const isTournamentTime = cambodiaHour >= 20;
 
 if(!isRegistrationOpen && !isTournamentTime) {
-  notify(`⏰ Registration opens at 7:00 AM Cambodia time!`, 'var(--gold)');
+  notify(`⏰ Registration opens at 6:00 PM Cambodia time!`, 'var(--gold)');
   return;
 }
 
@@ -2847,7 +2850,7 @@ function updateEnemyBar(){
 const SLOT_ICONS={weapon:'⚔️',armor:'🛡️',helmet:'⛑️',boots:'👢',ring:'💍',amulet:'📿'};
 const EQUIP_PREFIXES={legendary:['Divine','Mythic','Godforged','Ancient','Eternal','Celestial'],epic:['Heroic','Valiant','Exalted','Magnificent','Radiant'],rare:['Polished','Reinforced','Enchanted','Gleaming'],uncommon:['Sturdy','Sharpened','Improved','Sturdy'],normal:['Iron','Wooden','Basic','Simple']};
 const EQUIP_NAMES={weapon:['Blade','Sword','Axe','Spear','Dagger','Staff','Bow'],armor:['Plate','Chainmail','Robe','Leather','Cuirass'],helmet:['Helm','Crown','Hood','Circlet','Visor'],boots:['Greaves','Sabatons','Boots','Treads'],ring:['Band','Seal','Loop','Signet'],amulet:['Pendant','Amulet','Talisman','Necklace']};
-const EQUIP_STATS={weapon:{str:[35,55],lifeSteal:[0.01,0.09],crit:[0.01,0.05]},armor:{armor:[5000,50000],sta:[35,55],maxHp:[2000,3000],hpRegen:[25,75],dodge:[30,70]},helmet:{armor:[5000,50000],int:[35,55],hit:[30,50],dodge:[25,45]},boots:{agi:[35,55],dodge:[30,500]},ring:{str:[35,55],int:[35,55],agi:[35,55],sta:[35,55]},amulet:{strMult:[0.05,0.09],agiMult:[0.05,0.09],intMult:[0.05,0.09],staMult:[0.05,0.09],maxHpMult:[0.05,0.09],hitMult:[0.05,0.09],attackPowerMult:[0.05,0.09],dodgeMult:[0.05,0.09]}};
+const EQUIP_STATS={weapon:{str:[35,55],lifeSteal:[0.01,0.09],crit:[0.01,0.05]},armor:{armor:[5000,50000],sta:[35,55],maxHp:[2000,3000],hpRegen:[25,75],dodge:[30,70]},helmet:{armor:[5000,50000],int:[35,55],hit:[30,50],dodge:[25,45]},boots:{agi:[35,55],dodge:[30,500]},ring:{str:[35,55],int:[35,55],agi:[35,55],sta:[35,55]},amulet:{strMult:[0.05,0.09],agiMult:[0.05,0.09],intMult:[0.05,0.09],staMult:[0.05,0.09]}};
 function mkEquipDrop(slot,rarity,stageId=1){
   rarity=applyRarityBonus(rarity);
   const mult=RARITY[rarity].mult;
