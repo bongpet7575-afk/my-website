@@ -209,7 +209,6 @@ if(state.goldMultExpiry && new Date() > new Date(state.goldMultExpiry)) {
   const intMult      = state.intMult      + (state.classBonuses.intMult     ||0) + (state.talentBonuses.intMult     ||0) + (state.equipIntMult || 0);
   const staMult      = state.staMult      + (state.classBonuses.staMult     ||0) + (state.talentBonuses.staMult     ||0) + (state.equipStaMult || 0);
   const atkpMult     = state.attackPowerMult + (state.classBonuses.attackPowerMult||0) + (state.talentBonuses.attackPowerMult||0) + (state.equipAttackPowerMult || 0);
-  const lifeStealMult     = state.lifeStealMult + (state.classBonuses.lifeStealMult||0) + (state.talentBonuses.lifeStealMult||0) + (state.equipLifeStealMult || 0);
   const armorMult    = state.armorMult    + (state.classBonuses.armorMult   ||0) + (state.talentBonuses.armorMult   ||0) + (state.equipArmorMult || 0);
   const critMult     = state.critMult     + (state.classBonuses.critMult    ||0) + (state.talentBonuses.critMult    ||0);
   const dodgeMult    = state.dodgeMult    + (state.classBonuses.dodgeMult   ||0) + (state.talentBonuses.dodgeMult   ||0) + (state.equipDodgeMult || 0);
@@ -237,7 +236,7 @@ if(state.goldMultExpiry && new Date() > new Date(state.goldMultExpiry)) {
   state.maxMp        = Math.floor((50+state.int*3)*mpMult) + (state.equipMaxMp||0);
   state.manaRegen    = Math.floor((0.5+state.int*1.5)*mpRegenMult) + (state.equipMpRegen||0);
   state.hpRegen      = Math.floor((state.sta*0.5+state.baseHpRegen+(state.talentBonuses.baseHpRegen||0))*hpRegenMult) + (state.equipHpRegen||0);
-  state.lifeSteal    = (state.baseLifeSteal*state.lifeStealMult) + (state.equipLifeSteal||0);
+  state.lifeSteal    = (state.baseLifeSteal+state.talentBonuses.baseLifeSteal||0) + (state.equipLifeSteal||0);
   state.hp = Math.min(state.hp, state.maxHp);
   state.mp = Math.min(state.mp, state.maxMp);
 }
@@ -366,9 +365,9 @@ necromancer:{
       {id:'lich_form',name:'Lich Form',desc:'30% INT per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.intMult=(state.talentBonuses.intMult||0)+0.3;}},
     ]},
     drain:{name:'🩸 Drain',talents:[
-      {id:'life_tap',name:'Life Tap',desc:'10% LIFESTEAL per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.lifeStealMult=(state.talentBonuses.lifeStealMult||0)+0.1;}},
-      {id:'soul_siphon',name:'Soul Siphon',desc:'20% LIFESTEAL per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.lifeStealMult=(state.talentBonuses.lifeStealMult||0)+0.2;}},
-      {id:'death_coil',name:'Death Coil',desc:'30% LIFESTEAL per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.lifeStealMult=(state.talentBonuses.lifeStealMult||0)+0.3;}},
+      {id:'life_tap',name:'Life Tap',desc:'10% LIFESTEAL per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.baseLifeSteal=(state.talentBonuses.baseLifeSteal||0)+0.01;}},
+      {id:'soul_siphon',name:'Soul Siphon',desc:'20% LIFESTEAL per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.baseLifeSteal=(state.talentBonuses.baseLifeSteal||0)+0.02;}},
+      {id:'death_coil',name:'Death Coil',desc:'30% LIFESTEAL per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.baseLifeSteal=(state.talentBonuses.baseLifeSteal||0)+0.03;}},
     ]},
     undead:{name:'🦴 Undead',talents:[
       {id:'undead_resilience',name:'Undead Resilience',desc:'10% HP REGEN per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.1;}},
@@ -414,8 +413,8 @@ berserker:{
       {id:'primal_fury',name:'Primal Fury',desc:'30% STR per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.strMult=(state.talentBonuses.strMult||0)+0.3;}},
     ]},
     bloodlust:{name:'🩸 Bloodlust',talents:[
-      {id:'bloodthirst',name:'Bloodthirst',desc:'10% LIFESTEAL per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.lifeStealMult=(state.talentBonuses.lifeStealMult||0)+0.1;}},
-      {id:'savage_wounds',name:'Savage Wounds',desc:'20% LIFESTEAL per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.lifeStealMult=(state.talentBonuses.lifeStealMult||0)+0.2;}},
+      {id:'bloodthirst',name:'Bloodthirst',desc:'10% LIFESTEAL per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.baseLifeSteal=(state.talentBonuses.baseLifeSteal||0)+0.1;}},
+      {id:'savage_wounds',name:'Savage Wounds',desc:'20% LIFESTEAL per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.baseLifeSteal=(state.talentBonuses.baseLifeSteal||0)+0.2;}},
       {id:'blood_frenzy',name:'Blood Frenzy',desc:'30% ATK per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.attackPowerMult=(state.talentBonuses.attackPowerMult||0)+0.3;}},
     ]},
     endurance:{name:'💪 Endurance',talents:[
@@ -509,18 +508,18 @@ plague_nova:{name:'Plague Nova',icon:'☠️',mp:()=>Math.floor(state.maxMp*0.20
   playSound('snd-magic');animateAttack(true,d,false);return d;}},
 
 // ⚡ SHAMAN SKILLS
-lightning_bolt:{name:'Lightning Bolt',icon:'⚡',mp:()=>Math.floor(state.maxMp*0.12),cd:1,use:(e)=>{
+lightning_bolt:{name:'Lightning Bolt',icon:'⚡',mp:()=>Math.floor(state.maxMp*0.12),cd:3,use:(e)=>{
   const d=Math.floor((state.int*5+state.str*3)*1.2);e.hp-=d;
   addCombatLog(`⚡ Lightning Bolt! ${d} dmg!`,'good');
   playSound('snd-magic');animateAttack(true,d,false);return d;}},
 
-earth_totem:{name:'Earth Totem',icon:'🪨',mp:()=>Math.floor(state.maxMp*0.15),cd:5,use:(e)=>{
+earth_totem:{name:'Earth Totem',icon:'🪨',mp:()=>Math.floor(state.maxMp*0.15),cd:8,use:(e)=>{
   const healAmt=Math.floor(state.maxHp*0.20);state.hp=Math.min(state.maxHp,state.hp+healAmt);
   state.armorMult*=1.2;
   addCombatLog(`🪨 Earth Totem! +${healAmt} HP, +30% ARMOR!`,'good');
   playSound('snd-heal');calcStats();return 0;}},
 
-wind_burst:{name:'Wind Burst',icon:'🌪️',mp:()=>Math.floor(state.maxMp*0.18),cd:2,use:(e)=>{
+wind_burst:{name:'Wind Burst',icon:'🌪️',mp:()=>Math.floor(state.maxMp*0.18),cd:4,use:(e)=>{
   const d=Math.floor(state.agi*4+state.int*4);e.hp-=d;e.frozen=true;
   addCombatLog(`🌪️ Wind Burst! ${d} dmg + Frozen!`,'good');
   playSound('snd-magic');animateAttack(true,d,false);return d;}},
@@ -1377,7 +1376,7 @@ function endCombat(won){
   // Reset ONLY temporary combat multipliers (never touch classBonuses or talentBonuses)
   state.strMult=1.0;state.agiMult=1.0;state.intMult=1.0;state.staMult=1.0;
   state.armorMult=1.0;state.critMult=1.0;state.dodgeMult=1.0;state.hpRegenMult=1.0;
-  state.mpRegenMult=1.0;state.hitMult=1.0;state.mpMult=1.0;state.attackPowerMult=1.0;
+  state.mpRegenMult=1.0;state.hitMult=1.0;state.mpMult=1.0;state.attackPowerMult=1.0;state.lifeStealMult=1.0;state.maxHpMult=1.0;
 
   // Reapply permanent class bonuses
   if(state.class){
@@ -3258,6 +3257,16 @@ function openTalents(){
   const c=CLASSES[state.class];
   document.getElementById('talent-title').textContent=`${c.icon} ${c.name} Talent Tree`;
   document.getElementById('talent-pts-val').textContent=state.talentPoints;
+
+  // Add reset button next to points display
+  const ptsEl=document.getElementById('talent-pts-val');
+  if(ptsEl&&!document.getElementById('talent-reset-btn')){
+    ptsEl.insertAdjacentHTML('afterend',`
+      <button id="talent-reset-btn" class="start-btn red-btn"
+        style="padding:4px 10px;font-size:.65em;margin-left:10px;"
+        onclick="resetTalents()">↺ Reset Talents</button>`);
+  }
+
   document.getElementById('tree-grid').innerHTML=Object.entries(c.trees).map(([tid,tree])=>`
     <div class="tree-col"><div class="tree-name">${tree.name}</div>
     ${tree.talents.map(t=>{
@@ -3269,6 +3278,45 @@ function openTalents(){
         <div class="talent-node-cost">Cost: ${t.cost}pt ${maxed?'✅':''}</div>
       </div>`;}).join('')}</div>`).join('');
   document.getElementById('talent-screen').style.display='block';
+}
+
+function resetTalents(){
+  if(!state.class)return;
+  if(!confirm('Reset all talents? Points will be fully refunded.'))return;
+  const c=CLASSES[state.class];
+
+  // Refund all spent points
+  let refunded=0;
+  Object.values(c.trees).forEach(tree=>{
+    tree.talents.forEach(talent=>{
+      const rank=state.unlockedTalents.filter(u=>u===talent.id).length;
+      refunded+=rank*talent.cost;
+    });
+  });
+  state.talentPoints+=refunded;
+
+  // Clear talents and bonuses
+  state.unlockedTalents=[];
+  state.talentUnlockedFlags={};
+  state.talentBonuses={
+    strMult:0,agiMult:0,intMult:0,staMult:0,
+    hitMult:0,critMult:0,dodgeMult:0,hpRegenMult:0,
+    mpRegenMult:0,armorMult:0,mpMult:0,lifeStealMult:0,
+    attackPowerMult:0,maxHpMult:0,hpMult:0,
+  };
+
+  // Reset talent flags so they can be re-unlocked
+  Object.values(c.trees).forEach(tree=>{
+    tree.talents.forEach(t=>{
+      state.talentUnlockedFlags[`${state.class}_${t.id}`]=false;
+    });
+  });
+
+  calcStats();
+  addLog(`↺ Talents reset! ${refunded} points refunded.`,'gold');
+  notify(`↺ Talents reset! ${refunded} pts refunded.`,'var(--gold)');
+  updateUI();updateTalentBtn();
+  openTalents(); // refresh the tree view
 }
 function unlockTalent(talentId,treeId){
   const c=CLASSES[state.class],tree=c.trees[treeId],talent=tree.talents.find(t=>t.id===talentId);if(!talent)return;
