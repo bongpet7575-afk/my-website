@@ -247,19 +247,19 @@ const CLASSES={
     bonuses:{strMult:0.10,staMult:0.10},skills:['power_strike','battle_cry','last_stand'],
     trees:{
       dps:{name:'🗡️ DPS',talents:[
-        {id:'berserker',name:'Berserker Rage',desc:'10% CRIT per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+1;}},
-        {id:'cleave',name:'Brute Force',desc:'20% CRIT per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+2;}},
-        {id:'execute',name:'Killing Blow',desc:'30% CRIT per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+3;}},
+        {id:'berserker',name:'Berserker Rage',desc:'10% CRIT per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+1;}},
+        {id:'cleave',name:'Brute Force',desc:'20% CRIT per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+2;}},
+        {id:'execute',name:'Killing Blow',desc:'30% CRIT per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+3;}},
       ]},
       tank:{name:'🛡️ Tank',talents:[
-        {id:'iron_skin',name:'Iron Skin',desc:'10% ARMOR per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.1;}},
-        {id:'fortress',name:'Iron Fortress',desc:'20% ARMOR per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.2;}},
-        {id:'shield_wall',name:'Hardened Skin',desc:'30% ARMOR per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.3;}},
+        {id:'iron_skin',name:'Iron Skin',desc:'10% ARMOR per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.1;}},
+        {id:'fortress',name:'Iron Fortress',desc:'20% ARMOR per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.2;}},
+        {id:'shield_wall',name:'Hardened Skin',desc:'30% ARMOR per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.3;}},
       ]},
       heal:{name:'💚 Self Heal',talents:[
-        {id:'second_wind',name:'Tough Body',desc:'10% HP regen per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.1;}},
-        {id:'undying',name:'Endurance',desc:'20% HP regen per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.2;}},
-        {id:'regeneration',name:'Vitality',desc:'30% HP regen per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.3;}},
+        {id:'second_wind',name:'Tough Body',desc:'10% HP regen per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.1;}},
+        {id:'undying',name:'Endurance',desc:'20% HP regen per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.2;}},
+        {id:'regeneration',name:'Vitality',desc:'30% HP regen per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.3;}},
       ]}
     }
   },
@@ -267,19 +267,19 @@ const CLASSES={
     bonuses:{intMult:0.10,mpMult:0.05},skills:['fireball','ice_lance','mana_shield'],
     trees:{
       fire:{name:'🔥 Fire',talents:[
-        {id:'fire_mastery',name:'Fire Mastery',desc:'1% CRIT per rank',cost:5,ranks:5,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+1;}},
-        {id:'ignite',name:'Burning Mind',desc:'2% CRIT per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+2;}},
-        {id:'meteor',name:'Arcane Intellect',desc:'3% CRIT per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+3;}},
+        {id:'fire_mastery',name:'Fire Mastery',desc:'1% CRIT per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+1;}},
+        {id:'ignite',name:'Burning Mind',desc:'2% CRIT per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+2;}},
+        {id:'meteor',name:'Arcane Intellect',desc:'3% CRIT per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+3;}},
       ]},
       ice:{name:'❄️ Ice',talents:[
-        {id:'frost',name:'Frost Barrier',desc:'1% AR per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.1;}},
-        {id:'ice_armor',name:'Ice Armor',desc:'2% DODGE per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.2;}},
-        {id:'blizzard',name:'Ice Mind',desc:'3% DODGE per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.3;}},
+        {id:'frost',name:'Frost Barrier',desc:'1% AR per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.1;}},
+        {id:'ice_armor',name:'Ice Armor',desc:'2% DODGE per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.2;}},
+        {id:'blizzard',name:'Ice Mind',desc:'3% DODGE per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.3;}},
       ]},
       arcane:{name:'✨ Arcane',talents:[
-        {id:'mana_regen',name:'Mana Pool',desc:'1% MP regen per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.mpRegenMult=(state.talentBonuses.mpRegenMult||0)+0.1;}},
-        {id:'spell_power',name:'Spellcraft',desc:'2% MP regen per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.mpRegenMult=(state.talentBonuses.mpRegenMult||0)+0.2;}},
-        {id:'arcane_surge',name:'Arcane Mastery',desc:'3% MP regen per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.mpRegenMult=(state.talentBonuses.mpRegenMult||0)+0.3;}},
+        {id:'mana_regen',name:'Mana Pool',desc:'1% MP regen per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.mpRegenMult=(state.talentBonuses.mpRegenMult||0)+0.1;}},
+        {id:'spell_power',name:'Spellcraft',desc:'2% MP regen per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.mpRegenMult=(state.talentBonuses.mpRegenMult||0)+0.2;}},
+        {id:'arcane_surge',name:'Arcane Mastery',desc:'3% MP regen per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.mpRegenMult=(state.talentBonuses.mpRegenMult||0)+0.3;}},
       ]}
     }
   },
@@ -287,19 +287,19 @@ const CLASSES={
     bonuses:{agiMult:0.2,goldMult:1.0},skills:['backstab','poison_blade','shadow_step'],
     trees:{
       assassination:{name:'☠️ Assassin',talents:[
-        {id:'crit',name:'Precision',desc:'1% CRIT per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+1;}},
-        {id:'ambush',name:'Swift Strike',desc:'2% CRIT per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+2;}},
-        {id:'death_mark',name:'Lethal Focus',desc:'3% CRIT per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+2;}},
+        {id:'crit',name:'Precision',desc:'1% CRIT per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+1;}},
+        {id:'ambush',name:'Swift Strike',desc:'2% CRIT per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+2;}},
+        {id:'death_mark',name:'Lethal Focus',desc:'3% CRIT per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+2;}},
       ]},
       subtlety:{name:'🌑 Subtlety',talents:[
-        {id:'evasion',name:'Agility',desc:'1% DODGE per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.dodgeMult=(state.talentBonuses.dodgeMult||0)+0.1;}},
-        {id:'smoke_bomb',name:'Nimble Feet',desc:'2% DODGE per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.dodgeMult=(state.talentBonuses.dodgeMult||0)+0.2;}},
-        {id:'vanish',name:'Shadow Reflex',desc:'3% DODGE per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.dodgeMult=(state.talentBonuses.dodgeMult||0)+0.3;}},
+        {id:'evasion',name:'Agility',desc:'1% DODGE per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.dodgeMult=(state.talentBonuses.dodgeMult||0)+0.1;}},
+        {id:'smoke_bomb',name:'Nimble Feet',desc:'2% DODGE per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.dodgeMult=(state.talentBonuses.dodgeMult||0)+0.2;}},
+        {id:'vanish',name:'Shadow Reflex',desc:'3% DODGE per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.dodgeMult=(state.talentBonuses.dodgeMult||0)+0.3;}},
       ]},
       poison:{name:'🐍 Poison',talents:[
-        {id:'venom',name:'Toxic Edge',desc:'1% HP regen per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.mpRegenMult=(state.talentBonuses.mpRegenMult||0)+0.1;}},
-        {id:'cripple',name:'Predator',desc:'2% HP regen per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.mpRegenMult=(state.talentBonuses.mpRegenMult||0)+0.2;}},
-        {id:'plague',name:'Virulence',desc:'3% HP regen per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.3;}},
+        {id:'venom',name:'Toxic Edge',desc:'1% HP regen per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.mpRegenMult=(state.talentBonuses.mpRegenMult||0)+0.1;}},
+        {id:'cripple',name:'Predator',desc:'2% HP regen per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.mpRegenMult=(state.talentBonuses.mpRegenMult||0)+0.2;}},
+        {id:'plague',name:'Virulence',desc:'3% HP regen per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.3;}},
       ]}
       
     }
@@ -312,19 +312,19 @@ const CLASSES={
   skills:['precise_shot','bleed_arrow','shadow_trap'],
   trees:{
     marksmanship:{name:'🎯 Marks',talents:[
-      {id:'eagle_eye',name:'Eagle Eye',desc:'10% HIT per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.hitMult=(state.talentBonuses.hitMult||0)+0.1;}},
-      {id:'headshot',name:'Headshot',desc:'20% CRIT per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+2;}},
-      {id:'lethal_aim',name:'Lethal Aim',desc:'30% CRIT per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+3;}},
+      {id:'eagle_eye',name:'Eagle Eye',desc:'10% HIT per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.hitMult=(state.talentBonuses.hitMult||0)+0.1;}},
+      {id:'headshot',name:'Headshot',desc:'20% CRIT per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+2;}},
+      {id:'lethal_aim',name:'Lethal Aim',desc:'30% CRIT per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+3;}},
     ]},
     survival:{name:'🌿 Survival',talents:[
-      {id:'camouflage',name:'Camouflage',desc:'10% DODGE per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.dodgeMult=(state.talentBonuses.dodgeMult||0)+0.1;}},
-      {id:'evasive',name:'Evasive Instinct',desc:'20% DODGE per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.dodgeMult=(state.talentBonuses.dodgeMult||0)+0.2;}},
-      {id:'ghost_step',name:'Ghost Step',desc:'30% DODGE per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.dodgeMult=(state.talentBonuses.dodgeMult||0)+0.3;}},
+      {id:'camouflage',name:'Camouflage',desc:'10% DODGE per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.dodgeMult=(state.talentBonuses.dodgeMult||0)+0.1;}},
+      {id:'evasive',name:'Evasive Instinct',desc:'20% DODGE per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.dodgeMult=(state.talentBonuses.dodgeMult||0)+0.2;}},
+      {id:'ghost_step',name:'Ghost Step',desc:'30% DODGE per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.dodgeMult=(state.talentBonuses.dodgeMult||0)+0.3;}},
     ]},
     beastmastery:{name:'🐾 Beast',talents:[
-      {id:'feral_bond',name:'Feral Bond',desc:'10% ATK per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.attackPowerMult=(state.talentBonuses.attackPowerMult||0)+0.1;}},
-      {id:'pack_hunter',name:'Pack Hunter',desc:'20% ATK per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.attackPowerMult=(state.talentBonuses.attackPowerMult||0)+0.2;}},
-      {id:'apex_predator',name:'Apex Predator',desc:'30% ATK per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.attackPowerMult=(state.talentBonuses.attackPowerMult||0)+0.3;}},
+      {id:'feral_bond',name:'Feral Bond',desc:'10% ATK per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.attackPowerMult=(state.talentBonuses.attackPowerMult||0)+0.1;}},
+      {id:'pack_hunter',name:'Pack Hunter',desc:'20% ATK per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.attackPowerMult=(state.talentBonuses.attackPowerMult||0)+0.2;}},
+      {id:'apex_predator',name:'Apex Predator',desc:'30% ATK per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.attackPowerMult=(state.talentBonuses.attackPowerMult||0)+0.3;}},
     ]}
   }
 },
@@ -336,19 +336,19 @@ paladin:{
   skills:['holy_strike','divine_shield','consecration'],
   trees:{
     holy:{name:'✨ Holy',talents:[
-      {id:'holy_light',name:'Holy Light',desc:'10% HP REGEN per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.1;}},
-      {id:'blessed_armor',name:'Blessed Armor',desc:'20% ARMOR per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.2;}},
-      {id:'divine_grace',name:'Divine Grace',desc:'30% HP REGEN per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.3;}},
+      {id:'holy_light',name:'Holy Light',desc:'10% HP REGEN per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.1;}},
+      {id:'blessed_armor',name:'Blessed Armor',desc:'20% ARMOR per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.2;}},
+      {id:'divine_grace',name:'Divine Grace',desc:'30% HP REGEN per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.3;}},
     ]},
     protection:{name:'🛡️ Protection',talents:[
-      {id:'holy_armor',name:'Holy Armor',desc:'10% ARMOR per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.1;}},
-      {id:'bulwark',name:'Bulwark',desc:'20% ARMOR per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.2;}},
-      {id:'immovable',name:'Immovable',desc:'30% ARMOR per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.3;}},
+      {id:'holy_armor',name:'Holy Armor',desc:'10% ARMOR per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.1;}},
+      {id:'bulwark',name:'Bulwark',desc:'20% ARMOR per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.2;}},
+      {id:'immovable',name:'Immovable',desc:'30% ARMOR per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.3;}},
     ]},
     retribution:{name:'⚡ Retribution',talents:[
-      {id:'righteous_fury',name:'Righteous Fury',desc:'10% STR per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.strMult=(state.talentBonuses.strMult||0)+0.1;}},
-      {id:'holy_wrath',name:'Holy Wrath',desc:'20% STR per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.strMult=(state.talentBonuses.strMult||0)+0.2;}},
-      {id:'crusader',name:'Crusader',desc:'30% STR per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.strMult=(state.talentBonuses.strMult||0)+0.3;}},
+      {id:'righteous_fury',name:'Righteous Fury',desc:'10% STR per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.strMult=(state.talentBonuses.strMult||0)+0.1;}},
+      {id:'holy_wrath',name:'Holy Wrath',desc:'20% STR per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.strMult=(state.talentBonuses.strMult||0)+0.2;}},
+      {id:'crusader',name:'Crusader',desc:'30% STR per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.strMult=(state.talentBonuses.strMult||0)+0.3;}},
     ]}
   }
 },
@@ -360,19 +360,19 @@ necromancer:{
   skills:['death_bolt','soul_drain','plague_nova'],
   trees:{
     death:{name:'💀 Death',talents:[
-      {id:'death_mastery',name:'Death Mastery',desc:'10% INT per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.intMult=(state.talentBonuses.intMult||0)+0.1;}},
-      {id:'dark_pact',name:'Dark Pact',desc:'20% INT per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.intMult=(state.talentBonuses.intMult||0)+0.2;}},
-      {id:'lich_form',name:'Lich Form',desc:'30% INT per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.intMult=(state.talentBonuses.intMult||0)+0.3;}},
+      {id:'death_mastery',name:'Death Mastery',desc:'10% INT per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.intMult=(state.talentBonuses.intMult||0)+0.1;}},
+      {id:'dark_pact',name:'Dark Pact',desc:'20% INT per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.intMult=(state.talentBonuses.intMult||0)+0.2;}},
+      {id:'lich_form',name:'Lich Form',desc:'30% INT per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.intMult=(state.talentBonuses.intMult||0)+0.3;}},
     ]},
     drain:{name:'🩸 Drain',talents:[
-      {id:'life_tap',name:'Life Tap',desc:'10% LIFESTEAL per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.baseLifeSteal=(state.talentBonuses.baseLifeSteal||0)+0.01;}},
-      {id:'soul_siphon',name:'Soul Siphon',desc:'20% LIFESTEAL per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.baseLifeSteal=(state.talentBonuses.baseLifeSteal||0)+0.02;}},
-      {id:'death_coil',name:'Death Coil',desc:'30% LIFESTEAL per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.baseLifeSteal=(state.talentBonuses.baseLifeSteal||0)+0.03;}},
+      {id:'life_tap',name:'Life Tap',desc:'10% LIFESTEAL per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.baseLifeSteal=(state.talentBonuses.baseLifeSteal||0)+0.01;}},
+      {id:'soul_siphon',name:'Soul Siphon',desc:'20% LIFESTEAL per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.baseLifeSteal=(state.talentBonuses.baseLifeSteal||0)+0.02;}},
+      {id:'death_coil',name:'Death Coil',desc:'30% LIFESTEAL per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.baseLifeSteal=(state.talentBonuses.baseLifeSteal||0)+0.03;}},
     ]},
     undead:{name:'🦴 Undead',talents:[
-      {id:'undead_resilience',name:'Undead Resilience',desc:'10% HP REGEN per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.1;}},
-      {id:'bone_shield',name:'Bone Shield',desc:'20% ARMOR per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.2;}},
-      {id:'immortal_curse',name:'Immortal Curse',desc:'30% HP REGEN per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.3;}},
+      {id:'undead_resilience',name:'Undead Resilience',desc:'10% HP REGEN per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.1;}},
+      {id:'bone_shield',name:'Bone Shield',desc:'20% ARMOR per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.2;}},
+      {id:'immortal_curse',name:'Immortal Curse',desc:'30% HP REGEN per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.3;}},
     ]}
   }
 },
@@ -384,19 +384,19 @@ shaman:{
   skills:['lightning_bolt','earth_totem','wind_burst'],
   trees:{
     lightning:{name:'⚡ Lightning',talents:[
-      {id:'storm_caller',name:'Storm Caller',desc:'10% CRIT per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.critMult=(state.talentBonuses.critMult||0)+0.1;}},
-      {id:'chain_lightning',name:'Chain Lightning',desc:'20% CRIT per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.critMult=(state.talentBonuses.critMult||0)+0.2;}},
-      {id:'thunder_god',name:'Thunder God',desc:'30% CRIT per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.critMult=(state.talentBonuses.critMult||0)+0.3;}},
+      {id:'storm_caller',name:'Storm Caller',desc:'10% CRIT per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.critMult=(state.talentBonuses.critMult||0)+0.1;}},
+      {id:'chain_lightning',name:'Chain Lightning',desc:'20% CRIT per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.critMult=(state.talentBonuses.critMult||0)+0.2;}},
+      {id:'thunder_god',name:'Thunder God',desc:'30% CRIT per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.critMult=(state.talentBonuses.critMult||0)+0.3;}},
     ]},
     earth:{name:'🪨 Earth',talents:[
-      {id:'stone_skin',name:'Stone Skin',desc:'10% ARMOR per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.1;}},
-      {id:'granite_will',name:'Granite Will',desc:'20% ARMOR per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.2;}},
-      {id:'mountain_form',name:'Mountain Form',desc:'30% ARMOR per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.3;}},
+      {id:'stone_skin',name:'Stone Skin',desc:'10% ARMOR per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.1;}},
+      {id:'granite_will',name:'Granite Will',desc:'20% ARMOR per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.2;}},
+      {id:'mountain_form',name:'Mountain Form',desc:'30% ARMOR per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.3;}},
     ]},
     wind:{name:'🌪️ Wind',talents:[
-      {id:'swift_winds',name:'Swift Winds',desc:'10% AGI per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.agiMult=(state.talentBonuses.agiMult||0)+0.1;}},
-      {id:'gale_force',name:'Gale Force',desc:'20% AGI per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.agiMult=(state.talentBonuses.agiMult||0)+0.2;}},
-      {id:'cyclone',name:'Cyclone',desc:'30% DODGE per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.dodgeMult=(state.talentBonuses.dodgeMult||0)+0.3;}},
+      {id:'swift_winds',name:'Swift Winds',desc:'10% AGI per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.agiMult=(state.talentBonuses.agiMult||0)+0.1;}},
+      {id:'gale_force',name:'Gale Force',desc:'20% AGI per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.agiMult=(state.talentBonuses.agiMult||0)+0.2;}},
+      {id:'cyclone',name:'Cyclone',desc:'30% DODGE per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.dodgeMult=(state.talentBonuses.dodgeMult||0)+0.3;}},
     ]}
   }
 },
@@ -408,19 +408,19 @@ berserker:{
   skills:['reckless_strike','blood_rage','death_wish'],
   trees:{
     rage:{name:'🔥 Rage',talents:[
-      {id:'battle_hunger',name:'Battle Hunger',desc:'10% STR per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.strMult=(state.talentBonuses.strMult||0)+0.1;}},
-      {id:'war_cry',name:'War Cry',desc:'20% STR per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.strMult=(state.talentBonuses.strMult||0)+0.2;}},
-      {id:'primal_fury',name:'Primal Fury',desc:'30% STR per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.strMult=(state.talentBonuses.strMult||0)+0.3;}},
+      {id:'battle_hunger',name:'Battle Hunger',desc:'10% STR per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.strMult=(state.talentBonuses.strMult||0)+0.1;}},
+      {id:'war_cry',name:'War Cry',desc:'20% STR per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.strMult=(state.talentBonuses.strMult||0)+0.2;}},
+      {id:'primal_fury',name:'Primal Fury',desc:'30% STR per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.strMult=(state.talentBonuses.strMult||0)+0.3;}},
     ]},
     bloodlust:{name:'🩸 Bloodlust',talents:[
-      {id:'bloodthirst',name:'Bloodthirst',desc:'10% LIFESTEAL per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.baseLifeSteal=(state.talentBonuses.baseLifeSteal||0)+0.1;}},
-      {id:'savage_wounds',name:'Savage Wounds',desc:'20% LIFESTEAL per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.baseLifeSteal=(state.talentBonuses.baseLifeSteal||0)+0.2;}},
-      {id:'blood_frenzy',name:'Blood Frenzy',desc:'30% ATK per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.attackPowerMult=(state.talentBonuses.attackPowerMult||0)+0.3;}},
+      {id:'bloodthirst',name:'Bloodthirst',desc:'10% LIFESTEAL per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.baseLifeSteal=(state.talentBonuses.baseLifeSteal||0)+0.1;}},
+      {id:'savage_wounds',name:'Savage Wounds',desc:'20% LIFESTEAL per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.baseLifeSteal=(state.talentBonuses.baseLifeSteal||0)+0.2;}},
+      {id:'blood_frenzy',name:'Blood Frenzy',desc:'30% ATK per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.attackPowerMult=(state.talentBonuses.attackPowerMult||0)+0.3;}},
     ]},
     endurance:{name:'💪 Endurance',talents:[
-      {id:'thick_skin',name:'Thick Skin',desc:'10% ARMOR per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.1;}},
-      {id:'iron_will',name:'Iron Will',desc:'20% HP REGEN per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.2;}},
-      {id:'unkillable',name:'Unkillable',desc:'30% HP REGEN per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.3;}},
+      {id:'thick_skin',name:'Thick Skin',desc:'10% ARMOR per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.1;}},
+      {id:'iron_will',name:'Iron Will',desc:'20% HP REGEN per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.2;}},
+      {id:'unkillable',name:'Unkillable',desc:'30% HP REGEN per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.3;}},
     ]}
   }
 }
@@ -2846,7 +2846,7 @@ function updateEnemyBar(){
 const SLOT_ICONS={weapon:'⚔️',armor:'🛡️',helmet:'⛑️',boots:'👢',ring:'💍',amulet:'📿'};
 const EQUIP_PREFIXES={legendary:['Divine','Mythic','Godforged','Ancient','Eternal','Celestial'],epic:['Heroic','Valiant','Exalted','Magnificent','Radiant'],rare:['Polished','Reinforced','Enchanted','Gleaming'],uncommon:['Sturdy','Sharpened','Improved','Sturdy'],normal:['Iron','Wooden','Basic','Simple']};
 const EQUIP_NAMES={weapon:['Blade','Sword','Axe','Spear','Dagger','Staff','Bow'],armor:['Plate','Chainmail','Robe','Leather','Cuirass'],helmet:['Helm','Crown','Hood','Circlet','Visor'],boots:['Greaves','Sabatons','Boots','Treads'],ring:['Band','Seal','Loop','Signet'],amulet:['Pendant','Amulet','Talisman','Necklace']};
-const EQUIP_STATS={weapon:{str:[35,55],strMult:[0.1,0.5],lifeSteal:[0.01,0.09],crit:[2,5]},armor:{armor:[5000,50000],sta:[35,55],staMult:[0.1,0.5],maxHp:[2000,3000],maxHpMult:[0.1,0.5],hpRegen:[25,750],hpRegenMult:[0.1,0.5],dodge:[30,700],dodgeMult:[0.1,0.5]},helmet:{armor:[5000,50000],int:[35,55],intMult:[0.05,0.09]},boots:{armor:[5000,50000],agi:[35,55],agiMult:[0.1,0.5]},ring:{str:[35,55],int:[35,55],agi:[35,55],sta:[35,55]},amulet:{strMult:[0.05,0.09],agiMult:[0.05,0.09],intMult:[0.05,0.09],staMult:[0.05,0.09]}};
+const EQUIP_STATS={weapon:{str:[35,55],strMult:[0.1,0.5],lifeSteal:[0.01,0.09],crit:[2,5]},armor:{armor:[5000,10000],sta:[35,55],staMult:[0.1,0.5],maxHp:[2000,3000],maxHpMult:[0.1,0.5],hpRegen:[25,750],hpRegenMult:[0.1,0.5],dodge:[30,700],dodgeMult:[0.1,0.5]},helmet:{armor:[5000,10000],int:[35,55],intMult:[0.05,0.09]},boots:{armor:[5000,10000],agi:[35,55],agiMult:[0.1,0.5]},ring:{str:[35,55],int:[35,55],agi:[35,55],sta:[35,55]},amulet:{strMult:[0.05,0.09],agiMult:[0.05,0.09],intMult:[0.05,0.09],staMult:[0.05,0.09]}};
 function mkEquipDrop(slot,rarity,stageId=1){
   rarity=applyRarityBonus(rarity);
   const mult=RARITY[rarity].mult;
