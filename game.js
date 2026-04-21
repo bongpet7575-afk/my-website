@@ -1684,7 +1684,7 @@ const cambodiaMinutes = (utcMinutes + cambodiaOffset) % (24 * 60);
 const cambodiaHour = Math.floor(cambodiaMinutes / 60);
 
 // Registration open: 7am-5pm Cambodia, tournament starts 8pm, rewards at 9pm
-const isRegistrationOpen = cambodiaHour >= 18 && cambodiaHour < 19;
+const isRegistrationOpen = cambodiaHour >= 18.30 && cambodiaHour < 19;
 const isTournamentTime = cambodiaHour >= 20;
 
 if(!isRegistrationOpen && !isTournamentTime) {
@@ -1936,13 +1936,13 @@ const ARENA_ITEMS = {
   arena_armor_legend: {
     name:'🛡️ Champion\'s Immortal Plate', slot:'armor', rarity:'legendary',
     arenaExclusive:true, levelReq:0,
-    stats:{ armor:2000, sta:800, maxHp:15000, armorMult:0.6, hpRegenMult:0.5 },
+    stats:{ armor:50000, sta:800, maxHp:15000, armorMult:0.6, hpRegenMult:0.5 },
     sellPrice:500000
   },
   arena_helmet_legend: {
     name:'⛑️ Warlord\'s Crown of Glory', slot:'helmet', rarity:'legendary',
     arenaExclusive:true, levelReq:0,
-    stats:{ armor:1800, int:800, hit:600, dodgeMult:0.5, hitMult:0.4 },
+    stats:{ armor:20000, int:800, hit:600, dodgeMult:0.5, hitMult:0.4 },
     sellPrice:500000
   },
   arena_boots_legend: {
@@ -1974,13 +1974,13 @@ const ARENA_ITEMS = {
   arena_armor_epic: {
     name:'🛡️ Champion\'s Battle Plate', slot:'armor', rarity:'epic',
     arenaExclusive:true, levelReq:0,
-    stats:{ armor:1200, sta:500, maxHp:8000, armorMult:0.35, hpRegenMult:0.3 },
+    stats:{ armor:20000, sta:500, maxHp:8000, armorMult:0.35, hpRegenMult:0.3 },
     sellPrice:200000
   },
   arena_helmet_epic: {
     name:'⛑️ Warlord\'s Iron Crown', slot:'helmet', rarity:'epic',
     arenaExclusive:true, levelReq:0,
-    stats:{ armor:1000, int:500, hit:400, dodgeMult:0.3, hitMult:0.25 },
+    stats:{ armor:20000, int:500, hit:400, dodgeMult:0.3, hitMult:0.25 },
     sellPrice:200000
   },
   arena_boots_epic: {
@@ -2012,7 +2012,7 @@ const ARENA_ITEMS = {
   arena_armor_rare: {
     name:'🛡️ Arena Combatant\'s Shield', slot:'armor', rarity:'rare',
     arenaExclusive:true, levelReq:0,
-    stats:{ armor:600, sta:250, maxHp:3000, hpRegen:200 },
+    stats:{ armor:20000, sta:250, maxHp:3000, hpRegen:200 },
     sellPrice:50000
   },
 };
@@ -2306,10 +2306,7 @@ async function renderArena() {
 const scheduleHtml = `
   <div style="font-size:.72em;color:var(--text-dim);margin-top:8px;line-height:1.8;
     background:rgba(255,255,255,0.03);border-radius:6px;padding:8px;">
-    🕖 Registration: 7:00 AM – 5:00 PM (Cambodia)<br>
-    ⚔️ Tournament starts: 8:00 PM (Cambodia)<br>
-    🏆 Rewards distributed: 9:00 PM (Cambodia)<br>
-    📅 Resets daily
+    🕖 Registration: 6:30 PM – 7:00 PM (Cambodia)<br>
   </div>`;
 
   } catch(e) { container.innerHTML = '<div style="text-align:center;color:var(--red);padding:20px;">Failed to load arena.</div>'; console.error(e); }
