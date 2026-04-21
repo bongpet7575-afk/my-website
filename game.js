@@ -1688,7 +1688,7 @@ const isRegistrationOpen = cambodiaHour >= 18.30 && cambodiaHour < 19;
 const isTournamentTime = cambodiaHour >= 20;
 
 if(!isRegistrationOpen && !isTournamentTime) {
-  notify(`⏰ Registration opens at 6:00 PM Cambodia time!`, 'var(--gold)');
+  notify(`⏰ Registration opens at 6:30 PM Cambodia time!`, 'var(--gold)');
   return;
 }
 
