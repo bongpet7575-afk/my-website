@@ -108,6 +108,8 @@ const state={
   character_id: null,
   user_id: null,
 
+  respecCount: 0,
+
   // Active debuffs (cleared after combat)
   activeDebuffs:{ maxHpReduction:0, webTrapped:0, rageTimer:0 },
 
@@ -297,8 +299,130 @@ const CLASSES={
         {id:'cripple',name:'Predator',desc:'2% HP regen per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.mpRegenMult=(state.talentBonuses.mpRegenMult||0)+0.2;}},
         {id:'plague',name:'Virulence',desc:'3% HP regen per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.3;}},
       ]}
+      
     }
+    
+  },
+  hunter:{
+  name:'Hunter',icon:'🏹',desc:'A deadly ranged predator. +20% AGI, high bleed chance.',
+  levelReq:20,
+  bonuses:{agiMult:0.20,hitMult:0.10},
+  skills:['precise_shot','bleed_arrow','shadow_trap'],
+  trees:{
+    marksmanship:{name:'🎯 Marks',talents:[
+      {id:'eagle_eye',name:'Eagle Eye',desc:'10% HIT per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.hitMult=(state.talentBonuses.hitMult||0)+0.1;}},
+      {id:'headshot',name:'Headshot',desc:'20% CRIT per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+2;}},
+      {id:'lethal_aim',name:'Lethal Aim',desc:'30% CRIT per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+3;}},
+    ]},
+    survival:{name:'🌿 Survival',talents:[
+      {id:'camouflage',name:'Camouflage',desc:'10% DODGE per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.dodgeMult=(state.talentBonuses.dodgeMult||0)+0.1;}},
+      {id:'evasive',name:'Evasive Instinct',desc:'20% DODGE per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.dodgeMult=(state.talentBonuses.dodgeMult||0)+0.2;}},
+      {id:'ghost_step',name:'Ghost Step',desc:'30% DODGE per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.dodgeMult=(state.talentBonuses.dodgeMult||0)+0.3;}},
+    ]},
+    beastmastery:{name:'🐾 Beast',talents:[
+      {id:'feral_bond',name:'Feral Bond',desc:'10% ATK per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.attackPowerMult=(state.talentBonuses.attackPowerMult||0)+0.1;}},
+      {id:'pack_hunter',name:'Pack Hunter',desc:'20% ATK per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.attackPowerMult=(state.talentBonuses.attackPowerMult||0)+0.2;}},
+      {id:'apex_predator',name:'Apex Predator',desc:'30% ATK per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.attackPowerMult=(state.talentBonuses.attackPowerMult||0)+0.3;}},
+    ]}
   }
+},
+
+paladin:{
+  name:'Paladin',icon:'🛡️',desc:'A holy warrior. +15% STR, +15% STA, heals on every hit.',
+  levelReq:30,
+  bonuses:{strMult:0.15,staMult:0.15},
+  skills:['holy_strike','divine_shield','consecration'],
+  trees:{
+    holy:{name:'✨ Holy',talents:[
+      {id:'holy_light',name:'Holy Light',desc:'10% HP REGEN per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.1;}},
+      {id:'blessed_armor',name:'Blessed Armor',desc:'20% ARMOR per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.2;}},
+      {id:'divine_grace',name:'Divine Grace',desc:'30% HP REGEN per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.3;}},
+    ]},
+    protection:{name:'🛡️ Protection',talents:[
+      {id:'holy_armor',name:'Holy Armor',desc:'10% ARMOR per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.1;}},
+      {id:'bulwark',name:'Bulwark',desc:'20% ARMOR per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.2;}},
+      {id:'immovable',name:'Immovable',desc:'30% ARMOR per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.3;}},
+    ]},
+    retribution:{name:'⚡ Retribution',talents:[
+      {id:'righteous_fury',name:'Righteous Fury',desc:'10% STR per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.strMult=(state.talentBonuses.strMult||0)+0.1;}},
+      {id:'holy_wrath',name:'Holy Wrath',desc:'20% STR per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.strMult=(state.talentBonuses.strMult||0)+0.2;}},
+      {id:'crusader',name:'Crusader',desc:'30% STR per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.strMult=(state.talentBonuses.strMult||0)+0.3;}},
+    ]}
+  }
+},
+
+necromancer:{
+  name:'Necromancer',icon:'💀',desc:'Master of death magic. +20% INT, lifedrain on every spell.',
+  levelReq:50,
+  bonuses:{intMult:0.20,mpMult:0.10},
+  skills:['death_bolt','soul_drain','plague_nova'],
+  trees:{
+    death:{name:'💀 Death',talents:[
+      {id:'death_mastery',name:'Death Mastery',desc:'10% INT per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.intMult=(state.talentBonuses.intMult||0)+0.1;}},
+      {id:'dark_pact',name:'Dark Pact',desc:'20% INT per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.intMult=(state.talentBonuses.intMult||0)+0.2;}},
+      {id:'lich_form',name:'Lich Form',desc:'30% INT per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.intMult=(state.talentBonuses.intMult||0)+0.3;}},
+    ]},
+    drain:{name:'🩸 Drain',talents:[
+      {id:'life_tap',name:'Life Tap',desc:'10% LIFESTEAL per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.lifeStealMult=(state.talentBonuses.lifeStealMult||0)+0.1;}},
+      {id:'soul_siphon',name:'Soul Siphon',desc:'20% LIFESTEAL per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.lifeStealMult=(state.talentBonuses.lifeStealMult||0)+0.2;}},
+      {id:'death_coil',name:'Death Coil',desc:'30% LIFESTEAL per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.lifeStealMult=(state.talentBonuses.lifeStealMult||0)+0.3;}},
+    ]},
+    undead:{name:'🦴 Undead',talents:[
+      {id:'undead_resilience',name:'Undead Resilience',desc:'10% HP REGEN per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.1;}},
+      {id:'bone_shield',name:'Bone Shield',desc:'20% ARMOR per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.2;}},
+      {id:'immortal_curse',name:'Immortal Curse',desc:'30% HP REGEN per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.3;}},
+    ]}
+  }
+},
+
+shaman:{
+  name:'Shaman',icon:'⚡',desc:'Elemental warrior. +10% STR, +10% INT, elemental burst damage.',
+  levelReq:70,
+  bonuses:{strMult:0.10,intMult:0.10},
+  skills:['lightning_bolt','earth_totem','wind_burst'],
+  trees:{
+    lightning:{name:'⚡ Lightning',talents:[
+      {id:'storm_caller',name:'Storm Caller',desc:'10% CRIT per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.critMult=(state.talentBonuses.critMult||0)+0.1;}},
+      {id:'chain_lightning',name:'Chain Lightning',desc:'20% CRIT per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.critMult=(state.talentBonuses.critMult||0)+0.2;}},
+      {id:'thunder_god',name:'Thunder God',desc:'30% CRIT per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.critMult=(state.talentBonuses.critMult||0)+0.3;}},
+    ]},
+    earth:{name:'🪨 Earth',talents:[
+      {id:'stone_skin',name:'Stone Skin',desc:'10% ARMOR per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.1;}},
+      {id:'granite_will',name:'Granite Will',desc:'20% ARMOR per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.2;}},
+      {id:'mountain_form',name:'Mountain Form',desc:'30% ARMOR per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.3;}},
+    ]},
+    wind:{name:'🌪️ Wind',talents:[
+      {id:'swift_winds',name:'Swift Winds',desc:'10% AGI per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.agiMult=(state.talentBonuses.agiMult||0)+0.1;}},
+      {id:'gale_force',name:'Gale Force',desc:'20% AGI per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.agiMult=(state.talentBonuses.agiMult||0)+0.2;}},
+      {id:'cyclone',name:'Cyclone',desc:'30% DODGE per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.dodgeMult=(state.talentBonuses.dodgeMult||0)+0.3;}},
+    ]}
+  }
+},
+
+berserker:{
+  name:'Berserker',icon:'🐉',desc:'Pure rage fighter. +25% STR, damage multiplies as HP drops.',
+  levelReq:90,
+  bonuses:{strMult:0.25,attackPowerMult:0.10},
+  skills:['reckless_strike','blood_rage','death_wish'],
+  trees:{
+    rage:{name:'🔥 Rage',talents:[
+      {id:'battle_hunger',name:'Battle Hunger',desc:'10% STR per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.strMult=(state.talentBonuses.strMult||0)+0.1;}},
+      {id:'war_cry',name:'War Cry',desc:'20% STR per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.strMult=(state.talentBonuses.strMult||0)+0.2;}},
+      {id:'primal_fury',name:'Primal Fury',desc:'30% STR per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.strMult=(state.talentBonuses.strMult||0)+0.3;}},
+    ]},
+    bloodlust:{name:'🩸 Bloodlust',talents:[
+      {id:'bloodthirst',name:'Bloodthirst',desc:'10% LIFESTEAL per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.lifeStealMult=(state.talentBonuses.lifeStealMult||0)+0.1;}},
+      {id:'savage_wounds',name:'Savage Wounds',desc:'20% LIFESTEAL per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.lifeStealMult=(state.talentBonuses.lifeStealMult||0)+0.2;}},
+      {id:'blood_frenzy',name:'Blood Frenzy',desc:'30% ATK per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.attackPowerMult=(state.talentBonuses.attackPowerMult||0)+0.3;}},
+    ]},
+    endurance:{name:'💪 Endurance',talents:[
+      {id:'thick_skin',name:'Thick Skin',desc:'10% ARMOR per rank',cost:5,ranks:10,effect:()=>{state.talentBonuses.armorMult=(state.talentBonuses.armorMult||0)+0.1;}},
+      {id:'iron_will',name:'Iron Will',desc:'20% HP REGEN per rank',cost:10,ranks:5,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.2;}},
+      {id:'unkillable',name:'Unkillable',desc:'30% HP REGEN per rank',cost:20,ranks:3,effect:()=>{state.talentBonuses.hpRegenMult=(state.talentBonuses.hpRegenMult||0)+0.3;}},
+    ]}
+  }
+}
+  
 };
 
 // ── SKILLS ──
@@ -327,6 +451,98 @@ const SKILLS={
     addCombatLog(`🐍 Poisoned! ${tick} dmg/tick for ${stacks} turns!`,'good');playSound('snd-magic');return 0;}},
   shadow_step:{name:'Shadow Step',icon:'🌑',mp:()=>Math.floor(state.maxMp*0.15),cd:3,use:(e)=>{
     const d=Math.floor(state.attackPower*2.0+state.agi*4);e.hp-=d;addCombatLog(`🌑 Shadow Step! ${d} dmg!`,'purple');playSound('snd-magic');animateAttack(true,d,false);return d;}},
+    // 🏹 HUNTER SKILLS
+precise_shot:{name:'Precise Shot',icon:'🎯',mp:()=>Math.floor(state.maxMp*0.10),cd:1,use:(e)=>{
+  const d=Math.floor(state.attackPower*2.0+state.agi*4);e.hp-=d;
+  addCombatLog(`🎯 Precise Shot! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
+
+bleed_arrow:{name:'Bleed Arrow',icon:'🏹',mp:()=>Math.floor(state.maxMp*0.12),cd:2,use:(e)=>{
+  const stacks=4,tick=Math.floor(state.agi*2.0+state.attackPower*1.0);
+  e.poisoned=(e.poisoned||0)+stacks;e.poisonDmg=tick;
+  addCombatLog(`🏹 Bleed! ${tick} dmg/tick for ${stacks} turns!`,'good');playSound('snd-attack');return 0;}},
+
+shadow_trap:{name:'Shadow Trap',icon:'🪤',mp:()=>Math.floor(state.maxMp*0.15),cd:3,use:(e)=>{
+  e.frozen=true;const d=Math.floor(state.agi*3.0+state.attackPower*1.5);e.hp-=d;
+  addCombatLog(`🪤 Shadow Trap! ${d} dmg + Frozen!`,'good');playSound('snd-magic');animateAttack(true,d,false);return d;}},
+
+// 🛡️ PALADIN SKILLS
+holy_strike:{name:'Holy Strike',icon:'✨',mp:()=>Math.floor(state.maxMp*0.10),cd:1,use:(e)=>{
+  const d=Math.floor(state.attackPower*2.0+state.str*3);e.hp-=d;
+  const heal=Math.floor(d*0.15);state.hp=Math.min(state.maxHp,state.hp+heal);
+  addCombatLog(`✨ Holy Strike! ${d} dmg, healed ${heal} HP!`,'good');
+  playSound('snd-attack');animateAttack(true,d,false);spawnDmgFloat(`+${heal}`,false,'heal-float');return d;}},
+
+divine_shield:{name:'Divine Shield',icon:'🛡️',mp:()=>Math.floor(state.maxMp*0.20),cd:4,use:(e)=>{
+  state.manaShield=true;
+  const healAmt=Math.floor(state.maxHp*0.25);state.hp=Math.min(state.maxHp,state.hp+healAmt);
+  addCombatLog(`🛡️ Divine Shield! +${healAmt} HP + absorb!`,'good');
+  playSound('snd-heal');spawnDmgFloat(`+${healAmt}`,false,'heal-float');return 0;}},
+
+consecration:{name:'Consecration',icon:'🌟',mp:()=>Math.floor(state.maxMp*0.15),cd:2,use:(e)=>{
+  const d=Math.floor(state.str*4+state.int*3);e.hp-=d;
+  e.poisoned=(e.poisoned||0)+3;e.poisonDmg=Math.floor(d*0.2);
+  addCombatLog(`🌟 Consecration! ${d} dmg + holy burn!`,'good');
+  playSound('snd-magic');animateAttack(true,d,false);return d;}},
+
+// 💀 NECROMANCER SKILLS
+death_bolt:{name:'Death Bolt',icon:'💀',mp:()=>Math.floor(state.maxMp*0.12),cd:1,use:(e)=>{
+  const d=Math.floor(state.int*7+Math.random()*state.int*2);e.hp-=d;
+  const drain=Math.floor(d*0.20);state.hp=Math.min(state.maxHp,state.hp+drain);
+  addCombatLog(`💀 Death Bolt! ${d} dmg, drained ${drain} HP!`,'good');
+  playSound('snd-magic');animateAttack(true,d,false);spawnDmgFloat(`+${drain}`,false,'heal-float');return d;}},
+
+soul_drain:{name:'Soul Drain',icon:'🌑',mp:()=>Math.floor(state.maxMp*0.15),cd:2,use:(e)=>{
+  const d=Math.floor(state.int*5);e.hp-=d;
+  const drain=Math.floor(d*0.35);state.hp=Math.min(state.maxHp,state.hp+drain);
+  state.mp=Math.min(state.maxMp,state.mp+Math.floor(state.maxMp*0.10));
+  addCombatLog(`🌑 Soul Drain! ${d} dmg, +${drain} HP, +MP!`,'good');
+  playSound('snd-magic');animateAttack(true,d,false);return d;}},
+
+plague_nova:{name:'Plague Nova',icon:'☠️',mp:()=>Math.floor(state.maxMp*0.20),cd:3,use:(e)=>{
+  const stacks=6,tick=Math.floor(state.int*2.5);
+  e.poisoned=(e.poisoned||0)+stacks;e.poisonDmg=tick;
+  const d=Math.floor(state.int*3);e.hp-=d;
+  addCombatLog(`☠️ Plague Nova! ${d} + ${tick} dmg/tick x${stacks}!`,'good');
+  playSound('snd-magic');animateAttack(true,d,false);return d;}},
+
+// ⚡ SHAMAN SKILLS
+lightning_bolt:{name:'Lightning Bolt',icon:'⚡',mp:()=>Math.floor(state.maxMp*0.12),cd:1,use:(e)=>{
+  const d=Math.floor((state.int*5+state.str*3)*1.2);e.hp-=d;
+  addCombatLog(`⚡ Lightning Bolt! ${d} dmg!`,'good');
+  playSound('snd-magic');animateAttack(true,d,false);return d;}},
+
+earth_totem:{name:'Earth Totem',icon:'🪨',mp:()=>Math.floor(state.maxMp*0.15),cd:3,use:(e)=>{
+  const healAmt=Math.floor(state.maxHp*0.20);state.hp=Math.min(state.maxHp,state.hp+healAmt);
+  state.armorMult*=1.3;
+  addCombatLog(`🪨 Earth Totem! +${healAmt} HP, +30% ARMOR!`,'good');
+  playSound('snd-heal');calcStats();return 0;}},
+
+wind_burst:{name:'Wind Burst',icon:'🌪️',mp:()=>Math.floor(state.maxMp*0.18),cd:2,use:(e)=>{
+  const d=Math.floor(state.agi*4+state.int*4);e.hp-=d;e.frozen=true;
+  addCombatLog(`🌪️ Wind Burst! ${d} dmg + Frozen!`,'good');
+  playSound('snd-magic');animateAttack(true,d,false);return d;}},
+
+// 🐉 BERSERKER SKILLS
+reckless_strike:{name:'Reckless Strike',icon:'🐉',mp:()=>Math.floor(state.maxMp*0.08),cd:1,use:(e)=>{
+  const hpPct=state.hp/state.maxHp;
+  const rageMult=1+(1-hpPct)*2.0; // up to 3x damage at 0 HP
+  const d=Math.floor(state.attackPower*2.5*rageMult);e.hp-=d;
+  addCombatLog(`🐉 Reckless Strike! ${d} dmg! (${Math.round((1-hpPct)*100)}% rage)`,hpPct<0.3?'legendary':'good');
+  playSound('snd-attack');animateAttack(true,d,false);return d;}},
+
+blood_rage:{name:'Blood Rage',icon:'🩸',mp:()=>Math.floor(state.maxMp*0.15),cd:4,use:(e)=>{
+  if(state.battleCryActive){addCombatLog(`🩸 Blood Rage already active!`,'info');return 0;}
+  state.battleCryActive=true;state.strMult*=3.0;state.attackPowerMult*=2.5;
+  addCombatLog(`🩸 BLOOD RAGE! +200% STR, +150% ATK POWER!`,'legendary');
+  playSound('snd-magic');calcStats();return 0;}},
+
+death_wish:{name:'Death Wish',icon:'💢',mp:()=>Math.floor(state.maxMp*0.25),cd:5,use:(e)=>{
+  // Sacrifice 30% current HP for massive damage
+  const sacrifice=Math.floor(state.hp*0.30);
+  state.hp=Math.max(1,state.hp-sacrifice);
+  const d=Math.floor(state.attackPower*4.0+sacrifice*2);e.hp-=d;
+  addCombatLog(`💢 Death Wish! Sacrificed ${sacrifice} HP for ${d} dmg!`,'legendary');
+  playSound('snd-attack');animateAttack(true,d,false);spawnDmgFloat(`💢${d}`,true,'crit-dmg');return d;}},
 };
 
 function spawnAbilityFloat(text,color='#ffffff'){
@@ -896,6 +1112,66 @@ async function selectCharacterAndPlay(characterId){
     console.error('Character load error:', e);
     notify('❌ Load failed: ' + e.message, 'var(--red)');
   }
+}
+
+function respecClass(){
+  if(!state.class){
+    notify('No class to respec!','var(--red)');return;
+  }
+  const cost = 50000 * (state.respecCount + 1);
+  if(state.gold < cost){
+    notify(`❌ Need ${formatNumber(cost)}g to respec!`,'var(--red)');return;
+  }
+  if(!confirm(`Respec class for ${formatNumber(cost)}g?\nAll talents will be reset and talent points refunded.`))return;
+
+  state.gold -= cost;
+  state.respecCount++;
+
+  // Refund all talent points
+  const c = CLASSES[state.class];
+  let refunded = 0;
+  Object.values(c.trees).forEach(tree=>{
+    tree.talents.forEach(talent=>{
+      const rank = state.unlockedTalents.filter(u=>u===talent.id).length;
+      refunded += rank * talent.cost;
+    });
+  });
+  state.talentPoints += refunded;
+
+  // Reset talent bonuses
+  state.talentBonuses = {
+    strMult:0,agiMult:0,intMult:0,staMult:0,
+    hitMult:0,critMult:0,dodgeMult:0,hpRegenMult:0,
+    mpRegenMult:0,armorMult:0,mpMult:0,lifeStealMult:0,
+    attackPowerMult:0,maxHpMult:0,hpMult:0,
+  };
+
+  // Reset class bonuses
+  state.classBonuses = {
+    strMult:0,agiMult:0,intMult:0,staMult:0,
+    hitMult:0,critMult:0,dodgeMult:0,hpRegenMult:0,
+    mpRegenMult:0,armorMult:0,mpMult:0,lifeStealMult:0,
+    attackPowerMult:0,maxHpMult:0,hpMult:0,
+  };
+
+  // Reset talents and flags
+  state.unlockedTalents = [];
+  state.talentUnlockedFlags = {};
+  state.class = null;
+  state.skills = [];
+
+  // Reset stat multipliers
+  state.strMult=1.0;state.agiMult=1.0;state.intMult=1.0;state.staMult=1.0;
+  state.armorMult=1.0;state.critMult=1.0;state.dodgeMult=1.0;
+  state.hpRegenMult=1.0;state.mpRegenMult=1.0;state.hitMult=1.0;
+  state.mpMult=1.0;state.attackPowerMult=1.0;
+
+  calcStats();
+  addLog(`🔄 Respec complete! ${refunded} talent points refunded. Cost: ${formatNumber(cost)}g`,'gold');
+  notify(`🔄 Class reset! Choose a new class.`,'var(--gold)');
+  document.getElementById('char-class').textContent='No Class';
+  showClassSelection();
+  updateUI();renderSkillBar();renderQuests();
 }
 
 // ── AUTH: LOGOUT ──
@@ -2571,7 +2847,7 @@ function updateEnemyBar(){
 const SLOT_ICONS={weapon:'⚔️',armor:'🛡️',helmet:'⛑️',boots:'👢',ring:'💍',amulet:'📿'};
 const EQUIP_PREFIXES={legendary:['Divine','Mythic','Godforged','Ancient','Eternal','Celestial'],epic:['Heroic','Valiant','Exalted','Magnificent','Radiant'],rare:['Polished','Reinforced','Enchanted','Gleaming'],uncommon:['Sturdy','Sharpened','Improved','Sturdy'],normal:['Iron','Wooden','Basic','Simple']};
 const EQUIP_NAMES={weapon:['Blade','Sword','Axe','Spear','Dagger','Staff','Bow'],armor:['Plate','Chainmail','Robe','Leather','Cuirass'],helmet:['Helm','Crown','Hood','Circlet','Visor'],boots:['Greaves','Sabatons','Boots','Treads'],ring:['Band','Seal','Loop','Signet'],amulet:['Pendant','Amulet','Talisman','Necklace']};
-const EQUIP_STATS={weapon:{str:[15,35],lifeSteal:[0.01,0.02],crit:[0.01,0.05]},armor:{armor:[25,55],sta:[15,35],maxHp:[2000,3000],hpRegen:[25,75],dodge:[10,20]},helmet:{armor:[35,65],int:[15,35],hit:[10,20],dodge:[5,15]},boots:{agi:[15,35],dodge:[10,20]},ring:{str:[15,35],int:[15,35],agi:[15,35],sta:[15,35]},amulet:{strMult:[0.05,0.09],agiMult:[0.05,0.09],intMult:[0.05,0.09],staMult:[0.05,0.09],maxHpMult:[0.05,0.09],hitMult:[0.05,0.09],attackPowerMult:[0.05,0.09],dodgeMult:[0.05,0.09]}};
+const EQUIP_STATS={weapon:{str:[35,55],lifeSteal:[0.01,0.09],crit:[0.01,0.05]},armor:{armor:[5000,50000],sta:[35,55],maxHp:[2000,3000],hpRegen:[25,75],dodge:[30,70]},helmet:{armor:[5000,50000],int:[35,55],hit:[30,50],dodge:[25,45]},boots:{agi:[35,55],dodge:[30,500]},ring:{str:[35,55],int:[35,55],agi:[35,55],sta:[35,55]},amulet:{strMult:[0.05,0.09],agiMult:[0.05,0.09],intMult:[0.05,0.09],staMult:[0.05,0.09],maxHpMult:[0.05,0.09],hitMult:[0.05,0.09],attackPowerMult:[0.05,0.09],dodgeMult:[0.05,0.09]}};
 function mkEquipDrop(slot,rarity,stageId=1){
   rarity=applyRarityBonus(rarity);
   const mult=RARITY[rarity].mult;
@@ -2929,6 +3205,39 @@ function showClassSelection(){
       <div class="class-desc">${c.desc}</div>
       ${Object.entries(c.bonuses).map(([k,v])=>`<div class="class-stat"><span>${k.replace('Mult','').toUpperCase()}</span><span>+${Math.round(v*100)}%</span></div>`).join('')}
     </div>`).join('');
+    // Show respec cost if already has class
+  const respecHtml = state.class ? `
+    <div style="text-align:center;margin-top:12px;font-size:.78em;color:var(--text-dim);">
+      Next respec cost: <span style="color:var(--gold);">${formatNumber(cost)}g</span>
+    </div>` : '';
+
+  document.getElementById('class-screen').innerHTML = `
+    <div class="overlay-box">
+      <div class="overlay-title">${state.class?'🔄 RESPEC CLASS':'⚔️ CHOOSE YOUR CLASS'}</div>
+      <p style="text-align:center;font-size:.82em;color:var(--text-dim);margin-bottom:16px;font-style:italic;">
+        ${state.class?'Choose a new class. All talents will be reset.':'You have reached Level 10! Your path is revealed.'}
+      </p>
+      <div id="class-grid" class="class-grid"></div>
+      ${respecHtml}
+      <div style="text-align:center;margin-top:12px;">
+        <button class="start-btn" onclick="document.getElementById('class-screen').style.display='none'">✖ Close</button>
+      </div>
+    </div>`;
+
+  // Re-render grid inside new HTML
+  document.getElementById('class-grid').innerHTML=Object.entries(CLASSES).map(([id,c])=>{
+    const locked = state.level < (c.levelReq||10);
+    return `
+    <div class="class-card ${locked?'':''}}"
+      onclick="${locked?'void 0':`selectClass('${id}')`}"
+      style="${locked?'opacity:0.4;cursor:not-allowed;':''}">
+      <div class="class-icon">${c.icon}</div>
+      <div class="class-name">${c.name}</div>
+      ${locked?`<div style="color:var(--red);font-size:.65em;">🔒 Lvl ${c.levelReq}</div>`:''}
+      <div class="class-desc">${c.desc}</div>
+      ${Object.entries(c.bonuses).map(([k,v])=>`<div class="class-stat"><span>${k.replace('Mult','').toUpperCase()}</span><span>+${Math.round(v*100)}%</span></div>`).join('')}
+    </div>`;
+  }).join('');
   document.getElementById('class-screen').style.display='block';
 }
 function selectClass(classId){

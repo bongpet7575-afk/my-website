@@ -38,6 +38,7 @@ async function loadPlayerFromSupabase(characterId) {
 
 function syncCharacterToState(character) {
   // Basic info
+  state.respecCount = character.respec_count || 0;
   state.goldMultExpiry = character.gold_mult_expiry || null;
   state.character_id = character.id;
   state.user_id = character.user_id;
@@ -183,13 +184,16 @@ async function savePlayerToSupabase() {
   
   try {
     
+    
     const { data: { user } } = await dbClient.auth.getUser();
     if (!user) throw new Error('Not authenticated');
     if (!state.character_id) throw new Error('No character ID');
 
     const { error } = await dbClient
       .from('characters')
+      
       .update({
+        respec_count: state.respecCount,
         gold_mult_expiry: state.goldMultExpiry,
         name: state.name,
         level: state.level,
