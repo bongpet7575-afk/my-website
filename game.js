@@ -590,9 +590,9 @@ const MONSTER_TEMPLATES = {
 
   // Stage 5 — Level 40-49 — player ATK ~1580, HP ~9780
   orc_grunt:       {id:'orc_grunt',      name:'👊 Orc Grunt',       icon:'orc',     lifeSteal:1.5, hp:560000, atk:20000,  armor:50000, hit:15000, dodge:12000, xp:22800, gold:[14000,21000]},
-  orc_warrior:     {id:'orc_warrior',    name:'👊 Orc Warrior',     icon:'orc',     lifeSteal:1.5, hp:760000, atk:24000,  armor:50000, hit:18000, dodge:13000, xp:27400, gold:[16800,25200]},
-  orc_shaman:      {id:'orc_shaman',     name:'👊 Orc Shaman',      icon:'orc',     lifeSteal:1.5, hp:1000000,atk:29000,  armor:50000, hit:20000, dodge:17000, xp:32800, gold:[20200,30200]},
-  orc_berserker:   {id:'orc_berserker',  name:'👊 Orc Berserker',   icon:'orc',     lifeSteal:1.5, hp:1400000,atk:35000,  armor:50000, hit:22000, dodge:19000, xp:39400, gold:[24200,36400]},
+  orc_warrior:     {id:'orc_warrior',    name:'👊 Orc Warrior',     icon:'orc',     lifeSteal:1.5, hp:760000, atk:20000,  armor:50000, hit:18000, dodge:13000, xp:27400, gold:[16800,25200]},
+  orc_shaman:      {id:'orc_shaman',     name:'👊 Orc Shaman',      icon:'orc',     lifeSteal:1.5, hp:1000000,atk:20000,  armor:50000, hit:20000, dodge:17000, xp:32800, gold:[20200,30200]},
+  orc_berserker:   {id:'orc_berserker',  name:'👊 Orc Berserker',   icon:'orc',     lifeSteal:1.5, hp:1400000,atk:20000,  armor:50000, hit:22000, dodge:19000, xp:39400, gold:[24200,36400]},
 
   // Stage 6 — Level 50-59 — player ATK ~2210, HP ~14080
   vampire_thrall:  {id:'vampire_thrall', name:'🧛 Vampire Thrall',  icon:'vampire', hp:1800000,atk:42000,  armor:50000, hit:26000, dodge:22000, xp:47200, gold:[29000,43600]},
@@ -1929,37 +1929,37 @@ const ARENA_ITEMS = {
   arena_sword_legend: {
     name:'⚔️ Gladiator\'s Eternal Blade', slot:'weapon', rarity:'legendary',
     arenaExclusive:true, levelReq:0,
-    stats:{ str:1200, attackPower:600, strMult:0.5, crit:20, lifeSteal:0.04 },
+    stats:{ str:12000, attackPower:60000, strMult:5.5, crit:20, lifeSteal:1.4 },
     sellPrice:500000
   },
   arena_armor_legend: {
     name:'🛡️ Champion\'s Immortal Plate', slot:'armor', rarity:'legendary',
     arenaExclusive:true, levelReq:0,
-    stats:{ armor:50000, sta:800, maxHp:15000, armorMult:0.6, hpRegenMult:0.5 },
+    stats:{ armor:80000, sta:8000, maxHp:150000, armorMult:5.6, hpRegenMult:5.5 },
     sellPrice:500000
   },
   arena_helmet_legend: {
     name:'⛑️ Warlord\'s Crown of Glory', slot:'helmet', rarity:'legendary',
     arenaExclusive:true, levelReq:0,
-    stats:{ armor:20000, int:800, hit:600, dodgeMult:0.5, hitMult:0.4 },
+    stats:{ armor:80000, int:8000, hit:40000, dodgeMult:5.5, hitMult:5.4 },
     sellPrice:500000
   },
   arena_boots_legend: {
     name:'👢 Phantom Stride Boots', slot:'boots', rarity:'legendary',
     arenaExclusive:true, levelReq:0,
-    stats:{ agi:1200, dodge:800, agiMult:0.6, dodgeMult:0.5 },
+    stats:{ agi:8000, dodge:20000, agiMult:5.6, dodgeMult:5.5 },
     sellPrice:500000
   },
   arena_ring_legend: {
     name:'💍 Ring of the Eternal Champion', slot:'ring', rarity:'legendary',
     arenaExclusive:true, levelReq:0,
-    stats:{ str:800, agi:800, int:800, sta:800, strMult:0.4, agiMult:0.4 },
+    stats:{ str:4000, agi:4000, int:4000, sta:4000, strMult:2.4, agiMult:2.4, intMult:2.4, staMult:2.4 },
     sellPrice:500000
   },
   arena_amulet_legend: {
     name:'📿 Amulet of Undying Glory', slot:'amulet', rarity:'legendary',
     arenaExclusive:true, levelReq:0,
-    stats:{ strMult:0.5, agiMult:0.5, intMult:0.5, staMult:0.5, lifeSteal:0.05 },
+    stats:{ strMult:2.5, agiMult:2.5, intMult:2.5, staMult:2.5, lifeSteal:0.5 },
     sellPrice:500000
   },
 
