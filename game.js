@@ -331,7 +331,7 @@ const CLASSES={
 
 paladin:{
   name:'Paladin',icon:'🛡️',desc:'A holy warrior. +15% STR, +15% STA, heals on every hit.',
-  levelReq:30,
+  levelReq:20,
   bonuses:{strMult:0.15,staMult:0.15},
   skills:['holy_strike','divine_shield','consecration'],
   trees:{
