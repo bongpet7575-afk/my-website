@@ -2869,11 +2869,11 @@ function applyRarityBonus(rarity){
 
 // ── MAT TABLES (2 mats per stage: common + rare) ──
 const STAGE_MATS = {
-  1:  { common:{name:'🪶 Wolf Fang',      rarity:'normal'},   rare:{name:'🐺 Alpha Pelt',      rarity:'uncommon'} },
+  1:  { common:{name:'🐺 Wolf Fang',      rarity:'normal'},   rare:{name:'🐺 Alpha Pelt',      rarity:'uncommon'} },
   2:  { common:{name:'🕸️ Spider Silk',    rarity:'normal'},   rare:{name:'🕷️ Venom Gland',     rarity:'uncommon'} },
   3:  { common:{name:'🪓 Goblin Scrap',   rarity:'uncommon'}, rare:{name:'👹 Warlord Crest',   rarity:'rare'}     },
   4:  { common:{name:'💀 Bone Shard',     rarity:'uncommon'}, rare:{name:'💀 Death Essence',   rarity:'rare'}     },
-  5:  { common:{name:'🪨 Stone Core',     rarity:'uncommon'}, rare:{name:'👊 Chieftain Brand', rarity:'rare'}     },
+  5:  { common:{name:'👊 Stone Core',     rarity:'uncommon'}, rare:{name:'👊 Chieftain Brand', rarity:'rare'}     },
   6:  { common:{name:'🩸 Blood Vial',     rarity:'rare'},     rare:{name:'🧛 Vampire Fang',    rarity:'epic'}     },
   7:  { common:{name:'💎 Troll Gem',      rarity:'rare'},     rare:{name:'👾 Troll Heart',      rarity:'epic'}     },
   8:  { common:{name:'😈 Demon Horn',     rarity:'rare'},     rare:{name:'🔥 Hellfire Core',   rarity:'epic'}     },
@@ -3025,7 +3025,7 @@ const CRAFTING = [
     id:'craft_stone_ring',
     result:{name:'💍 Warlord Signet',slot:'ring',rarity:'epic',levelReq:60,
       stats:{str:5800,sta:5800,agi:5800,int:5800},category:'equipment'},
-    req:[{name:'🪨 Stone Core',qty:100},{name:'👊 Chieftain Brand',qty:50}],
+    req:[{name:'👊 Stone Core',qty:100},{name:'👊 Chieftain Brand',qty:50}],
     desc:'The Orc Chieftain\'s ring — balanced power across all stats.'
   },
   {
