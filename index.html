@@ -935,7 +935,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
         <button class="town-tab" onclick="switchTownPanel('shop',this)">🏪 Shop</button>
         <button class="town-tab" onclick="switchTownPanel('craft',this)">⚗️ Craft</button>
         <button class="town-tab" onclick="switchTownPanel('auction',this)">🏛️ Auction House</button>
-        <button class="town-tab" onclick="switchTownPanel('arena',this)">⚔️ Arena</button>
+        <button class="town-tab" onclick="switchTownPanel('tournament',this)">⚔️ Tournament</button>
       </div>
         <!-- Scene Nav -->
       <div style="display:flex;gap:8px;padding:8px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;">
@@ -943,10 +943,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
          <button onclick="switchMainScene('adv')" style="flex:1;padding:10px;background:rgba(200,168,75,0.08);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-dim);font-family:var(--font-title);font-size:.68em;letter-spacing:1px;cursor:pointer;">⚔️ Adventure</button>
       </div>
       <div class="town-content">
-        <!-- ARENA -->
-<div id="town-panel-arena" class="town-panel" style="display:none;">
-  <div id="arena-content"><div style="text-align:center;color:var(--text-dim);padding:20px;">Loading...</div></div>
-</div>
+        <!-- TOURNAMENT -->
+        <div id="town-panel-tournament" class="town-panel" style="display:none;">
+          <div id="arena-content">
+           <div style="text-align:center;color:var(--text-dim);padding:20px;">Loading...</div>
+          </div>
+        </div>
+      </div>
         <!-- INVENTORY -->
         <div id="town-panel-inventory" class="town-panel active" style="display:block;">
           <div class="inv-tab-row">
@@ -1094,7 +1097,7 @@ function switchTownPanel(panel, btn) {
   if (panel === 'shop')    renderShop();
   if (panel === 'craft')   renderCrafting();
   if (panel === 'auction') fetchAuctions();
-  if (panel === 'arena') renderArena();
+  if (panel === 'tournament') renderTournament();
 }
 
 // ── OVERRIDE showGame ──

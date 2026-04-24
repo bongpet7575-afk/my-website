@@ -24,7 +24,9 @@ async function loadPlayerFromSupabase(characterId) {
     if (!character) throw new Error('Character not found');
 
     syncCharacterToState(character);
+    await checkTournamentRewardExpiry();
     console.log('✅ Character loaded from Supabase');
+
     return state;
   } catch (error) {
     console.error('Load character error:', error);
@@ -171,6 +173,12 @@ function syncCharacterToState(character) {
   state.invTab = character.inv_tab || 'equipment';
   state.shopTab = character.shop_tab || 'equipment';
   state.autoSell = character.auto_sell || { normal:false, uncommon:false, rare:false, epic:false };
+
+  // Tournament rewards
+state.tournamentTitle          = character.tournament_title || null;
+state.tournamentBuff           = character.tournament_buff || null;
+state.tournamentItem           = character.tournament_item || null;
+state.tournamentRewardsExpireAt = character.tournament_rewards_expire_at || null;
 
   // Recalculate stats after loading
   if (typeof calcStats === 'function') calcStats();
