@@ -1738,6 +1738,117 @@ function getArenaTitle(points) {
   return ARENA_TITLES[0];
 }
 
+// ── RENDER TOURNAMENT REWARDS ON CHARACTER SCREEN ──
+function renderTournamentRewards() {
+  const panel = document.getElementById('tournament-rewards-panel');
+  const content = document.getElementById('tournament-rewards-content');
+  if (!panel || !content) return;
+
+  // Hide panel if no active rewards
+  if (!state.tournamentTitle && !state.tournamentBuff && !state.tournamentItem) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  // Check expiry
+  const expiry = state.tournamentRewardsExpireAt ? new Date(state.tournamentRewardsExpireAt) : null;
+  const now = new Date();
+  if (expiry && now > expiry) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  // Calculate time remaining
+  let timeLeftHtml = '';
+  if (expiry) {
+    const msLeft = expiry - now;
+    const days    = Math.floor(msLeft / 86400000);
+    const hours   = Math.floor((msLeft % 86400000) / 3600000);
+    const mins    = Math.floor((msLeft % 3600000) / 60000);
+    const timeStr = days > 0
+      ? `${days}d ${hours}h ${mins}m`
+      : `${hours}h ${mins}m`;
+    const urgentColor = msLeft < 3600000 ? 'var(--red)' : msLeft < 86400000 ? 'var(--gold)' : 'var(--green)';
+    timeLeftHtml = `
+      <div style="font-size:.70em;color:${urgentColor};margin-top:8px;
+        padding:4px 8px;background:rgba(255,255,255,0.03);border-radius:6px;">
+        ⏰ Expires in: <b>${timeStr}</b>
+      </div>`;
+  }
+
+  panel.style.display = 'block';
+  content.innerHTML = `
+    ${state.tournamentTitle ? `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;
+        padding:8px;background:rgba(255,153,0,0.08);border-radius:8px;
+        border:1px solid rgba(255,153,0,0.2);">
+        <div style="font-size:1.4em;">🎖️</div>
+        <div>
+          <div style="font-family:var(--font-title);color:var(--gold);font-size:.85em;">
+            ${state.tournamentTitle}
+          </div>
+          <div style="font-size:.65em;color:var(--text-dim);">Tournament Title</div>
+        </div>
+      </div>` : ''}
+
+    ${state.tournamentBuff ? `
+      <div style="margin-bottom:8px;padding:8px;
+        background:rgba(34,197,94,0.06);border-radius:8px;
+        border:1px solid rgba(34,197,94,0.15);">
+        <div style="font-size:.70em;color:var(--text-dim);
+          font-family:var(--font-title);letter-spacing:1px;margin-bottom:6px;">
+          ⚡ ACTIVE BUFFS
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${state.tournamentBuff.goldMult && state.tournamentBuff.goldMult > 1 ? `
+            <div style="flex:1;min-width:80px;text-align:center;padding:6px;
+              background:rgba(255,153,0,0.08);border-radius:6px;">
+              <div style="font-size:1.1em;">💰</div>
+              <div style="font-family:var(--font-title);color:var(--gold);font-size:.78em;">
+                +${Math.round((state.tournamentBuff.goldMult - 1) * 100)}%
+              </div>
+              <div style="font-size:.60em;color:var(--text-dim);">Gold Bonus</div>
+            </div>` : ''}
+          ${state.tournamentBuff.attackMult && state.tournamentBuff.attackMult > 1 ? `
+            <div style="flex:1;min-width:80px;text-align:center;padding:6px;
+              background:rgba(239,68,68,0.08);border-radius:6px;">
+              <div style="font-size:1.1em;">⚔️</div>
+              <div style="font-family:var(--font-title);color:var(--red);font-size:.78em;">
+                +${Math.round((state.tournamentBuff.attackMult - 1) * 100)}%
+              </div>
+              <div style="font-size:.60em;color:var(--text-dim);">ATK Bonus</div>
+            </div>` : ''}
+        </div>
+      </div>` : ''}
+
+    ${state.tournamentItem ? `
+      <div style="margin-bottom:8px;padding:8px;
+        background:rgba(168,85,247,0.06);border-radius:8px;
+        border:1px solid rgba(168,85,247,0.15);">
+        <div style="font-size:.70em;color:var(--text-dim);
+          font-family:var(--font-title);letter-spacing:1px;margin-bottom:6px;">
+          🎁 REWARD ITEM
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="font-size:1.3em;">
+            ${state.tournamentItem.icon || '📦'}
+          </div>
+          <div>
+            <div style="font-size:.78em;
+              color:${state.tournamentItem.rarity === 'legendary' ? 'var(--legendary)' : 'var(--epic)'};
+              font-family:var(--font-title);">
+              ${state.tournamentItem.name || 'Tournament Item'}
+            </div>
+            <div style="font-size:.62em;color:var(--text-dim);">
+              ${state.tournamentItem.slot || ''} · ${state.tournamentItem.rarity || ''}
+            </div>
+          </div>
+        </div>
+      </div>` : ''}
+
+    ${timeLeftHtml}`;
+}
+
 // ── SIMULATE BATTLE WITH FULL TURN RECORDING ──
 function simulateBattle(attacker, defender) {
   const log = [];
@@ -4427,6 +4538,19 @@ function renderSkillBar(){
 // ── EQUIPMENT ──
 function equipItem(uid){
   const item=state.inventory.find(i=>i.uid===uid);if(!item||item.category!=='equipment')return;
+  
+  // Check tournament item expiry
+  if (item.tournamentReward && item.expiresAt) {
+    if (new Date() > new Date(item.expiresAt)) {
+      notify(`❌ This tournament item has expired!`, 'var(--red)');
+      addLog(`❌ ${item.name} has expired and cannot be equipped!`, 'bad');
+      // Remove expired item from inventory
+      state.inventory = state.inventory.filter(i => i.uid !== uid);
+      renderInventory();
+      return;
+    }
+  }
+
   const req=item.levelReq||0;
   if(state.level<req){
     notify(`❌ Need Level ${req} to equip ${item.name}!`,'var(--red)');
@@ -4736,13 +4860,31 @@ function updateUI(){
   document.getElementById('hit-val').textContent=formatNumber(state.hit);
   document.getElementById('hpregen-val').textContent=formatNumber(state.hpRegen);
   document.getElementById('mpregen-val').textContent=formatNumber(state.manaRegen);
-  document.getElementById('lifesteal-val').textContent=(state.lifeSteal*100).toFixed(2)+'%';
-  document.getElementById('char-level').textContent=`Level ${state.level} / 100`;
+  document.getElementById('lifesteal-val').textContent=(state.lifeSteal*100).toFixed(2)+'%';document.getElementById('char-level').textContent = `Level ${state.level} / 100`;
+
+// Update class display
+const charClassEl = document.getElementById('char-class');
+if (charClassEl) {
+  if (state.class) {
+    const classIcons = {
+      Warrior: '⚔️', Mage: '🔮', Rogue: '🗡️',
+      Hunter: '🏹', Paladin: '✨', Necromancer: '💀',
+      Shaman: '⚡', Berserker: '🐉',
+    };
+    const icon = classIcons[state.class] || '👤';
+    charClassEl.textContent = `${icon} ${state.class}`;
+    charClassEl.style.color = 'var(--gold)';
+  } else {
+    charClassEl.textContent = 'No Class';
+    charClassEl.style.color = 'var(--text-dim)';
+  }
+}
   document.getElementById('hp-bar').style.width=Math.max(0,(hp/state.maxHp)*100)+'%';
   document.getElementById('mp-bar').style.width=Math.max(0,(mp/state.maxMp)*100)+'%';
   document.getElementById('xp-bar').style.width=Math.min(100,(state.xp/state.xpNext)*100)+'%';
   document.getElementById('arena-player-hp').style.width=Math.max(0,(hp/state.maxHp)*100)+'%';
   document.getElementById('arena-player-mp').style.width=Math.max(0,(mp/state.maxHp)*100)+'%';
+  renderTournamentRewards();
   updateTutorialStatus();
 }
 

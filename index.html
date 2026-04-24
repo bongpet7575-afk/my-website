@@ -819,13 +819,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
           <button class="diff-btn" id="diff-btn-hell"   onclick="setDifficulty('hell')">💀 Hell</button>
         </div>
       </div>
-        <div class="char-panel">
-  <div class="panel-title">Class</div>
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-    <div id="char-class" style="font-family:var(--font-title);color:var(--gold);">No Class</div>
-    <button class="start-btn" onclick="respecClass()" style="font-size:.65em;padding:4px 10px;">🔄 Respec</button>
-  </div>
-</div>
+      <div class="char-panel">
+        <div class="panel-title">Class</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div id="char-class" style="font-family:var(--font-title);color:var(--gold);">No Class</div>
+           <button class="start-btn" onclick="respecClass()" style="font-size:.65em;padding:4px 10px;">🔄 Respec</button>
+        </div>
+      </div>
+      <!-- Tournament Rewards -->
+      <div class="char-panel" id="tournament-rewards-panel" style="display:none;">
+        <div class="panel-title">🏆 Tournament Rewards</div>
+        <div id="tournament-rewards-content"></div>
+      </div>
       <!-- Auto-Sell -->
       <div class="char-panel">
         <div class="panel-title">Auto-Sell</div>
