@@ -850,7 +850,7 @@ const SCENES={
       {text:'🌑 Shadow Realm (Lv 80+)',   next:'dungeon_9'},
       {text:'🌟 Eternal Kingdom (Lv 90+)',next:'dungeon_10'},
       {text:'🏪 Shop', action:()=>{ switchMainScene('town'); switchTownPanel('shop', document.querySelector('.town-tab:nth-child(2)')); }},
-      {text:'⛪ Inn (+50% HP and MP, 5g)',       next:'inn'},
+      {text:`⛪ Inn (+50% HP and MP, ${formatNumber(GAME_CONFIG.inn_cost||1000)}g)`, next:'inn'},
       {text:'👤 Character', action:()=>{ switchMainScene('char'); }},
     ]},
   dungeon_1:{title:'🐺 Wolf Mountain',text:'The howling mountain awaits.',choices:[{text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:1},{text:'🏘️ Town',next:'town'}]},
@@ -865,12 +865,13 @@ const SCENES={
   dungeon_10:{title:'🌟 Eternal Kingdom',text:'The final challenge.',choices:[{text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:10},{text:'🏘️ Town',next:'town'}]},
   inn:{title:'⛪ The Rusty Flagon Inn',text:'You rest comfortably.',
     action:()=>{
-      if(state.gold>=5){
-        state.gold-=5;
+      const innCost = GAME_CONFIG.inn_cost || 1000;
+      if(state.gold >= innCost){
+        state.gold -= innCost;
         const hh=Math.floor(state.maxHp*0.5),mh=Math.floor(state.maxMp*0.5);
         state.hp=Math.min(state.maxHp,state.hp+hh);state.mp=Math.min(state.maxMp,state.mp+mh);
-        addLog(`Rested: +${formatNumber(hh)} HP, +${formatNumber(mh)} MP. Cost 5g.`,'good');playSound('snd-heal');
-      } else { addLog('Need 5 gold to rest!','bad'); }
+        addLog(`Rested: +${formatNumber(hh)} HP, +${formatNumber(mh)} MP. Cost ${formatNumber(innCost)}g.`,'good');
+      } else { addLog(`Need ${formatNumber(innCost)} gold to rest!`,'bad'); }
       updateUI();
     },
     choices:[{text:'🏘️ Return to Town',next:'town'}]},
@@ -2141,12 +2142,13 @@ async function registerForTournament(tierKey) {
   if (!state.character_id) { notify('Must be logged in!', 'var(--red)'); return; }
   if (!state.user_id) { notify('Account not found!', 'var(--red)'); return; }
 
+  const fees = GAME_CONFIG.tournament_fees || {};
   const TIERS = {
-    rookie:   { label: '🌱 Rookie',   min: 20,  max: 40,  fee: 20000,  minLevel: 20 },
-    veteran:  { label: '⚔️ Veteran',  min: 41,  max: 60,  fee: 40000,  minLevel: 41 },
-    elite:    { label: '💀 Elite',    min: 61,  max: 80,  fee: 60000,  minLevel: 61 },
-    legend:   { label: '👑 Legend',   min: 81,  max: 100, fee: 100000, minLevel: 81 },
-  };
+  rookie:   { label: '🌱 Rookie',   min: 20,  max: 40,  fee: fees.rookie  ?? 20000,  minLevel: 20 },
+  veteran:  { label: '⚔️ Veteran',  min: 41,  max: 60,  fee: fees.veteran ?? 40000,  minLevel: 41 },
+  elite:    { label: '💀 Elite',    min: 61,  max: 80,  fee: fees.elite   ?? 60000,  minLevel: 61 },
+  legend:   { label: '👑 Legend',   min: 81,  max: 100, fee: fees.legend  ?? 100000, minLevel: 81 },
+};
 
   const tier = TIERS[tierKey];
   if (!tier) { notify('Invalid tier!', 'var(--red)'); return; }
@@ -2763,28 +2765,37 @@ async function givePlacementReward(characterId, place, tierKey, rewardsExpireAt)
     if (!c) return;
 
     // Tier reward tables
-    const TIER_REWARDS = {
-      rookie:  { 1: { gold: 50000,  title: '🌱 Rookie Champion'  },
-                 2: { gold: 25000,  title: '🌱 Rookie Finalist'  },
-                 3: { gold: 12000,  title: null },
-                 4: { gold: 6000,   title: null },
-                 participation: { gold: 2000, title: null } },
-      veteran: { 1: { gold: 120000, title: '⚔️ Veteran Champion' },
-                 2: { gold: 60000,  title: '⚔️ Veteran Finalist' },
-                 3: { gold: 30000,  title: null },
-                 4: { gold: 15000,  title: null },
-                 participation: { gold: 5000, title: null } },
-      elite:   { 1: { gold: 300000, title: '💀 Elite Champion'   },
-                 2: { gold: 150000, title: '💀 Elite Finalist'   },
-                 3: { gold: 75000,  title: null },
-                 4: { gold: 35000,  title: null },
-                 participation: { gold: 10000, title: null } },
-      legend:  { 1: { gold: 800000, title: '👑 Legend Champion'  },
-                 2: { gold: 400000, title: '👑 Legend Finalist'  },
-                 3: { gold: 200000, title: null },
-                 4: { gold: 100000, title: null },
-                 participation: { gold: 25000, title: null } },
-    };
+   const cfgRewards = GAME_CONFIG.tournament_rewards || {};
+   const TIER_REWARDS = {
+    rookie: {
+      1: { gold: cfgRewards.rookie?.['1'] ?? 50000,  title: '🌱 Rookie Champion'  },
+      2: { gold: cfgRewards.rookie?.['2'] ?? 25000,  title: '🌱 Rookie Finalist'  },
+      3: { gold: cfgRewards.rookie?.['3'] ?? 12000,  title: null },
+      4: { gold: cfgRewards.rookie?.['4'] ?? 6000,   title: null },
+      participation: { gold: cfgRewards.rookie?.participation ?? 2000, title: null },
+    },
+    veteran: {
+      1: { gold: cfgRewards.veteran?.['1'] ?? 120000, title: '⚔️ Veteran Champion' },
+      2: { gold: cfgRewards.veteran?.['2'] ?? 60000,  title: '⚔️ Veteran Finalist' },
+      3: { gold: cfgRewards.veteran?.['3'] ?? 30000,  title: null },
+    4: { gold: cfgRewards.veteran?.['4'] ?? 15000,  title: null },
+    participation: { gold: cfgRewards.veteran?.participation ?? 5000, title: null },
+    },
+    elite: {
+      1: { gold: cfgRewards.elite?.['1'] ?? 300000, title: '💀 Elite Champion'   },
+      2: { gold: cfgRewards.elite?.['2'] ?? 150000, title: '💀 Elite Finalist'   },
+      3: { gold: cfgRewards.elite?.['3'] ?? 75000,  title: null },
+      4: { gold: cfgRewards.elite?.['4'] ?? 35000,  title: null },
+      participation: { gold: cfgRewards.elite?.participation ?? 10000, title: null },
+    },
+    legend: {
+      1: { gold: cfgRewards.legend?.['1'] ?? 800000, title: '👑 Legend Champion'  },
+      2: { gold: cfgRewards.legend?.['2'] ?? 400000, title: '👑 Legend Finalist'  },
+      3: { gold: cfgRewards.legend?.['3'] ?? 200000, title: null },
+      4: { gold: cfgRewards.legend?.['4'] ?? 100000, title: null },
+      participation: { gold: cfgRewards.legend?.participation ?? 25000, title: null },
+    },
+  };
 
     const reward = TIER_REWARDS[tierKey][place];
     if (!reward) return;
@@ -4655,6 +4666,115 @@ function renderInventory(){
 
 function formatNumber(num){if(num>=1000000)return(num/1000000).toFixed(1)+'M';if(num>=1000)return(num/1000).toFixed(1)+'K';return num;}
 
+// ── GAME CONFIG ──
+let GAME_CONFIG = {};
+
+async function loadGameConfig() {
+  try {
+    const { data, error } = await dbClient
+      .from('game_config')
+      .select('key, value');
+    if (error) throw error;
+
+    // Build config map
+    data.forEach(row => {
+      GAME_CONFIG[row.key] = row.value;
+    });
+
+    // Apply to game constants
+    applyGameConfig();
+    console.log('✅ Game config loaded');
+  } catch(e) {
+    console.error('Failed to load game config:', e);
+    // Falls back to hardcoded values if DB fails
+  }
+}
+
+function applyGameConfig() {
+  // Apply enhance costs
+  if (GAME_CONFIG.enhance_costs) {
+    ENHANCE_COST.splice(0, ENHANCE_COST.length, ...GAME_CONFIG.enhance_costs);
+  }
+
+  // Apply enhance rates
+  if (GAME_CONFIG.enhance_rates) {
+    ENHANCE_RATE.splice(0, ENHANCE_RATE.length, ...GAME_CONFIG.enhance_rates);
+  }
+
+  // Apply shop equipment prices
+  if (GAME_CONFIG.shop_equip_prices) {
+    SHOP_EQUIP.forEach(item => {
+      if (GAME_CONFIG.shop_equip_prices[item.id]) {
+        item.price = GAME_CONFIG.shop_equip_prices[item.id];
+      }
+    });
+  }
+
+  // Apply shop consumable prices
+  if (GAME_CONFIG.shop_cons_prices) {
+    SHOP_CONS.forEach(item => {
+      if (GAME_CONFIG.shop_cons_prices[item.id]) {
+        item.price = GAME_CONFIG.shop_cons_prices[item.id];
+      }
+    });
+  }
+
+  // Apply monster gold multipliers
+  if (GAME_CONFIG.monster_gold_mult) {
+    const mult = GAME_CONFIG.monster_gold_mult;
+    const stageMap = {
+      stage_1:  ['young_wolf','forest_wolf','shadow_wolf','dire_wolf'],
+      stage_2:  ['cave_spider','venom_spider','giant_spider','queen_spider'],
+      stage_3:  ['goblin_scout','goblin_warrior','goblin_shaman','goblin_elite'],
+      stage_4:  ['skeleton_archer','skeleton_warrior','skeleton_mage','skeleton_knight'],
+      stage_5:  ['orc_grunt','orc_warrior','orc_shaman','orc_berserker'],
+      stage_6:  ['vampire_thrall','vampire_hunter','vampire_noble','vampire_elder'],
+      stage_7:  ['cave_troll','rock_troll','frost_troll','war_troll'],
+      stage_8:  ['demon_scout','demon_warrior','demon_mage','demon_knight'],
+      stage_9:  ['shadow_wraith','shadow_knight','shadow_mage','shadow_lord'],
+      stage_10: ['eternal_guard','eternal_warrior','eternal_mage','eternal_champion'],
+    };
+    Object.entries(stageMap).forEach(([stage, monsters]) => {
+      const m = mult[stage] || 1.0;
+      monsters.forEach(id => {
+        if (MONSTER_TEMPLATES[id]) {
+          MONSTER_TEMPLATES[id]._goldMult = m;
+        }
+      });
+    });
+  }
+
+  // Apply monster XP multipliers
+  if (GAME_CONFIG.monster_xp_mult) {
+    const mult = GAME_CONFIG.monster_xp_mult;
+    const stageMap = {
+      stage_1:  ['young_wolf','forest_wolf','shadow_wolf','dire_wolf'],
+      stage_2:  ['cave_spider','venom_spider','giant_spider','queen_spider'],
+      stage_3:  ['goblin_scout','goblin_warrior','goblin_shaman','goblin_elite'],
+      stage_4:  ['skeleton_archer','skeleton_warrior','skeleton_mage','skeleton_knight'],
+      stage_5:  ['orc_grunt','orc_warrior','orc_shaman','orc_berserker'],
+      stage_6:  ['vampire_thrall','vampire_hunter','vampire_noble','vampire_elder'],
+      stage_7:  ['cave_troll','rock_troll','frost_troll','war_troll'],
+      stage_8:  ['demon_scout','demon_warrior','demon_mage','demon_knight'],
+      stage_9:  ['shadow_wraith','shadow_knight','shadow_mage','shadow_lord'],
+      stage_10: ['eternal_guard','eternal_warrior','eternal_mage','eternal_champion'],
+    };
+    Object.entries(stageMap).forEach(([stage, monsters]) => {
+      const m = mult[stage] || 1.0;
+      monsters.forEach(id => {
+        if (MONSTER_TEMPLATES[id]) {
+          MONSTER_TEMPLATES[id]._xpMult = m;
+        }
+      });
+    });
+  }
+
+  // Apply tournament fees
+  if (GAME_CONFIG.tournament_fees) {
+    Object.assign(PRACTICE_FEES, GAME_CONFIG.practice_fees || {});
+  }
+}
+
 // ── ENHANCEMENT ──
 const ENHANCE_COST=[0,500,1000,2000,3500,5000,8000,12000,18000,25000,35000,50000,70000,100000,150000,200000];
 const ENHANCE_RATE=[0,100,95,85,75,65,55,45,35,25,25,25,25,25,25,25];
@@ -5249,12 +5369,11 @@ function switchMarketTab(tab){
 }
 
 // ── PRACTICE FIGHT SYSTEM ──
-const PRACTICE_FEES = {
-  rookie: 5000,
-  veteran: 10000,
-  elite: 20000,
-  legend: 50000,
-};
+function getPracticeFee(tierKey) {
+  const fees = GAME_CONFIG.practice_fees || {};
+  const defaults = { rookie: 5000, veteran: 10000, elite: 20000, legend: 50000 };
+  return fees[tierKey] ?? defaults[tierKey];
+}
 
 async function renderPracticeboard(tierKey, containerId) {
   const container = document.getElementById(containerId);
@@ -5264,7 +5383,7 @@ async function renderPracticeboard(tierKey, containerId) {
   const TIER_MIN = { rookie: 20, veteran: 41, elite: 61, legend: 81 };
   const TIER_MAX = { rookie: 40, veteran: 60, elite: 80, legend: 100 };
   const TIER_COLORS = { rookie: '#22c55e', veteran: '#3b82f6', elite: '#a855f7', legend: '#ff9900' };
-  const fee = PRACTICE_FEES[tierKey];
+  const fee = getPracticeFee(tierKey);
   const minLevel = TIER_MIN[tierKey];
   const maxLevel = TIER_MAX[tierKey];
   const tierColor = TIER_COLORS[tierKey];
@@ -5448,7 +5567,7 @@ async function renderPracticeboard(tierKey, containerId) {
 
 // ── INITIATE PRACTICE FIGHT ──
 async function initiatePracticeFight(targetCharId, tierKey) {
-  const fee = PRACTICE_FEES[tierKey];
+  const fee = getPracticeFee(tierKey);
   const TIER_MIN = { rookie: 20, veteran: 41, elite: 61, legend: 81 };
   const minLevel = TIER_MIN[tierKey];
 

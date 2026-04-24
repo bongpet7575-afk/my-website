@@ -9,6 +9,7 @@ let autoSaveInterval = null;
 // ============================================
 
 async function loadPlayerFromSupabase(characterId) {
+  await loadGameConfig();
   try {
     const { data: { user } } = await dbClient.auth.getUser();
     if (!user) throw new Error('Not authenticated');
