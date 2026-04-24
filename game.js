@@ -10,6 +10,114 @@ function notify(msg,color='var(--gold)'){
   n.textContent=msg;n.style.color=color;n.style.display='block';
   clearTimeout(n._t);n._t=setTimeout(()=>n.style.display='none',3000);
 }
+// ── GAME CONFIG ──
+let GAME_CONFIG = {};
+
+async function loadGameConfig() {
+  try {
+    const { data, error } = await dbClient
+      .from('game_config')
+      .select('key, value');
+    if (error) throw error;
+
+    // Build config map
+    data.forEach(row => {
+      GAME_CONFIG[row.key] = row.value;
+    });
+
+    // Apply to game constants
+    applyGameConfig();
+    console.log('✅ Game config loaded');
+  } catch(e) {
+    console.error('Failed to load game config:', e);
+    // Falls back to hardcoded values if DB fails
+  }
+}
+
+function applyGameConfig() {
+  // Apply enhance costs
+  if (GAME_CONFIG.enhance_costs) {
+    ENHANCE_COST.splice(0, ENHANCE_COST.length, ...GAME_CONFIG.enhance_costs);
+  }
+
+  // Apply enhance rates
+  if (GAME_CONFIG.enhance_rates) {
+    ENHANCE_RATE.splice(0, ENHANCE_RATE.length, ...GAME_CONFIG.enhance_rates);
+  }
+
+  // Apply shop equipment prices
+  if (GAME_CONFIG.shop_equip_prices) {
+    SHOP_EQUIP.forEach(item => {
+      if (GAME_CONFIG.shop_equip_prices[item.id]) {
+        item.price = GAME_CONFIG.shop_equip_prices[item.id];
+      }
+    });
+  }
+
+  // Apply shop consumable prices
+  if (GAME_CONFIG.shop_cons_prices) {
+    SHOP_CONS.forEach(item => {
+      if (GAME_CONFIG.shop_cons_prices[item.id]) {
+        item.price = GAME_CONFIG.shop_cons_prices[item.id];
+      }
+    });
+  }
+
+  // Apply monster gold multipliers
+  if (GAME_CONFIG.monster_gold_mult) {
+    const mult = GAME_CONFIG.monster_gold_mult;
+    const stageMap = {
+      stage_1:  ['young_wolf','forest_wolf','shadow_wolf','dire_wolf'],
+      stage_2:  ['cave_spider','venom_spider','giant_spider','queen_spider'],
+      stage_3:  ['goblin_scout','goblin_warrior','goblin_shaman','goblin_elite'],
+      stage_4:  ['skeleton_archer','skeleton_warrior','skeleton_mage','skeleton_knight'],
+      stage_5:  ['orc_grunt','orc_warrior','orc_shaman','orc_berserker'],
+      stage_6:  ['vampire_thrall','vampire_hunter','vampire_noble','vampire_elder'],
+      stage_7:  ['cave_troll','rock_troll','frost_troll','war_troll'],
+      stage_8:  ['demon_scout','demon_warrior','demon_mage','demon_knight'],
+      stage_9:  ['shadow_wraith','shadow_knight','shadow_mage','shadow_lord'],
+      stage_10: ['eternal_guard','eternal_warrior','eternal_mage','eternal_champion'],
+    };
+    Object.entries(stageMap).forEach(([stage, monsters]) => {
+      const m = mult[stage] || 1.0;
+      monsters.forEach(id => {
+        if (MONSTER_TEMPLATES[id]) {
+          MONSTER_TEMPLATES[id]._goldMult = m;
+        }
+      });
+    });
+  }
+
+  // Apply monster XP multipliers
+  if (GAME_CONFIG.monster_xp_mult) {
+    const mult = GAME_CONFIG.monster_xp_mult;
+    const stageMap = {
+      stage_1:  ['young_wolf','forest_wolf','shadow_wolf','dire_wolf'],
+      stage_2:  ['cave_spider','venom_spider','giant_spider','queen_spider'],
+      stage_3:  ['goblin_scout','goblin_warrior','goblin_shaman','goblin_elite'],
+      stage_4:  ['skeleton_archer','skeleton_warrior','skeleton_mage','skeleton_knight'],
+      stage_5:  ['orc_grunt','orc_warrior','orc_shaman','orc_berserker'],
+      stage_6:  ['vampire_thrall','vampire_hunter','vampire_noble','vampire_elder'],
+      stage_7:  ['cave_troll','rock_troll','frost_troll','war_troll'],
+      stage_8:  ['demon_scout','demon_warrior','demon_mage','demon_knight'],
+      stage_9:  ['shadow_wraith','shadow_knight','shadow_mage','shadow_lord'],
+      stage_10: ['eternal_guard','eternal_warrior','eternal_mage','eternal_champion'],
+    };
+    Object.entries(stageMap).forEach(([stage, monsters]) => {
+      const m = mult[stage] || 1.0;
+      monsters.forEach(id => {
+        if (MONSTER_TEMPLATES[id]) {
+          MONSTER_TEMPLATES[id]._xpMult = m;
+        }
+      });
+    });
+  }
+
+  // Apply tournament fees
+  if (GAME_CONFIG.tournament_fees) {
+    Object.assign(PRACTICE_FEES, GAME_CONFIG.practice_fees || {});
+  }
+}
 
 // ── DUNGEON STATE ──
 let currentStage = null;
@@ -4666,114 +4774,7 @@ function renderInventory(){
 
 function formatNumber(num){if(num>=1000000)return(num/1000000).toFixed(1)+'M';if(num>=1000)return(num/1000).toFixed(1)+'K';return num;}
 
-// ── GAME CONFIG ──
-let GAME_CONFIG = {};
 
-async function loadGameConfig() {
-  try {
-    const { data, error } = await dbClient
-      .from('game_config')
-      .select('key, value');
-    if (error) throw error;
-
-    // Build config map
-    data.forEach(row => {
-      GAME_CONFIG[row.key] = row.value;
-    });
-
-    // Apply to game constants
-    applyGameConfig();
-    console.log('✅ Game config loaded');
-  } catch(e) {
-    console.error('Failed to load game config:', e);
-    // Falls back to hardcoded values if DB fails
-  }
-}
-
-function applyGameConfig() {
-  // Apply enhance costs
-  if (GAME_CONFIG.enhance_costs) {
-    ENHANCE_COST.splice(0, ENHANCE_COST.length, ...GAME_CONFIG.enhance_costs);
-  }
-
-  // Apply enhance rates
-  if (GAME_CONFIG.enhance_rates) {
-    ENHANCE_RATE.splice(0, ENHANCE_RATE.length, ...GAME_CONFIG.enhance_rates);
-  }
-
-  // Apply shop equipment prices
-  if (GAME_CONFIG.shop_equip_prices) {
-    SHOP_EQUIP.forEach(item => {
-      if (GAME_CONFIG.shop_equip_prices[item.id]) {
-        item.price = GAME_CONFIG.shop_equip_prices[item.id];
-      }
-    });
-  }
-
-  // Apply shop consumable prices
-  if (GAME_CONFIG.shop_cons_prices) {
-    SHOP_CONS.forEach(item => {
-      if (GAME_CONFIG.shop_cons_prices[item.id]) {
-        item.price = GAME_CONFIG.shop_cons_prices[item.id];
-      }
-    });
-  }
-
-  // Apply monster gold multipliers
-  if (GAME_CONFIG.monster_gold_mult) {
-    const mult = GAME_CONFIG.monster_gold_mult;
-    const stageMap = {
-      stage_1:  ['young_wolf','forest_wolf','shadow_wolf','dire_wolf'],
-      stage_2:  ['cave_spider','venom_spider','giant_spider','queen_spider'],
-      stage_3:  ['goblin_scout','goblin_warrior','goblin_shaman','goblin_elite'],
-      stage_4:  ['skeleton_archer','skeleton_warrior','skeleton_mage','skeleton_knight'],
-      stage_5:  ['orc_grunt','orc_warrior','orc_shaman','orc_berserker'],
-      stage_6:  ['vampire_thrall','vampire_hunter','vampire_noble','vampire_elder'],
-      stage_7:  ['cave_troll','rock_troll','frost_troll','war_troll'],
-      stage_8:  ['demon_scout','demon_warrior','demon_mage','demon_knight'],
-      stage_9:  ['shadow_wraith','shadow_knight','shadow_mage','shadow_lord'],
-      stage_10: ['eternal_guard','eternal_warrior','eternal_mage','eternal_champion'],
-    };
-    Object.entries(stageMap).forEach(([stage, monsters]) => {
-      const m = mult[stage] || 1.0;
-      monsters.forEach(id => {
-        if (MONSTER_TEMPLATES[id]) {
-          MONSTER_TEMPLATES[id]._goldMult = m;
-        }
-      });
-    });
-  }
-
-  // Apply monster XP multipliers
-  if (GAME_CONFIG.monster_xp_mult) {
-    const mult = GAME_CONFIG.monster_xp_mult;
-    const stageMap = {
-      stage_1:  ['young_wolf','forest_wolf','shadow_wolf','dire_wolf'],
-      stage_2:  ['cave_spider','venom_spider','giant_spider','queen_spider'],
-      stage_3:  ['goblin_scout','goblin_warrior','goblin_shaman','goblin_elite'],
-      stage_4:  ['skeleton_archer','skeleton_warrior','skeleton_mage','skeleton_knight'],
-      stage_5:  ['orc_grunt','orc_warrior','orc_shaman','orc_berserker'],
-      stage_6:  ['vampire_thrall','vampire_hunter','vampire_noble','vampire_elder'],
-      stage_7:  ['cave_troll','rock_troll','frost_troll','war_troll'],
-      stage_8:  ['demon_scout','demon_warrior','demon_mage','demon_knight'],
-      stage_9:  ['shadow_wraith','shadow_knight','shadow_mage','shadow_lord'],
-      stage_10: ['eternal_guard','eternal_warrior','eternal_mage','eternal_champion'],
-    };
-    Object.entries(stageMap).forEach(([stage, monsters]) => {
-      const m = mult[stage] || 1.0;
-      monsters.forEach(id => {
-        if (MONSTER_TEMPLATES[id]) {
-          MONSTER_TEMPLATES[id]._xpMult = m;
-        }
-      });
-    });
-  }
-
-  // Apply tournament fees
-  if (GAME_CONFIG.tournament_fees) {
-    Object.assign(PRACTICE_FEES, GAME_CONFIG.practice_fees || {});
-  }
-}
 
 // ── ENHANCEMENT ──
 const ENHANCE_COST=[0,500,1000,2000,3500,5000,8000,12000,18000,25000,35000,50000,70000,100000,150000,200000];
