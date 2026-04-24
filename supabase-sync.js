@@ -189,24 +189,41 @@ state.tournamentRewardsExpireAt = character.tournament_rewards_expire_at || null
 // ============================================
 
 async function savePlayerToSupabase() {
-  
   try {
-    
-    
     const { data: { user } } = await dbClient.auth.getUser();
     if (!user) throw new Error('Not authenticated');
     if (!state.character_id) throw new Error('No character ID');
 
+    // ── GOLD RECONCILIATION ──
+    // Always read fresh gold from DB before saving to prevent
+    // auto-save from overwriting gold paid by external auction transactions
+    const { data: freshChar } = await dbClient
+      .from('characters')
+      .select('gold')
+      .eq('id', state.character_id)
+      .single();
+
+    // Use whichever is higher — DB gold (from auction payments) or state gold
+    // This prevents auto-save from wiping gold that was added externally
+    const safeGold = freshChar ? Math.max(state.gold, freshChar.gold) : state.gold;
+    
+    // If DB has more gold than state, sync state up first
+    if (freshChar && freshChar.gold > state.gold) {
+      const diff = freshChar.gold - state.gold;
+      state.gold = freshChar.gold;
+      addLog(`💰 +${formatNumber(diff)}g synced from auction!`, 'gold');
+      updateUI();
+    }
+
     const { error } = await dbClient
       .from('characters')
-      
       .update({
         respec_count: state.respecCount,
         gold_mult_expiry: state.goldMultExpiry,
         name: state.name,
         level: state.level,
-        exp: state.xp,                    // ✅ only 'exp' column
-        gold: state.gold,
+        exp: state.xp,
+        gold: safeGold,           // ← use reconciled gold
         class: state.class,
         health: state.hp,
         max_health: state.maxHp,

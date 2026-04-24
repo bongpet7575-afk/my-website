@@ -5152,11 +5152,25 @@ async function buyoutAuction(auctionId,buyoutPrice){
     state.gold-=buyoutPrice;
     const item=auction.item_description?(typeof auction.item_description==='string'?JSON.parse(auction.item_description):auction.item_description):{name:auction.item_name,rarity:auction.rarity,uid:genUid(),category:'equipment',equipped:false};
     item.uid=genUid();addToInventory(item);
-    if(auction.source==='player'&&auction.seller_id){
-      const goldAfterFee=Math.floor(buyoutPrice*(1-AUCTION_FEE));
-      const{data:sc}=await dbClient.from('characters').select('gold').eq('id',auction.seller_id).single();
-      if(sc)await dbClient.from('characters').update({gold:sc.gold+goldAfterFee}).eq('id',auction.seller_id);
+    if (auction.source === 'player' && auction.seller_id) {
+  const goldAfterFee = Math.floor(buyoutPrice * (1 - AUCTION_FEE));
+  const { data: sc } = await dbClient
+    .from('characters')
+    .select('gold')
+    .eq('id', auction.seller_id)
+    .single();
+  if (sc) {
+    const newSellerGold = sc.gold + goldAfterFee;
+    await dbClient.from('characters')
+      .update({ gold: newSellerGold })
+      .eq('id', auction.seller_id);
+    // If seller is current player, sync state immediately
+    if (auction.seller_id === state.character_id) {
+      state.gold = newSellerGold;
+      updateUI();
     }
+  }
+}
     await dbClient.from('auctions').update({status:'sold',current_bidder_id:state.character_id,current_bid:buyoutPrice,winner_collected:true,seller_collected:true,updated_at:new Date().toISOString()}).eq('id',auctionId);
     await savePlayerToSupabase();
     addLog(`🏛️ Bought ${auction.item_name} for ${formatNumber(buyoutPrice)}g!`,'legendary');notify(`🏛️ Item purchased!`,'var(--gold)');playSound('snd-craft');updateUI();renderInventory();fetchAuctions();
