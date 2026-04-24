@@ -1738,67 +1738,207 @@ function getArenaTitle(points) {
   return ARENA_TITLES[0];
 }
 
-// ── SIMULATE BATTLE BETWEEN TWO SNAPSHOTS ──
+// ── SIMULATE BATTLE WITH FULL TURN RECORDING ──
 function simulateBattle(attacker, defender) {
   const log = [];
+  const turns = []; // structured turn data for replay
   let aHp = attacker.maxHp;
   let dHp = defender.maxHp;
   let turn = 0;
-  const MAX_TURNS = 50;
+  const MAX_TURNS = 60;
 
-  while(aHp > 0 && dHp > 0 && turn < MAX_TURNS) {
+  let aSkillIndex = 0;
+  let dSkillIndex = 0;
+  const aCombo = attacker.skillCombo || [];
+  const dCombo = defender.skillCombo || [];
+
+  const BUFF_SKILLS = ['battle_cry','last_stand','mana_shield','divine_shield','earth_totem','blood_rage'];
+
+  function estimateSkillDmg(snapshot, skillKey) {
+    switch(skillKey) {
+      case 'power_strike':    return Math.floor(snapshot.attackPower * 2.2);
+      case 'fireball':        return Math.floor(snapshot.attackPower * 1.8 + Math.random() * snapshot.attackPower * 0.5);
+      case 'ice_lance':       return Math.floor(snapshot.attackPower * 1.5);
+      case 'backstab':        return Math.floor(snapshot.attackPower * 1.5);
+      case 'poison_blade':    return Math.floor(snapshot.attackPower * 1.3 * 5);
+      case 'shadow_step':     return Math.floor(snapshot.attackPower * 2.0);
+      case 'precise_shot':    return Math.floor(snapshot.attackPower * 2.0);
+      case 'bleed_arrow':     return Math.floor(snapshot.attackPower * 1.0 * 4);
+      case 'shadow_trap':     return Math.floor(snapshot.attackPower * 1.5);
+      case 'holy_strike':     return Math.floor(snapshot.attackPower * 2.0);
+      case 'consecration':    return Math.floor(snapshot.attackPower * 1.8);
+      case 'death_bolt':      return Math.floor(snapshot.attackPower * 2.0);
+      case 'soul_drain':      return Math.floor(snapshot.attackPower * 1.6);
+      case 'plague_nova':     return Math.floor(snapshot.attackPower * 1.5 * 6);
+      case 'lightning_bolt':  return Math.floor(snapshot.attackPower * 2.0);
+      case 'wind_burst':      return Math.floor(snapshot.attackPower * 1.8);
+      case 'reckless_strike': return Math.floor(snapshot.attackPower * 2.5);
+      case 'death_wish':      return Math.floor(snapshot.attackPower * 4.0);
+      default:                return Math.floor(snapshot.attackPower * 1.5);
+    }
+  }
+
+  function getBuffDescription(skillKey, snapshot) {
+    switch(skillKey) {
+      case 'battle_cry':    return `${snapshot.name} activates Battle Cry! +STR +ATK POWER!`;
+      case 'last_stand':    return `${snapshot.name} uses Last Stand! Restores HP!`;
+      case 'mana_shield':   return `${snapshot.name} raises Mana Shield! Damage absorbed!`;
+      case 'divine_shield': return `${snapshot.name} uses Divine Shield! +HP + absorb!`;
+      case 'earth_totem':   return `${snapshot.name} plants Earth Totem! +HP +ARMOR!`;
+      case 'blood_rage':    return `${snapshot.name} enters Blood Rage! MASSIVE ATK boost!`;
+      default:              return `${snapshot.name} uses ${skillKey}!`;
+    }
+  }
+
+  // Record a turn into structured data
+  function recordTurn(actor, actionType, opts = {}) {
+    turns.push({
+      turn,
+      actor,          // 'p1' or 'p2'
+      action: actionType, // 'attack', 'skill', 'buff', 'dodge', 'crit'
+      skillKey:    opts.skillKey    || null,
+      skillName:   opts.skillName   || null,
+      skillIcon:   opts.skillIcon   || null,
+      damage:      opts.damage      || 0,
+      healAmount:  opts.healAmount  || 0,
+      isCrit:      opts.isCrit      || false,
+      isDodge:     opts.isDodge     || false,
+      isBuff:      opts.isBuff      || false,
+      buffDesc:    opts.buffDesc    || null,
+      p1HpAfter:   Math.max(0, aHp),
+      p2HpAfter:   Math.max(0, dHp),
+      p1HpMax:     attacker.maxHp,
+      p2HpMax:     defender.maxHp,
+      logText:     opts.logText     || '',
+    });
+  }
+
+  while (aHp > 0 && dHp > 0 && turn < MAX_TURNS) {
     turn++;
 
-    // Attacker hits defender
-    const aDodge = Math.max(0, (defender.dodge||0) - (attacker.hit||0)) / 100;
-    if(Math.random() < aDodge) {
-      log.push(`Turn ${turn}: ${attacker.name} missed! ${defender.name} dodged.`);
-    } else {
-      const aReduction = Math.min(0.85, (defender.armor||0) / ((defender.armor||0) + 80000));
-      let aDmg = Math.max(1, Math.floor((attacker.attackPower * (0.95 + Math.random()*0.1)) * (1 - aReduction)));
-      // Crit check
-      if(Math.random() < (attacker.crit||0) / 100) {
-        aDmg = Math.floor(aDmg * 2);
-        log.push(`Turn ${turn}: ${attacker.name} CRITS ${defender.name} for ${formatNumber(aDmg)}!`);
-      } else {
-        log.push(`Turn ${turn}: ${attacker.name} hits ${defender.name} for ${formatNumber(aDmg)}.`);
-      }
-      dHp -= aDmg;
-      // Lifesteal
-      if(attacker.lifeSteal > 0) aHp = Math.min(attacker.maxHp, aHp + Math.floor(aDmg * attacker.lifeSteal));
-    }
-    if(dHp <= 0) break;
+    // ── ATTACKER'S TURN ──
+    const aSkill = aCombo.length > 0 ? aCombo[aSkillIndex % aCombo.length] : null;
+    if (aSkill) {
+      aSkillIndex++;
+      const skill = SKILLS[aSkill];
+      const skillName = skill?.name || aSkill;
+      const skillIcon = skill?.icon || '⚔️';
 
-    // Defender hits attacker
-    const dDodge = Math.max(0, (attacker.dodge||0) - (defender.hit||0)) / 100;
-    if(Math.random() < dDodge) {
-      log.push(`Turn ${turn}: ${defender.name} missed! ${attacker.name} dodged.`);
-    } else {
-      const dReduction = Math.min(0.85, (attacker.armor||0) / ((attacker.armor||0) + 80000));
-      let dDmg = Math.max(1, Math.floor((defender.attackPower * (0.95 + Math.random()*0.1)) * (1 - dReduction)));
-      if(Math.random() < (defender.crit||0) / 100) {
-        dDmg = Math.floor(dDmg * 2);
-        log.push(`Turn ${turn}: ${defender.name} CRITS ${attacker.name} for ${formatNumber(dDmg)}!`);
+      if (BUFF_SKILLS.includes(aSkill)) {
+        const buffDesc = getBuffDescription(aSkill, attacker);
+        log.push(`Turn ${turn}: ${buffDesc}`);
+        recordTurn('p1', 'buff', { skillKey: aSkill, skillName, skillIcon, isBuff: true, buffDesc, logText: buffDesc });
       } else {
-        log.push(`Turn ${turn}: ${defender.name} hits ${attacker.name} for ${formatNumber(dDmg)}.`);
+        const skillDmg = estimateSkillDmg(attacker, aSkill);
+        const reduction = Math.min(0.85, (defender.armor || 0) / ((defender.armor || 0) + 80000));
+        const finalDmg = Math.max(1, Math.floor(skillDmg * (1 - reduction)));
+        dHp -= finalDmg;
+        if (attacker.lifeSteal > 0) aHp = Math.min(attacker.maxHp, aHp + Math.floor(finalDmg * attacker.lifeSteal));
+        const txt = `Turn ${turn}: ${attacker.name} uses ${skillName} on ${defender.name} for ${formatNumber(finalDmg)} dmg!`;
+        log.push(txt);
+        recordTurn('p1', 'skill', { skillKey: aSkill, skillName, skillIcon, damage: finalDmg, logText: txt });
       }
-      aHp -= dDmg;
-      if(defender.lifeSteal > 0) dHp = Math.min(defender.maxHp, dHp + Math.floor(dDmg * defender.lifeSteal));
+    } else {
+      // Normal attack
+      const aDodge = Math.max(0, (defender.dodge || 0) - (attacker.hit || 0)) / 100;
+      if (Math.random() < aDodge) {
+        const txt = `Turn ${turn}: ${attacker.name} missed! ${defender.name} dodged.`;
+        log.push(txt);
+        recordTurn('p1', 'dodge', { isDodge: true, logText: txt });
+      } else {
+        const aReduction = Math.min(0.85, (defender.armor || 0) / ((defender.armor || 0) + 80000));
+        let aDmg = Math.max(1, Math.floor((attacker.attackPower * (0.95 + Math.random() * 0.1)) * (1 - aReduction)));
+        const isCrit = Math.random() < (attacker.crit || 0) / 100;
+        if (isCrit) aDmg = Math.floor(aDmg * 2);
+        dHp -= aDmg;
+        if (attacker.lifeSteal > 0) aHp = Math.min(attacker.maxHp, aHp + Math.floor(aDmg * attacker.lifeSteal));
+        const txt = isCrit
+          ? `Turn ${turn}: ${attacker.name} CRITS ${defender.name} for ${formatNumber(aDmg)}!`
+          : `Turn ${turn}: ${attacker.name} hits ${defender.name} for ${formatNumber(aDmg)}.`;
+        log.push(txt);
+        recordTurn('p1', isCrit ? 'crit' : 'attack', { damage: aDmg, isCrit, logText: txt });
+      }
+    }
+    if (dHp <= 0) { recordTurn('p1', 'end', { logText: '' }); break; }
+
+    // ── DEFENDER'S TURN ──
+    const dSkill = dCombo.length > 0 ? dCombo[dSkillIndex % dCombo.length] : null;
+    if (dSkill) {
+      dSkillIndex++;
+      const skill = SKILLS[dSkill];
+      const skillName = skill?.name || dSkill;
+      const skillIcon = skill?.icon || '⚔️';
+
+      if (BUFF_SKILLS.includes(dSkill)) {
+        const buffDesc = getBuffDescription(dSkill, defender);
+        log.push(`Turn ${turn}: ${buffDesc}`);
+        recordTurn('p2', 'buff', { skillKey: dSkill, skillName, skillIcon, isBuff: true, buffDesc, logText: buffDesc });
+      } else {
+        const skillDmg = estimateSkillDmg(defender, dSkill);
+        const reduction = Math.min(0.85, (attacker.armor || 0) / ((attacker.armor || 0) + 80000));
+        const finalDmg = Math.max(1, Math.floor(skillDmg * (1 - reduction)));
+        aHp -= finalDmg;
+        if (defender.lifeSteal > 0) dHp = Math.min(defender.maxHp, dHp + Math.floor(finalDmg * defender.lifeSteal));
+        const txt = `Turn ${turn}: ${defender.name} uses ${skillName} on ${attacker.name} for ${formatNumber(finalDmg)} dmg!`;
+        log.push(txt);
+        recordTurn('p2', 'skill', { skillKey: dSkill, skillName, skillIcon, damage: finalDmg, logText: txt });
+      }
+    } else {
+      const dDodge = Math.max(0, (attacker.dodge || 0) - (defender.hit || 0)) / 100;
+      if (Math.random() < dDodge) {
+        const txt = `Turn ${turn}: ${defender.name} missed! ${attacker.name} dodged.`;
+        log.push(txt);
+        recordTurn('p2', 'dodge', { isDodge: true, logText: txt });
+      } else {
+        const dReduction = Math.min(0.85, (attacker.armor || 0) / ((attacker.armor || 0) + 80000));
+        let dDmg = Math.max(1, Math.floor((defender.attackPower * (0.95 + Math.random() * 0.1)) * (1 - dReduction)));
+        const isCrit = Math.random() < (defender.crit || 0) / 100;
+        if (isCrit) dDmg = Math.floor(dDmg * 2);
+        aHp -= dDmg;
+        if (defender.lifeSteal > 0) dHp = Math.min(defender.maxHp, dHp + Math.floor(dDmg * defender.lifeSteal));
+        const txt = isCrit
+          ? `Turn ${turn}: ${defender.name} CRITS ${attacker.name} for ${formatNumber(dDmg)}!`
+          : `Turn ${turn}: ${defender.name} hits ${attacker.name} for ${formatNumber(dDmg)}.`;
+        log.push(txt);
+        recordTurn('p2', isCrit ? 'crit' : 'attack', { damage: dDmg, isCrit, logText: txt });
+      }
     }
   }
 
   // Determine winner
   let winnerId, reason;
-  if(aHp > dHp) {
+  if (aHp >= dHp) {
     winnerId = attacker.character_id;
-    reason = turn >= MAX_TURNS ? `${attacker.name} wins by HP advantage after ${MAX_TURNS} turns!` : `${attacker.name} wins!`;
+    reason = turn >= MAX_TURNS
+      ? `${attacker.name} wins by HP advantage!`
+      : `${attacker.name} defeats ${defender.name}!`;
   } else {
     winnerId = defender.character_id;
-    reason = turn >= MAX_TURNS ? `${defender.name} wins by HP advantage after ${MAX_TURNS} turns!` : `${defender.name} wins!`;
+    reason = turn >= MAX_TURNS
+      ? `${defender.name} wins by HP advantage!`
+      : `${defender.name} defeats ${attacker.name}!`;
   }
   log.push(`⚔️ RESULT: ${reason}`);
+  turns.push({
+    turn: turn + 1,
+    actor: 'system',
+    action: 'result',
+    logText: `⚔️ RESULT: ${reason}`,
+    p1HpAfter: Math.max(0, aHp),
+    p2HpAfter: Math.max(0, dHp),
+    p1HpMax: attacker.maxHp,
+    p2HpMax: defender.maxHp,
+    winnerId,
+  });
 
-  return { winnerId, log, turns: turn, attackerHpLeft: Math.max(0, aHp), defenderHpLeft: Math.max(0, dHp) };
+  return {
+    winnerId,
+    log,
+    turns,  // ← structured replay data
+    totalTurns: turn,
+    attackerHpLeft: Math.max(0, aHp),
+    defenderHpLeft: Math.max(0, dHp),
+  };
 }
 
 // ── SNAPSHOT CURRENT PLAYER STATS ──
@@ -2233,30 +2373,35 @@ async function runTournamentRound(tournamentId, bracket, round, tierKey) {
       winners.push(match.winner);
       losers.push(loser);
 
-      // Save battle record (skip bots)
+      // Save battle record (both real players)
       if (!match.player1.isBot && !match.player2.isBot) {
-        await dbClient.from('arena_battles').insert({
+        const { data: battleRecord } = await dbClient.from('arena_battles').insert({
           attacker_id: match.player1.character_id,
           defender_id: match.player2.character_id,
           winner_id: result.winnerId,
           attacker_snapshot: match.player1,
           defender_snapshot: match.player2,
           battle_log: result.log,
+          battle_turns: result.turns,
           points_change: 25,
-        });
+        }).select().single();
+        if (battleRecord) match.battleId = battleRecord.id;
+
       } else if (!match.player1.isBot || !match.player2.isBot) {
-        // One real player — save with real player as attacker
+        // One real player vs bot
         const realPlayer = !match.player1.isBot ? match.player1 : match.player2;
         const botPlayer  = !match.player1.isBot ? match.player2 : match.player1;
-        await dbClient.from('arena_battles').insert({
+        const { data: battleRecord } = await dbClient.from('arena_battles').insert({
           attacker_id: realPlayer.character_id,
           defender_id: null,
           winner_id: result.winnerId === realPlayer.character_id ? realPlayer.character_id : null,
           attacker_snapshot: realPlayer,
           defender_snapshot: botPlayer,
           battle_log: result.log,
+          battle_turns: result.turns,
           points_change: 15,
-        });
+        }).select().single();
+        if (battleRecord) match.battleId = battleRecord.id;
       }
 
       // Update points in registration for real players only
@@ -2274,13 +2419,18 @@ async function runTournamentRound(tournamentId, bracket, round, tierKey) {
       }
     }
 
+    // Save updated bracket with battleIds into DB after each round
+    await dbClient.from('arena_tournaments').update({
+      bracket: nextBracket,
+    }).eq('id', tournamentId);
+
     // Tournament over — only 1 winner left
     if (winners.length === 1) {
       await finalizeTournament(tournamentId, nextBracket, winners[0], tierKey);
       return;
     }
 
-    // Build next round
+    // Build next round matches
     const nextRound = round + 1;
     for (let i = 0; i < winners.length; i += 2) {
       nextBracket.push({
@@ -2868,6 +3018,333 @@ async function viewBattleLog(battleId) {
   popup.style.display = 'flex';
 }
 
+// ── BATTLE REPLAY VIEWER ──
+async function openBattleReplay(battleId) {
+  const { data: battle } = await dbClient
+    .from('arena_battles')
+    .select('*')
+    .eq('id', battleId)
+    .single();
+
+  if (!battle) { notify('Battle not found!', 'var(--red)'); return; }
+
+  const turns = battle.battle_turns || [];
+  const p1 = battle.attacker_snapshot || {};
+  const p2 = battle.defender_snapshot || {};
+
+  if (!turns.length) {
+    // Fallback to text log if no structured turns
+    viewBattleLog(battleId);
+    return;
+  }
+
+  let currentTurn = 0;
+  let replayInterval = null;
+  let speed = 800; // ms per turn
+  let isPlaying = false;
+
+  const popup = document.getElementById('item-popup');
+
+  function getHpPercent(hp, max) {
+    return Math.max(0, Math.min(100, Math.floor((hp / max) * 100)));
+  }
+
+  function getHpColor(pct) {
+    if (pct > 60) return 'var(--green)';
+    if (pct > 30) return 'var(--gold)';
+    return 'var(--red)';
+  }
+
+  function getClassIcon(cls) {
+    const icons = {
+      Warrior: '⚔️', Mage: '🔮', Rogue: '🗡️',
+      Hunter: '🏹', Paladin: '✨', Necromancer: '💀',
+      Shaman: '⚡', Berserker: '🐉',
+    };
+    return icons[cls] || '👤';
+  }
+
+  function renderReplay() {
+    const turn = turns[currentTurn] || turns[turns.length - 1];
+    const p1Pct = getHpPercent(turn.p1HpAfter, turn.p1HpMax);
+    const p2Pct = getHpPercent(turn.p2HpAfter, turn.p2HpMax);
+    const p1HpColor = getHpColor(p1Pct);
+    const p2HpColor = getHpColor(p2Pct);
+    const isP1Acting = turn.actor === 'p1';
+    const isP2Acting = turn.actor === 'p2';
+    const isResult = turn.action === 'result';
+
+    // Action display
+    let actionHtml = '';
+    if (isResult) {
+      actionHtml = `
+        <div style="text-align:center;padding:10px 0;">
+          <div style="font-family:var(--font-title);font-size:1.1em;color:var(--gold);
+            animation:glow-pulse 1s infinite;">
+            🏆 ${turn.logText}
+          </div>
+        </div>`;
+    } else if (turn.action === 'buff') {
+      actionHtml = `
+        <div style="text-align:center;padding:8px;
+          background:rgba(168,85,247,0.1);border-radius:8px;">
+          <div style="font-size:1.4em;">${turn.skillIcon || '✨'}</div>
+          <div style="font-size:.75em;color:#a855f7;margin-top:2px;">${turn.buffDesc || turn.skillName}</div>
+        </div>`;
+    } else if (turn.action === 'dodge') {
+      actionHtml = `
+        <div style="text-align:center;padding:8px;
+          background:rgba(59,130,246,0.1);border-radius:8px;">
+          <div style="font-size:1.4em;">💨</div>
+          <div style="font-size:.75em;color:#3b82f6;margin-top:2px;">Dodged!</div>
+        </div>`;
+    } else if (turn.action === 'skill') {
+      actionHtml = `
+        <div style="text-align:center;padding:8px;
+          background:rgba(255,153,0,0.1);border-radius:8px;">
+          <div style="font-size:1.4em;">${turn.skillIcon || '⚔️'}</div>
+          <div style="font-size:.72em;color:var(--gold);margin-top:2px;">${turn.skillName}</div>
+          <div style="font-size:.85em;color:var(--red);font-family:var(--font-title);margin-top:2px;">
+            -${formatNumber(turn.damage)}
+          </div>
+        </div>`;
+    } else if (turn.action === 'crit') {
+      actionHtml = `
+        <div style="text-align:center;padding:8px;
+          background:rgba(255,34,68,0.1);border-radius:8px;">
+          <div style="font-size:1.4em;">💥</div>
+          <div style="font-size:.72em;color:var(--red);margin-top:2px;">CRITICAL HIT!</div>
+          <div style="font-size:.9em;color:var(--red);font-family:var(--font-title);margin-top:2px;">
+            -${formatNumber(turn.damage)}
+          </div>
+        </div>`;
+    } else {
+      actionHtml = `
+        <div style="text-align:center;padding:8px;
+          background:rgba(255,255,255,0.04);border-radius:8px;">
+          <div style="font-size:1.4em;">⚔️</div>
+          <div style="font-size:.72em;color:var(--text-dim);margin-top:2px;">Attack</div>
+          <div style="font-size:.85em;color:var(--red);font-family:var(--font-title);margin-top:2px;">
+            -${formatNumber(turn.damage)}
+          </div>
+        </div>`;
+    }
+
+    document.getElementById('item-popup-content').innerHTML = `
+      <!-- Header -->
+      <div style="font-family:var(--font-title);color:var(--gold);
+        margin-bottom:10px;font-size:.88em;text-align:center;">
+        ⚔️ Battle Replay
+        <span style="font-size:.7em;color:var(--text-dim);margin-left:8px;">
+          Turn ${isResult ? turns.length - 1 : turn.turn}/${turns.length - 1}
+        </span>
+      </div>
+
+      <!-- Fighters Row -->
+      <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;">
+
+        <!-- Player 1 -->
+        <div style="flex:1;background:${isP1Acting && !isResult ? 'rgba(255,153,0,0.08)' : 'rgba(255,255,255,0.03)'};
+          border:1px solid ${isP1Acting && !isResult ? 'var(--gold)' : 'var(--border)'};
+          border-radius:8px;padding:8px;transition:all .2s;">
+          <div style="font-size:.68em;color:var(--text-dim);margin-bottom:2px;">
+            ${p1.isBot ? '🤖' : '👤'} ${getClassIcon(p1.class)}
+          </div>
+          <div style="font-family:var(--font-title);font-size:.78em;
+            color:${battle.winner_id === p1.character_id ? 'var(--gold)' : 'var(--text)'};
+            margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${p1.name || 'Player 1'}
+            ${battle.winner_id === p1.character_id ? ' 🏆' : ''}
+          </div>
+          <div style="font-size:.65em;color:var(--text-dim);margin-bottom:4px;">
+            Lv.${p1.level || '?'} ${p1.class || ''}
+          </div>
+          <!-- HP Bar -->
+          <div style="height:6px;background:rgba(255,255,255,0.07);
+            border-radius:3px;overflow:hidden;margin-bottom:2px;">
+            <div style="height:100%;width:${p1Pct}%;
+              background:${p1HpColor};border-radius:3px;transition:width .3s;">
+            </div>
+          </div>
+          <div style="font-size:.65em;color:${p1HpColor};">
+            ${formatNumber(turn.p1HpAfter)} / ${formatNumber(turn.p1HpMax)} HP
+          </div>
+          <!-- Skill Combo -->
+          ${p1.skillCombo?.length ? `
+            <div style="display:flex;gap:3px;margin-top:5px;flex-wrap:wrap;">
+              ${p1.skillCombo.map(sk => `
+                <span style="font-size:1em;" title="${SKILLS[sk]?.name || sk}">
+                  ${SKILLS[sk]?.icon || '⚔️'}
+                </span>`).join('')}
+            </div>` : ''}
+        </div>
+
+        <!-- Action Center -->
+        <div style="width:80px;flex-shrink:0;padding-top:16px;">
+          ${actionHtml}
+          <!-- Arrow indicator -->
+          ${!isResult ? `
+            <div style="text-align:center;font-size:.7em;color:var(--text-dim);margin-top:4px;">
+              ${isP1Acting ? '→' : '←'}
+            </div>` : ''}
+        </div>
+
+        <!-- Player 2 -->
+        <div style="flex:1;background:${isP2Acting && !isResult ? 'rgba(255,153,0,0.08)' : 'rgba(255,255,255,0.03)'};
+          border:1px solid ${isP2Acting && !isResult ? 'var(--gold)' : 'var(--border)'};
+          border-radius:8px;padding:8px;transition:all .2s;">
+          <div style="font-size:.68em;color:var(--text-dim);margin-bottom:2px;">
+            ${p2.isBot ? '🤖' : '👤'} ${getClassIcon(p2.class)}
+          </div>
+          <div style="font-family:var(--font-title);font-size:.78em;
+            color:${battle.winner_id === p2.character_id ? 'var(--gold)' : 'var(--text)'};
+            margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${p2.name || 'Player 2'}
+            ${battle.winner_id === p2.character_id ? ' 🏆' : ''}
+          </div>
+          <div style="font-size:.65em;color:var(--text-dim);margin-bottom:4px;">
+            Lv.${p2.level || '?'} ${p2.class || ''}
+          </div>
+          <!-- HP Bar -->
+          <div style="height:6px;background:rgba(255,255,255,0.07);
+            border-radius:3px;overflow:hidden;margin-bottom:2px;">
+            <div style="height:100%;width:${p2Pct}%;
+              background:${p2HpColor};border-radius:3px;transition:width .3s;">
+            </div>
+          </div>
+          <div style="font-size:.65em;color:${p2HpColor};">
+            ${formatNumber(turn.p2HpAfter)} / ${formatNumber(turn.p2HpMax)} HP
+          </div>
+          <!-- Skill Combo -->
+          ${p2.skillCombo?.length ? `
+            <div style="display:flex;gap:3px;margin-top:5px;flex-wrap:wrap;">
+              ${p2.skillCombo.map(sk => `
+                <span style="font-size:1em;" title="${SKILLS[sk]?.name || sk}">
+                  ${SKILLS[sk]?.icon || '⚔️'}
+                </span>`).join('')}
+            </div>` : ''}
+        </div>
+      </div>
+
+      <!-- Turn Log Text -->
+      <div style="font-size:.72em;color:var(--text-dim);text-align:center;
+        min-height:20px;margin-bottom:10px;padding:4px 8px;
+        background:rgba(255,255,255,0.03);border-radius:6px;line-height:1.5;">
+        ${turn.logText || ''}
+      </div>
+
+      <!-- Progress Bar -->
+      <div style="height:3px;background:rgba(255,255,255,0.07);
+        border-radius:2px;overflow:hidden;margin-bottom:10px;">
+        <div style="height:100%;
+          width:${((currentTurn + 1) / turns.length) * 100}%;
+          background:var(--gold);border-radius:2px;transition:width .3s;">
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
+        <button onclick="replayStep(-1)"
+          style="flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--border);
+          border-radius:6px;color:var(--text);padding:8px;cursor:pointer;font-size:.8em;">
+          ⏮ Prev
+        </button>
+        <button id="replay-play-btn" onclick="replayTogglePlay()"
+          style="flex:2;background:rgba(255,153,0,0.15);border:1px solid var(--gold);
+          border-radius:6px;color:var(--gold);padding:8px;cursor:pointer;
+          font-family:var(--font-title);font-size:.8em;">
+          ${isPlaying ? '⏸ Pause' : '▶ Play'}
+        </button>
+        <button onclick="replayStep(1)"
+          style="flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--border);
+          border-radius:6px;color:var(--text);padding:8px;cursor:pointer;font-size:.8em;">
+          Next ⏭
+        </button>
+      </div>
+
+      <!-- Speed + Close -->
+      <div style="display:flex;gap:6px;">
+        <button onclick="replaySetSpeed(1200)"
+          style="flex:1;background:${speed===1200?'rgba(255,153,0,0.2)':'rgba(255,255,255,0.04)'};
+          border:1px solid ${speed===1200?'var(--gold)':'var(--border)'};
+          border-radius:6px;color:var(--text-dim);padding:6px;cursor:pointer;font-size:.7em;">
+          🐢 Slow
+        </button>
+        <button onclick="replaySetSpeed(800)"
+          style="flex:1;background:${speed===800?'rgba(255,153,0,0.2)':'rgba(255,255,255,0.04)'};
+          border:1px solid ${speed===800?'var(--gold)':'var(--border)'};
+          border-radius:6px;color:var(--text-dim);padding:6px;cursor:pointer;font-size:.7em;">
+          ⚡ Normal
+        </button>
+        <button onclick="replaySetSpeed(300)"
+          style="flex:1;background:${speed===300?'rgba(255,153,0,0.2)':'rgba(255,255,255,0.04)'};
+          border:1px solid ${speed===300?'var(--gold)':'var(--border)'};
+          border-radius:6px;color:var(--text-dim);padding:6px;cursor:pointer;font-size:.7em;">
+          🚀 Fast
+        </button>
+        <button onclick="replayClose()"
+          style="flex:1;background:rgba(255,255,255,0.04);border:1px solid var(--border);
+          border-radius:6px;color:var(--text-dim);padding:6px;cursor:pointer;font-size:.7em;">
+          ✖ Close
+        </button>
+      </div>`;
+
+    popup.style.display = 'flex';
+  }
+
+  // Expose controls to window
+  window.replayStep = function(dir) {
+    currentTurn = Math.max(0, Math.min(turns.length - 1, currentTurn + dir));
+    renderReplay();
+  };
+
+  window.replayTogglePlay = function() {
+    isPlaying = !isPlaying;
+    if (isPlaying) {
+      replayInterval = setInterval(() => {
+        if (currentTurn >= turns.length - 1) {
+          isPlaying = false;
+          clearInterval(replayInterval);
+          renderReplay();
+          return;
+        }
+        currentTurn++;
+        renderReplay();
+      }, speed);
+    } else {
+      clearInterval(replayInterval);
+    }
+    renderReplay();
+  };
+
+  window.replaySetSpeed = function(newSpeed) {
+    speed = newSpeed;
+    if (isPlaying) {
+      clearInterval(replayInterval);
+      replayInterval = setInterval(() => {
+        if (currentTurn >= turns.length - 1) {
+          isPlaying = false;
+          clearInterval(replayInterval);
+          renderReplay();
+          return;
+        }
+        currentTurn++;
+        renderReplay();
+      }, speed);
+    }
+    renderReplay();
+  };
+
+  window.replayClose = function() {
+    isPlaying = false;
+    clearInterval(replayInterval);
+    closeItemPopup();
+  };
+
+  // Initial render
+  renderReplay();
+}
+
 // ── VIEW BRACKET BY TIER ──
 async function viewBracketByTier(tierKey) {
   const TIER_MIN = { rookie: 20, veteran: 41, elite: 61, legend: 81 };
@@ -2924,7 +3401,7 @@ async function viewBracketByTier(tierKey) {
                   </div>` : ''}
                 ${m.battleLog?.length ? `
                   <div style="text-align:center;margin-top:4px;">
-                    <button onclick="viewBattleLogInline(${JSON.stringify(m.battleLog).replace(/"/g, '&quot;')})"
+                    <button onclick="openBattleReplay('${m.battleId || ''}')"
                       style="background:transparent;border:1px solid var(--border);border-radius:4px;
                       color:var(--text-dim);font-size:.68em;padding:2px 8px;cursor:pointer;">
                       📜 View Log
