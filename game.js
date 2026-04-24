@@ -4928,50 +4928,142 @@ function renderLeaderboard(scores,nameMap={}){
 // ── AUCTION HOUSE ──
 const AUCTION_FEE=0.10;
 const SYSTEM_ITEMS_PER_DAY=5;
-
-async function checkAndSettleAuctions(){
+async function checkAndSettleAuctions() {
   try {
-    const{data:expired}=await dbClient.from('auctions').select('*').eq('status','active').lt('ends_at',new Date().toISOString());
-    if(!expired||!expired.length)return;
-    for(const auction of expired)await settleExpiredAuction(auction.id);
-
-    if(!state.character_id)return;
-    const{data:myAuctions}=await dbClient.from('auctions').select('*').eq('seller_id',state.character_id).eq('status','completed').eq('seller_collected',false);
-    if(myAuctions&&myAuctions.length){
-      let totalGold=0;
-      for(const auction of myAuctions){totalGold+=Math.floor(auction.current_bid*(1-AUCTION_FEE));await dbClient.from('auctions').update({seller_collected:true}).eq('id',auction.id);}
-      if(totalGold>0){state.gold+=totalGold;await savePlayerToSupabase();addLog(`🏛️ +${formatNumber(totalGold)}g from auctions!`,'legendary');notify(`💰 +${formatNumber(totalGold)}g from auctions!`,'var(--gold)');updateUI();}
+    // Step 1 — settle all expired active auctions
+    const { data: expired } = await dbClient
+      .from('auctions')
+      .select('*')
+      .eq('status', 'active')
+      .lt('ends_at', new Date().toISOString());
+    if (expired && expired.length) {
+      for (const auction of expired) await settleExpiredAuction(auction.id);
     }
 
-    const{data:wonAuctions}=await dbClient.from('auctions').select('*').eq('current_bidder_id',state.character_id).eq('status','completed').eq('winner_collected',false);
-    if(wonAuctions&&wonAuctions.length){
-      for(const auction of wonAuctions){
-        const item=auction.item_description?(typeof auction.item_description==='string'?JSON.parse(auction.item_description):auction.item_description):{name:auction.item_name,rarity:auction.rarity,uid:genUid()};
-        item.uid=genUid();addToInventory(item);await dbClient.from('auctions').update({winner_collected:true}).eq('id',auction.id);
-        addLog(`🏛️ Received ${auction.item_name} from auction!`,'legendary');
+    if (!state.character_id) return;
+
+    // Step 2 — collect won items (buyer side)
+    const { data: wonAuctions } = await dbClient
+      .from('auctions')
+      .select('*')
+      .eq('current_bidder_id', state.character_id)
+      .eq('status', 'completed')
+      .eq('winner_collected', false);
+
+    if (wonAuctions && wonAuctions.length) {
+      for (const auction of wonAuctions) {
+        const item = auction.item_description
+          ? (typeof auction.item_description === 'string'
+            ? JSON.parse(auction.item_description)
+            : auction.item_description)
+          : { name: auction.item_name, rarity: auction.rarity, uid: genUid() };
+        item.uid = genUid();
+        addToInventory(item);
+        await dbClient.from('auctions')
+          .update({ winner_collected: true })
+          .eq('id', auction.id);
+        addLog(`🏛️ Received ${auction.item_name} from auction!`, 'legendary');
       }
-      await savePlayerToSupabase();renderInventory();updateUI();notify(`📦 New items from auction!`,'var(--gold)');
+      await savePlayerToSupabase();
+      renderInventory();
+      updateUI();
+      notify(`📦 New items from auction!`, 'var(--gold)');
     }
-  } catch(error){console.error('Settle auctions error:',error);}
+
+    // Step 3 — notify seller of completed sales (gold already paid in settleExpiredAuction)
+    // We just need to sync state.gold from DB in case this session missed the settlement
+    const { data: myCompleted } = await dbClient
+      .from('auctions')
+      .select('*')
+      .eq('seller_id', state.character_id)
+      .eq('status', 'completed')
+      .eq('seller_collected', true);
+
+    if (myCompleted && myCompleted.length) {
+      // Re-sync gold from DB to make sure state matches what was already paid
+      const { data: freshChar } = await dbClient
+        .from('characters')
+        .select('gold')
+        .eq('id', state.character_id)
+        .single();
+      if (freshChar && freshChar.gold !== state.gold) {
+        const diff = freshChar.gold - state.gold;
+        if (diff > 0) {
+          state.gold = freshChar.gold;
+          addLog(`🏛️ +${formatNumber(diff)}g from auction sales!`, 'legendary');
+          notify(`💰 +${formatNumber(diff)}g from auction sales!`, 'var(--gold)');
+          updateUI();
+        }
+      }
+    }
+
+  } catch (error) { console.error('Settle auctions error:', error); }
 }
 
-async function settleExpiredAuction(auctionId){
+async function settleExpiredAuction(auctionId) {
   try {
-    const{data:auction}=await dbClient.from('auctions').select('*').eq('id',auctionId).single();
-    if(!auction||auction.status!=='active')return;
-    if(!auction.current_bidder_id||!auction.current_bid||auction.current_bid===0){
-      if(auction.source==='player'){
-        const{data:sc}=await dbClient.from('characters').select('inventory').eq('id',auction.seller_id).single();
-        if(sc){const inv=sc.inventory||[],item=auction.item_description?(typeof auction.item_description==='string'?JSON.parse(auction.item_description):auction.item_description):{name:auction.item_name,rarity:auction.rarity,uid:genUid()};item.uid=genUid();inv.push(item);await dbClient.from('characters').update({inventory:inv}).eq('id',auction.seller_id);}
-      }
-      await dbClient.from('auctions').update({status:'expired'}).eq('id',auctionId);return;
-    }
-    const goldAfterFee=Math.floor(auction.current_bid*(1-AUCTION_FEE));
-    if(auction.source==='player'){const{data:sc}=await dbClient.from('characters').select('gold').eq('id',auction.seller_id).single();if(sc)await dbClient.from('characters').update({gold:sc.gold+goldAfterFee}).eq('id',auction.seller_id);}
-    await dbClient.from('auctions').update({status:'completed',seller_collected:auction.source==='system',winner_collected:false,updated_at:new Date().toISOString()}).eq('id',auctionId);
-  } catch(error){console.error('Settle single auction error:',error);}
-}
+    const { data: auction } = await dbClient
+      .from('auctions')
+      .select('*')
+      .eq('id', auctionId)
+      .single();
+    if (!auction || auction.status !== 'active') return;
 
+    // No bids — return item to seller
+    if (!auction.current_bidder_id || !auction.current_bid || auction.current_bid === 0) {
+      if (auction.source === 'player' && auction.seller_id) {
+        const { data: sc } = await dbClient
+          .from('characters')
+          .select('inventory')
+          .eq('id', auction.seller_id)
+          .single();
+        if (sc) {
+          const inv = sc.inventory || [];
+          const item = auction.item_description
+            ? (typeof auction.item_description === 'string'
+              ? JSON.parse(auction.item_description)
+              : auction.item_description)
+            : { name: auction.item_name, rarity: auction.rarity, uid: genUid() };
+          item.uid = genUid();
+          inv.push(item);
+          await dbClient.from('characters')
+            .update({ inventory: inv })
+            .eq('id', auction.seller_id);
+        }
+      }
+      await dbClient.from('auctions')
+        .update({ status: 'expired' })
+        .eq('id', auctionId);
+      return;
+    }
+
+    // Has a winner — pay seller directly in DB atomically
+    const goldAfterFee = Math.floor(auction.current_bid * (1 - AUCTION_FEE));
+
+    if (auction.source === 'player' && auction.seller_id) {
+      // Read fresh gold from DB — never use state.gold here to avoid stale data
+      const { data: sc } = await dbClient
+        .from('characters')
+        .select('gold')
+        .eq('id', auction.seller_id)
+        .single();
+      if (sc) {
+        await dbClient.from('characters')
+          .update({ gold: sc.gold + goldAfterFee })
+          .eq('id', auction.seller_id);
+      }
+    }
+
+    // Mark auction completed — seller_collected:true means gold already sent
+    await dbClient.from('auctions').update({
+      status: 'completed',
+      seller_collected: true,   // ← always true, gold paid above
+      winner_collected: false,  // buyer still needs to collect item
+      updated_at: new Date().toISOString(),
+    }).eq('id', auctionId);
+
+  } catch (error) { console.error('Settle single auction error:', error); }
+}
 async function generateSystemAuctionItems(){
   const today=new Date().toISOString().split('T')[0];
   const{data:existing}=await dbClient.from('auctions').select('id').eq('source','system').gte('created_at',today+'T00:00:00Z').eq('status','active');
