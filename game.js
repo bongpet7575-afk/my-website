@@ -1,3 +1,5 @@
+// ── DEV MODE — set to false before going public! ──
+const DEV_MODE = false;
 // ── LOADER ──
 window.addEventListener('load',()=>{const l=document.getElementById('loader');l.style.opacity='0';setTimeout(()=>l.style.display='none',500);});
 
@@ -3119,6 +3121,587 @@ async function createWeeklyTournamentsIfMissing() {
   } catch(e) { console.error('Create weekly tournaments error:', e); }
 }
 
+// ── QUALIFY TOP PLAYERS FOR GRAND FINAL ──
+async function qualifyTopPlayersForGrandFinal(tierKey) {
+  try {
+    const TIER_MIN = { rookie: 20, veteran: 41, elite: 61, legend: 81 };
+    const minLevel = TIER_MIN[tierKey];
+
+    // Get all completed brackets for this tier this week
+    const { data: brackets } = await dbClient
+      .from('arena_tournaments')
+      .select('*')
+      .eq('min_level', minLevel)
+      .eq('status', 'completed')
+      .order('bracket_number', { ascending: true });
+
+    if (!brackets || !brackets.length) {
+      addLog(`⚠️ No completed brackets found for ${tierKey} Grand Final`, 'info');
+      return null;
+    }
+
+    // Get current Supreme Champion for this tier
+    const { data: supremeChamp } = await dbClient
+      .from('characters')
+      .select('id, name, level, class, stats, skills, skill_cooldowns, equipped')
+      .eq('supreme_tier', tierKey)
+      .single();
+
+    const qualifiedPlayers = [];
+    const bracketPoints = []; // track which bracket has most points for 8th seed
+
+    for (const bracket of brackets) {
+      // Get top 2 from each bracket by points
+      const { data: topRegs } = await dbClient
+        .from('arena_registrations')
+        .select('character_id, character_snapshot, skill_combo, points, rank')
+        .eq('tournament_id', bracket.id)
+        .not('character_snapshot', 'is', null)
+        .order('points', { ascending: false })
+        .limit(3); // get top 3 in case we need 8th seed
+
+      if (!topRegs || !topRegs.length) continue;
+
+      // Filter out bots
+      const realPlayers = topRegs.filter(r =>
+        r.character_snapshot &&
+        !r.character_snapshot.isBot
+      );
+
+      // Top 2 qualify
+      const top2 = realPlayers.slice(0, 2);
+      top2.forEach(reg => {
+        qualifiedPlayers.push({
+          ...reg.character_snapshot,
+          skillCombo: reg.skill_combo || [],
+          qualifiedFrom: `Bracket ${bracket.bracket_number}`,
+          points: reg.points,
+          isSupremeChamp: false,
+        });
+      });
+
+      // Track 3rd place for potential 8th seed
+      if (realPlayers[2]) {
+        bracketPoints.push({
+          player: {
+            ...realPlayers[2].character_snapshot,
+            skillCombo: realPlayers[2].skill_combo || [],
+            qualifiedFrom: `Bracket ${bracket.bracket_number} (3rd)`,
+            points: realPlayers[2].points,
+            isSupremeChamp: false,
+          },
+          points: realPlayers[2].points || 0,
+        });
+      }
+
+      // Mark top 2 as qualified in DB
+      for (const reg of top2) {
+        if (!reg.character_snapshot?.isBot) {
+          await dbClient.from('arena_registrations')
+            .update({ qualified_for_grand_final: true })
+            .eq('tournament_id', bracket.id)
+            .eq('character_id', reg.character_id);
+        }
+      }
+    }
+
+    // Add Supreme Champion as auto-seed if exists
+    // and not already qualified from bracket
+    if (supremeChamp) {
+      const alreadyQualified = qualifiedPlayers
+        .some(p => p.character_id === supremeChamp.id);
+
+      if (!alreadyQualified) {
+        // Build Supreme Champ snapshot
+        const { data: champReg } = await dbClient
+          .from('arena_registrations')
+          .select('character_snapshot, skill_combo')
+          .eq('character_id', supremeChamp.id)
+          .order('registered_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        const champSnapshot = champReg?.character_snapshot || {
+          character_id: supremeChamp.id,
+          name: supremeChamp.name,
+          level: supremeChamp.level,
+          class: supremeChamp.class,
+          attackPower: 0,
+          maxHp: 0,
+          armor: 0,
+          hit: 0,
+          dodge: 0,
+          crit: 0,
+          lifeSteal: 0,
+          isBot: false,
+        };
+
+        qualifiedPlayers.push({
+          ...champSnapshot,
+          skillCombo: champReg?.skill_combo || [],
+          qualifiedFrom: '👑 Supreme Champion',
+          isSupremeChamp: true,
+          points: 9999, // always seeded high
+        });
+      }
+    }
+
+    // Fill 8th slot with best 3rd place if needed
+    if (qualifiedPlayers.length < 8 && bracketPoints.length) {
+      bracketPoints.sort((a, b) => b.points - a.points);
+      const eighthSeed = bracketPoints[0]?.player;
+      if (eighthSeed) qualifiedPlayers.push(eighthSeed);
+    }
+
+    // Fill remaining slots with bots if still under 8
+    while (qualifiedPlayers.length < 8) {
+      qualifiedPlayers.push(generateBot(tierKey));
+    }
+
+    addLog(`👑 ${tierKey} Grand Final: ${qualifiedPlayers.length} fighters qualified!`, 'legendary');
+    return qualifiedPlayers.slice(0, 8);
+
+  } catch(e) {
+    console.error('Qualify grand final error:', e);
+    return null;
+  }
+}
+
+// ── START GRAND FINAL ──
+async function startGrandFinal(tierKey) {
+  try {
+    const TIER_MIN = { rookie: 20, veteran: 41, elite: 61, legend: 81 };
+    const minLevel = TIER_MIN[tierKey];
+
+    // Check if grand final already exists for this tier
+    const { data: existing } = await dbClient
+      .from('grand_finals')
+      .select('id, status')
+      .eq('tier', tierKey)
+      .in('status', ['pending', 'in_progress'])
+      .single();
+
+    if (existing) {
+      if (existing.status === 'in_progress') {
+        addLog(`⚔️ ${tierKey} Grand Final already in progress!`, 'gold');
+        return;
+      }
+    }
+
+    // Get qualified players
+    const qualifiedPlayers = await qualifyTopPlayersForGrandFinal(tierKey);
+    if (!qualifiedPlayers || !qualifiedPlayers.length) {
+      addLog(`⚠️ Not enough players for ${tierKey} Grand Final`, 'info');
+      return;
+    }
+
+    // Shuffle but keep Supreme Champ seeded at top
+    const supremeChamp = qualifiedPlayers.find(p => p.isSupremeChamp);
+    const others = qualifiedPlayers
+      .filter(p => !p.isSupremeChamp)
+      .sort(() => Math.random() - 0.5);
+    const seeded = supremeChamp ? [supremeChamp, ...others] : others;
+
+    // Build Quarter Final bracket
+    const bracket = [];
+    for (let i = 0; i < seeded.length; i += 2) {
+      bracket.push({
+        round: 1,
+        player1: seeded[i],
+        player2: seeded[i + 1] || null,
+        winner: null,
+        battleLog: [],
+        battleId: null,
+      });
+    }
+
+    // Calculate times
+    const now = new Date();
+    const startsAt = new Date(now);
+    startsAt.setUTCHours(14, 0, 0, 0); // 9pm Cambodia = 2pm UTC
+
+    const endsAt = new Date(startsAt);
+    endsAt.setUTCHours(15, 0, 0, 0); // 10pm Cambodia = 3pm UTC
+
+    const rewardsExpireAt = new Date(startsAt);
+    rewardsExpireAt.setUTCDate(rewardsExpireAt.getUTCDate() + 7);
+    rewardsExpireAt.setUTCHours(18, 0, 0, 0); // Next Friday 1am Cambodia
+
+    // Get previous supreme champion
+    const { data: prevChamp } = await dbClient
+      .from('characters')
+      .select('id')
+      .eq('supreme_tier', tierKey)
+      .single();
+
+    // Create grand final record
+    const { data: grandFinal, error } = await dbClient
+      .from('grand_finals')
+      .insert({
+        tier: tierKey,
+        status: 'in_progress',
+        bracket: bracket,
+        round: 1,
+        previous_champion_id: prevChamp?.id || null,
+        starts_at: startsAt.toISOString(),
+        ends_at: endsAt.toISOString(),
+        rewards_expire_at: rewardsExpireAt.toISOString(),
+      }).select().single();
+
+    if (error) throw error;
+
+    addLog(`👑 ${tierKey.toUpperCase()} GRAND FINAL STARTED! ${seeded.length} elite fighters!`, 'legendary');
+    notify(`👑 ${tierKey} Grand Final has begun!`, 'var(--gold)');
+
+    // Run the bracket
+    await runGrandFinalRound(grandFinal.id, bracket, 1, tierKey);
+
+  } catch(e) { console.error('Start grand final error:', e); }
+}
+
+// ── RUN GRAND FINAL ROUND ──
+async function runGrandFinalRound(grandFinalId, bracket, round, tierKey) {
+  try {
+    const roundMatches = bracket.filter(m => m.round === round);
+    const nextBracket = [...bracket];
+    const winners = [];
+    const losers = [];
+
+    for (const match of roundMatches) {
+      // Bye — player advances automatically
+      if (!match.player2) {
+        match.winner = match.player1;
+        winners.push(match.player1);
+        continue;
+      }
+
+      const result = simulateBattle(match.player1, match.player2);
+      match.winner = result.winnerId === match.player1.character_id
+        ? match.player1 : match.player2;
+      const loser = result.winnerId === match.player1.character_id
+        ? match.player2 : match.player1;
+
+      match.battleLog = result.log;
+      match.turns = result.turns;
+      winners.push(match.winner);
+      losers.push(loser);
+
+      // Save battle record for real players
+      if (!match.player1.isBot || !match.player2.isBot) {
+        const realAttacker = !match.player1.isBot ? match.player1 : match.player2;
+        const realDefender = !match.player1.isBot ? match.player2 : match.player1;
+
+        const { data: battleRecord } = await dbClient
+          .from('arena_battles')
+          .insert({
+            attacker_id: realAttacker.character_id,
+            defender_id: realDefender.isBot ? null : realDefender.character_id,
+            winner_id: result.winnerId,
+            attacker_snapshot: match.player1,
+            defender_snapshot: match.player2,
+            battle_log: result.log,
+            battle_turns: result.turns,
+            points_change: 50, // Grand Final worth more points
+          }).select().single();
+
+        if (battleRecord) match.battleId = battleRecord.id;
+      }
+    }
+
+    // Save updated bracket
+    await dbClient.from('grand_finals').update({
+      bracket: nextBracket,
+    }).eq('id', grandFinalId);
+
+    // Grand Final is over
+    if (winners.length === 1) {
+      await finalizeGrandFinal(grandFinalId, nextBracket, winners[0], tierKey);
+      return;
+    }
+
+    // Build next round
+    const nextRound = round + 1;
+    for (let i = 0; i < winners.length; i += 2) {
+      nextBracket.push({
+        round: nextRound,
+        player1: winners[i],
+        player2: winners[i + 1] || null,
+        winner: null,
+        battleLog: [],
+        battleId: null,
+      });
+    }
+
+    await dbClient.from('grand_finals').update({
+      bracket: nextBracket,
+      round: nextRound,
+    }).eq('id', grandFinalId);
+
+    await runGrandFinalRound(grandFinalId, nextBracket, nextRound, tierKey);
+
+  } catch(e) { console.error('Run grand final round error:', e); }
+}
+
+// ── FINALIZE GRAND FINAL ──
+async function finalizeGrandFinal(grandFinalId, bracket, champion, tierKey) {
+  try {
+    const TIER_COLORS = {
+      rookie: '#22c55e', veteran: '#3b82f6',
+      elite: '#a855f7', legend: '#ff9900'
+    };
+    const TIER_LABELS = {
+      rookie: '🌱 Rookie', veteran: '⚔️ Veteran',
+      elite: '💀 Elite', legend: '👑 Legend'
+    };
+
+    const tierColor = TIER_COLORS[tierKey];
+    const tierLabel = TIER_LABELS[tierKey];
+
+    // Get all rounds for placements
+    const allRounds = [...new Set(bracket.map(m => m.round))].sort((a,b) => b-a);
+    const finalRound = allRounds[0];
+    const semiFinalRound = allRounds[1];
+
+    const finalMatch = bracket.find(m => m.round === finalRound);
+    const semiMatches = bracket.filter(m => m.round === semiFinalRound);
+
+    const second = finalMatch
+      ? (finalMatch.player1?.character_id === champion.character_id
+        ? finalMatch.player2 : finalMatch.player1)
+      : null;
+
+    const thirds = semiMatches
+      .map(m => m.player1?.character_id === m.winner?.character_id
+        ? m.player2 : m.player1)
+      .filter(Boolean);
+
+    // Get grand final record for expiry
+    const { data: gfData } = await dbClient
+      .from('grand_finals')
+      .select('rewards_expire_at, previous_champion_id')
+      .eq('id', grandFinalId)
+      .single();
+
+    const rewardsExpireAt = gfData?.rewards_expire_at || null;
+    const prevChampId = gfData?.previous_champion_id || null;
+
+    // ── HANDLE SUPREME CHAMPION ──
+    if (!champion.isBot) {
+      // Get current defense count
+      const { data: champChar } = await dbClient
+        .from('characters')
+        .select('supreme_defenses, supreme_tier')
+        .eq('id', champion.character_id)
+        .single();
+
+      const isDefending = champChar?.supreme_tier === tierKey;
+      const newDefenses = isDefending
+        ? (champChar.supreme_defenses || 0) + 1
+        : 0;
+
+      const supremeTitle = `${tierLabel} Supreme Champion`;
+      const defenseLabel = newDefenses >= 10
+        ? `⭐ UNDEFEATED ${supremeTitle}`
+        : newDefenses >= 5
+        ? `🛡️🛡️🛡️🛡️🛡️ ${supremeTitle}`
+        : newDefenses > 0
+        ? `${'🛡️'.repeat(newDefenses)} ${supremeTitle}`
+        : supremeTitle;
+
+      // Get weekly gold bonus from config
+      const supremeGold = (GAME_CONFIG.supreme_weekly_gold || {})[tierKey] || 500000;
+
+      // Get champion's current gold
+      const { data: champGoldData } = await dbClient
+        .from('characters')
+        .select('gold')
+        .eq('id', champion.character_id)
+        .single();
+
+      // Update champion as new Supreme
+      await dbClient.from('characters').update({
+        supreme_title: defenseLabel,
+        supreme_tier: tierKey,
+        supreme_since: isDefending ? champChar.supreme_since : new Date().toISOString(),
+        supreme_defenses: newDefenses,
+        supreme_weekly_gold: supremeGold,
+        gold: (champGoldData?.gold || 0) + supremeGold,
+        tournament_title: defenseLabel,
+        tournament_rewards_expire_at: null, // Supreme title never expires
+      }).eq('id', champion.character_id);
+
+      addLog(`👑 NEW SUPREME CHAMPION: ${champion.name}! (${tierLabel})`, 'legendary');
+      notify(`👑 ${champion.name} is the new ${tierLabel} Supreme Champion!`, 'var(--gold)');
+    }
+
+    // ── STRIP TITLE FROM PREVIOUS CHAMPION if dethroned ──
+    if (prevChampId && prevChampId !== champion.character_id) {
+      await dbClient.from('characters').update({
+        supreme_title: null,
+        supreme_tier: null,
+        supreme_since: null,
+        supreme_defenses: 0,
+        supreme_weekly_gold: 0,
+      }).eq('id', prevChampId);
+
+      addLog(`💔 Previous Supreme Champion has been dethroned!`, 'info');
+    }
+
+    // ── GIVE PLACEMENT REWARDS ──
+    // 2nd place
+    if (second && !second.isBot) {
+      await giveGrandFinalReward(second.character_id, 2, tierKey, rewardsExpireAt);
+    }
+    // 3rd-4th place
+    for (const third of thirds) {
+      if (third && !third.isBot) {
+        await giveGrandFinalReward(third.character_id, 3, tierKey, rewardsExpireAt);
+      }
+    }
+    // All other participants
+    const allRealPlayers = bracket
+      .flatMap(m => [m.player1, m.player2])
+      .filter(p => p && !p.isBot)
+      .filter((p, i, arr) => arr.findIndex(x => x?.character_id === p?.character_id) === i);
+
+    const topIds = [
+      champion.character_id,
+      second?.character_id,
+      ...thirds.map(t => t?.character_id),
+    ].filter(Boolean);
+
+    for (const player of allRealPlayers) {
+      if (!topIds.includes(player.character_id)) {
+        await giveGrandFinalReward(player.character_id, 'participation', tierKey, rewardsExpireAt);
+      }
+    }
+
+    // Mark grand final complete
+    await dbClient.from('grand_finals').update({
+      status: 'completed',
+      bracket: bracket,
+      champion_id: champion.isBot ? null : champion.character_id,
+    }).eq('id', grandFinalId);
+
+    addLog(`🏆 ${tierLabel} Grand Final Complete! Champion: ${champion.name}!`, 'legendary');
+    renderTournament();
+
+  } catch(e) { console.error('Finalize grand final error:', e); }
+}
+
+// ── GIVE GRAND FINAL REWARD ──
+async function giveGrandFinalReward(characterId, place, tierKey, rewardsExpireAt) {
+  if (!characterId) return;
+  try {
+    const { data: c } = await dbClient
+      .from('characters')
+      .select('gold, inventory, tournament_title')
+      .eq('id', characterId).single();
+    if (!c) return;
+
+    // Grand Final rewards are 3x regular tournament rewards
+    const cfgRewards = GAME_CONFIG.tournament_rewards || {};
+    const baseReward = cfgRewards[tierKey]?.[place] ||
+      cfgRewards[tierKey]?.participation || 0;
+    const goldReward = Math.floor(baseReward * 3);
+
+    // Title for 2nd place
+    const TIER_LABELS = {
+      rookie: '🌱 Rookie', veteran: '⚔️ Veteran',
+      elite: '💀 Elite', legend: '👑 Legend'
+    };
+    const title = place === 2
+      ? `${TIER_LABELS[tierKey]} Grand Finalist`
+      : null;
+
+    // Item reward
+    let tournamentItem = null;
+    if (place === 2) {
+      tournamentItem = getArenaRewardItem('legendary');
+      tournamentItem.expiresAt = rewardsExpireAt;
+      tournamentItem.tournamentReward = true;
+    } else if (place === 3) {
+      tournamentItem = getArenaRewardItem('epic');
+      tournamentItem.expiresAt = rewardsExpireAt;
+      tournamentItem.tournamentReward = true;
+    }
+
+    // Buff for 2nd place
+    const tournamentBuff = place === 2 ? {
+      goldMult: tierKey === 'legend' ? 1.75 : tierKey === 'elite' ? 1.5
+        : tierKey === 'veteran' ? 1.35 : 1.2,
+      attackMult: 1.12,
+      label: title,
+      expiresAt: rewardsExpireAt,
+    } : null;
+
+    const inv = c.inventory || [];
+    if (tournamentItem) inv.push(tournamentItem);
+
+    await dbClient.from('characters').update({
+      gold: (c.gold || 0) + goldReward,
+      inventory: inv,
+      tournament_title: title || c.tournament_title,
+      tournament_buff: tournamentBuff,
+      tournament_item: tournamentItem,
+      tournament_rewards_expire_at: rewardsExpireAt,
+    }).eq('id', characterId);
+
+    addLog(`🏆 Grand Final reward sent! Place: ${place === 'participation' ? '🎖️' : `#${place}`}`, 'gold');
+
+  } catch(e) { console.error(`Grand Final reward error for place ${place}:`, e); }
+}
+
+// ── AUTO CHECK AND START GRAND FINALS ──
+async function checkAndStartGrandFinals() {
+  try {
+    const now = new Date();
+    const TIERS = ['rookie', 'veteran', 'elite', 'legend'];
+    const TIER_MIN = { rookie: 20, veteran: 41, elite: 61, legend: 81 };
+
+    for (const tierKey of TIERS) {
+      const minLevel = TIER_MIN[tierKey];
+
+      // Check if grand final already exists and is complete/in progress
+      const { data: existingGF } = await dbClient
+        .from('grand_finals')
+        .select('id, status')
+        .eq('tier', tierKey)
+        .in('status', ['pending', 'in_progress', 'completed'])
+        .gte('created_at', new Date(now.getFullYear(), now.getMonth(),
+          now.getDate() - 7).toISOString())
+        .single();
+
+      if (existingGF?.status === 'completed') continue;
+      if (existingGF?.status === 'in_progress') continue;
+
+      // Check if it's past 9pm Cambodia (2pm UTC) on a Friday
+      const isFriday = now.getUTCDay() === 5;
+      const isPastGrandFinalTime = now.getUTCHours() >= 14;
+
+      if (!isFriday || !isPastGrandFinalTime) continue;
+
+      // Check if all brackets for this tier are completed
+      const { data: brackets } = await dbClient
+        .from('arena_tournaments')
+        .select('id, status')
+        .eq('min_level', minLevel)
+        .gte('created_at', new Date(now.getFullYear(), now.getMonth(),
+          now.getDate() - 1).toISOString());
+
+      if (!brackets || !brackets.length) continue;
+
+      const allCompleted = brackets.every(b => b.status === 'completed');
+      if (!allCompleted) continue;
+
+      // All brackets done — start grand final!
+      addLog(`👑 Starting ${tierKey} Grand Final...`, 'legendary');
+      await startGrandFinal(tierKey);
+    }
+
+  } catch(e) { console.error('Check grand finals error:', e); }
+}
+
 // ── RENDER TOURNAMENT UI ──
 async function renderTournament() {
   const container = document.getElementById('arena-content');
@@ -3396,12 +3979,7 @@ async function renderTournament() {
               Waiting for tournament to start...
             </div>
             ${playerBracket?.status === 'open' ? `
-              <button class="start-btn" 
-                onclick="devStartTournament('${tier.key}')"
-                style="width:100%;padding:8px;font-size:.72em;margin-top:6px;
-                background:rgba(255,0,0,0.1);border-color:var(--red);">
-                🧪 DEV: Force Start with Bots
-              </button>` : ''}
+              ` : ''}
           ` : allFull ? `
             <div style="text-align:center;color:var(--red);font-size:.75em;
               padding:8px;background:rgba(255,0,0,0.06);border-radius:6px;">
@@ -3439,6 +4017,8 @@ async function renderTournament() {
     console.error(e);
   }
 }
+
+
 
 // ── TOGGLE PRACTICEBOARD ──
 function togglePracticeboard(tierKey) {

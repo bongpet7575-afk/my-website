@@ -28,6 +28,8 @@ async function loadPlayerFromSupabase(characterId) {
     await checkTournamentRewardExpiry();
     await createWeeklyTournamentsIfMissing(); // ← creates next Friday's tournaments
     await checkAndAutoStartTournaments(); // ← add this
+    await checkAndStartGrandFinals(); // ← add this
+    await paySupremeChampionWeeklyBonus(); // ← add this
     console.log('✅ Character loaded from Supabase');
 
     return state;
