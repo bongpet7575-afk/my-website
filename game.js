@@ -644,6 +644,19 @@ if(state.goldMultExpiry && new Date() > new Date(state.goldMultExpiry)) {
   const mpMult       = state.mpMult       + (state.classBonuses.mpMult      ||0) + (state.talentBonuses.mpMult      ||0) + (state.equipMpMult || 0);
   const hpRegenMult  = state.hpRegenMult  + (state.classBonuses.hpRegenMult ||0) + (state.talentBonuses.hpRegenMult ||0) + (state.equipHpRenMult || 0);
   const mpRegenMult  = state.mpRegenMult  + (state.classBonuses.mpRegenMult ||0) + (state.talentBonuses.mpRegenMult ||0) + (state.equipMpRegenMult || 0);
+  const speedCfg = GAME_CONFIG.combat_speed || {};
+const atkSpdPerAgi = speedCfg.attack_speed_per_agi || 0.5;
+const castSpdPerInt = speedCfg.cast_speed_per_int || 0.3;
+const minInterval = speedCfg.min_attack_interval_ms || 400;
+const maxInterval = speedCfg.max_attack_interval_ms || 2000;
+const maxAtkSpd = speedCfg.max_attack_speed || 800;
+const maxCastSpd = speedCfg.max_cast_speed || 100;
+const maxCdr = speedCfg.max_cdr || 0.50;
+
+state.attackSpeed = Math.min(maxAtkSpd, Math.floor(state.agi * atkSpdPerAgi));
+state.castSpeed = Math.min(maxCastSpd, Math.floor(state.int * castSpdPerInt));
+state.attackInterval = Math.max(minInterval, maxInterval - (state.attackSpeed * 2));
+state.cdr = Math.min(maxCdr, state.castSpeed / 200);
 
   state.str = Math.floor(state.baseStr * strMult) + (state.equipStr||0) + (state.talentBonuses.baseStr||0);
   state.agi = Math.floor(state.baseAgi * agiMult) + (state.equipAgi||0) + (state.talentBonuses.baseAgi||0);
@@ -683,6 +696,23 @@ if(state.goldMultExpiry && new Date() > new Date(state.goldMultExpiry)) {
 
   // Chain lightning chance (from Shaman lightning talents)
   state.chainLightningChance = state.talentBonuses.chainChance || 0;
+
+  // Attack speed — scales with AGI (how fast auto attacks fire)
+// Base 0, each AGI point gives 0.5 speed, soft cap at 800
+state.attackSpeed = Math.min(800, Math.floor(state.agi * 0.5));
+
+// Cast speed — scales with INT (reduces skill cooldowns)
+// Base 0, each INT point gives 0.3 speed, soft cap at 100 (= 50% CDR)
+state.castSpeed = Math.min(100, Math.floor(state.int * 0.3));
+
+// Attack interval in ms — used by auto fight timer
+// Min 400ms, Max 2000ms
+state.attackInterval = Math.max(400, 2000 - (state.attackSpeed * 2));
+
+// Cooldown reduction % from cast speed
+// castSpeed 100 = 50% CDR, castSpeed 0 = 0% CDR
+state.cdr = Math.min(0.50, state.castSpeed / 200);
+
   state.hp = Math.min(state.hp, state.maxHp);
   state.mp = Math.min(state.mp, state.maxMp);
 }
@@ -1754,7 +1784,11 @@ function updateAutoFightBtn(){
 function startAutoFight(){
   if(!autoFightOn||!autoFightEnemyId)return;
   startCombat(autoFightEnemyId,false);
-  autoFightTimer=setInterval(()=>{if(!autoFightOn||!currentEnemy){clearInterval(autoFightTimer);return;}autoFightStep();},1000);
+  const interval = state.attackInterval || 1000;
+  autoFightTimer=setInterval(()=>{
+    if(!autoFightOn||!currentEnemy){clearInterval(autoFightTimer);return;}
+    autoFightStep();
+  }, interval);
 }
 function stopAutoFight(){
   autoFightOn=false;clearInterval(autoFightTimer);autoFightTimer=null;updateAutoFightBtn();
@@ -1917,7 +1951,9 @@ function useNextAutoSkill(enemy){
   const sk=SKILLS[skillId],cd=state.skillCooldowns[skillId]||0,mpCost=typeof sk.mp==='function'?sk.mp():sk.mp;
   if(cd>0){addCombatLog(`⏳ ${sk.name} on cooldown (${cd})`,'info');return false;}
   if(state.mp<mpCost){addCombatLog(`💙 Not enough MP for ${sk.name}!`,'bad');return false;}
-  state.mp-=mpCost;state.skillCooldowns[skillId]=sk.cd;sk.use(enemy);
+  state.mp-=mpCost;// Apply cast speed cooldown reduction
+const cdr = state.cdr || 0;
+state.skillCooldowns[skillId] = Math.max(1, Math.floor(sk.cd * (1 - cdr)));sk.use(enemy);
   spawnAbilityFloat(`${sk.icon} ${sk.name}!`,'#f0c040');return true;
 }
 
@@ -5478,7 +5514,9 @@ function useSkillInCombat(skillId){
   const cd=state.skillCooldowns[skillId]||0,mpCost=typeof sk.mp==='function'?sk.mp():sk.mp;
   if(cd>0){addCombatLog(`${sk.name} on cooldown! (${cd})`,'bad');return;}
   if(state.mp<mpCost){addCombatLog(`Not enough MP for ${sk.name}!`,'bad');return;}
-  state.mp-=mpCost;state.skillCooldowns[skillId]=sk.cd;sk.use(currentEnemy);
+  state.mp-=mpCost;// Apply cast speed cooldown reduction
+const cdr = state.cdr || 0;
+state.skillCooldowns[skillId] = Math.max(1, Math.floor(sk.cd * (1 - cdr)));sk.use(currentEnemy);
   spawnAbilityFloat(`${sk.icon} ${sk.name}!`,'#f0c040');
   Object.keys(state.skillCooldowns).forEach(k=>{if(k!==skillId&&state.skillCooldowns[k]>0)state.skillCooldowns[k]--;});
   if(currentEnemy&&currentEnemy.hp<=0){currentEnemy.hp=0;updateEnemyBar();clearInterval(autoFightTimer);autoFightTimer=null;endCombat(true);return;}
@@ -6356,6 +6394,18 @@ function updateUI(){
   document.getElementById('hpregen-val').textContent=formatNumber(state.hpRegen);
   document.getElementById('mpregen-val').textContent=formatNumber(state.manaRegen);
   document.getElementById('lifesteal-val').textContent=(state.lifeSteal*100).toFixed(2)+'%';document.getElementById('char-level').textContent = `Level ${state.level} / 100`;
+
+  const atkspdEl = document.getElementById('atkspd-val');
+if (atkspdEl) {
+  const interval = state.attackInterval || 2000;
+  const spd = ((2000 - interval) / 2000 * 100).toFixed(0);
+  atkspdEl.textContent = `${spd}% (${(interval/1000).toFixed(1)}s)`;
+}
+
+const castspdEl = document.getElementById('castspd-val');
+if (castspdEl) {
+  castspdEl.textContent = `${((state.cdr||0)*100).toFixed(0)}% CDR`;
+}
 
 // Update class display
 const charClassEl = document.getElementById('char-class');
