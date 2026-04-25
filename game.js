@@ -1311,7 +1311,7 @@ const SCENES={
   dungeon_10:{title:'🌟 Eternal Kingdom',text:'The final challenge.',choices:[{text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:10},{text:'🏘️ Town',next:'town'}]},
   inn:{title:'⛪ The Rusty Flagon Inn',text:'You rest comfortably.',
     action:()=>{
-      const innCost = GAME_CONFIG.inn_cost || 10000;
+      const innCost = GAME_CONFIG.inn_cost || 1000;
       if(state.gold >= innCost){
         state.gold -= innCost;
         const hh=Math.floor(state.maxHp*0.5),mh=Math.floor(state.maxMp*0.5);
