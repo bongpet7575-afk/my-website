@@ -1624,8 +1624,8 @@ const ARENA_TITLES = [
   { title:'Eternal',  min:3000, color:'#ff2244' },
 ];
 
-const TOURNAMENT_SIZE = 8; // must be power of 2
-
+const TOURNAMENT_SIZE = 16;    // slots per bracket
+const MAX_BRACKETS_PER_TIER = 3; // max brackets per tier per week
 
 const DAILY_REWARDS = {
   1: { gold: 500000,  title:'🏆 Tournament Champion' },
@@ -2282,11 +2282,11 @@ async function registerForTournament(tierKey) {
 
   const fees = GAME_CONFIG.tournament_fees || {};
   const TIERS = {
-  rookie:   { label: '🌱 Rookie',   min: 20,  max: 40,  fee: fees.rookie  ?? 20000,  minLevel: 20 },
-  veteran:  { label: '⚔️ Veteran',  min: 41,  max: 60,  fee: fees.veteran ?? 40000,  minLevel: 41 },
-  elite:    { label: '💀 Elite',    min: 61,  max: 80,  fee: fees.elite   ?? 60000,  minLevel: 61 },
-  legend:   { label: '👑 Legend',   min: 81,  max: 100, fee: fees.legend  ?? 100000, minLevel: 81 },
-};
+    rookie:  { label: '🌱 Rookie',  min: 20, max: 40,  fee: fees.rookie  ?? 20000, minLevel: 20 },
+    veteran: { label: '⚔️ Veteran', min: 41, max: 60,  fee: fees.veteran ?? 40000, minLevel: 41 },
+    elite:   { label: '💀 Elite',   min: 61, max: 80,  fee: fees.elite   ?? 60000, minLevel: 61 },
+    legend:  { label: '👑 Legend',  min: 81, max: 100, fee: fees.legend  ?? 100000, minLevel: 81 },
+  };
 
   const tier = TIERS[tierKey];
   if (!tier) { notify('Invalid tier!', 'var(--red)'); return; }
@@ -2304,73 +2304,102 @@ async function registerForTournament(tierKey) {
   }
 
   try {
-    // Find open tournament for this tier
-    let { data: tournament } = await dbClient
+    // Get all open tournaments for this tier this week
+    const { data: openTournaments } = await dbClient
       .from('arena_tournaments')
       .select('*')
       .eq('status', 'open')
       .eq('min_level', tier.min)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+      .order('bracket_number', { ascending: true });
 
-    // Create tournament for this tier if none exists
+    // Check if user already registered in ANY bracket of this tier
+    if (openTournaments && openTournaments.length) {
+      const tournamentIds = openTournaments.map(t => t.id);
+      for (const tid of tournamentIds) {
+        const { data: existing } = await dbClient
+          .from('arena_registrations')
+          .select('id')
+          .eq('tournament_id', tid)
+          .eq('user_id', state.user_id)
+          .single();
+        if (existing) {
+          notify('⚠️ You already registered in this tier this week!', 'var(--gold)');
+          return;
+        }
+      }
+    }
+
+    // Find a bracket with available slots
+    let tournament = null;
+    if (openTournaments && openTournaments.length) {
+      for (const t of openTournaments) {
+        const { count } = await dbClient
+          .from('arena_registrations')
+          .select('*', { count: 'exact' })
+          .eq('tournament_id', t.id);
+        if ((count || 0) < TOURNAMENT_SIZE) {
+          tournament = t;
+          break;
+        }
+      }
+    }
+
+    // No available bracket — create a new one if under max
     if (!tournament) {
-      const now = new Date();
-      const startsAt = new Date();
-      // Next Friday 7pm Cambodia (UTC+7) = Friday 12:00 UTC
-      startsAt.setUTCHours(12, 0, 0, 0);
-      const endsAt = new Date(startsAt);
-      endsAt.setUTCHours(13, 0, 0, 0); // 8pm Cambodia = 1pm UTC
+      const bracketCount = openTournaments ? openTournaments.length : 0;
+      if (bracketCount >= MAX_BRACKETS_PER_TIER) {
+        notify(`⚠️ All ${MAX_BRACKETS_PER_TIER} brackets are full! Wait for next week.`, 'var(--gold)');
+        return;
+      }
 
-      // Rewards expire next Friday 1am Cambodia = Thursday 6pm UTC
+      // Calculate next Friday schedule
+      const now = new Date();
+      const dayOfWeek = now.getUTCDay();
+      const daysUntilFriday = (5 - dayOfWeek + 7) % 7;
+      let startsAt = new Date(now);
+      if (dayOfWeek === 5 && now.getUTCHours() < 12) {
+        startsAt.setUTCHours(12, 0, 0, 0);
+      } else if (daysUntilFriday === 0) {
+        startsAt.setUTCDate(startsAt.getUTCDate() + 7);
+        startsAt.setUTCHours(12, 0, 0, 0);
+      } else {
+        startsAt.setUTCDate(startsAt.getUTCDate() + daysUntilFriday);
+        startsAt.setUTCHours(12, 0, 0, 0);
+      }
+
+      const endsAt = new Date(startsAt);
+      endsAt.setUTCHours(13, 0, 0, 0);
+
       const rewardsExpireAt = new Date(startsAt);
       rewardsExpireAt.setUTCDate(rewardsExpireAt.getUTCDate() + 7);
       rewardsExpireAt.setUTCHours(18, 0, 0, 0);
 
-      const { data: newT, error } = await dbClient.from('arena_tournaments').insert({
-        status: 'open',
-        bracket: [],
-        round: 0,
-        min_level: tier.min,
-        entry_fee: tier.fee,
-        starts_at: startsAt.toISOString(),
-        ends_at: endsAt.toISOString(),
-        rewards_expire_at: rewardsExpireAt.toISOString(),
-      }).select().single();
+      const newBracketNumber = bracketCount + 1;
+
+      const { data: newT, error } = await dbClient
+        .from('arena_tournaments')
+        .insert({
+          status: 'open',
+          bracket: [],
+          round: 0,
+          min_level: tier.min,
+          entry_fee: tier.fee,
+          max_slots: TOURNAMENT_SIZE,
+          bracket_number: newBracketNumber,
+          starts_at: startsAt.toISOString(),
+          ends_at: endsAt.toISOString(),
+          rewards_expire_at: rewardsExpireAt.toISOString(),
+        }).select().single();
 
       if (error) throw error;
       tournament = newT;
+      addLog(`📋 Bracket ${newBracketNumber} opened for ${tier.label}!`, 'gold');
     }
 
-    // Check 1 registration per user_id per tournament
-    const { data: existing } = await dbClient
-      .from('arena_registrations')
-      .select('id')
-      .eq('tournament_id', tournament.id)
-      .eq('user_id', state.user_id)
-      .single();
-
-    if (existing) {
-      notify('⚠️ You already have a character registered in this tournament!', 'var(--gold)');
-      return;
-    }
-
-    // Check slot count
-    const { count } = await dbClient
-      .from('arena_registrations')
-      .select('*', { count: 'exact' })
-      .eq('tournament_id', tournament.id);
-
-    if (count >= 8) {
-      notify('⚠️ This tournament is already full!', 'var(--gold)');
-      return;
-    }
-
-    // Open skill combo picker before finalizing registration
+    // Open skill combo picker
     openSkillComboPicker(tournament, tier, tierKey);
 
-  } catch (e) {
+  } catch(e) {
     notify('Registration failed: ' + e.message, 'var(--red)');
     console.error(e);
   }
@@ -3100,12 +3129,13 @@ async function renderTournament() {
     await checkTournamentRewardExpiry();
 
     const TIERS = [
-      { key: 'rookie',  label: '🌱 Rookie',  min: 20,  max: 40,  fee: 20000,  color: '#22c55e' },
-      { key: 'veteran', label: '⚔️ Veteran', min: 41,  max: 60,  fee: 40000,  color: '#3b82f6' },
-      { key: 'elite',   label: '💀 Elite',   min: 61,  max: 80,  fee: 60000,  color: '#a855f7' },
-      { key: 'legend',  label: '👑 Legend',  min: 81,  max: 100, fee: 100000, color: '#ff9900' },
+      { key: 'rookie',  label: '🌱 Rookie',  min: 20, max: 40,  color: '#22c55e' },
+      { key: 'veteran', label: '⚔️ Veteran', min: 41, max: 60,  color: '#3b82f6' },
+      { key: 'elite',   label: '💀 Elite',   min: 61, max: 80,  color: '#a855f7' },
+      { key: 'legend',  label: '👑 Legend',  min: 81, max: 100, color: '#ff9900' },
     ];
 
+    const fees = GAME_CONFIG.tournament_fees || {};
     const playerLevel = state.level || 1;
     const playerTierKey = playerLevel < 20 ? null
       : playerLevel <= 40 ? 'rookie'
@@ -3118,54 +3148,30 @@ async function renderTournament() {
       .from('arena_tournaments')
       .select('*')
       .in('status', ['open', 'in_progress'])
+      .order('bracket_number', { ascending: true });
+
+    // Fetch grand finals
+    const { data: grandFinals } = await dbClient
+      .from('grand_finals')
+      .select('*')
+      .in('status', ['pending', 'in_progress'])
       .order('created_at', { ascending: false });
 
-    // Fetch registration counts and player registration status for each tier
-    const tierData = {};
-    for (const tier of TIERS) {
-      const tournament = (activeTournaments || []).find(t => t.min_level === tier.min);
-      let regCount = 0;
-      let isRegistered = false;
+    // Fetch supreme champions
+    const { data: supremeChamps } = await dbClient
+      .from('characters')
+      .select('id, name, class, level, supreme_tier, supreme_title, supreme_defenses, supreme_since')
+      .not('supreme_tier', 'is', null);
 
-      if (tournament) {
-        const { count } = await dbClient
-          .from('arena_registrations')
-          .select('*', { count: 'exact' })
-          .eq('tournament_id', tournament.id);
-        regCount = count || 0;
-
-        if (state.character_id) {
-          const { data: myReg } = await dbClient
-            .from('arena_registrations')
-            .select('id')
-            .eq('tournament_id', tournament.id)
-            .eq('user_id', state.user_id)
-            .single();
-          isRegistered = !!myReg;
-        }
-      }
-      tierData[tier.key] = { tournament, regCount, isRegistered };
-    }
-
-    // Fetch recent battles for this player
-    const { data: battles } = await dbClient
-      .from('arena_battles')
-      .select('*')
-      .or(`attacker_id.eq.${state.character_id},defender_id.eq.${state.character_id}`)
-      .order('created_at', { ascending: false })
-      .limit(5);
-
-    // ── BUILD HTML ──
     let html = '';
 
-    // ── TOURNAMENT REWARDS BANNER (if active) ──
+    // ── TOURNAMENT REWARDS BANNER ──
     if (state.tournamentTitle || state.tournamentBuff || state.tournamentItem) {
       const expiry = state.tournamentRewardsExpireAt ? new Date(state.tournamentRewardsExpireAt) : null;
       const now = new Date();
       const msLeft = expiry ? expiry - now : 0;
       const hoursLeft = Math.max(0, Math.floor(msLeft / 3600000));
       const minsLeft  = Math.max(0, Math.floor((msLeft % 3600000) / 60000));
-
       html += `
         <div class="char-panel" style="margin-bottom:12px;border:1px solid var(--gold);
           background:rgba(255,153,0,0.06);">
@@ -3176,16 +3182,53 @@ async function renderTournament() {
             </div>` : ''}
           ${state.tournamentBuff ? `
             <div style="font-size:.75em;color:var(--text-dim);margin-bottom:4px;">
-              ⚡ Gold Bonus: <span style="color:var(--gold);">+${Math.round((state.tournamentBuff.goldMult - 1) * 100)}%</span>
-              &nbsp;|&nbsp; ATK Bonus: <span style="color:var(--green);">+${Math.round((state.tournamentBuff.attackMult - 1) * 100)}%</span>
-            </div>` : ''}
-          ${state.tournamentItem ? `
-            <div style="font-size:.75em;color:var(--text-dim);margin-bottom:4px;">
-              🎁 Reward Item: <span style="color:var(--legendary);">${state.tournamentItem.name || 'Tournament Item'}</span>
+              ⚡ Gold: +${Math.round((state.tournamentBuff.goldMult-1)*100)}%
+              &nbsp;|&nbsp; ATK: +${Math.round((state.tournamentBuff.attackMult-1)*100)}%
             </div>` : ''}
           <div style="font-size:.70em;color:var(--red);margin-top:4px;">
             ⏰ Expires in: ${hoursLeft}h ${minsLeft}m
           </div>
+        </div>`;
+    }
+
+    // ── SUPREME CHAMPION DISPLAY ──
+    if (supremeChamps && supremeChamps.length) {
+      const classIcons = { Warrior:'⚔️',Mage:'🔮',Rogue:'🗡️',Hunter:'🏹',Paladin:'✨',Necromancer:'💀',Shaman:'⚡',Berserker:'🐉' };
+      const tierColors = { rookie:'#22c55e', veteran:'#3b82f6', elite:'#a855f7', legend:'#ff9900' };
+      html += `
+        <div class="char-panel" style="margin-bottom:12px;
+          border:1px solid var(--gold);background:rgba(255,153,0,0.04);">
+          <div class="panel-title" style="color:var(--gold);">👑 Supreme Champions</div>
+          ${supremeChamps.map(c => {
+            const color = tierColors[c.supreme_tier] || 'var(--gold)';
+            const defenses = c.supreme_defenses || 0;
+            const shields = defenses >= 10 ? '⭐ UNDEFEATED' 
+              : '🛡️'.repeat(Math.min(defenses, 5));
+            const since = c.supreme_since 
+              ? new Date(c.supreme_since).toLocaleDateString() : '?';
+            const isMe = c.id === state.character_id;
+            return `
+              <div style="display:flex;align-items:center;gap:8px;padding:8px;
+                margin-bottom:6px;border-radius:8px;
+                background:${isMe ? 'rgba(255,153,0,0.08)' : 'rgba(255,255,255,0.03)'};
+                border:1px solid ${isMe ? 'var(--gold)' : 'rgba(255,255,255,0.06)'};">
+                <div style="font-size:1.4em;">${classIcons[c.class]||'👤'}</div>
+                <div style="flex:1;">
+                  <div style="font-family:var(--font-title);font-size:.82em;color:${color};">
+                    ${c.supreme_title || ''}
+                  </div>
+                  <div style="font-size:.72em;color:var(--text);">
+                    ${c.name} 
+                    <span style="color:var(--text-dim);">Lv.${c.level}</span>
+                    ${isMe ? '<span style="color:var(--gold);"> (You)</span>' : ''}
+                  </div>
+                  <div style="font-size:.65em;color:var(--text-dim);">
+                    ${shields} ${defenses} defense${defenses!==1?'s':''}
+                    · Since ${since}
+                  </div>
+                </div>
+              </div>`;
+          }).join('')}
         </div>`;
     }
 
@@ -3194,12 +3237,12 @@ async function renderTournament() {
       html += `
         <div class="char-panel" style="margin-bottom:12px;text-align:center;">
           <div style="font-size:1.5em;margin-bottom:8px;">🔒</div>
-          <div style="font-family:var(--font-title);color:var(--gold);margin-bottom:4px;">Tournament Locked</div>
-          <div style="font-size:.78em;color:var(--text-dim);">
-            Reach <span style="color:var(--green);">Level 20</span> to compete in tournaments.
+          <div style="font-family:var(--font-title);color:var(--gold);margin-bottom:4px;">
+            Tournament Locked
           </div>
-          <div style="font-size:.72em;color:var(--text-dim);margin-top:4px;">
-            You are Level ${playerLevel} — ${20 - playerLevel} levels to go!
+          <div style="font-size:.78em;color:var(--text-dim);">
+            Reach <span style="color:var(--green);">Level 20</span> to compete.
+            You are Level ${playerLevel} — ${20-playerLevel} levels to go!
           </div>
         </div>`;
     }
@@ -3209,23 +3252,53 @@ async function renderTournament() {
       <div style="font-size:.72em;color:var(--text-dim);margin-bottom:10px;
         background:rgba(255,255,255,0.03);border-radius:6px;padding:8px;line-height:1.9;">
         🗓️ <b style="color:var(--text);">Every Friday</b> &nbsp;|&nbsp;
-        🕖 Registration: <b style="color:var(--gold);">7:00 PM</b> &nbsp;|&nbsp;
-        ⚔️ Battles: <b style="color:var(--gold);">7–8 PM</b> &nbsp;|&nbsp;
-        🏆 Rewards: <b style="color:var(--gold);">9 PM</b> &nbsp;|&nbsp;
+        🕖 Registration: <b style="color:var(--gold);">7 PM</b> &nbsp;|&nbsp;
+        ⚔️ Brackets: <b style="color:var(--gold);">7–8 PM</b> &nbsp;|&nbsp;
+        👑 Grand Final: <b style="color:var(--gold);">9 PM</b> &nbsp;|&nbsp;
+        🏆 Rewards: <b style="color:var(--gold);">10 PM</b> &nbsp;|&nbsp;
         ⏰ Expires: <b style="color:var(--red);">Next Fri 1 AM</b>
         <br>All times Cambodia (UTC+7)
       </div>`;
 
     // ── TIER CARDS ──
     for (const tier of TIERS) {
-      const { tournament, regCount, isRegistered } = tierData[tier.key];
+      const tierFee = fees[tier.key] ?? 20000;
       const isPlayerTier = tier.key === playerTierKey;
       const isLocked = playerLevel < tier.min || playerLevel > tier.max;
-      const status = tournament?.status || 'none';
-      const realPlayers = Math.min(regCount, 8);
-      const botSlots = Math.max(0, 8 - realPlayers);
 
-      
+      // Get all brackets for this tier
+      const tierBrackets = (activeTournaments || [])
+        .filter(t => t.min_level === tier.min)
+        .sort((a, b) => a.bracket_number - b.bracket_number);
+
+      // Get grand final for this tier
+      const grandFinal = (grandFinals || []).find(gf => gf.tier === tier.key);
+
+      // Get supreme champ for this tier
+      const supremeChamp = (supremeChamps || []).find(c => c.supreme_tier === tier.key);
+
+      // Check if player is registered in any bracket
+      let playerBracket = null;
+      let playerRegCount = 0;
+      for (const t of tierBrackets) {
+        const { data: myReg } = await dbClient
+          .from('arena_registrations')
+          .select('id')
+          .eq('tournament_id', t.id)
+          .eq('user_id', state.user_id)
+          .single();
+        if (myReg) { playerBracket = t; break; }
+        const { count } = await dbClient
+          .from('arena_registrations')
+          .select('*', { count: 'exact' })
+          .eq('tournament_id', t.id);
+        playerRegCount += count || 0;
+      }
+
+      const isRegistered = !!playerBracket;
+      const totalSlots = tierBrackets.length * TOURNAMENT_SIZE;
+      const allFull = tierBrackets.length >= MAX_BRACKETS_PER_TIER &&
+        tierBrackets.every(t => t.status !== 'open');
 
       html += `
         <div class="char-panel" style="margin-bottom:10px;
@@ -3244,93 +3317,118 @@ async function renderTournament() {
               ${isPlayerTier ? `<span style="font-size:.62em;color:var(--green);margin-left:6px;">● YOUR TIER</span>` : ''}
             </div>
             <div style="font-size:.72em;color:var(--gold);">
-              Entry: ${formatNumber(tier.fee)}g
+              Entry: ${formatNumber(tierFee)}g
             </div>
           </div>
 
-          <!-- Slot Bar -->
-          <div style="margin-bottom:8px;">
-            <div style="display:flex;justify-content:space-between;font-size:.68em;
-              color:var(--text-dim);margin-bottom:3px;">
-              <span>👤 ${realPlayers} player${realPlayers !== 1 ? 's' : ''}
-                ${botSlots > 0 && status === 'none' ? `+ 🤖 ${botSlots} bot${botSlots !== 1 ? 's' : ''} reserved` : ''}
+          <!-- Supreme Champ Badge -->
+          ${supremeChamp ? `
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;
+              padding:5px 8px;background:rgba(255,153,0,0.08);
+              border-radius:6px;border:1px solid rgba(255,153,0,0.2);">
+              <span style="font-size:.9em;">👑</span>
+              <span style="font-size:.70em;color:var(--gold);font-family:var(--font-title);">
+                Supreme: ${supremeChamp.name}
               </span>
-              <span>${realPlayers}/8 slots</span>
-            </div>
-            <div style="height:5px;background:rgba(255,255,255,0.07);border-radius:3px;overflow:hidden;">
-              <div style="height:100%;width:${(realPlayers / 8) * 100}%;
-                background:${tier.color};border-radius:3px;transition:width .3s;"></div>
-            </div>
-          </div>
+              <span style="font-size:.62em;color:var(--text-dim);margin-left:auto;">
+                ${'🛡️'.repeat(Math.min(supremeChamp.supreme_defenses||0, 5))}
+              </span>
+            </div>` : ''}
 
-          <!-- Status & Action -->
+          <!-- Brackets -->
+          ${tierBrackets.length ? tierBrackets.map(t => {
+            const bracketRegCount = 0; // will show from slot bar
+            return `
+              <div style="margin-bottom:6px;padding:6px;
+                background:rgba(255,255,255,0.02);border-radius:6px;
+                border:1px solid rgba(255,255,255,0.06);">
+                <div style="display:flex;justify-content:space-between;
+                  font-size:.68em;color:var(--text-dim);margin-bottom:3px;">
+                  <span>Bracket ${t.bracket_number}</span>
+                  <span style="color:${t.status==='open'?'var(--green)':'var(--gold)'};">
+                    ${t.status==='open'?'🟢 Open':'🟡 In Progress'}
+                  </span>
+                </div>
+                <div style="height:4px;background:rgba(255,255,255,0.07);
+                  border-radius:2px;overflow:hidden;">
+                  <div style="height:100%;background:${tier.color};border-radius:2px;
+                    width:${(Math.min(t.bracket?.length||0, TOURNAMENT_SIZE)/TOURNAMENT_SIZE)*100}%;">
+                  </div>
+                </div>
+                ${t.status==='in_progress'?`
+                  <button class="start-btn" 
+                    onclick="viewBracketByTierAndNumber('${tier.key}', ${t.bracket_number})"
+                    style="width:100%;padding:5px;font-size:.68em;margin-top:4px;">
+                    📊 View Bracket
+                  </button>` : ''}
+              </div>`;
+          }).join('') : `
+            <div style="font-size:.72em;color:var(--text-dim);
+              text-align:center;padding:6px 0;">
+              No brackets open yet
+            </div>`}
+
+          <!-- Grand Final Status -->
+          ${grandFinal ? `
+            <div style="margin-bottom:8px;padding:6px 8px;
+              background:rgba(255,153,0,0.08);border-radius:6px;
+              border:1px solid rgba(255,153,0,0.3);">
+              <div style="font-size:.70em;color:var(--gold);font-family:var(--font-title);">
+                👑 Grand Final — ${grandFinal.status === 'in_progress' ? '⚔️ In Progress' : '⏳ Pending 9PM'}
+              </div>
+              ${grandFinal.status==='in_progress'?`
+                <button class="start-btn"
+                  onclick="viewGrandFinalBracket('${tier.key}')"
+                  style="width:100%;padding:5px;font-size:.68em;margin-top:4px;">
+                  📊 View Grand Final
+                </button>` : ''}
+            </div>` : ''}
+
+          <!-- Action Button -->
           ${isLocked ? `
             <div style="font-size:.72em;color:var(--text-dim);text-align:center;padding:4px 0;">
               🔒 Requires Level ${tier.min}–${tier.max}
             </div>
-          ` : status === 'in_progress' ? `
-            <div style="display:flex;gap:8px;">
-              <div style="flex:1;text-align:center;font-size:.75em;color:var(--gold);
-                padding:8px;background:rgba(255,153,0,0.08);border-radius:6px;">
-                ⚔️ In Progress
-              </div>
-              <button class="start-btn" onclick="viewBracketByTier('${tier.key}')"
-                style="flex:1;padding:8px;font-size:.75em;">
-                📊 View Bracket
-              </button>
-            </div>
           ` : isRegistered ? `
             <div style="text-align:center;color:var(--green);font-size:.78em;
               padding:8px;background:rgba(34,197,94,0.06);border-radius:6px;">
-              ✅ Registered! Waiting for tournament to start...
+              ✅ Registered in Bracket ${playerBracket?.bracket_number}!
+              Waiting for tournament to start...
+            </div>
+            ${playerBracket?.status === 'open' ? `
+              <button class="start-btn" 
+                onclick="devStartTournament('${tier.key}')"
+                style="width:100%;padding:8px;font-size:.72em;margin-top:6px;
+                background:rgba(255,0,0,0.1);border-color:var(--red);">
+                🧪 DEV: Force Start with Bots
+              </button>` : ''}
+          ` : allFull ? `
+            <div style="text-align:center;color:var(--red);font-size:.75em;
+              padding:8px;background:rgba(255,0,0,0.06);border-radius:6px;">
+              ⚠️ All ${MAX_BRACKETS_PER_TIER} brackets full! Come back next week.
             </div>
           ` : `
             <button class="start-btn"
               onclick="registerForTournament('${tier.key}')"
               style="width:100%;padding:9px;font-size:.78em;
-              background:${isPlayerTier ? `linear-gradient(135deg,${tier.color}33,${tier.color}11)` : ''};
-              border-color:${isPlayerTier ? tier.color : 'var(--border)'};">
-              ⚔️ Register — ${formatNumber(tier.fee)}g
+              background:${isPlayerTier?`linear-gradient(135deg,${tier.color}33,${tier.color}11)`:''};
+              border-color:${isPlayerTier?tier.color:'var(--border)'};">
+              ⚔️ Register — ${formatNumber(tierFee)}g
             </button>
           `}
-          <!-- Practice Board Toggle -->
-<div style="margin-top:8px;">
-  <button onclick="togglePracticeboard('${tier.key}')"
-    id="practice-toggle-${tier.key}"
-    style="width:100%;padding:6px;font-size:.70em;
-    background:rgba(255,255,255,0.03);border:1px solid var(--border);
-    border-radius:6px;color:var(--text-dim);cursor:pointer;">
-    👥 View Registered Fighters
-  </button>
-  <div id="practiceboard-${tier.key}" style="display:none;margin-top:8px;"></div>
-</div>
-        </div>`;
-    }
 
-    // ── RECENT BATTLES ──
-    if (battles && battles.length) {
-      html += `
-        <div class="char-panel" style="margin-bottom:12px;">
-          <div class="panel-title">⚔️ Recent Battles</div>
-          ${battles.map(b => {
-            const isWinner = b.winner_id === state.character_id;
-            const opp = b.attacker_id === state.character_id
-              ? b.defender_snapshot : b.attacker_snapshot;
-            return `
-              <div style="display:flex;align-items:center;justify-content:space-between;
-                padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:.76em;">
-                <span style="color:${isWinner ? 'var(--green)' : 'var(--red)'};">
-                  ${isWinner ? '✅ WIN' : '❌ LOSS'}
-                </span>
-                <span style="color:var(--text);">vs ${opp?.name || '🤖 Bot'} (Lv.${opp?.level || '?'})</span>
-                <button onclick="viewBattleLog('${b.id}')"
-                  style="background:transparent;border:1px solid var(--border);
-                  border-radius:4px;color:var(--text-dim);font-size:.72em;
-                  padding:2px 8px;cursor:pointer;">
-                  📜 Log
-                </button>
-              </div>`;
-          }).join('')}
+          <!-- Practice Board Toggle -->
+          ${!isLocked ? `
+            <div style="margin-top:8px;">
+              <button onclick="togglePracticeboard('${tier.key}')"
+                id="practice-toggle-${tier.key}"
+                style="width:100%;padding:6px;font-size:.70em;
+                background:rgba(255,255,255,0.03);border:1px solid var(--border);
+                border-radius:6px;color:var(--text-dim);cursor:pointer;">
+                👥 View Registered Fighters
+              </button>
+              <div id="practiceboard-${tier.key}" style="display:none;margin-top:8px;"></div>
+            </div>` : ''}
         </div>`;
     }
 
@@ -3703,8 +3801,8 @@ async function openBattleReplay(battleId) {
   renderReplay();
 }
 
-// ── VIEW BRACKET BY TIER ──
-async function viewBracketByTier(tierKey) {
+// ── VIEW BRACKET BY TIER AND BRACKET NUMBER ──
+async function viewBracketByTierAndNumber(tierKey, bracketNumber) {
   const TIER_MIN = { rookie: 20, veteran: 41, elite: 61, legend: 81 };
   const minLevel = TIER_MIN[tierKey];
 
@@ -3713,6 +3811,7 @@ async function viewBracketByTier(tierKey) {
     .select('*')
     .in('status', ['open', 'in_progress', 'completed'])
     .eq('min_level', minLevel)
+    .eq('bracket_number', bracketNumber)
     .order('created_at', { ascending: false })
     .limit(1)
     .single();
@@ -3721,48 +3820,64 @@ async function viewBracketByTier(tierKey) {
 
   const bracket = tournament.bracket || [];
   const rounds = [...new Set(bracket.map(m => m.round))].sort();
-  const roundLabels = { 1: 'QUARTER FINALS', 2: 'SEMI FINALS', 3: 'FINALS' };
+  const roundLabels = {
+    1: 'ROUND OF 16',
+    2: 'QUARTER FINALS',
+    3: 'SEMI FINALS',
+    4: 'FINALS'
+  };
 
   document.getElementById('item-popup-content').innerHTML = `
-    <div style="font-family:var(--font-title);color:var(--gold);margin-bottom:12px;font-size:.9em;">
-      📊 ${tierKey.charAt(0).toUpperCase() + tierKey.slice(1)} Bracket
+    <div style="font-family:var(--font-title);color:var(--gold);
+      margin-bottom:4px;font-size:.88em;">
+      📊 ${tierKey.charAt(0).toUpperCase()+tierKey.slice(1)} — Bracket ${bracketNumber}
+    </div>
+    <div style="font-size:.68em;color:var(--text-dim);margin-bottom:10px;">
+      ${tournament.status === 'completed' ? '✅ Completed' : '⚔️ In Progress'}
     </div>
     <div style="max-height:400px;overflow-y:auto;">
       ${rounds.map(r => `
         <div style="margin-bottom:14px;">
-          <div style="font-family:var(--font-title);font-size:.68em;color:var(--text-dim);
-            letter-spacing:2px;margin-bottom:6px;">
+          <div style="font-family:var(--font-title);font-size:.65em;
+            color:var(--text-dim);letter-spacing:2px;margin-bottom:6px;">
             ${roundLabels[r] || `ROUND ${r}`}
           </div>
           ${bracket.filter(m => m.round === r).map(m => {
             const p1Won = m.winner?.character_id === m.player1?.character_id;
             const p2Won = m.winner?.character_id === m.player2?.character_id;
-            const p1IsBot = m.player1?.isBot;
-            const p2IsBot = m.player2?.isBot;
             return `
-              <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);
-                border-radius:6px;padding:8px;margin-bottom:6px;font-size:.78em;">
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-                  <span style="flex:1;color:${p1Won ? 'var(--gold)' : m.winner ? 'var(--text-dim)' : 'var(--text)'};">
-                    ${p1IsBot ? '🤖' : '👤'} ${m.player1?.name || 'TBD'}
-                    ${m.player1?.level ? `<span style="color:var(--text-dim);font-size:.8em;">Lv.${m.player1.level}</span>` : ''}
+              <div style="background:rgba(255,255,255,0.03);
+                border:1px solid var(--border);border-radius:6px;
+                padding:8px;margin-bottom:5px;font-size:.76em;">
+                <div style="display:flex;justify-content:space-between;
+                  align-items:center;gap:6px;">
+                  <span style="flex:1;color:${p1Won?'var(--gold)':m.winner?'var(--text-dim)':'var(--text)'};">
+                    ${m.player1?.isBot?'🤖':'👤'} ${m.player1?.name||'TBD'}
+                    <span style="color:var(--text-dim);font-size:.8em;">
+                      Lv.${m.player1?.level||'?'}
+                    </span>
                   </span>
-                  <span style="color:var(--text-dim);font-size:.7em;">VS</span>
-                  <span style="flex:1;text-align:right;color:${p2Won ? 'var(--gold)' : m.winner ? 'var(--text-dim)' : 'var(--text)'};">
-                    ${m.player2 ? `${p2IsBot ? '🤖' : '👤'} ${m.player2.name}
-                    ${m.player2?.level ? `<span style="color:var(--text-dim);font-size:.8em;">Lv.${m.player2.level}</span>` : ''}` : 'BYE'}
+                  <span style="color:var(--text-dim);font-size:.68em;">VS</span>
+                  <span style="flex:1;text-align:right;
+                    color:${p2Won?'var(--gold)':m.winner?'var(--text-dim)':'var(--text)'};">
+                    ${m.player2?`${m.player2.isBot?'🤖':'👤'} ${m.player2.name}
+                    <span style="color:var(--text-dim);font-size:.8em;">
+                      Lv.${m.player2?.level||'?'}
+                    </span>`:'BYE'}
                   </span>
                 </div>
-                ${m.winner ? `
-                  <div style="text-align:center;color:var(--gold);font-size:.68em;margin-top:5px;">
+                ${m.winner?`
+                  <div style="text-align:center;color:var(--gold);
+                    font-size:.65em;margin-top:4px;">
                     🏆 ${m.winner.name} advances
                   </div>` : ''}
-                ${m.battleLog?.length ? `
+                ${m.battleId?`
                   <div style="text-align:center;margin-top:4px;">
-                    <button onclick="openBattleReplay('${m.battleId || ''}')"
-                      style="background:transparent;border:1px solid var(--border);border-radius:4px;
-                      color:var(--text-dim);font-size:.68em;padding:2px 8px;cursor:pointer;">
-                      📜 View Log
+                    <button onclick="openBattleReplay('${m.battleId}')"
+                      style="background:transparent;border:1px solid var(--border);
+                      border-radius:4px;color:var(--text-dim);
+                      font-size:.68em;padding:2px 8px;cursor:pointer;">
+                      🎬 Replay
                     </button>
                   </div>` : ''}
               </div>`;
