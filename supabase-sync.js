@@ -44,6 +44,12 @@ async function loadPlayerFromSupabase(characterId) {
 // ============================================
 
 function syncCharacterToState(character) {
+  // Ensure talent flags are set after loading
+  if (state.class && state.level >= 10) {
+  if (typeof checkTalentUnlocks === 'function') checkTalentUnlocks();
+  }
+
+  if (typeof calcStats === 'function') calcStats();
   // Basic info
   state.respecCount = character.respec_count || 0;
   state.goldMultExpiry = character.gold_mult_expiry || null;

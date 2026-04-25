@@ -37,17 +37,17 @@ async function loadGameConfig() {
 }
 
 function applyGameConfig() {
-  // Apply enhance costs
+  // ── Apply enhance costs ──
   if (GAME_CONFIG.enhance_costs) {
     ENHANCE_COST.splice(0, ENHANCE_COST.length, ...GAME_CONFIG.enhance_costs);
   }
 
-  // Apply enhance rates
+  // ── Apply enhance rates ──
   if (GAME_CONFIG.enhance_rates) {
     ENHANCE_RATE.splice(0, ENHANCE_RATE.length, ...GAME_CONFIG.enhance_rates);
   }
 
-  // Apply shop equipment prices
+  // ── Apply shop equipment prices ──
   if (GAME_CONFIG.shop_equip_prices) {
     SHOP_EQUIP.forEach(item => {
       if (GAME_CONFIG.shop_equip_prices[item.id]) {
@@ -56,7 +56,7 @@ function applyGameConfig() {
     });
   }
 
-  // Apply shop consumable prices
+  // ── Apply shop consumable prices ──
   if (GAME_CONFIG.shop_cons_prices) {
     SHOP_CONS.forEach(item => {
       if (GAME_CONFIG.shop_cons_prices[item.id]) {
@@ -65,7 +65,7 @@ function applyGameConfig() {
     });
   }
 
-  // Apply monster gold multipliers
+  // ── Apply monster gold multipliers ──
   if (GAME_CONFIG.monster_gold_mult) {
     const mult = GAME_CONFIG.monster_gold_mult;
     const stageMap = {
@@ -83,14 +83,12 @@ function applyGameConfig() {
     Object.entries(stageMap).forEach(([stage, monsters]) => {
       const m = mult[stage] || 1.0;
       monsters.forEach(id => {
-        if (MONSTER_TEMPLATES[id]) {
-          MONSTER_TEMPLATES[id]._goldMult = m;
-        }
+        if (MONSTER_TEMPLATES[id]) MONSTER_TEMPLATES[id]._goldMult = m;
       });
     });
   }
 
-  // Apply monster XP multipliers
+  // ── Apply monster XP multipliers ──
   if (GAME_CONFIG.monster_xp_mult) {
     const mult = GAME_CONFIG.monster_xp_mult;
     const stageMap = {
@@ -108,16 +106,336 @@ function applyGameConfig() {
     Object.entries(stageMap).forEach(([stage, monsters]) => {
       const m = mult[stage] || 1.0;
       monsters.forEach(id => {
-        if (MONSTER_TEMPLATES[id]) {
-          MONSTER_TEMPLATES[id]._xpMult = m;
-        }
+        if (MONSTER_TEMPLATES[id]) MONSTER_TEMPLATES[id]._xpMult = m;
       });
     });
   }
 
-  // Apply tournament fees
+  // ── Apply class bonuses from config ──
+  if (GAME_CONFIG.class_bonuses) {
+    Object.entries(GAME_CONFIG.class_bonuses).forEach(([className, bonuses]) => {
+      if (CLASSES[className]) {
+        CLASSES[className].bonuses = { ...bonuses };
+      }
+    });
+  }
+
+  // ── Apply talent values from config ──
+  if (GAME_CONFIG.talent_values) {
+    Object.entries(GAME_CONFIG.talent_values).forEach(([className, talents]) => {
+      if (!CLASSES[className]) return;
+      Object.values(CLASSES[className].trees).forEach(tree => {
+        tree.talents.forEach(talent => {
+          const cfg = talents[talent.id];
+          if (!cfg) return;
+          // Rebuild talent effect function from config values
+          talent.configValues = cfg;
+          talent.effect = buildTalentEffect(talent.id, className, cfg);
+        });
+      });
+    });
+  }
+
+  // ── Apply skill multipliers from config ──
+  if (GAME_CONFIG.skill_multipliers) {
+    Object.entries(GAME_CONFIG.skill_multipliers).forEach(([skillId, mults]) => {
+      if (SKILLS[skillId]) {
+        SKILLS[skillId].configMults = mults;
+        SKILLS[skillId].use = buildSkillUse(skillId, mults);
+      }
+    });
+  }
+
+  // ── Apply tournament fees ──
   if (GAME_CONFIG.tournament_fees) {
-    Object.assign(PRACTICE_FEES, GAME_CONFIG.practice_fees || {});
+    Object.assign(PRACTICE_FEES || {}, GAME_CONFIG.practice_fees || {});
+  }
+}
+
+// ── BUILD TALENT EFFECT FROM CONFIG ──
+function buildTalentEffect(talentId, className, cfg) {
+  return function() {
+    if (cfg.critPerRank !== undefined)
+      state.talentBonuses.baseCrit = (state.talentBonuses.baseCrit || 0) + cfg.critPerRank;
+    if (cfg.armorMultPerRank !== undefined)
+      state.talentBonuses.armorMult = (state.talentBonuses.armorMult || 0) + cfg.armorMultPerRank;
+    if (cfg.hpRegenMultPerRank !== undefined)
+      state.talentBonuses.hpRegenMult = (state.talentBonuses.hpRegenMult || 0) + cfg.hpRegenMultPerRank;
+    if (cfg.mpRegenMultPerRank !== undefined)
+      state.talentBonuses.mpRegenMult = (state.talentBonuses.mpRegenMult || 0) + cfg.mpRegenMultPerRank;
+    if (cfg.dodgeMultPerRank !== undefined)
+      state.talentBonuses.dodgeMult = (state.talentBonuses.dodgeMult || 0) + cfg.dodgeMultPerRank;
+    if (cfg.hitMultPerRank !== undefined)
+      state.talentBonuses.hitMult = (state.talentBonuses.hitMult || 0) + cfg.hitMultPerRank;
+    if (cfg.strMultPerRank !== undefined)
+      state.talentBonuses.strMult = (state.talentBonuses.strMult || 0) + cfg.strMultPerRank;
+    if (cfg.intMultPerRank !== undefined)
+      state.talentBonuses.intMult = (state.talentBonuses.intMult || 0) + cfg.intMultPerRank;
+    if (cfg.agiMultPerRank !== undefined)
+      state.talentBonuses.agiMult = (state.talentBonuses.agiMult || 0) + cfg.agiMultPerRank;
+    if (cfg.attackPowerMultPerRank !== undefined)
+      state.talentBonuses.attackPowerMult = (state.talentBonuses.attackPowerMult || 0) + cfg.attackPowerMultPerRank;
+    if (cfg.lifeStealPerRank !== undefined)
+      state.talentBonuses.baseLifeSteal = (state.talentBonuses.baseLifeSteal || 0) + cfg.lifeStealPerRank;
+    if (cfg.spellPowerMultPerRank !== undefined)
+      state.talentBonuses.spellPowerMult = (state.talentBonuses.spellPowerMult || 0) + cfg.spellPowerMultPerRank;
+    if (cfg.healPowerMultPerRank !== undefined)
+      state.talentBonuses.healPowerMult = (state.talentBonuses.healPowerMult || 0) + cfg.healPowerMultPerRank;
+    if (cfg.critMultPerRank !== undefined)
+      state.talentBonuses.critMult = (state.talentBonuses.critMult || 0) + cfg.critMultPerRank;
+    if (cfg.dmgReductionPerRank !== undefined)
+      state.talentBonuses.dmgReduction = (state.talentBonuses.dmgReduction || 0) + cfg.dmgReductionPerRank;
+    if (cfg.dmgReflectPct !== undefined)
+      state.talentBonuses.dmgReflect = (state.talentBonuses.dmgReflect || 0) + cfg.dmgReflectPct;
+    if (cfg.chainChanceBonus !== undefined)
+      state.talentBonuses.chainChance = (state.talentBonuses.chainChance || 0) + cfg.chainChanceBonus;
+    if (cfg.bonusAttackChance !== undefined)
+      state.talentBonuses.bonusAttackChance = (state.talentBonuses.bonusAttackChance || 0) + cfg.bonusAttackChance;
+  };
+}
+
+// ── BUILD SKILL USE FROM CONFIG ──
+function buildSkillUse(skillId, m) {
+  switch(skillId) {
+
+    // ── WARRIOR ──
+    case 'power_strike': return (e) => {
+      const d = Math.floor(state.attackPower * (m.atkMult || 2.2));
+      e.hp -= d;
+      addCombatLog(`💥 Power Strike! ${formatNumber(d)} dmg!`, 'good');
+      playSound('snd-attack'); animateAttack(true, d, false); return d;
+    };
+    case 'battle_cry': return (e) => {
+      if (state.battleCryActive) { addCombatLog(`📯 Battle Cry already active!`, 'info'); return 0; }
+      state.battleCryActive = true;
+      state.strMult *= (1 + (m.strMult || 0.8));
+      state.attackPowerMult *= (1 + (m.atkMult || 0.6));
+      state.hitMult *= 1.3;
+      addCombatLog(`📯 Battle Cry! +${Math.round((m.strMult||0.8)*100)}% STR, +${Math.round((m.atkMult||0.6)*100)}% ATK!`, 'good');
+      playSound('snd-magic'); calcStats(); return 0;
+    };
+    case 'last_stand': return (e) => {
+      const h = Math.floor(state.maxHp * (m.healPct || 0.15));
+      state.hp = Math.min(state.maxHp, state.hp + h);
+      addCombatLog(`🛡️ Last Stand! +${formatNumber(h)} HP!`, 'good');
+      playSound('snd-heal'); spawnDmgFloat(`+${formatNumber(h)}HP`, false, 'heal-float');
+      calcStats(); return 0;
+    };
+
+    // ── MAGE ──
+    case 'fireball': return (e) => {
+      const spellMult = 1 + (state.talentBonuses.spellPowerMult || 0);
+      const magicPen = state.magicPen || 0;
+      const reduction = Math.max(0, Math.min(0.85, (e.armor || 0) / ((e.armor || 0) + 80000)) - magicPen);
+      const base = Math.floor((state.int * (m.intMult || 8.0) + state.attackPower * (m.atkMult || 0.5)) * spellMult);
+      const d = Math.max(1, Math.floor(base * (1 - reduction)));
+      e.hp -= d;
+      addCombatLog(`🔥 Fireball! ${formatNumber(d)} dmg!`, 'good');
+      playSound('snd-magic'); animateAttack(true, d, false); return d;
+    };
+    case 'ice_lance': return (e) => {
+      const spellMult = 1 + (state.talentBonuses.spellPowerMult || 0);
+      const magicPen = state.magicPen || 0;
+      const reduction = Math.max(0, Math.min(0.85, (e.armor || 0) / ((e.armor || 0) + 80000)) - magicPen);
+      const base = Math.floor(state.int * (m.intMult || 5.5) * spellMult);
+      const d = Math.max(1, Math.floor(base * (1 - reduction)));
+      e.hp -= d;
+      // Bonus damage on already frozen targets
+      const bonusDmg = e.frozen ? Math.floor(d * (m.frozenBonus || 1.5) - d) : 0;
+      if (bonusDmg > 0) {
+        e.hp -= bonusDmg;
+        addCombatLog(`❄️ Ice Lance! ${formatNumber(d + bonusDmg)} dmg (frozen bonus!)`, 'info');
+      } else {
+        addCombatLog(`❄️ Ice Lance! ${formatNumber(d)} dmg — Frozen!`, 'info');
+      }
+      e.frozen = true;
+      playSound('snd-magic'); animateAttack(true, d + bonusDmg, false); return d + bonusDmg;
+    };
+    case 'mana_shield': return (e) => {
+      state.manaShield = true;
+      state.manaShieldAbsorb = Math.floor(state.maxMp * (m.absorbPct || 0.40));
+      addCombatLog(`🔮 Mana Shield! Absorbs up to ${formatNumber(state.manaShieldAbsorb)} dmg!`, 'info');
+      playSound('snd-heal'); return 0;
+    };
+
+    // ── ROGUE ──
+    case 'backstab': return (e) => {
+      const d = Math.floor(state.attackPower * (m.atkMult || 1.5) + state.agi * (m.agiMult || 3.0));
+      e.hp -= d;
+      addCombatLog(`🗡️ Backstab! ${formatNumber(d)} dmg!`, 'good');
+      playSound('snd-attack'); animateAttack(true, d, false); return d;
+    };
+    case 'poison_blade': return (e) => {
+      const stacks = m.stacks || 5;
+      const tick = Math.floor(state.agi * (m.agiMult || 1.8) + state.attackPower * (m.atkMult || 1.3));
+      e.poisoned = (e.poisoned || 0) + stacks;
+      e.poisonDmg = tick;
+      addCombatLog(`🐍 Poisoned! ${formatNumber(tick)} dmg/tick for ${stacks} turns!`, 'good');
+      playSound('snd-magic'); return 0;
+    };
+    case 'shadow_step': return (e) => {
+      const d = Math.floor(state.attackPower * (m.atkMult || 2.0) + state.agi * (m.agiMult || 4.0));
+      e.hp -= d;
+      addCombatLog(`🌑 Shadow Step! ${formatNumber(d)} dmg!`, 'purple');
+      playSound('snd-magic'); animateAttack(true, d, false); return d;
+    };
+
+    // ── HUNTER ──
+    case 'precise_shot': return (e) => {
+      const d = Math.floor(state.attackPower * (m.atkMult || 2.0) + state.agi * (m.agiMult || 4.0));
+      e.hp -= d;
+      addCombatLog(`🎯 Precise Shot! ${formatNumber(d)} dmg!`, 'good');
+      playSound('snd-attack'); animateAttack(true, d, false); return d;
+    };
+    case 'bleed_arrow': return (e) => {
+      const stacks = m.stacks || 4;
+      const tick = Math.floor(state.agi * (m.agiMult || 1.5) + state.attackPower * (m.atkMult || 1.0));
+      e.poisoned = (e.poisoned || 0) + stacks;
+      e.poisonDmg = tick;
+      addCombatLog(`🏹 Bleed! ${formatNumber(tick)} dmg/tick for ${stacks} turns!`, 'good');
+      playSound('snd-attack'); return 0;
+    };
+    case 'shadow_trap': return (e) => {
+      e.frozen = true;
+      const d = Math.floor(state.agi * (m.agiMult || 2.5) + state.attackPower * (m.atkMult || 1.5));
+      e.hp -= d;
+      addCombatLog(`🪤 Shadow Trap! ${formatNumber(d)} dmg + Frozen!`, 'good');
+      playSound('snd-magic'); animateAttack(true, d, false); return d;
+    };
+
+    // ── PALADIN ──
+    case 'holy_strike': return (e) => {
+      const healMult = 1 + (state.talentBonuses.healPowerMult || 0);
+      const d = Math.floor(state.attackPower * (m.atkMult || 2.0) + state.str * (m.strMult || 3.0));
+      e.hp -= d;
+      const heal = Math.floor(d * (m.healPct || 0.25) * healMult);
+      state.hp = Math.min(state.maxHp, state.hp + heal);
+      addCombatLog(`✨ Holy Strike! ${formatNumber(d)} dmg, +${formatNumber(heal)} HP!`, 'good');
+      playSound('snd-attack'); animateAttack(true, d, false);
+      spawnDmgFloat(`+${formatNumber(heal)}`, false, 'heal-float'); return d;
+    };
+    case 'divine_shield': return (e) => {
+      const healMult = 1 + (state.talentBonuses.healPowerMult || 0);
+      state.manaShield = true;
+      const healAmt = Math.floor(state.maxHp * (m.healPct || 0.40) * healMult);
+      state.hp = Math.min(state.maxHp, state.hp + healAmt);
+      addCombatLog(`🛡️ Divine Shield! +${formatNumber(healAmt)} HP + absorb!`, 'good');
+      playSound('snd-heal');
+      spawnDmgFloat(`+${formatNumber(healAmt)}`, false, 'heal-float'); return 0;
+    };
+    case 'consecration': return (e) => {
+      const d = Math.floor(state.str * (m.strMult || 4.0) + state.int * (m.intMult || 3.0));
+      e.hp -= d;
+      const stacks = m.stacks || 5;
+      e.poisoned = (e.poisoned || 0) + stacks;
+      e.poisonDmg = Math.floor(d * (m.burnPct || 0.20));
+      addCombatLog(`🌟 Consecration! ${formatNumber(d)} dmg + holy burn x${stacks}!`, 'good');
+      playSound('snd-magic'); animateAttack(true, d, false); return d;
+    };
+
+    // ── NECROMANCER ──
+    case 'death_bolt': return (e) => {
+      const spellMult = 1 + (state.talentBonuses.spellPowerMult || 0);
+      const d = Math.floor((state.int * (m.intMult || 7.0) + Math.random() * state.int * 2) * spellMult);
+      e.hp -= d;
+      const drain = Math.floor(d * (m.drainPct || 0.20));
+      state.hp = Math.min(state.maxHp, state.hp + drain);
+      addCombatLog(`💀 Death Bolt! ${formatNumber(d)} dmg, drained ${formatNumber(drain)} HP!`, 'good');
+      playSound('snd-magic'); animateAttack(true, d, false);
+      spawnDmgFloat(`+${formatNumber(drain)}`, false, 'heal-float'); return d;
+    };
+    case 'soul_drain': return (e) => {
+      const spellMult = 1 + (state.talentBonuses.spellPowerMult || 0);
+      const d = Math.floor(state.int * (m.intMult || 5.0) * spellMult);
+      e.hp -= d;
+      const drain = Math.floor(d * (m.drainPct || 0.25));
+      state.hp = Math.min(state.maxHp, state.hp + drain);
+      state.mp = Math.min(state.maxMp, state.mp + Math.floor(state.maxMp * (m.mpRestorePct || 0.10)));
+      addCombatLog(`🌑 Soul Drain! ${formatNumber(d)} dmg, +${formatNumber(drain)} HP, +MP!`, 'good');
+      playSound('snd-magic'); animateAttack(true, d, false); return d;
+    };
+    case 'plague_nova': return (e) => {
+      const spellMult = 1 + (state.talentBonuses.spellPowerMult || 0);
+      const stacks = m.stacks || 6;
+      const tick = Math.floor(state.int * (m.intMult || 2.5) * spellMult);
+      e.poisoned = (e.poisoned || 0) + stacks;
+      e.poisonDmg = tick;
+      const d = Math.floor(state.int * (m.directMult || 3.0) * spellMult);
+      e.hp -= d;
+      addCombatLog(`☠️ Plague Nova! ${formatNumber(d)} + ${formatNumber(tick)}/tick x${stacks}!`, 'good');
+      playSound('snd-magic'); animateAttack(true, d, false); return d;
+    };
+
+    // ── SHAMAN ──
+    case 'lightning_bolt': return (e) => {
+      const chainChance = (state.talentBonuses.chainChance || 0) +
+        (GAME_CONFIG.skill_multipliers?.lightning_bolt?.chainChance || 0.30);
+      const d = Math.floor((state.int * (m.intMult || 6.0) + state.str * (m.strMult || 3.0)));
+      e.hp -= d;
+      let totalDmg = d;
+      // Chain lightning
+      if (Math.random() < chainChance) {
+        const chainDmg = Math.floor(d * 0.6);
+        e.hp -= chainDmg;
+        totalDmg += chainDmg;
+        addCombatLog(`⚡ Lightning Bolt! ${formatNumber(d)} + ⚡Chain ${formatNumber(chainDmg)} dmg!`, 'good');
+      } else {
+        addCombatLog(`⚡ Lightning Bolt! ${formatNumber(d)} dmg!`, 'good');
+      }
+      playSound('snd-magic'); animateAttack(true, totalDmg, false); return totalDmg;
+    };
+    case 'earth_totem': return (e) => {
+      const healAmt = Math.floor(state.maxHp * (m.healPct || 0.20));
+      state.hp = Math.min(state.maxHp, state.hp + healAmt);
+      // Damage reduction for N turns
+      state.earthTotemTurns = m.turns || 3;
+      state.earthTotemReduction = m.dmgReductionPct || 0.20;
+      state.armorMult *= 1.2;
+      addCombatLog(`🪨 Earth Totem! +${formatNumber(healAmt)} HP, ${Math.round((m.dmgReductionPct||0.20)*100)}% dmg reduction for ${m.turns||3} turns!`, 'good');
+      playSound('snd-heal'); calcStats(); return 0;
+    };
+    case 'wind_burst': return (e) => {
+      const d = Math.floor(state.agi * (m.agiMult || 4.0) + state.int * (m.intMult || 4.0));
+      e.hp -= d;
+      e.frozen = true;
+      // Queue bonus attacks
+      state.bonusAttacks = (state.bonusAttacks || 0) + (m.bonusAttacks || 2);
+      addCombatLog(`🌪️ Wind Burst! ${formatNumber(d)} dmg + Frozen + ${m.bonusAttacks||2} bonus attacks!`, 'good');
+      playSound('snd-magic'); animateAttack(true, d, false); return d;
+    };
+
+    // ── BERSERKER ──
+    case 'reckless_strike': return (e) => {
+      const hpPct = state.hp / state.maxHp;
+      const rageMax = m.rageMax || 2.0;
+      const rageMult = 1 + (1 - hpPct) * (rageMax - 1);
+      const d = Math.floor(state.attackPower * (m.atkMult || 2.5) * rageMult);
+      e.hp -= d;
+      addCombatLog(`🐉 Reckless Strike! ${formatNumber(d)} dmg! (${Math.round((1-hpPct)*100)}% rage)`,
+        hpPct < 0.3 ? 'legendary' : 'good');
+      playSound('snd-attack'); animateAttack(true, d, false); return d;
+    };
+    case 'blood_rage': return (e) => {
+      if (state.battleCryActive) {
+        addCombatLog(`🩸 Blood Rage already active!`, 'info'); return 0;
+      }
+      state.battleCryActive = true;
+      state.strMult *= (1 + (m.strMult || 0.8));
+      state.attackPowerMult *= (1 + (m.atkMult || 0.6));
+      addCombatLog(`🩸 BLOOD RAGE! +${Math.round((m.strMult||0.8)*100)}% STR, +${Math.round((m.atkMult||0.6)*100)}% ATK!`, 'legendary');
+      playSound('snd-magic'); calcStats(); return 0;
+    };
+    case 'death_wish': return (e) => {
+      const sacrifice = Math.floor(state.hp * 0.30);
+      state.hp = Math.max(1, state.hp - sacrifice);
+      const d = Math.floor(state.attackPower * (m.atkMult || 2.5) + sacrifice * (m.sacrificeMult || 2.0));
+      e.hp -= d;
+      addCombatLog(`💢 Death Wish! Sacrificed ${formatNumber(sacrifice)} HP for ${formatNumber(d)} dmg!`, 'legendary');
+      playSound('snd-attack'); animateAttack(true, d, false);
+      spawnDmgFloat(`💢${formatNumber(d)}`, true, 'crit-dmg'); return d;
+    };
+
+    default: return SKILLS[skillId]?.use;
   }
 }
 
@@ -347,6 +665,24 @@ if(state.goldMultExpiry && new Date() > new Date(state.goldMultExpiry)) {
   state.manaRegen    = Math.floor((0.5+state.int*1.5)*mpRegenMult) + (state.equipMpRegen||0);
   state.hpRegen      = Math.floor((state.sta*0.5+state.baseHpRegen+(state.talentBonuses.baseHpRegen||0))*hpRegenMult) + (state.equipHpRegen||0);
   state.lifeSteal    = (state.baseLifeSteal+state.talentBonuses.baseLifeSteal||0) + (state.equipLifeSteal||0);
+  // Magic penetration (Mage class bonus)
+  state.magicPen = (CLASSES[state.class]?.bonuses?.magicPen || 0) +
+  (state.talentBonuses.magicPen || 0);
+
+  // Spell power multiplier (from Mage arcane talents)
+  state.spellPowerMult = state.talentBonuses.spellPowerMult || 0;
+
+  // Heal power multiplier (from Paladin holy talents)
+  state.healPowerMult = state.talentBonuses.healPowerMult || 0;
+
+  // Damage reduction (from Shaman earth talents)
+  state.dmgReduction = state.talentBonuses.dmgReduction || 0;
+
+  // Damage reflect (from Paladin protection talents)
+  state.dmgReflect = state.talentBonuses.dmgReflect || 0;
+
+  // Chain lightning chance (from Shaman lightning talents)
+  state.chainLightningChance = state.talentBonuses.chainChance || 0;
   state.hp = Math.min(state.hp, state.maxHp);
   state.mp = Math.min(state.mp, state.maxMp);
 }
@@ -1240,16 +1576,21 @@ function respecClass(){
   state.gold -= cost;
   state.respecCount++;
 
-  // Refund all talent points
-  const c = CLASSES[state.class];
-  let refunded = 0;
-  Object.values(c.trees).forEach(tree=>{
-    tree.talents.forEach(talent=>{
-      const rank = state.unlockedTalents.filter(u=>u===talent.id).length;
-      refunded += rank * talent.cost;
-    });
+  // Refund all talent points — count only spent ranks
+const c = CLASSES[state.class];
+// Count only manually spent ranks
+let refunded = 0;
+const rankCounts = {};
+state.unlockedTalents.forEach(id => {
+  rankCounts[id] = (rankCounts[id] || 0) + 1;
+});
+Object.values(c.trees).forEach(tree => {
+  tree.talents.forEach(talent => {
+    const ranks = rankCounts[talent.id] || 0;
+    refunded += ranks * talent.cost;
   });
-  state.talentPoints += refunded;
+});
+state.talentPoints += refunded;
 
   // Reset talent bonuses
   state.talentBonuses = {
@@ -1476,6 +1817,12 @@ function autoFightStep(){
 function endCombat(won){
   const es=document.getElementById('enemy-stats');if(es)es.style.display='none';
   if(!currentEnemy)return;
+
+  // Reset new combat states
+    state.earthTotemTurns = 0;
+    state.earthTotemReduction = 0;
+    state.bonusAttacks = 0;
+    state.manaShieldAbsorb = 0;
 
   // Clear boss debuffs
   if(state.activeDebuffs.maxHpReduction>0){state.equipMaxHp=(state.equipMaxHp||0)+state.activeDebuffs.maxHpReduction;state.activeDebuffs.maxHpReduction=0;}
@@ -3702,6 +4049,142 @@ async function checkAndStartGrandFinals() {
   } catch(e) { console.error('Check grand finals error:', e); }
 }
 
+// ── PAY WEEKLY SUPREME CHAMPION GOLD BONUS ──
+async function paySupremeChampionWeeklyBonus() {
+  try {
+    const now = new Date();
+    const isFriday = now.getUTCDay() === 5;
+    const isPastRewardTime = now.getUTCHours() >= 15; // 10pm Cambodia
+    if (!isFriday || !isPastRewardTime) return;
+
+    // Get all Supreme Champions
+    const { data: champs } = await dbClient
+      .from('characters')
+      .select('id, name, supreme_tier, supreme_weekly_gold, gold')
+      .not('supreme_tier', 'is', null);
+
+    if (!champs || !champs.length) return;
+
+    for (const champ of champs) {
+      const weeklyBonus = champ.supreme_weekly_gold ||
+        (GAME_CONFIG.supreme_weekly_gold || {})[champ.supreme_tier] || 0;
+      if (!weeklyBonus) continue;
+
+      await dbClient.from('characters').update({
+        gold: (champ.gold || 0) + weeklyBonus,
+      }).eq('id', champ.id);
+
+      // Notify if current player
+      if (champ.id === state.character_id) {
+        state.gold += weeklyBonus;
+        addLog(`👑 Supreme Champion weekly bonus: +${formatNumber(weeklyBonus)}g!`, 'legendary');
+        notify(`👑 +${formatNumber(weeklyBonus)}g Supreme Champion bonus!`, 'var(--gold)');
+        updateUI();
+      }
+    }
+  } catch(e) { console.error('Supreme weekly bonus error:', e); }
+}
+
+// ── VIEW GRAND FINAL BRACKET ──
+async function viewGrandFinalBracket(tierKey) {
+  const { data: grandFinal } = await dbClient
+    .from('grand_finals')
+    .select('*')
+    .eq('tier', tierKey)
+    .in('status', ['in_progress', 'completed'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (!grandFinal) { notify('No Grand Final found!', 'var(--gold)'); return; }
+
+  const bracket = grandFinal.bracket || [];
+  const rounds = [...new Set(bracket.map(m => m.round))].sort();
+  const roundLabels = {
+    1: 'QUARTER FINALS',
+    2: 'SEMI FINALS',
+    3: 'GRAND FINAL',
+  };
+
+  const TIER_COLORS = {
+    rookie: '#22c55e', veteran: '#3b82f6',
+    elite: '#a855f7', legend: '#ff9900'
+  };
+  const tierColor = TIER_COLORS[tierKey];
+
+  document.getElementById('item-popup-content').innerHTML = `
+    <div style="font-family:var(--font-title);color:var(--gold);
+      margin-bottom:4px;font-size:.92em;text-align:center;">
+      👑 ${tierKey.charAt(0).toUpperCase()+tierKey.slice(1)} Grand Final
+    </div>
+    <div style="font-size:.68em;color:${grandFinal.status==='completed'?'var(--green)':'var(--gold)'};
+      text-align:center;margin-bottom:10px;">
+      ${grandFinal.status === 'completed' ? '✅ Completed' : '⚔️ In Progress'}
+    </div>
+    <div style="max-height:420px;overflow-y:auto;">
+      ${rounds.map(r => `
+        <div style="margin-bottom:14px;">
+          <div style="font-family:var(--font-title);font-size:.65em;
+            color:${r === Math.max(...rounds) ? tierColor : 'var(--text-dim)'};
+            letter-spacing:2px;margin-bottom:6px;">
+            ${r === Math.max(...rounds) ? '👑 ' : ''}${roundLabels[r] || `ROUND ${r}`}
+          </div>
+          ${bracket.filter(m => m.round === r).map(m => {
+            const p1Won = m.winner?.character_id === m.player1?.character_id;
+            const p2Won = m.winner?.character_id === m.player2?.character_id;
+            const p1IsChamp = m.player1?.isSupremeChamp;
+            const p2IsChamp = m.player2?.isSupremeChamp;
+            return `
+              <div style="background:rgba(255,255,255,0.03);
+                border:1px solid ${r === Math.max(...rounds) ? tierColor+'44' : 'var(--border)'};
+                border-radius:6px;padding:8px;margin-bottom:5px;font-size:.76em;">
+                <div style="display:flex;justify-content:space-between;
+                  align-items:center;gap:6px;">
+                  <span style="flex:1;
+                    color:${p1Won ? 'var(--gold)' : m.winner ? 'var(--text-dim)' : 'var(--text)'};">
+                    ${p1IsChamp ? '👑 ' : m.player1?.isBot ? '🤖 ' : '👤 '}
+                    ${m.player1?.name || 'TBD'}
+                    <span style="color:var(--text-dim);font-size:.8em;">
+                      Lv.${m.player1?.level || '?'}
+                    </span>
+                  </span>
+                  <span style="color:var(--text-dim);font-size:.68em;">VS</span>
+                  <span style="flex:1;text-align:right;
+                    color:${p2Won ? 'var(--gold)' : m.winner ? 'var(--text-dim)' : 'var(--text)'};">
+                    ${m.player2
+                      ? `${p2IsChamp ? '👑 ' : m.player2.isBot ? '🤖 ' : '👤 '}
+                         ${m.player2.name}
+                         <span style="color:var(--text-dim);font-size:.8em;">
+                           Lv.${m.player2?.level || '?'}
+                         </span>`
+                      : 'BYE'}
+                  </span>
+                </div>
+                ${m.winner ? `
+                  <div style="text-align:center;
+                    color:${r === Math.max(...rounds) ? 'var(--gold)' : 'var(--text-dim)'};
+                    font-size:.65em;margin-top:4px;">
+                    ${r === Math.max(...rounds) ? '👑' : '🏆'} ${m.winner.name} wins
+                  </div>` : ''}
+                ${m.battleId ? `
+                  <div style="text-align:center;margin-top:4px;">
+                    <button onclick="openBattleReplay('${m.battleId}')"
+                      style="background:transparent;border:1px solid var(--border);
+                      border-radius:4px;color:var(--text-dim);
+                      font-size:.68em;padding:2px 8px;cursor:pointer;">
+                      🎬 Replay
+                    </button>
+                  </div>` : ''}
+              </div>`;
+          }).join('')}
+        </div>`).join('')}
+    </div>
+    <div style="text-align:center;margin-top:8px;">
+      <button class="start-btn" onclick="closeItemPopup()">✖ Close</button>
+    </div>`;
+  document.getElementById('item-popup').style.display = 'flex';
+}
+
 // ── RENDER TOURNAMENT UI ──
 async function renderTournament() {
   const container = document.getElementById('arena-content');
@@ -4824,7 +5307,7 @@ function handleEnemyTurn() {
   // Check if enemy is frozen
   if (currentEnemy.frozen) {
     currentEnemy.frozen = false;
-    addCombatLog(`${currentEnemy.name} is frozen!`, 'info');
+    addCombatLog(`${currentEnemy.name} is frozen and loses their turn!`, 'info');
     return;
   }
 
@@ -4832,7 +5315,7 @@ function handleEnemyTurn() {
   const playerDodgeChance = calculateDodgeChance(state.dodge, currentEnemy.hit);
   if (Math.random() < playerDodgeChance) {
     addCombatLog('💨 You dodged!', 'good');
-    return; // No damage taken
+    return;
   }
 
   // Calculate enemy damage
@@ -4854,35 +5337,96 @@ function handleEnemyTurn() {
     enemyDamage = Math.floor(enemyDamage * 0.9);
   }
 
-  // Apply mana shield (absorbs hit)
+  // ── SHAMAN: Earth Totem damage reduction ──
+  if (state.earthTotemTurns > 0) {
+    const reduction = state.earthTotemReduction || 0;
+    const reduced = Math.floor(enemyDamage * reduction);
+    enemyDamage = Math.max(1, enemyDamage - reduced);
+    state.earthTotemTurns--;
+    addCombatLog(`🪨 Earth Totem reduced damage by ${formatNumber(reduced)}! (${state.earthTotemTurns} turns left)`, 'info');
+    if (state.earthTotemTurns === 0) {
+      state.earthTotemReduction = 0;
+      addCombatLog(`🪨 Earth Totem fades!`, 'info');
+    }
+  }
+
+  // ── Apply mana shield (absorbs hit) ──
   if (state.manaShield) {
-    state.manaShield = false;
-    addCombatLog('🔮 Mana Shield absorbed!', 'info');
-    enemyDamage = 0;
+    // Mage mana shield — absorbs based on max MP
+    if (state.manaShieldAbsorb && state.manaShieldAbsorb > 0) {
+      if (enemyDamage <= state.manaShieldAbsorb) {
+        state.manaShieldAbsorb -= enemyDamage;
+        addCombatLog(`🔮 Mana Shield absorbed ${formatNumber(enemyDamage)}! (${formatNumber(state.manaShieldAbsorb)} remaining)`, 'info');
+        enemyDamage = 0;
+        // Shield stays active until absorb depleted
+        if (state.manaShieldAbsorb <= 0) {
+          state.manaShield = false;
+          state.manaShieldAbsorb = 0;
+          addCombatLog(`🔮 Mana Shield shattered!`, 'info');
+        }
+      } else {
+        enemyDamage -= state.manaShieldAbsorb;
+        addCombatLog(`🔮 Mana Shield absorbed ${formatNumber(state.manaShieldAbsorb)}! Shield shattered!`, 'info');
+        state.manaShield = false;
+        state.manaShieldAbsorb = 0;
+      }
+    } else {
+      // Paladin divine shield — absorbs one full hit
+      state.manaShield = false;
+      addCombatLog(`🔮 Divine Shield absorbed the hit!`, 'info');
+      enemyDamage = 0;
+    }
   }
 
   // Deal damage to player
   state.hp -= enemyDamage;
 
   if (enemyDamage > 0) {
-    addCombatLog(`${currentEnemy.name} hits you for ${enemyDamage}!`, 'bad');
+    addCombatLog(`${currentEnemy.name} hits you for ${formatNumber(enemyDamage)}!`, 'bad');
     animateAttack(false, enemyDamage, false);
+
+    // ── PALADIN: Damage reflect ──
+    if (state.dmgReflect > 0 && currentEnemy && currentEnemy.hp > 0) {
+      const reflectDmg = Math.floor(enemyDamage * state.dmgReflect);
+      if (reflectDmg > 0) {
+        currentEnemy.hp -= reflectDmg;
+        addCombatLog(`🛡️ Reflected ${formatNumber(reflectDmg)} dmg back!`, 'good');
+        spawnDmgFloat(`↩️${formatNumber(reflectDmg)}`, true, 'crit-dmg');
+      }
+    }
   }
 
-  // Apply poison damage
+  // ── Apply poison damage to enemy ──
   if (currentEnemy.poisoned > 0) {
-    const poisonDamage = 8;
+    const poisonDamage = currentEnemy.poisonDmg || 8;
     currentEnemy.hp -= poisonDamage;
     currentEnemy.poisoned--;
-    addCombatLog(`🐍 Poison deals ${poisonDamage}!`, 'good');
+    addCombatLog(`🐍 Poison deals ${formatNumber(poisonDamage)}! (${currentEnemy.poisoned} stacks left)`, 'good');
+    spawnDmgFloat(formatNumber(poisonDamage), true, 'poison-float');
   }
 
-  // Check for undying talent (survive lethal blow)
+  // ── SHAMAN: Bonus attacks from Wind Burst ──
+  if (state.bonusAttacks > 0 && currentEnemy.hp > 0) {
+    const bonusHits = Math.min(state.bonusAttacks, 2); // max 2 per turn
+    state.bonusAttacks = Math.max(0, state.bonusAttacks - bonusHits);
+    for (let i = 0; i < bonusHits; i++) {
+      if (currentEnemy.hp <= 0) break;
+      const bonusDmg = Math.floor(state.attackPower * 0.5);
+      currentEnemy.hp -= bonusDmg;
+      addCombatLog(`🌪️ Wind Strike! ${formatNumber(bonusDmg)} bonus dmg!`, 'good');
+      spawnDmgFloat(formatNumber(bonusDmg), true, 'dmg-float');
+    }
+  }
+
+  // ── Check for undying talent (survive lethal blow) ──
   if (state.hp <= 0 && state.unlockedTalents.includes('undying') && !state.usedUndying) {
     state.hp = 1;
     state.usedUndying = true;
-    addCombatLog('💪 Undying Will! Survived!', 'gold');
+    addCombatLog('💪 Undying Will! Survived with 1 HP!', 'gold');
+    spawnDmgFloat('💪 UNDYING!', false, 'heal-float');
   }
+
+  updateUI();
 }
 
 /**
@@ -5307,16 +5851,17 @@ function checkLevelUp(){
   }
   if(state.level>=state.maxLevel){addLog('🌟 MAX LEVEL!','legendary');state.xp=0;}
 }
-function checkTalentUnlocks(){
-  if(!state.class)return;
-  const c=CLASSES[state.class];
-  Object.entries(c.trees).forEach(([treeId,tree])=>{
-    tree.talents.forEach(talent=>{
-      const flagKey=`${state.class}_${talent.id}`;
-      if(!state.talentUnlockedFlags[flagKey]){
-        state.talentUnlockedFlags[flagKey]=true;
-        state.unlockedTalents.push(talent.id);
-        talent.effect();addLog(`🌟 Unlocked: ${talent.name}!`,'purple');
+function checkTalentUnlocks() {
+  if (!state.class) return;
+  const c = CLASSES[state.class];
+  Object.entries(c.trees).forEach(([treeId, tree]) => {
+    tree.talents.forEach(talent => {
+      const flagKey = `${state.class}_${talent.id}`;
+      // ONLY mark as available — never push to unlockedTalents
+      // and never call talent.effect() here
+      // unlockedTalents is ONLY for tracking spent ranks
+      if (!state.talentUnlockedFlags[flagKey]) {
+        state.talentUnlockedFlags[flagKey] = true;
       }
     });
   });
@@ -5381,6 +5926,10 @@ function selectClass(classId){
 // ── TALENTS ──
 function openTalents(){
   if(!state.class){addLog('Choose a class first!','bad');return;}
+  
+  // Always sync talent availability before rendering
+  checkTalentUnlocks();
+  
   const c=CLASSES[state.class];
   document.getElementById('talent-title').textContent=`${c.icon} ${c.name} Talent Tree`;
   document.getElementById('talent-pts-val').textContent=state.talentPoints;
@@ -5407,43 +5956,45 @@ function openTalents(){
   document.getElementById('talent-screen').style.display='block';
 }
 
-function resetTalents(){
-  if(!state.class)return;
-  if(!confirm('Reset all talents? Points will be fully refunded.'))return;
-  const c=CLASSES[state.class];
+function resetTalents() {
+  if (!state.class) return;
+  if (!confirm('Reset all talents? Points will be fully refunded.')) return;
+  const c = CLASSES[state.class];
 
-  // Refund all spent points
-  let refunded=0;
-  Object.values(c.trees).forEach(tree=>{
-    tree.talents.forEach(talent=>{
-      const rank=state.unlockedTalents.filter(u=>u===talent.id).length;
-      refunded+=rank*talent.cost;
+  // Count only manually spent ranks
+  let refunded = 0;
+  const rankCounts = {};
+  state.unlockedTalents.forEach(id => {
+    rankCounts[id] = (rankCounts[id] || 0) + 1;
+  });
+  Object.values(c.trees).forEach(tree => {
+    tree.talents.forEach(talent => {
+      const ranks = rankCounts[talent.id] || 0;
+      refunded += ranks * talent.cost;
     });
   });
-  state.talentPoints+=refunded;
 
-  // Clear talents and bonuses
-  state.unlockedTalents=[];
-  state.talentUnlockedFlags={};
-  state.talentBonuses={
-    strMult:0,agiMult:0,intMult:0,staMult:0,
-    hitMult:0,critMult:0,dodgeMult:0,hpRegenMult:0,
-    mpRegenMult:0,armorMult:0,mpMult:0,lifeStealMult:0,
-    attackPowerMult:0,maxHpMult:0,hpMult:0,
+  state.talentPoints += refunded;
+
+  // Clear spent ranks but keep flags so talents stay visible
+  state.unlockedTalents = [];
+
+  // Reset talent bonuses
+  state.talentBonuses = {
+    strMult:0, agiMult:0, intMult:0, staMult:0,
+    hitMult:0, critMult:0, dodgeMult:0, hpRegenMult:0,
+    mpRegenMult:0, armorMult:0, mpMult:0, lifeStealMult:0,
+    attackPowerMult:0, maxHpMult:0, hpMult:0,
+    spellPowerMult:0, healPowerMult:0, dmgReduction:0,
+    dmgReflect:0, chainChance:0, bonusAttackChance:0,
+    baseLifeSteal:0, baseCrit:0,
   };
 
-  // Reset talent flags so they can be re-unlocked
-  Object.values(c.trees).forEach(tree=>{
-    tree.talents.forEach(t=>{
-      state.talentUnlockedFlags[`${state.class}_${t.id}`]=false;
-    });
-  });
-
   calcStats();
-  addLog(`↺ Talents reset! ${refunded} points refunded.`,'gold');
-  notify(`↺ Talents reset! ${refunded} pts refunded.`,'var(--gold)');
-  updateUI();updateTalentBtn();
-  openTalents(); // refresh the tree view
+  addLog(`↺ Talents reset! ${refunded} points refunded.`, 'gold');
+  notify(`↺ Talents reset! ${refunded} pts refunded.`, 'var(--gold)');
+  updateUI(); updateTalentBtn();
+  openTalents();
 }
 function unlockTalent(talentId,treeId){
   const c=CLASSES[state.class],tree=c.trees[treeId],talent=tree.talents.find(t=>t.id===talentId);if(!talent)return;
