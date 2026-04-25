@@ -973,7 +973,7 @@ const SCENES={
   dungeon_10:{title:'🌟 Eternal Kingdom',text:'The final challenge.',choices:[{text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:10},{text:'🏘️ Town',next:'town'}]},
   inn:{title:'⛪ The Rusty Flagon Inn',text:'You rest comfortably.',
     action:()=>{
-      const innCost = GAME_CONFIG.inn_cost || 1000;
+      const innCost = GAME_CONFIG.inn_cost || 10000;
       if(state.gold >= innCost){
         state.gold -= innCost;
         const hh=Math.floor(state.maxHp*0.5),mh=Math.floor(state.maxMp*0.5);
@@ -1634,6 +1634,36 @@ const DAILY_REWARDS = {
   4: { gold: 60000,   title:null },
   participation: { gold: 10000, title:null },
 };
+
+// ── AUTO START OVERDUE TOURNAMENTS ──
+async function checkAndAutoStartTournaments() {
+  try {
+    const now = new Date();
+
+    // Find all open tournaments whose start time has passed
+    const { data: overdue } = await dbClient
+      .from('arena_tournaments')
+      .select('*')
+      .eq('status', 'open')
+      .lt('starts_at', now.toISOString());
+
+    if (!overdue || !overdue.length) return;
+
+    for (const tournament of overdue) {
+      // Determine tier key from min_level
+      const tierKey = tournament.min_level === 20 ? 'rookie'
+        : tournament.min_level === 41 ? 'veteran'
+        : tournament.min_level === 61 ? 'elite'
+        : tournament.min_level === 81 ? 'legend'
+        : null;
+
+      if (!tierKey) continue;
+
+      addLog(`⚔️ Auto-starting overdue ${tierKey} tournament...`, 'gold');
+      await startTournament(tournament.id, tierKey);
+    }
+  } catch(e) { console.error('Auto start tournament error:', e); }
+}
 
 // ── SKILL COMBO PICKER (opens before tournament registration) ──
 function openSkillComboPicker(tournament, tier, tierKey) {
@@ -2989,6 +3019,75 @@ async function checkTournamentRewardExpiry() {
     updateUI();
 
   } catch(e) { console.error('Expiry check error:', e); }
+}
+
+// ── CREATE WEEKLY TOURNAMENTS IF MISSING ──
+async function createWeeklyTournamentsIfMissing() {
+  try {
+    const now = new Date();
+
+    // Find next Friday 7pm Cambodia (UTC+7) = Friday 12:00 UTC
+    const dayOfWeek = now.getUTCDay(); // 0=Sun, 5=Fri
+    const daysUntilFriday = (5 - dayOfWeek + 7) % 7;
+
+    // If today is Friday and before 7pm Cambodia (12:00 UTC), use today
+    // Otherwise use next Friday
+    let nextFriday = new Date(now);
+    if (dayOfWeek === 5 && now.getUTCHours() < 12) {
+      // Today is Friday before 7pm Cambodia — use today
+      nextFriday.setUTCHours(12, 0, 0, 0);
+    } else if (daysUntilFriday === 0) {
+      // Today is Friday but past 7pm — use next Friday
+      nextFriday.setUTCDate(nextFriday.getUTCDate() + 7);
+      nextFriday.setUTCHours(12, 0, 0, 0);
+    } else {
+      nextFriday.setUTCDate(nextFriday.getUTCDate() + daysUntilFriday);
+      nextFriday.setUTCHours(12, 0, 0, 0);
+    }
+
+    const endsAt = new Date(nextFriday);
+    endsAt.setUTCHours(13, 0, 0, 0); // 8pm Cambodia = 1pm UTC
+
+    // Rewards expire next Friday 1am Cambodia = Thursday 6pm UTC
+    const rewardsExpireAt = new Date(nextFriday);
+    rewardsExpireAt.setUTCDate(rewardsExpireAt.getUTCDate() + 7);
+    rewardsExpireAt.setUTCHours(18, 0, 0, 0);
+
+    const TIERS = [
+      { key: 'rookie',  minLevel: 20, fee: getPracticeFee('rookie')  },
+      { key: 'veteran', minLevel: 41, fee: getPracticeFee('veteran') },
+      { key: 'elite',   minLevel: 61, fee: getPracticeFee('elite')   },
+      { key: 'legend',  minLevel: 81, fee: getPracticeFee('legend')  },
+    ];
+
+    for (const tier of TIERS) {
+      // Check if tournament already exists for this tier and week
+      const { data: existing } = await dbClient
+        .from('arena_tournaments')
+        .select('id')
+        .eq('min_level', tier.minLevel)
+        .in('status', ['open', 'in_progress'])
+        .gte('starts_at', nextFriday.toISOString())
+        .single();
+
+      if (existing) continue; // already created
+
+      // Create tournament for this tier
+      await dbClient.from('arena_tournaments').insert({
+        status: 'open',
+        bracket: [],
+        round: 0,
+        min_level: tier.minLevel,
+        entry_fee: tier.fee,
+        starts_at: nextFriday.toISOString(),
+        ends_at: endsAt.toISOString(),
+        rewards_expire_at: rewardsExpireAt.toISOString(),
+      });
+
+      addLog(`📅 ${tier.key} tournament created for Friday!`, 'gold');
+    }
+
+  } catch(e) { console.error('Create weekly tournaments error:', e); }
 }
 
 // ── RENDER TOURNAMENT UI ──

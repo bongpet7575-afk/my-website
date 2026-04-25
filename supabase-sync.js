@@ -26,6 +26,8 @@ async function loadPlayerFromSupabase(characterId) {
 
     syncCharacterToState(character);
     await checkTournamentRewardExpiry();
+    await createWeeklyTournamentsIfMissing(); // ← creates next Friday's tournaments
+    await checkAndAutoStartTournaments(); // ← add this
     console.log('✅ Character loaded from Supabase');
 
     return state;
