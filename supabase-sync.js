@@ -51,6 +51,8 @@ function syncCharacterToState(character) {
 
   if (typeof calcStats === 'function') calcStats();
   // Basic info
+  state.freeStatPoints = character.free_stat_points || 0;
+  state.legacyPoints   = character.legacy_points || 0;
   state.respecCount = character.respec_count || 0;
   state.goldMultExpiry = character.gold_mult_expiry || null;
   state.character_id = character.id;
@@ -240,6 +242,8 @@ async function savePlayerToSupabase() {
         max_health: state.maxHp,
         mana: state.mp,
         max_mana: state.maxMp,
+        free_stat_points: state.freeStatPoints || 0,
+        legacy_points:    state.legacyPoints || 0,
         current_scene: state.currentScene,
         talent_points: state.talentPoints,
         unlocked_talents: state.unlockedTalents,

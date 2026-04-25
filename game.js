@@ -439,6 +439,146 @@ function buildSkillUse(skillId, m) {
   }
 }
 
+// ── RENDER STAT POINTS PANEL ──
+function renderStatPoints() {
+  const panel = document.getElementById('stat-points-panel');
+  const content = document.getElementById('stat-points-content');
+  const badge = document.getElementById('free-stat-points-badge');
+  const legacyPanel = document.getElementById('legacy-points-panel');
+  const legacyContent = document.getElementById('legacy-points-content');
+  const legacyBadge = document.getElementById('legacy-points-badge');
+
+  if (!panel || !content) return;
+
+  const pts = state.freeStatPoints || 0;
+  const legacy = state.legacyPoints || 0;
+
+  // Update badges
+  if (badge) {
+    badge.textContent = `${pts} pts`;
+    badge.style.background = pts > 0 ? 'var(--gold)' : 'rgba(255,255,255,0.1)';
+    badge.style.color = pts > 0 ? '#000' : 'var(--text-dim)';
+  }
+  if (legacyBadge) {
+    legacyBadge.textContent = `${legacy} pts`;
+    legacyBadge.style.background = legacy > 0
+      ? 'linear-gradient(135deg,#a855f7,#7c3aed)'
+      : 'rgba(255,255,255,0.1)';
+  }
+
+  // ── FREE STAT POINTS ──
+  const STATS = [
+    { key: 'baseStr', label: '⚔️ STR', color: '#ef4444', desc: 'ATK Power & HP' },
+    { key: 'baseAgi', label: '🏃 AGI', color: '#22c55e', desc: 'Dodge, Hit & Speed' },
+    { key: 'baseInt', label: '🔮 INT', color: '#3b82f6', desc: 'Magic & Cast Speed' },
+    { key: 'baseSta', label: '🛡️ STA', color: '#f59e0b', desc: 'HP & HP Regen' },
+  ];
+
+  if (pts <= 0) {
+    content.innerHTML = `
+      <div style="text-align:center;font-size:.75em;color:var(--text-dim);padding:8px 0;">
+        No stat points available. Level up to earn more!
+      </div>`;
+  } else {
+    content.innerHTML = `
+      <div style="font-size:.72em;color:var(--text-dim);margin-bottom:10px;">
+        You have <span style="color:var(--gold);font-family:var(--font-title);">
+        ${pts}</span> stat point${pts !== 1 ? 's' : ''} to spend.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        ${STATS.map(s => `
+          <div style="display:flex;align-items:center;gap:8px;
+            padding:6px 8px;background:rgba(255,255,255,0.03);
+            border-radius:6px;border:1px solid var(--border);">
+            <div style="flex:1;">
+              <div style="font-family:var(--font-title);font-size:.78em;color:${s.color};">
+                ${s.label}
+              </div>
+              <div style="font-size:.62em;color:var(--text-dim);">${s.desc}</div>
+            </div>
+            <div style="font-size:.75em;color:var(--text-dim);min-width:40px;text-align:center;">
+              ${formatNumber(state[s.key] || 0)}
+            </div>
+            <div style="display:flex;gap:4px;">
+              <button onclick="spendStatPoint('${s.key}', 1)"
+                style="width:28px;height:28px;border-radius:6px;
+                background:rgba(255,153,0,0.15);border:1px solid var(--gold);
+                color:var(--gold);font-size:.9em;cursor:pointer;">
+                +1
+              </button>
+              <button onclick="spendStatPoint('${s.key}', 5)"
+                style="width:28px;height:28px;border-radius:6px;
+                background:rgba(255,153,0,0.08);border:1px solid rgba(255,153,0,0.3);
+                color:var(--gold);font-size:.75em;cursor:pointer;
+                ${pts < 5 ? 'opacity:0.4;cursor:not-allowed;' : ''}">
+                +5
+              </button>
+              <button onclick="spendStatPoint('${s.key}', 10)"
+                style="width:28px;height:28px;border-radius:6px;
+                background:rgba(255,153,0,0.05);border:1px solid rgba(255,153,0,0.2);
+                color:var(--gold);font-size:.75em;cursor:pointer;
+                ${pts < 10 ? 'opacity:0.4;cursor:not-allowed;' : ''}">
+                +10
+              </button>
+            </div>
+          </div>`).join('')}
+      </div>
+      <div style="font-size:.65em;color:var(--text-dim);margin-top:8px;text-align:center;">
+        Each point adds directly to your base stat
+      </div>`;
+  }
+
+  // ── LEGACY POINTS ──
+  if (!legacyContent) return;
+  legacyContent.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;padding:6px 0;">
+      <div style="font-size:1.8em;">✨</div>
+      <div style="flex:1;">
+        <div style="font-family:var(--font-title);font-size:.85em;
+          background:linear-gradient(135deg,#a855f7,#7c3aed);
+          -webkit-background-clip:text;-webkit-text-fill-color:transparent;">
+          ${formatNumber(legacy)} Legacy Points
+        </div>
+        <div style="font-size:.65em;color:var(--text-dim);margin-top:2px;">
+          Save these for future universal skills from special events!
+        </div>
+      </div>
+    </div>
+    <div style="font-size:.65em;color:rgba(168,85,247,0.6);
+      padding:6px 8px;background:rgba(168,85,247,0.05);
+      border-radius:6px;border:1px solid rgba(168,85,247,0.15);
+      margin-top:4px;">
+      🔮 New skills coming in future events — hoard your points wisely!
+    </div>`;
+}
+
+// ── SPEND STAT POINT ──
+function spendStatPoint(statKey, amount) {
+  const pts = state.freeStatPoints || 0;
+  if (pts < amount) {
+    notify(`❌ Not enough stat points! Need ${amount}, have ${pts}.`, 'var(--red)');
+    return;
+  }
+
+  const VALID_STATS = ['baseStr', 'baseAgi', 'baseInt', 'baseSta'];
+  if (!VALID_STATS.includes(statKey)) return;
+
+  state.freeStatPoints -= amount;
+  state[statKey] = (state[statKey] || 0) + amount;
+
+  const statNames = {
+    baseStr: 'STR', baseAgi: 'AGI',
+    baseInt: 'INT', baseSta: 'STA'
+  };
+
+  calcStats();
+  addLog(`📊 +${amount} ${statNames[statKey]}! (${state.freeStatPoints} pts left)`, 'gold');
+  notify(`+${amount} ${statNames[statKey]}!`, 'var(--gold)');
+  updateUI();
+  renderStatPoints();
+  savePlayerToSupabase();
+}
+
 // ── DUNGEON STATE ──
 let currentStage = null;
 let dungeonWave = 0;
@@ -5875,7 +6015,27 @@ function checkLevelUp(){
   while(state.xp>=state.xpNext&&state.level<state.maxLevel){
     state.xp-=state.xpNext;state.level++;
     state.xpNext=Math.floor(state.level*100*50.00);
-    state.baseStr+=15;state.baseAgi+=15;state.baseInt+=15;state.baseSta+=15;state.talentPoints+=5;
+    
+    // Read from config
+const lvlRewards = GAME_CONFIG.level_up_rewards || {};
+const autoStats = lvlRewards.auto_stats_per_level ?? 10;
+const freeStats = lvlRewards.free_stat_points_per_level ?? 5;
+const legacyPts = lvlRewards.legacy_points_per_level ?? 2;
+
+// Auto stats
+state.baseStr += autoStats;
+state.baseAgi += autoStats;
+state.baseInt += autoStats;
+state.baseSta += autoStats;
+
+// Talent points (unchanged)
+state.talentPoints += 5;
+
+// New points
+state.freeStatPoints = (state.freeStatPoints || 0) + freeStats;
+state.legacyPoints = (state.legacyPoints || 0) + legacyPts;
+
+addLog(`🎉 LEVEL UP! Level ${state.level}! +5 Talent Points, +${freeStats} Stat Points, +${legacyPts} Legacy Points!`, 'gold');
     calcStats();state.hp=state.maxHp;state.mp=state.maxMp;
     document.getElementById('char-level').textContent=`Level ${state.level} / 100`;
     addLog(`🎉 LEVEL UP! Level ${state.level}! +5 Talent Points!`,'gold');
@@ -6429,6 +6589,7 @@ if (charClassEl) {
   document.getElementById('xp-bar').style.width=Math.min(100,(state.xp/state.xpNext)*100)+'%';
   document.getElementById('arena-player-hp').style.width=Math.max(0,(hp/state.maxHp)*100)+'%';
   document.getElementById('arena-player-mp').style.width=Math.max(0,(mp/state.maxHp)*100)+'%';
+  renderStatPoints();
   renderTournamentRewards();
   updateTutorialStatus();
 }

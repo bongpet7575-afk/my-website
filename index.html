@@ -828,6 +828,35 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
            <button class="start-btn" onclick="respecClass()" style="font-size:.65em;padding:4px 10px;">🔄 Respec</button>
         </div>
       </div>
+
+      <!-- Free Stat Points -->
+<div class="char-panel" id="stat-points-panel">
+  <div class="panel-title">
+    📊 Stat Points
+    <span id="free-stat-points-badge"
+      style="float:right;background:var(--gold);color:#000;
+      border-radius:10px;padding:2px 8px;font-size:.7em;
+      font-family:var(--font-body);">
+      0 pts
+    </span>
+  </div>
+  <div id="stat-points-content"></div>
+</div>
+
+<!-- Legacy Points -->
+<div class="char-panel" id="legacy-points-panel">
+  <div class="panel-title">
+    ✨ Legacy Points
+    <span id="legacy-points-badge"
+      style="float:right;background:linear-gradient(135deg,#a855f7,#7c3aed);
+      color:#fff;border-radius:10px;padding:2px 8px;font-size:.7em;
+      font-family:var(--font-body);">
+      0 pts
+    </span>
+  </div>
+  <div id="legacy-points-content"></div>
+</div>
+
       <!-- Tournament Rewards -->
       <div class="char-panel" id="tournament-rewards-panel" style="display:none;">
         <div class="panel-title">🏆 Tournament Rewards</div>
