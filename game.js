@@ -150,6 +150,8 @@ function applyGameConfig() {
   if (GAME_CONFIG.tournament_fees) {
     Object.assign(PRACTICE_FEES || {}, GAME_CONFIG.practice_fees || {});
   }
+  // Register any already-learned legacy skills
+if (typeof registerLegacySkills === 'function') registerLegacySkills();
 }
 
 // ── BUILD TALENT EFFECT FROM CONFIG ──
@@ -550,6 +552,7 @@ function renderStatPoints() {
       margin-top:4px;">
       🔮 New skills coming in future events — hoard your points wisely!
     </div>`;
+    renderLegacySkillPanel();
 }
 
 // ── SPEND STAT POINT ──
@@ -578,6 +581,275 @@ function spendStatPoint(statKey, amount) {
   renderStatPoints();
   savePlayerToSupabase();
 }
+
+// ══════════════════════════════════════════
+// LEGACY SKILL SYSTEM
+// ══════════════════════════════════════════
+
+// ── GET LEGACY SKILL DEFINITIONS FROM CONFIG ──
+function getLegacySkillDefs() {
+  return GAME_CONFIG.skill_definitions || {};
+}
+
+// ── GET PLAYER'S LEARNED LEGACY SKILLS ──
+function getLearnedLegacySkills() {
+  return state.legacySkills || {};
+}
+
+// ── BUILD LEGACY SKILL USE FUNCTION ──
+function buildLegacySkillUse(skillId, rank) {
+  const defs = getLegacySkillDefs();
+  const def = defs[skillId];
+  if (!def) return null;
+  const rankData = def.ranks[String(rank)];
+  if (!rankData) return null;
+
+  switch(skillId) {
+    case 'void_strike': return (e) => {
+      // Use highest stat
+      const bestStat = Math.max(state.str || 0, state.agi || 0, state.int || 0);
+      const d = Math.floor(bestStat * rankData.multiplier);
+      e.hp -= d;
+      // Lifesteal at higher ranks
+      if (rankData.lifesteal > 0) {
+        const heal = Math.floor(d * rankData.lifesteal);
+        state.hp = Math.min(state.maxHp, state.hp + heal);
+        spawnDmgFloat(`+${formatNumber(heal)}`, false, 'heal-float');
+      }
+      addCombatLog(`🌀 Void Strike! ${formatNumber(d)} dmg!`, 'legendary');
+      playSound('snd-magic');
+      animateAttack(true, d, false);
+      return d;
+    };
+
+    case 'blood_pact': return (e) => {
+      const sacrifice = Math.floor(state.maxHp * rankData.sacrificePct);
+      state.hp = Math.max(1, state.hp - sacrifice);
+      const heal = Math.floor(state.maxHp * rankData.healPct);
+      state.hp = Math.min(state.maxHp, state.hp + heal);
+      const net = heal - sacrifice;
+      addCombatLog(`🩸 Blood Pact! +${formatNumber(heal)} HP (net +${formatNumber(net)})!`, 'good');
+      playSound('snd-heal');
+      spawnDmgFloat(`+${formatNumber(heal)}`, false, 'heal-float');
+      return 0;
+    };
+
+    case 'arcane_surge': return (e) => {
+      if (state.arcaneSurgeActive) {
+        addCombatLog(`💫 Arcane Surge already active!`, 'info');
+        return 0;
+      }
+      state.arcaneSurgeActive = true;
+      state.arcaneSurgeTurns = rankData.turns;
+      state.arcaneSurgeMult = rankData.buffMult;
+      // Apply buff to all multipliers
+      state.strMult *= rankData.buffMult;
+      state.agiMult *= rankData.buffMult;
+      state.intMult *= rankData.buffMult;
+      state.staMult *= rankData.buffMult;
+      calcStats();
+      addCombatLog(`💫 Arcane Surge! +${Math.round((rankData.buffMult-1)*100)}% ALL stats for ${rankData.turns} turns!`, 'legendary');
+      playSound('snd-magic');
+      spawnAbilityFloat(`💫 Arcane Surge!`, '#a855f7');
+      return 0;
+    };
+
+    case 'soul_barrier': return (e) => {
+      const absorb = Math.floor(state.sta * rankData.staMult);
+      state.soulBarrierAbsorb = absorb;
+      addCombatLog(`🔰 Soul Barrier! Absorbing ${formatNumber(absorb)} damage!`, 'good');
+      playSound('snd-heal');
+      spawnAbilityFloat(`🔰 Soul Barrier!`, '#3b82f6');
+      return 0;
+    };
+
+    case 'eternal_flame': return (e) => {
+      const bestStat = Math.max(state.str || 0, state.agi || 0, state.int || 0);
+      const tick = Math.floor(bestStat * rankData.tickMult);
+      e.poisoned = (e.poisoned || 0) + rankData.stacks;
+      e.poisonDmg = Math.max(e.poisonDmg || 0, tick);
+      addCombatLog(`🕯️ Eternal Flame! ${formatNumber(tick)} burn/tick x${rankData.stacks}!`, 'legendary');
+      playSound('snd-magic');
+      spawnAbilityFloat(`🕯️ Eternal Flame!`, '#f97316');
+      return 0;
+    };
+
+    default: return null;
+  }
+}
+
+// ── REGISTER LEGACY SKILLS INTO SKILLS OBJECT ──
+function registerLegacySkills() {
+  const learned = getLearnedLegacySkills();
+  const defs = getLegacySkillDefs();
+
+  Object.entries(learned).forEach(([skillId, rank]) => {
+    const def = defs[skillId];
+    if (!def || !rank) return;
+
+    const rankData = def.ranks[String(rank)];
+    if (!rankData) return;
+
+    // Register into SKILLS object so combat system picks it up
+    SKILLS[skillId] = {
+      name: def.name,
+      icon: def.icon,
+      mp: () => Math.floor(state.maxMp * def.mp),
+      cd: def.cd,
+      isLegacy: true,
+      rank: rank,
+      use: buildLegacySkillUse(skillId, rank),
+    };
+  });
+}
+
+// ── LEARN LEGACY SKILL FROM BOOK ──
+function learnLegacySkill(skillId) {
+  const defs = getLegacySkillDefs();
+  const def = defs[skillId];
+  if (!def) { notify('Unknown skill!', 'var(--red)'); return; }
+
+  const learned = getLearnedLegacySkills();
+  const currentRank = learned[skillId] || 0;
+
+  // Already at max rank
+  if (currentRank >= 5) {
+    notify(`${def.icon} ${def.name} is already at max rank!`, 'var(--gold)');
+    return;
+  }
+
+  const nextRank = currentRank + 1;
+  const rankData = def.ranks[String(nextRank)];
+  if (!rankData) return;
+
+  const cost = rankData.cost;
+
+  // Check legacy points
+  if ((state.legacyPoints || 0) < cost) {
+    notify(`❌ Need ${cost} Legacy Points! You have ${state.legacyPoints || 0}.`, 'var(--red)');
+    return;
+  }
+
+  // Confirm
+  const action = currentRank === 0 ? 'Learn' : `Upgrade to Rank ${nextRank}`;
+  if (!confirm(`${action} ${def.icon} ${def.name} for ${cost} Legacy Points?\n\n${rankData.desc}`)) return;
+
+  // Deduct legacy points
+  state.legacyPoints -= cost;
+
+  // Save learned skill
+  if (!state.legacySkills) state.legacySkills = {};
+  state.legacySkills[skillId] = nextRank;
+
+  // Register into SKILLS
+  registerLegacySkills();
+
+  // Add to skill bar if not already there
+  if (!state.skills.includes(skillId)) {
+    state.skills.push(skillId);
+  }
+
+  const action2 = currentRank === 0 ? 'Learned' : `Upgraded to Rank ${nextRank}`;
+  addLog(`✨ ${action2}: ${def.icon} ${def.name}! (${rankData.desc})`, 'legendary');
+  notify(`✨ ${def.icon} ${def.name} ${action2}!`, 'var(--gold)');
+  playSound('snd-levelup');
+
+  calcStats();
+  updateUI();
+  renderStatPoints();
+  renderSkillBar();
+  savePlayerToSupabase();
+}
+
+// ── UPGRADE LEGACY SKILL ──
+function upgradeLegacySkill(skillId) {
+  learnLegacySkill(skillId); // same flow — learn handles both learn and upgrade
+}
+
+// ── RENDER LEGACY SKILL PANEL (shows learned skills + upgrade options) ──
+function renderLegacySkillPanel() {
+  const content = document.getElementById('legacy-points-content');
+  if (!content) return;
+
+  const learned = getLearnedLegacySkills();
+  const defs = getLegacySkillDefs();
+  const legacy = state.legacyPoints || 0;
+
+  if (!Object.keys(defs).length) {
+    content.innerHTML = `
+      <div style="text-align:center;font-size:.75em;color:var(--text-dim);padding:8px;">
+        No legacy skills available yet.
+      </div>`;
+    return;
+  }
+
+  let html = `
+    <div style="font-size:.72em;color:var(--text-dim);margin-bottom:10px;">
+      You have <span style="color:#a855f7;font-family:var(--font-title);">
+      ${legacy}</span> Legacy Points
+    </div>`;
+
+  // Show learned skills first
+  const learnedIds = Object.keys(learned);
+  if (learnedIds.length) {
+    html += `
+      <div style="font-family:var(--font-title);font-size:.65em;
+        color:var(--text-dim);letter-spacing:2px;margin-bottom:6px;">
+        LEARNED SKILLS
+      </div>`;
+
+    learnedIds.forEach(skillId => {
+      const def = defs[skillId];
+      if (!def) return;
+      const rank = learned[skillId];
+      const rankData = def.ranks[String(rank)];
+      const nextRank = rank + 1;
+      const nextRankData = def.ranks[String(nextRank)];
+      const canUpgrade = nextRankData && legacy >= nextRankData.cost;
+
+      html += `
+        <div style="background:rgba(168,85,247,0.06);border:1px solid rgba(168,85,247,0.2);
+          border-radius:8px;padding:8px;margin-bottom:6px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <span style="font-size:1.3em;">${def.icon}</span>
+            <div style="flex:1;">
+              <div style="font-family:var(--font-title);font-size:.80em;color:#a855f7;">
+                ${def.name}
+                <span style="font-size:.75em;color:var(--gold);margin-left:4px;">
+                  Rank ${rank}/5
+                </span>
+              </div>
+              <div style="font-size:.65em;color:var(--text-dim);">${rankData?.desc || ''}</div>
+            </div>
+          </div>
+          <!-- Rank progress bar -->
+          <div style="height:3px;background:rgba(255,255,255,0.07);
+            border-radius:2px;overflow:hidden;margin-bottom:6px;">
+            <div style="height:100%;width:${(rank/5)*100}%;
+              background:linear-gradient(135deg,#a855f7,#7c3aed);
+              border-radius:2px;"></div>
+          </div>
+          ${nextRankData ? `
+            <button onclick="upgradeLegacySkill('${skillId}')"
+              style="width:100%;padding:5px;font-size:.68em;
+              background:${canUpgrade ? 'rgba(168,85,247,0.15)' : 'rgba(255,255,255,0.03)'};
+              border:1px solid ${canUpgrade ? 'rgba(168,85,247,0.5)' : 'var(--border)'};
+              border-radius:6px;color:${canUpgrade ? '#a855f7' : 'var(--text-dim)'};
+              cursor:${canUpgrade ? 'pointer' : 'not-allowed'};">
+              ⬆️ Rank ${nextRank} — ${nextRankData.cost} pts
+              ${!canUpgrade ? `(need ${nextRankData.cost - legacy} more)` : ''}
+            </button>` : `
+            <div style="text-align:center;font-size:.65em;color:var(--gold);padding:4px;">
+              ✅ MAX RANK
+            </div>`}
+        </div>`;
+    });
+  }
+
+  content.innerHTML = html;
+}
+
+
 
 // ── DUNGEON STATE ──
 let currentStage = null;
@@ -1955,6 +2227,30 @@ function autoFightStep(){
   }
   if(currentEnemy.hp<=0){currentEnemy.hp=0;updateEnemyBar();clearInterval(autoFightTimer);autoFightTimer=null;endCombat(true);return;}
   Object.keys(state.skillCooldowns).forEach(k=>{if(state.skillCooldowns[k]>0)state.skillCooldowns[k]--;});
+
+  // Tick down Arcane Surge
+if (state.arcaneSurgeActive && state.arcaneSurgeTurns > 0) {
+  state.arcaneSurgeTurns--;
+  if (state.arcaneSurgeTurns <= 0) {
+    state.arcaneSurgeActive = false;
+    // Remove buff
+    const m = state.arcaneSurgeMult || 1;
+    state.strMult /= m;
+    state.agiMult /= m;
+    state.intMult /= m;
+    state.staMult /= m;
+    state.arcaneSurgeMult = 1;
+    calcStats();
+    addCombatLog(`💫 Arcane Surge fades!`, 'info');
+  }
+}
+
+// Tick down Soul Barrier
+if (state.soulBarrierAbsorb > 0) {
+  // Soul barrier is consumed in handleEnemyTurn
+  // Just show it's active
+}
+
   if(state.hpRegen>0){const r=Math.floor(state.hpRegen);if(r>0&&state.hp<state.maxHp){state.hp=Math.min(state.maxHp,state.hp+r);addCombatLog(`💚 Regen +${r} HP`,'good');}}
   if(state.manaRegen>0){const r=Math.floor(state.manaRegen);if(r>0&&state.mp<state.maxMp){state.mp=Math.min(state.maxMp,state.mp+r);addCombatLog(`💙 Mana Regen +${r} MP`,'info');}}
   // Boss ability
@@ -1991,6 +2287,11 @@ function autoFightStep(){
 function endCombat(won){
   const es=document.getElementById('enemy-stats');if(es)es.style.display='none';
   if(!currentEnemy)return;
+
+  state.arcaneSurgeActive = false;
+  state.arcaneSurgeTurns = 0;
+  state.arcaneSurgeMult = 1;
+  state.soulBarrierAbsorb = 0;
 
   // Reset new combat states
     state.earthTotemTurns = 0;
@@ -5526,6 +5827,19 @@ function handleEnemyTurn() {
     }
   }
 
+  // ── Soul Barrier absorption ──
+if (state.soulBarrierAbsorb > 0 && enemyDamage > 0) {
+  if (enemyDamage <= state.soulBarrierAbsorb) {
+    state.soulBarrierAbsorb -= enemyDamage;
+    addCombatLog(`🔰 Soul Barrier absorbed ${formatNumber(enemyDamage)}! (${formatNumber(state.soulBarrierAbsorb)} remaining)`, 'good');
+    enemyDamage = 0;
+  } else {
+    enemyDamage -= state.soulBarrierAbsorb;
+    addCombatLog(`🔰 Soul Barrier shattered! Absorbed ${formatNumber(state.soulBarrierAbsorb)}!`, 'info');
+    state.soulBarrierAbsorb = 0;
+  }
+}
+
   // ── Apply mana shield (absorbs hit) ──
   if (state.manaShield) {
     // Mage mana shield — absorbs based on max MP
@@ -6512,9 +6826,150 @@ function switchShopTab(tab){
   document.getElementById(`shop-tab-${tab}`).classList.add('active');renderShop();
 }
 function renderShop(){
+  // ── LEGACY SKILL BOOKS ──
+const skillBooks = GAME_CONFIG.skill_books || [];
+const defs = getLegacySkillDefs();
+const learned = getLearnedLegacySkills();
+
+if (skillBooks.length) {
+  html += `
+    <div style="font-family:var(--font-title);font-size:.65em;
+      color:var(--text-dim);letter-spacing:2px;
+      margin:12px 0 6px;">
+      ✨ LEGACY SKILL TOMES
+    </div>`;
+
+  skillBooks.forEach(book => {
+    const def = defs[book.skillId];
+    if (!def) return;
+    const currentRank = learned[book.skillId] || 0;
+    const nextRank = currentRank + 1;
+    const nextRankData = def.ranks[String(nextRank)];
+    const isMaxed = currentRank >= 5;
+    const canAfford = state.gold >= book.price;
+    const hasLegacyPts = nextRankData && (state.legacyPoints || 0) >= nextRankData.cost;
+    const rColor = RARITY['epic']?.color || '#a855f7';
+
+    html += `
+      <div style="background:rgba(168,85,247,0.04);
+        border:1px solid ${rColor}44;border-radius:8px;
+        padding:10px;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <div style="font-size:1.5em;">${def.icon}</div>
+          <div style="flex:1;">
+            <div style="font-family:var(--font-title);font-size:.80em;color:${rColor};">
+              ${book.name}
+            </div>
+            <div style="font-size:.65em;color:var(--text-dim);">${def.desc}</div>
+            ${currentRank > 0 ? `
+              <div style="font-size:.62em;color:#a855f7;margin-top:2px;">
+                Currently: Rank ${currentRank}/5
+              </div>` : ''}
+          </div>
+          <div style="text-align:right;">
+            <div style="font-family:var(--font-title);color:var(--gold);font-size:.78em;">
+              ${formatNumber(book.price)}g
+            </div>
+            ${nextRankData ? `
+              <div style="font-size:.60em;color:#a855f7;">
+                +${nextRankData.cost} LP
+              </div>` : ''}
+          </div>
+        </div>
+
+        ${isMaxed ? `
+          <div style="text-align:center;font-size:.70em;color:var(--gold);
+            padding:5px;background:rgba(255,153,0,0.08);border-radius:6px;">
+            ✅ MAX RANK — Fully Mastered!
+          </div>
+        ` : `
+          <button onclick="buySkillBook('${book.id}', '${book.skillId}')"
+            style="width:100%;padding:7px;font-size:.72em;
+            background:${canAfford && hasLegacyPts ? 'rgba(168,85,247,0.15)' : 'rgba(255,255,255,0.03)'};
+            border:1px solid ${canAfford && hasLegacyPts ? rColor : 'var(--border)'};
+            border-radius:6px;
+            color:${canAfford && hasLegacyPts ? rColor : 'var(--text-dim)'};
+            cursor:${canAfford && hasLegacyPts ? 'pointer' : 'not-allowed'};">
+            ${currentRank === 0 ? '📖 Learn' : `⬆️ Upgrade to Rank ${nextRank}`}
+            ${!canAfford ? ' (not enough gold)' : ''}
+            ${canAfford && !hasLegacyPts && nextRankData ? ` (need ${nextRankData.cost} LP)` : ''}
+          </button>`}
+      </div>`;
+  });
+}
+  
   const items=currentShopTab==='equipment'?SHOP_EQUIP:SHOP_CONS,r_=r=>RARITY[r]||RARITY.normal;
   document.getElementById('shop-content').innerHTML=`<div class="item-grid">${items.map(item=>`<div class="item-icon-box ${item.rarity}" onclick="showItemPopup('shop','${item.id}')" title="${item.name}"><div class="item-icon-emoji">${item.name.split(' ')[0]}</div><div class="item-icon-price">💰${item.price}</div></div>`).join('')}</div>`;
 }
+
+// ── BUY SKILL BOOK FROM SHOP ──
+async function buySkillBook(bookId, skillId) {
+  const skillBooks = GAME_CONFIG.skill_books || [];
+  const book = skillBooks.find(b => b.id === bookId);
+  if (!book) { notify('Book not found!', 'var(--red)'); return; }
+
+  const defs = getLegacySkillDefs();
+  const def = defs[skillId];
+  if (!def) { notify('Skill not found!', 'var(--red)'); return; }
+
+  const learned = getLearnedLegacySkills();
+  const currentRank = learned[skillId] || 0;
+  const nextRank = currentRank + 1;
+  const rankData = def.ranks[String(nextRank)];
+
+  if (currentRank >= 5) {
+    notify(`✅ ${def.name} is already max rank!`, 'var(--gold)');
+    return;
+  }
+
+  // Check gold
+  if (state.gold < book.price) {
+    notify(`❌ Need ${formatNumber(book.price)}g!`, 'var(--red)');
+    return;
+  }
+
+  // Check legacy points
+  if ((state.legacyPoints || 0) < rankData.cost) {
+    notify(`❌ Need ${rankData.cost} Legacy Points! You have ${state.legacyPoints || 0}.`, 'var(--red)');
+    return;
+  }
+
+  const action = currentRank === 0 ? 'Learn' : `Upgrade to Rank ${nextRank}`;
+  if (!confirm(
+    `${action} ${def.icon} ${def.name}?\n\n` +
+    `Cost: ${formatNumber(book.price)}g + ${rankData.cost} Legacy Points\n\n` +
+    `Effect: ${rankData.desc}`
+  )) return;
+
+  // Deduct gold and legacy points
+  state.gold -= book.price;
+  state.legacyPoints -= rankData.cost;
+
+  // Learn/upgrade skill
+  if (!state.legacySkills) state.legacySkills = {};
+  state.legacySkills[skillId] = nextRank;
+
+  // Register into SKILLS object
+  registerLegacySkills();
+
+  // Add to skill bar if rank 1 (first time learning)
+  if (currentRank === 0 && !state.skills.includes(skillId)) {
+    state.skills.push(skillId);
+  }
+
+  const action2 = currentRank === 0 ? 'Learned' : `Upgraded to Rank ${nextRank}`;
+  addLog(`✨ ${action2}: ${def.icon} ${def.name}! ${rankData.desc}`, 'legendary');
+  notify(`✨ ${def.icon} ${def.name} ${action2}!`, 'var(--gold)');
+  playSound('snd-levelup');
+
+  calcStats();
+  updateUI();
+  renderStatPoints();
+  renderSkillBar();
+  renderShop();
+  await savePlayerToSupabase();
+}
+
 function buyShopItem(itemId){
   const all=[...SHOP_EQUIP,...SHOP_CONS],item=all.find(i=>i.id===itemId);if(!item)return;
   if(state.gold<item.price){addLog('Not enough gold!','bad');return;}
