@@ -1,5 +1,9 @@
 // ── DEV MODE — set to false before going public! ──
 const DEV_MODE = false;
+window.addEventListener('beforeunload', (e) => {
+  e.preventDefault();
+  e.returnValue = '';
+});
 // ── LOADER ──
 window.addEventListener('load',()=>{const l=document.getElementById('loader');l.style.opacity='0';setTimeout(()=>l.style.display='none',500);});
 
