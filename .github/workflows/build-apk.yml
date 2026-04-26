@@ -15,19 +15,29 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Add Android platform
-        run: npx cap add android
+          node-version: '20'
 
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Create www folder with index.html
+        run: |
+          mkdir -p www
+          echo '<html><body><script>window.location.href="https://my-website-sage-one-51.vercel.app/game.html";</script></body></html>' > www/index.html
+
+      - name: Init and add Capacitor Android
+        run: |
+          npx cap init "Rotana RPG" "com.rotana.rpg" --web-dir www
+          npx cap add android
 
       - name: Build debug APK
         run: |
