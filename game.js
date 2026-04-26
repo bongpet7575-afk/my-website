@@ -2105,6 +2105,7 @@ function showGame(){
   renderInventory();renderSkillBar();renderEquipSlots();fetchLeaderboard();
   setDifficulty(state.difficulty||'normal');
   switchMainScene('adv');
+  addTouchDragSupport();
 }
 
 // ── LOAD SCENE ──
@@ -6538,6 +6539,42 @@ function updateTalentBtn(){
   const btn=document.getElementById('talent-btn');
   btn.textContent=state.talentPoints>0?`🌟 Talents (${state.talentPoints})`:'🌟 Talents';
   btn.style.boxShadow=state.talentPoints>0?'0 0 10px rgba(136,68,255,.6)':'none';
+}
+
+// ── TOUCH DRAG SUPPORT FOR MOBILE ──
+function addTouchDragSupport() {
+  document.addEventListener('touchstart', e => {
+    const slot = e.target.closest('.skill-slot');
+    if (!slot) return;
+    const match = slot.getAttribute('onclick') || slot.querySelector('[ondragstart]') || slot;
+    const dragAttr = slot.getAttribute('ondragstart') || '';
+    const skillId = dragAttr.match(/'skillId','([^']+)'/)?.[1];
+    if (!skillId) return;
+    slot._touchSkillId = skillId;
+    slot.classList.add('selected');
+    e.preventDefault();
+  }, { passive: false });
+
+  document.addEventListener('touchend', e => {
+    const selected = document.querySelector('.skill-slot.selected');
+    if (!selected) return;
+    const skillId = selected._touchSkillId;
+    selected.classList.remove('selected');
+    selected._touchSkillId = null;
+    if (!skillId) return;
+
+    const touch = e.changedTouches[0];
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    const autoSlot = el?.closest('.auto-slot');
+    if (!autoSlot) return;
+
+    const slotIndex = parseInt(autoSlot.id.replace('auto-slot-', ''));
+    if (isNaN(slotIndex)) return;
+
+    autoSkillSlots[slotIndex] = skillId;
+    renderAutoSlots();
+    notify('✅ Skill assigned!', 'var(--green)');
+  });
 }
 
 // ── SKILL SELECTION FOR MOBILE TAP-TO-ASSIGN ──
