@@ -1690,6 +1690,7 @@ function triggerStageBoss(bossId){
   document.getElementById('boss-cs-req').textContent=boss.cs.req;
   document.getElementById('boss-cs-text').textContent=boss.cs.text;
   document.getElementById('boss-cutscene').style.display='block';
+  startStageBossFight();return;
   playSound('snd-boss');
 }
 function startBossFight(){
@@ -1710,14 +1711,19 @@ function startStageBossFight(){
   autoFightTimer=setInterval(()=>{if(!currentEnemy){clearInterval(autoFightTimer);return;}autoFightStep();},1000);
 }
 function dungeonComplete(){
-  const stageId=currentStage.id;
-  currentStage=null;dungeonWave=0;dungeonQueue=[];
-  addLog('🏆 Dungeon Complete!','legendary');notify('🏆 Dungeon Complete!','var(--gold)');
+  const stageId = currentStage.id;
+  const completedStage = currentStage;
+  currentStage = null; dungeonWave = 0; dungeonQueue = [];
+  addLog('🏆 Dungeon Complete! Starting next run...', 'legendary');
+  notify('🏆 Dungeon Complete!', 'var(--gold)');
   dropTreasureBox(stageId);
-  document.getElementById('story-content').innerHTML=`<div class="scene-title">🏆 Dungeon Complete!</div><p style="color:var(--gold);margin-bottom:8px;">All enemies defeated!</p><p style="color:#aaa;">A treasure chest has been added to your inventory!</p>`;
-  const box=document.getElementById('choices-box');box.innerHTML='';box.style.display='flex';
-  const btn=document.createElement('button');btn.className='choice-btn fade-in';btn.innerHTML='🏘️ Return to Town';btn.onclick=()=>loadScene('town');box.appendChild(btn);
-  updateUI();renderInventory();
+  updateUI(); renderInventory();
+
+  // Auto loop — restart same dungeon after short delay
+  setTimeout(() => {
+      enterDungeon(completedStage.id);
+    
+  }, 15);
 }
 
 // ── SCENES ──
@@ -1735,7 +1741,7 @@ const SCENES={
       {text:'🌑 Shadow Realm (Lv 80+)',   next:'dungeon_9'},
       {text:'🌟 Eternal Kingdom (Lv 90+)',next:'dungeon_10'},
       {text:'🏪 Shop', action:()=>{ switchMainScene('town'); switchTownPanel('shop', document.querySelector('.town-tab:nth-child(2)')); }},
-      {text:`⛪ Inn (+50% HP and MP, ${formatNumber(GAME_CONFIG.inn_cost||1000)}g)`, next:'inn'},
+      {text:`⛪ Inn (+50% HP and MP, ${formatNumber(GAME_CONFIG.inn_cost||0)}g)`, next:'inn'},
       {text:'👤 Character', action:()=>{ switchMainScene('char'); }},
     ]},
   dungeon_1:{title:'🐺 Wolf Mountain',text:'The howling mountain awaits.',choices:[{text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:1},{text:'🏘️ Town',next:'town'}]},
@@ -1750,7 +1756,7 @@ const SCENES={
   dungeon_10:{title:'🌟 Eternal Kingdom',text:'The final challenge.',choices:[{text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:10},{text:'🏘️ Town',next:'town'}]},
   inn:{title:'⛪ The Rusty Flagon Inn',text:'You rest comfortably.',
     action:()=>{
-      const innCost = GAME_CONFIG.inn_cost || 1000;
+      const innCost = GAME_CONFIG.inn_cost || 0;
       if(state.gold >= innCost){
         state.gold -= innCost;
         const hh=Math.floor(state.maxHp*0.5),mh=Math.floor(state.maxMp*0.5);
@@ -2109,11 +2115,18 @@ function loadScene(sceneId){
   scene.choices.forEach(c=>{
     const btn=document.createElement('button');btn.className='choice-btn fade-in';btn.innerHTML=c.text;
     if(c.action)btn.onclick=()=>c.action();
-else if(c.enemy)btn.onclick=()=>startCombat(c.enemy,false);
-else if(c.bossId)btn.onclick=()=>triggerBoss(c.bossId);
-else if(c.next==='enter_dungeon')btn.onclick=()=>enterDungeon(c.stageId);
-else btn.onclick=()=>loadScene(c.next);
-    box.appendChild(btn);
+    else if(c.enemy)btn.onclick=()=>startCombat(c.enemy,false);
+    else if(c.bossId)btn.onclick=()=>triggerBoss(c.bossId);
+    else if(c.next==='enter_dungeon')btn.onclick=()=>enterDungeon(c.stageId);
+    else btn.onclick=()=>loadScene(c.next);
+      box.appendChild(btn);
+  // Update inn cost text dynamically
+document.querySelectorAll('.choice-btn').forEach(btn => {
+  if (btn.textContent.includes('Inn')) {
+    const innCost = GAME_CONFIG.inn_cost || 0;
+    btn.textContent = `⛪ Inn (+50% HP and MP, ${formatNumber(innCost)}g)`;
+  }  
+  });   
   });
   updateUI();updateAutoFightBtn();
 }

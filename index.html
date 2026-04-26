@@ -1111,8 +1111,6 @@ function switchAuthTab(tab, btn) {
 }
 
 // ── REGISTER BRIDGE ──
-// Register form uses separate IDs to avoid collision with login fields.
-// This copies values into the IDs that registerUser() in game.js reads.
 function doRegister() {
   const regName  = document.getElementById('reg-name');
   const regEmail = document.getElementById('reg-email');
@@ -1124,42 +1122,45 @@ function doRegister() {
 }
 
 // ── TOWN PANEL SWITCHER ──
-function switchTownPanel(panel, btn) {
+async function switchTownPanel(panel, btn) {
   document.querySelectorAll('.town-tab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   document.querySelectorAll('.town-panel').forEach(p => p.style.display = 'none');
   const el = document.getElementById('town-panel-' + panel);
   if (el) el.style.display = 'block';
-  if (panel === 'shop')    renderShop();
-  if (panel === 'craft')   renderCrafting();
-  if (panel === 'auction') fetchAuctions();
+
+  // Always reload config before rendering
+  await loadGameConfig();
+
+  if (panel === 'shop')       renderShop();
+  if (panel === 'craft')      renderCrafting();
+  if (panel === 'auction')    fetchAuctions();
   if (panel === 'tournament') renderTournament();
 }
 
 // ── OVERRIDE showGame ──
-// game.js's showGame() sets game-wrapper to block, but our layout needs flex.
-// We also need to hide auth-screen and show top-bar here.
 const _origShowGame = window.showGame;
-window.showGame = function() {
+window.showGame = async function() {
   // Hide auth/char-select screens
   const auth = document.getElementById('auth-screen');
   if (auth) auth.style.display = 'none';
   const charSel = document.getElementById('char-select-screen');
   if (charSel) charSel.remove();
 
-  // Run original showGame (sets display:block on game-wrapper etc.)
+  // ── Load config FIRST before anything renders ──
+  await loadGameConfig();
+
+  // Run original showGame
   _origShowGame();
 
-  // Fix: our layout needs flex not block on game-wrapper
+  // Fix layout
   document.getElementById('game-wrapper').style.display = 'flex';
-  // Show top bar
   document.getElementById('top-bar').style.display = 'flex';
 };
 
 // ── OVERRIDE switchMainScene ──
-// game.js sets display:block but scenes need display:flex for column layout.
 const _origSwitch = window.switchMainScene;
-window.switchMainScene = function(scene) {
+window.switchMainScene = async function(scene) {
   document.querySelectorAll('.main-scene').forEach(s => s.style.display = 'none');
   const el = document.getElementById('main-scene-' + scene);
   if (el) el.style.display = 'flex';
@@ -1169,8 +1170,16 @@ window.switchMainScene = function(scene) {
   });
   const activeBtn = document.getElementById('nav-' + scene);
   if (activeBtn) activeBtn.classList.add('active');
-  if (scene === 'adv')  loadScene(state.currentScene || 'town');
-  if (scene === 'town') { renderShop(); renderInventory(); }
+
+  if (scene === 'adv') loadScene(state.currentScene || 'town');
+  if (scene === 'town') {
+    await loadGameConfig(); // reload config on every town visit
+    renderShop();
+    renderInventory();
+  }
+  if (scene === 'char') {
+    renderStatPoints();
+  }
 };
 
 // ── MY AUCTIONS ──
@@ -1188,8 +1197,6 @@ async function showMyAuctions() {
 }
 
 // ── char-avatar fix ──
-// game.js animates by ID 'char-avatar' but the element ID is 'arena-player'.
-// After DOM loads, add char-avatar as a second ID reference via a proxy.
 document.addEventListener('DOMContentLoaded', () => {
   const origGetById = document.getElementById.bind(document);
   document.getElementById = function(id) {
