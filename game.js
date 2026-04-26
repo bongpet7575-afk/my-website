@@ -6554,7 +6554,7 @@ function selectSkillForSlot(skillId) {
   selectedSkillForSlot = skillId;
   renderSkillBar();
   updateAutoSlotHighlight();
-  notify('👆 Now tap a slot to assign!', 'var(--gold)');
+  setTimeout(() => notify('👆 Now tap a slot to assign!', 'var(--gold)'), 50);
 }
 
 function assignSelectedSkill(slotIndex) {
@@ -6606,13 +6606,10 @@ function renderSkillBar() {
 }
 
 function handleSkillClick(skillId) {
-  // If auto-skill panel is visible, go into assign mode
-  const panel = document.getElementById('auto-skill-panel');
-  const panelVisible = panel && panel.offsetParent !== null;
-  if (panelVisible) {
-    selectSkillForSlot(skillId);
-  } else {
+  if (currentEnemy) {
     useSkillInCombat(skillId);
+  } else {
+    selectSkillForSlot(skillId);
   }
 }
 
