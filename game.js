@@ -6541,65 +6541,6 @@ function updateTalentBtn(){
   btn.style.boxShadow=state.talentPoints>0?'0 0 10px rgba(136,68,255,.6)':'none';
 }
 
-// ── TOUCH DRAG SUPPORT FOR MOBILE ──
-function addTouchDragSupport() {
-  let touchSkillId = null;
-  let touchIndicator = null;
-
-  document.addEventListener('touchstart', e => {
-    const slot = e.target.closest('.skill-slot');
-    if (!slot) return;
-    const ondrag = slot.getAttribute('ondragstart') || '';
-    const match = ondrag.match(/'skillId','([^']+)'/);
-    if (!match) return;
-    touchSkillId = match[1];
-    slot.classList.add('selected');
-
-    // Create floating indicator so user sees what they're dragging
-    touchIndicator = document.createElement('div');
-    touchIndicator.style.cssText = `
-      position:fixed;z-index:9999;pointer-events:none;
-      background:var(--panel);border:2px solid var(--gold);
-      border-radius:8px;padding:6px 10px;font-size:1.2em;
-      transform:translate(-50%,-50%);opacity:0.9;
-    `;
-    touchIndicator.textContent = SKILLS[touchSkillId]?.icon || '?';
-    document.body.appendChild(touchIndicator);
-    e.preventDefault();
-  }, { passive: false });
-
-  document.addEventListener('touchmove', e => {
-    if (!touchSkillId || !touchIndicator) return;
-    const t = e.touches[0];
-    touchIndicator.style.left = t.clientX + 'px';
-    touchIndicator.style.top = t.clientY + 'px';
-    e.preventDefault();
-  }, { passive: false });
-
-  document.addEventListener('touchend', e => {
-    if (touchIndicator) { touchIndicator.remove(); touchIndicator = null; }
-    document.querySelectorAll('.skill-slot.selected').forEach(s => s.classList.remove('selected'));
-    if (!touchSkillId) return;
-
-    const t = e.changedTouches[0];
-    
-    // Check all auto slots manually
-    for (let i = 0; i < 3; i++) {
-      const slotEl = document.getElementById(`auto-slot-${i}`);
-      if (!slotEl) continue;
-      const rect = slotEl.getBoundingClientRect();
-      if (t.clientX >= rect.left && t.clientX <= rect.right &&
-          t.clientY >= rect.top && t.clientY <= rect.bottom) {
-        autoSkillSlots[i] = touchSkillId;
-        renderAutoSlots();
-        notify('✅ Skill assigned!', 'var(--green)');
-        break;
-      }
-    }
-    touchSkillId = null;
-  });
-}
-
 // ── SKILL SELECTION FOR MOBILE TAP-TO-ASSIGN ──
 let selectedSkillForSlot = null;
 
@@ -6653,11 +6594,11 @@ function renderSkillBar() {
   document.getElementById('skills-slot-row').innerHTML = state.skills.map(sid => {
     const sk = SKILLS[sid]; if (!sk) return '';
     const cd = state.skillCooldowns[sid] || 0;
-    const isSelected = selectedSkillForSlot === sid;
-    return `<div class="skill-slot ${isSelected ? 'selected' : ''}"
+    const inSlot = autoSkillSlots.includes(sid);
+    return `<div class="skill-slot ${inSlot ? 'in-slot' : ''}"
       draggable="true"
       ondragstart="event.dataTransfer.setData('skillId','${sid}')"
-      onclick="handleSkillClick('${sid}')">
+      onclick="${currentEnemy ? `useSkillInCombat('${sid}')` : `assignSkillToAutoSlot('${sid}')`}">
       <div class="skill-icon-wrap ${cd > 0 ? 'on-cd' : ''}">${sk.icon}</div>
       <div class="skill-lbl">${sk.name}</div>
       <div class="skill-cd-lbl">${cd > 0 ? `CD:${cd}` : `${typeof sk.mp === 'function' ? sk.mp() : sk.mp}MP`}</div>
@@ -6665,12 +6606,17 @@ function renderSkillBar() {
   }).join('');
 }
 
-function handleSkillClick(skillId) {
-  if (currentEnemy) {
-    useSkillInCombat(skillId);
-  } else {
-    selectSkillForSlot(skillId);
+function assignSkillToAutoSlot(skillId) {
+  if (!skillId || !SKILLS[skillId]) return;
+  // Find first empty slot
+  const emptySlot = autoSkillSlots.indexOf(null);
+  if (emptySlot === -1) {
+    notify('All 3 slots filled! Tap a slot icon to clear it.', 'var(--gold)');
+    return;
   }
+  autoSkillSlots[emptySlot] = skillId;
+  renderAutoSlots();
+  notify('✅ Skill assigned to slot ' + (emptySlot + 1) + '!', 'var(--green)');
 }
 
 // ── EQUIPMENT ──
