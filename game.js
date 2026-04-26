@@ -2105,7 +2105,6 @@ function showGame(){
   renderInventory();renderSkillBar();renderEquipSlots();fetchLeaderboard();
   setDifficulty(state.difficulty||'normal');
   switchMainScene('adv');
-  addTouchDragSupport();
 }
 
 // ── LOAD SCENE ──
@@ -2134,6 +2133,7 @@ document.querySelectorAll('.choice-btn').forEach(btn => {
   });   
   });
   updateUI();updateAutoFightBtn();
+  addTouchDragSupport();
 }
 
 function renderEnemyStatPanel(enemy) {
