@@ -6543,37 +6543,60 @@ function updateTalentBtn(){
 
 // ── TOUCH DRAG SUPPORT FOR MOBILE ──
 function addTouchDragSupport() {
+  let touchSkillId = null;
+  let touchIndicator = null;
+
   document.addEventListener('touchstart', e => {
     const slot = e.target.closest('.skill-slot');
     if (!slot) return;
-    const match = slot.getAttribute('onclick') || slot.querySelector('[ondragstart]') || slot;
-    const dragAttr = slot.getAttribute('ondragstart') || '';
-    const skillId = dragAttr.match(/'skillId','([^']+)'/)?.[1];
-    if (!skillId) return;
-    slot._touchSkillId = skillId;
+    const ondrag = slot.getAttribute('ondragstart') || '';
+    const match = ondrag.match(/'skillId','([^']+)'/);
+    if (!match) return;
+    touchSkillId = match[1];
     slot.classList.add('selected');
+
+    // Create floating indicator so user sees what they're dragging
+    touchIndicator = document.createElement('div');
+    touchIndicator.style.cssText = `
+      position:fixed;z-index:9999;pointer-events:none;
+      background:var(--panel);border:2px solid var(--gold);
+      border-radius:8px;padding:6px 10px;font-size:1.2em;
+      transform:translate(-50%,-50%);opacity:0.9;
+    `;
+    touchIndicator.textContent = SKILLS[touchSkillId]?.icon || '?';
+    document.body.appendChild(touchIndicator);
+    e.preventDefault();
+  }, { passive: false });
+
+  document.addEventListener('touchmove', e => {
+    if (!touchSkillId || !touchIndicator) return;
+    const t = e.touches[0];
+    touchIndicator.style.left = t.clientX + 'px';
+    touchIndicator.style.top = t.clientY + 'px';
     e.preventDefault();
   }, { passive: false });
 
   document.addEventListener('touchend', e => {
-    const selected = document.querySelector('.skill-slot.selected');
-    if (!selected) return;
-    const skillId = selected._touchSkillId;
-    selected.classList.remove('selected');
-    selected._touchSkillId = null;
-    if (!skillId) return;
+    if (touchIndicator) { touchIndicator.remove(); touchIndicator = null; }
+    document.querySelectorAll('.skill-slot.selected').forEach(s => s.classList.remove('selected'));
+    if (!touchSkillId) return;
 
-    const touch = e.changedTouches[0];
-    const el = document.elementFromPoint(touch.clientX, touch.clientY);
-    const autoSlot = el?.closest('.auto-slot');
-    if (!autoSlot) return;
-
-    const slotIndex = parseInt(autoSlot.id.replace('auto-slot-', ''));
-    if (isNaN(slotIndex)) return;
-
-    autoSkillSlots[slotIndex] = skillId;
-    renderAutoSlots();
-    notify('✅ Skill assigned!', 'var(--green)');
+    const t = e.changedTouches[0];
+    
+    // Check all auto slots manually
+    for (let i = 0; i < 3; i++) {
+      const slotEl = document.getElementById(`auto-slot-${i}`);
+      if (!slotEl) continue;
+      const rect = slotEl.getBoundingClientRect();
+      if (t.clientX >= rect.left && t.clientX <= rect.right &&
+          t.clientY >= rect.top && t.clientY <= rect.bottom) {
+        autoSkillSlots[i] = touchSkillId;
+        renderAutoSlots();
+        notify('✅ Skill assigned!', 'var(--green)');
+        break;
+      }
+    }
+    touchSkillId = null;
   });
 }
 
