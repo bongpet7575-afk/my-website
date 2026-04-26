@@ -128,7 +128,6 @@ function applyGameConfig() {
         tree.talents.forEach(talent => {
           const cfg = talents[talent.id];
           if (!cfg) return;
-          // Rebuild talent effect function from config values
           talent.configValues = cfg;
           talent.effect = buildTalentEffect(talent.id, className, cfg);
         });
@@ -146,12 +145,10 @@ function applyGameConfig() {
     });
   }
 
-  // ── Apply tournament fees ──
-  if (GAME_CONFIG.tournament_fees) {
-    Object.assign(PRACTICE_FEES || {}, GAME_CONFIG.practice_fees || {});
-  }
-  // Register any already-learned legacy skills
-if (typeof registerLegacySkills === 'function') registerLegacySkills();
+  // ── Practice fees now handled by getPracticeFee() — no assignment needed ──
+
+  // ── Register legacy skills ──
+  if (typeof registerLegacySkills === 'function') registerLegacySkills();
 }
 
 // ── BUILD TALENT EFFECT FROM CONFIG ──
@@ -6825,81 +6822,119 @@ function switchShopTab(tab){
   document.querySelectorAll('.shop-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById(`shop-tab-${tab}`).classList.add('active');renderShop();
 }
-function renderShop(){
-  // ── LEGACY SKILL BOOKS ──
-const skillBooks = GAME_CONFIG.skill_books || [];
-const defs = getLegacySkillDefs();
-const learned = getLearnedLegacySkills();
+function renderShop() {
+  const container = document.getElementById('shop-content');
+  if (!container) return;
 
-if (skillBooks.length) {
-  html += `
-    <div style="font-family:var(--font-title);font-size:.65em;
-      color:var(--text-dim);letter-spacing:2px;
-      margin:12px 0 6px;">
-      ✨ LEGACY SKILL TOMES
+  const items = currentShopTab === 'equipment' ? SHOP_EQUIP : SHOP_CONS;
+  const r_ = r => RARITY[r] || RARITY.normal;
+
+  // ── EQUIPMENT TAB ──
+  if (currentShopTab === 'equipment') {
+    container.innerHTML = `
+      <div class="item-grid">
+        ${items.map(item => `
+          <div class="item-icon-box ${item.rarity}"
+            onclick="showItemPopup('shop','${item.id}')"
+            title="${item.name}">
+            <div class="item-icon-emoji">${item.name.split(' ')[0]}</div>
+            <div class="item-icon-price">💰${formatNumber(item.price)}</div>
+          </div>`).join('')}
+      </div>`;
+    return;
+  }
+
+  // ── CONSUMABLES TAB ──
+  let html = `
+    <div class="item-grid">
+      ${items.map(item => `
+        <div class="item-icon-box ${item.rarity}"
+          onclick="showItemPopup('shop','${item.id}')"
+          title="${item.name}">
+          <div class="item-icon-emoji">${item.name.split(' ')[0]}</div>
+          <div class="item-icon-price">💰${formatNumber(item.price)}</div>
+        </div>`).join('')}
     </div>`;
 
-  skillBooks.forEach(book => {
-    const def = defs[book.skillId];
-    if (!def) return;
-    const currentRank = learned[book.skillId] || 0;
-    const nextRank = currentRank + 1;
-    const nextRankData = def.ranks[String(nextRank)];
-    const isMaxed = currentRank >= 5;
-    const canAfford = state.gold >= book.price;
-    const hasLegacyPts = nextRankData && (state.legacyPoints || 0) >= nextRankData.cost;
-    const rColor = RARITY['epic']?.color || '#a855f7';
+  // ── LEGACY SKILL TOMES ──
+  const skillBooks = GAME_CONFIG.skill_books || [];
+  const defs = getLegacySkillDefs();
+  const learned = getLearnedLegacySkills();
 
+  if (skillBooks.length) {
     html += `
-      <div style="background:rgba(168,85,247,0.04);
-        border:1px solid ${rColor}44;border-radius:8px;
-        padding:10px;margin-bottom:8px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-          <div style="font-size:1.5em;">${def.icon}</div>
-          <div style="flex:1;">
-            <div style="font-family:var(--font-title);font-size:.80em;color:${rColor};">
-              ${book.name}
-            </div>
-            <div style="font-size:.65em;color:var(--text-dim);">${def.desc}</div>
-            ${currentRank > 0 ? `
-              <div style="font-size:.62em;color:#a855f7;margin-top:2px;">
-                Currently: Rank ${currentRank}/5
-              </div>` : ''}
-          </div>
-          <div style="text-align:right;">
-            <div style="font-family:var(--font-title);color:var(--gold);font-size:.78em;">
-              ${formatNumber(book.price)}g
-            </div>
-            ${nextRankData ? `
-              <div style="font-size:.60em;color:#a855f7;">
-                +${nextRankData.cost} LP
-              </div>` : ''}
-          </div>
-        </div>
-
-        ${isMaxed ? `
-          <div style="text-align:center;font-size:.70em;color:var(--gold);
-            padding:5px;background:rgba(255,153,0,0.08);border-radius:6px;">
-            ✅ MAX RANK — Fully Mastered!
-          </div>
-        ` : `
-          <button onclick="buySkillBook('${book.id}', '${book.skillId}')"
-            style="width:100%;padding:7px;font-size:.72em;
-            background:${canAfford && hasLegacyPts ? 'rgba(168,85,247,0.15)' : 'rgba(255,255,255,0.03)'};
-            border:1px solid ${canAfford && hasLegacyPts ? rColor : 'var(--border)'};
-            border-radius:6px;
-            color:${canAfford && hasLegacyPts ? rColor : 'var(--text-dim)'};
-            cursor:${canAfford && hasLegacyPts ? 'pointer' : 'not-allowed'};">
-            ${currentRank === 0 ? '📖 Learn' : `⬆️ Upgrade to Rank ${nextRank}`}
-            ${!canAfford ? ' (not enough gold)' : ''}
-            ${canAfford && !hasLegacyPts && nextRankData ? ` (need ${nextRankData.cost} LP)` : ''}
-          </button>`}
+      <div style="font-family:var(--font-title);font-size:.65em;
+        color:var(--text-dim);letter-spacing:2px;margin:12px 0 6px;">
+        ✨ LEGACY SKILL TOMES
       </div>`;
-  });
-}
-  
-  const items=currentShopTab==='equipment'?SHOP_EQUIP:SHOP_CONS,r_=r=>RARITY[r]||RARITY.normal;
-  document.getElementById('shop-content').innerHTML=`<div class="item-grid">${items.map(item=>`<div class="item-icon-box ${item.rarity}" onclick="showItemPopup('shop','${item.id}')" title="${item.name}"><div class="item-icon-emoji">${item.name.split(' ')[0]}</div><div class="item-icon-price">💰${item.price}</div></div>`).join('')}</div>`;
+
+    skillBooks.forEach(book => {
+      const def = defs[book.skillId];
+      if (!def) return;
+      const currentRank = learned[book.skillId] || 0;
+      const nextRank = currentRank + 1;
+      const nextRankData = def.ranks[String(nextRank)];
+      const isMaxed = currentRank >= 5;
+      const canAfford = state.gold >= book.price;
+      const hasLegacyPts = nextRankData &&
+        (state.legacyPoints || 0) >= nextRankData.cost;
+      const rColor = '#a855f7';
+
+      html += `
+        <div style="background:rgba(168,85,247,0.04);
+          border:1px solid ${rColor}44;border-radius:8px;
+          padding:10px;margin-bottom:8px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <div style="font-size:1.5em;">${def.icon}</div>
+            <div style="flex:1;">
+              <div style="font-family:var(--font-title);font-size:.80em;color:${rColor};">
+                ${book.name}
+              </div>
+              <div style="font-size:.65em;color:var(--text-dim);">${def.desc}</div>
+              ${currentRank > 0 ? `
+                <div style="font-size:.62em;color:#a855f7;margin-top:2px;">
+                  Currently: Rank ${currentRank}/5
+                </div>` : ''}
+            </div>
+            <div style="text-align:right;">
+              <div style="font-family:var(--font-title);color:var(--gold);font-size:.78em;">
+                ${formatNumber(book.price)}g
+              </div>
+              ${nextRankData ? `
+                <div style="font-size:.60em;color:#a855f7;">
+                  ${nextRankData.cost} LP required
+                </div>` : ''}
+            </div>
+          </div>
+          ${isMaxed ? `
+            <div style="text-align:center;font-size:.70em;color:var(--gold);
+              padding:5px;background:rgba(255,153,0,0.08);border-radius:6px;">
+              ✅ MAX RANK — Fully Mastered!
+            </div>
+          ` : `
+            <button onclick="buySkillBook('${book.id}', '${book.skillId}')"
+              style="width:100%;padding:7px;font-size:.72em;
+              background:${canAfford && hasLegacyPts
+                ? 'rgba(168,85,247,0.15)' : 'rgba(255,255,255,0.03)'};
+              border:1px solid ${canAfford && hasLegacyPts
+                ? rColor : 'var(--border)'};
+              border-radius:6px;
+              color:${canAfford && hasLegacyPts ? rColor : 'var(--text-dim)'};
+              cursor:${canAfford && hasLegacyPts ? 'pointer' : 'not-allowed'};">
+              ${currentRank === 0
+                ? '📖 Learn Skill'
+                : `⬆️ Upgrade to Rank ${nextRank}`}
+              ${!canAfford
+                ? ` (need ${formatNumber(book.price - state.gold)}g more)`
+                : !hasLegacyPts && nextRankData
+                ? ` (need ${nextRankData.cost - (state.legacyPoints||0)} more LP)`
+                : ''}
+            </button>`}
+        </div>`;
+    });
+  }
+
+  container.innerHTML = html;
 }
 
 // ── BUY SKILL BOOK FROM SHOP ──
