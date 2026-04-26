@@ -32,7 +32,7 @@ jobs:
       - name: Create www folder with index.html
         run: |
           mkdir -p www
-          echo '<html><body><script>window.location.href="https://https://my-website-sage-one-51.vercel.app";</script></body></html>' > www/index.html
+          echo '<html><body><script>window.location.href="https://my-website-sage-one-51.vercel.app";</script></body></html>' > www/index.html
 
       - name: Init and add Capacitor Android
         run: |
