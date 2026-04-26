@@ -30,11 +30,11 @@ jobs:
       - name: Create www folder with index.html
         run: |
           mkdir -p www
-          echo '<html><body><script>window.location.href="https://my-website-sage-one-51.vercel.app/game.html";</script></body></html>' > www/index.html
+          echo '<html><body><script>window.location.href="https://my-website-sage-one-51.vercel.app/";</script></body></html>' > www/index.html
 
       - name: Init and add Capacitor Android
         run: |
-          npx cap init "Rotana RPG" "com.rotana.rpg" --web-dir www
+          npx cap init "GOD DOMAIN" "com.rotana.rpg" --web-dir www
           npx cap add android
 
       - name: Build APK
@@ -44,10 +44,10 @@ jobs:
           ./gradlew assembleDebug
 
       - name: Rename APK
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/RotanaRPG-v1.0.0.apk
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/GODDOMAIN-v1.0.0.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: RotanaRPG-v1.0.0
-          path: android/app/build/outputs/apk/debug/RotanaRPG-v1.0.0.apk
+          name: GODDOMAIN-v1.0.0
+          path: android/app/build/outputs/apk/debug/GODDOMAIN-v1.0.0.apk
