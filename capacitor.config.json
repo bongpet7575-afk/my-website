@@ -3,7 +3,7 @@
   "appName": "Rotana RPG",
   "webDir": "www",
   "server": {
-    "url": "https://my-website-sage-one-51.vercel.app/game.html",
+    "url": "https://my-website-sage-one-51.vercel.app",
     "cleartext": false
   }
 }
