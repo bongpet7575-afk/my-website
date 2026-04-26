@@ -6540,18 +6540,80 @@ function updateTalentBtn(){
   btn.style.boxShadow=state.talentPoints>0?'0 0 10px rgba(136,68,255,.6)':'none';
 }
 
-// ── SKILLS BAR ──
-function renderSkillBar(){
-  if(!state.skills||!state.skills.length){document.getElementById('skills-bar').style.display='none';return;}
-  document.getElementById('skills-bar').style.display='block';
-  document.getElementById('skills-slot-row').innerHTML=state.skills.map(sid=>{
-    const sk=SKILLS[sid];if(!sk)return'';const cd=state.skillCooldowns[sid]||0;
-    return `<div class="skill-slot" draggable="true" ondragstart="event.dataTransfer.setData('skillId','${sid}')" onclick="useSkillInCombat('${sid}')">
-      <div class="skill-icon-wrap ${cd>0?'on-cd':''}">${sk.icon}</div>
+// ── SKILL SELECTION FOR MOBILE TAP-TO-ASSIGN ──
+let selectedSkillForSlot = null;
+
+function selectSkillForSlot(skillId) {
+  // If already selected, deselect
+  if (selectedSkillForSlot === skillId) {
+    selectedSkillForSlot = null;
+    renderSkillBar();
+    updateAutoSlotHighlight();
+    return;
+  }
+  selectedSkillForSlot = skillId;
+  renderSkillBar();
+  updateAutoSlotHighlight();
+  notify('👆 Now tap a slot to assign!', 'var(--gold)');
+}
+
+function assignSelectedSkill(slotIndex) {
+  if (!selectedSkillForSlot) {
+    // No skill selected — clear the slot instead
+    clearSlot(slotIndex);
+    return;
+  }
+  autoSkillSlots[slotIndex] = selectedSkillForSlot;
+  selectedSkillForSlot = null;
+  renderAutoSlots();
+  renderSkillBar();
+  updateAutoSlotHighlight();
+  notify('✅ Skill assigned!', 'var(--green)');
+}
+
+function updateAutoSlotHighlight() {
+  for (let i = 0; i < 3; i++) {
+    const icon = document.getElementById(`auto-slot-content-${i}`);
+    if (!icon) continue;
+    if (selectedSkillForSlot) {
+      icon.classList.add('slot-ready');
+    } else {
+      icon.classList.remove('slot-ready');
+    }
+  }
+}
+
+// ── SKILLS BAR (updated with tap-to-assign support) ──
+function renderSkillBar() {
+  if (!state.skills || !state.skills.length) {
+    document.getElementById('skills-bar').style.display = 'none';
+    return;
+  }
+  document.getElementById('skills-bar').style.display = 'block';
+  document.getElementById('skills-slot-row').innerHTML = state.skills.map(sid => {
+    const sk = SKILLS[sid]; if (!sk) return '';
+    const cd = state.skillCooldowns[sid] || 0;
+    const isSelected = selectedSkillForSlot === sid;
+    return `<div class="skill-slot ${isSelected ? 'selected' : ''}"
+      draggable="true"
+      ondragstart="event.dataTransfer.setData('skillId','${sid}')"
+      onclick="handleSkillClick('${sid}')">
+      <div class="skill-icon-wrap ${cd > 0 ? 'on-cd' : ''}">${sk.icon}</div>
       <div class="skill-lbl">${sk.name}</div>
-      <div class="skill-cd-lbl">${cd>0?`CD:${cd}`:`${typeof sk.mp==='function'?sk.mp():sk.mp}MP`}</div>
+      <div class="skill-cd-lbl">${cd > 0 ? `CD:${cd}` : `${typeof sk.mp === 'function' ? sk.mp() : sk.mp}MP`}</div>
     </div>`;
   }).join('');
+}
+
+function handleSkillClick(skillId) {
+  // If auto-skill panel is visible, go into assign mode
+  const panel = document.getElementById('auto-skill-panel');
+  const panelVisible = panel && panel.offsetParent !== null;
+  if (panelVisible) {
+    selectSkillForSlot(skillId);
+  } else {
+    useSkillInCombat(skillId);
+  }
 }
 
 // ── EQUIPMENT ──
