@@ -2114,8 +2114,8 @@ function loadScene(sceneId){
   state.currentScene=sceneId;
   if(scene.action)scene.action();
   document.getElementById('story-content').innerHTML=`<div class="scene-title">${scene.title}</div><p>${scene.text}</p>`;
-  document.getElementById('combat-box').style.display='none';
-  const box=document.getElementById('choices-box');box.innerHTML='';box.style.display='flex';
+  showChoicesMode();
+const box=document.getElementById('choices-box');box.innerHTML='';
   scene.choices.forEach(c=>{
     const btn=document.createElement('button');btn.className='choice-btn fade-in';btn.innerHTML=c.text;
     if(c.action)btn.onclick=()=>c.action();
@@ -2134,6 +2134,18 @@ document.querySelectorAll('.choice-btn').forEach(btn => {
   });
   updateUI();updateAutoFightBtn();
   addTouchDragSupport();
+}
+
+function showCombatMode() {
+  document.getElementById('combat-log').style.display = 'block';
+  document.getElementById('choices-box').style.display = 'none';
+  document.getElementById('choices-box').innerHTML = '';
+}
+
+function showChoicesMode() {
+  document.getElementById('combat-log').style.display = 'none';
+  document.getElementById('combat-log').innerHTML = '';
+  document.getElementById('choices-box').style.display = 'flex';
 }
 
 function renderEnemyStatPanel(enemy) {
@@ -2190,14 +2202,13 @@ function toggleAutoFight(){
   if(currentStage){
     autoFightOn=false;clearInterval(autoFightTimer);autoFightTimer=null;
     currentStage=null;dungeonWave=0;dungeonQueue=[];currentEnemy=null;
-    document.getElementById('combat-box').style.display='none';
-    document.getElementById('choices-box').style.display='flex';
+    showChoicesMode();
     stopAutoFight();addLog('⏹️ Left the dungeon!','info');notify('⏹️ Dungeon abandoned!','#888');loadScene('town');return;
   }
   if(!autoFightEnemyId){notify('⚠️ Defeat an enemy first!','var(--red)');return;}
   autoFightOn=!autoFightOn;updateAutoFightBtn();
   if(autoFightOn){ addLog('⚡ Auto Fight ON!','gold');notify('⚡ Auto Fight activated!','var(--gold)');startAutoFight(); }
-  else { stopAutoFight();addLog('⏹️ Auto Fight OFF.','info');notify('⏹️ Auto Fight stopped.','#888');document.getElementById('combat-box').style.display='none';document.getElementById('choices-box').style.display='flex'; }
+  else { stopAutoFight();addLog('⏹️ Auto Fight OFF.','info');notify('⏹️ Auto Fight stopped.','#888');showChoicesMode(); }
 }
 function updateAutoFightBtn(){
   const btn=document.getElementById('auto-fight-btn');if(!btn)return;
@@ -2370,7 +2381,7 @@ function endCombat(won){
 
     // Clear enemy AFTER rewards
     currentEnemy=null;
-    document.getElementById('combat-box').style.display='none';
+    showChoicesMode();
 
     // Dungeon flow
     if(currentStage){
@@ -2383,7 +2394,7 @@ function endCombat(won){
 
   } else {
     currentEnemy=null;
-    document.getElementById('combat-box').style.display='none';
+    showCombatMode();
     loadScene('town');
   }
 
@@ -5551,9 +5562,7 @@ function startCombatWith(enemy){
   document.getElementById('arena-enemy-label').textContent=enemy.name;
   document.getElementById('arena-enemy-hp').style.width='100%';
   document.getElementById('combat-log').innerHTML='';
-  document.getElementById('combat-box').style.display='block';
-  document.getElementById('choices-box').style.display='none';
-
+  showCombatMode();
   // Enemy stats under their HP bar
   const es=document.getElementById('enemy-stats');
   if(es){
@@ -5736,7 +5745,7 @@ function handleFlee() {
   if (Math.random() < fleeChance) {
     addLog('Fled from battle!', 'bad');
     currentEnemy = null;
-    document.getElementById('combat-box').style.display = 'none';
+    showChoicesMode();
     loadScene('town');
     return;
   }
