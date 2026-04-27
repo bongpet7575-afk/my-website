@@ -993,7 +993,8 @@ const state={
   character_id: null,
   user_id: null,
 
-  
+  reputation: 0,
+  reputationTitle: null,
 
   respecCount: 0,
 
@@ -1063,6 +1064,77 @@ const state={
     level100:{text:'🌟 Reach Max Level 100',done:false},
   }
 };
+
+// ── REPUTATION ──
+const REPUTATION_TITLES = [
+  { id:'baron',    label:'Baron',    req:1000,  boost:0.10, soulTier:1 },
+  { id:'chief',    label:'Chief',    req:5000,  boost:0.20, soulTier:2 },
+  { id:'mayor',    label:'Mayor',    req:15000, boost:0.35, soulTier:3 },
+  { id:'viscount', label:'Viscount', req:35000, boost:0.50, soulTier:4 },
+  { id:'count',    label:'Count',    req:75000, boost:0.75, soulTier:5 },
+];
+
+function getCurrentTitle() {
+  let current = null;
+  for (const t of REPUTATION_TITLES) {
+    if (state.reputation >= t.req) current = t;
+    else break;
+  }
+  return current;
+}
+
+function getNextTitle() {
+  for (const t of REPUTATION_TITLES) {
+    if (state.reputation < t.req) return t;
+  }
+  return null;
+}
+
+function updateRepBar() {
+  const repVal = document.getElementById('rep-val');
+  const repNext = document.getElementById('rep-next');
+  const repBar = document.getElementById('rep-bar');
+  const repTitle = document.getElementById('rep-title');
+  if (!repVal) return;
+
+  const current = getCurrentTitle();
+  const next = getNextTitle();
+
+  if (!next) {
+    // MAX title reached
+    repVal.textContent = formatNumber(state.reputation);
+    repNext.textContent = formatNumber(75000);
+    repBar.style.width = '100%';
+    repTitle.textContent = '👑 COUNT';
+    repTitle.style.color = 'var(--legendary)';
+    repBar.style.boxShadow = '0 0 20px rgba(255,153,0,0.8)';
+    return;
+  }
+
+  const prevReq = current ? current.req : 0;
+  const progress = ((state.reputation - prevReq) / (next.req - prevReq)) * 100;
+  repVal.textContent = formatNumber(state.reputation);
+  repNext.textContent = formatNumber(next.req);
+  repBar.style.width = Math.min(100, progress) + '%';
+  repTitle.textContent = current ? `${current.label} → ${next.label}` : `→${next.label}`;
+}
+
+function addReputation(points) {
+  state.reputation = (state.reputation || 0) + points;
+  const current = getCurrentTitle();
+  const prev = state.reputationTitle;
+
+  // Check for title upgrade
+  if (current && current.id !== prev) {
+    state.reputationTitle = current.id;
+    notify(`👑 New Title: ${current.label}!`, 'var(--purple)');
+    addLog(`👑 You are now ${current.label}! +${current.boost * 100}% all stats!`, 'purple');
+    calcStats();
+  }
+
+  updateRepBar();
+  savePlayerToSupabase();
+}
 
 // ── SOUL WEAPONS ──
 const SOUL_WEAPONS = {
@@ -1184,6 +1256,8 @@ function setDifficulty(diff){
 
 // ── CALC STATS ──
 function calcStats(){
+  // Reputation title boost
+
   // Check gold multiplier expiry
 if(state.goldMultExpiry && new Date() > new Date(state.goldMultExpiry)) {
   state.goldMult = 1.0;
@@ -1202,6 +1276,13 @@ if(state.goldMultExpiry && new Date() > new Date(state.goldMultExpiry)) {
   const hpRegenMult  = state.hpRegenMult  + (state.classBonuses.hpRegenMult ||0) + (state.talentBonuses.hpRegenMult ||0) + (state.equipHpRenMult || 0);
   const mpRegenMult  = state.mpRegenMult  + (state.classBonuses.mpRegenMult ||0) + (state.talentBonuses.mpRegenMult ||0) + (state.equipMpRegenMult || 0);
   const speedCfg = GAME_CONFIG.combat_speed || {};
+  const repTitle = getCurrentTitle();
+if (repTitle) {
+  const boost = 1 + repTitle.boost;
+  state.attackPower = Math.floor(state.attackPower * boost);
+  state.maxHp = Math.floor(state.maxHp * boost);
+  state.armor = Math.floor(state.armor * boost);
+}
 const atkSpdPerAgi = speedCfg.attack_speed_per_agi || 0.5;
 const castSpdPerInt = speedCfg.cast_speed_per_int || 0.3;
 const minInterval = speedCfg.min_attack_interval_ms || 400;
@@ -7699,6 +7780,7 @@ if (charClassEl) {
   document.getElementById('xp-bar').style.width=Math.min(100,(state.xp/state.xpNext)*100)+'%';
   document.getElementById('arena-player-hp').style.width=Math.max(0,(hp/state.maxHp)*100)+'%';
   document.getElementById('arena-player-mp').style.width=Math.max(0,(mp/state.maxHp)*100)+'%';
+  updateRepBar();
   renderStatPoints();
   renderSoulWeaponSlot();
   renderTournamentRewards();
