@@ -251,6 +251,35 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     var(--bg);
 }
 
+/* ═══════════════════════════════ COMBAT LAYOUT FIX ════ */
+#main-scene-adv {
+  height: 100%;
+}
+
+#arena {
+  flex-shrink: 0;
+}
+
+#story-content {
+  flex-shrink: 0;
+}
+
+#combat-controls {
+  flex-shrink: 0;
+  max-height: 45vh;
+  overflow-y: auto;
+}
+
+#main-content-area {
+  flex: 1;
+  min-height: 0;
+}
+
+#combat-log {
+  flex: 1;
+  min-height: 80px;
+}
+
 .skill-slot.in-slot {
   border-color: var(--green);
   background: rgba(68, 170, 68, 0.08);
