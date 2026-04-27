@@ -2137,12 +2137,16 @@ document.querySelectorAll('.choice-btn').forEach(btn => {
 }
 
 function showCombatMode() {
+  document.getElementById('arena').style.display = 'flex';
+  document.getElementById('combat-controls').style.display = 'flex';
   document.getElementById('combat-log').style.display = 'block';
   document.getElementById('choices-box').style.display = 'none';
   document.getElementById('choices-box').innerHTML = '';
 }
 
 function showChoicesMode() {
+  document.getElementById('arena').style.display = 'none';
+  document.getElementById('combat-controls').style.display = 'none';
   document.getElementById('combat-log').style.display = 'none';
   document.getElementById('combat-log').innerHTML = '';
   document.getElementById('choices-box').style.display = 'flex';

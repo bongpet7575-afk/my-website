@@ -944,10 +944,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
     </div><!-- /main-scene-char -->
 
-    <!-- ───────────── ADVENTURE SCENE ───────────── -->
+<!-- ───────────── ADVENTURE SCENE ───────────── -->
 <div id="main-scene-adv" class="main-scene" style="display:none;flex-direction:column;overflow:hidden;">
-  <!-- Arena -->
-  <div id="arena">
+  
+  <!-- Arena - only show during combat -->
+  <div id="arena" style="display:none;">
     <div class="arena-side">
       <div class="arena-avatar" id="arena-player">🧙</div>
       <div class="arena-label" id="arena-player-label">Hero</div>
@@ -979,43 +980,48 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   </div>
 
   <!-- Single stable content area -->
-<div id="main-content-area" style="display:flex;flex-direction:column;flex:1;overflow:hidden;padding:0 10px 10px;min-height:0;">
-  <div id="combat-log" style="flex:1;overflow-y:auto;font-size:.78em;line-height:1.7;padding:4px 0;min-height:0;display:none;"></div>
-  <div id="choices-box" style="display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex:1;min-height:0;"></div>
-</div>
-
-  <!-- Auto fight button -->
-  <button id="auto-fight-btn" onclick="toggleAutoFight()">⚡ Auto Fight</button>
-
-  <!-- Skills bar -->
-  <div id="skills-bar" style="display:none;">
-    <div id="skills-slot-row" style="display:flex;gap:6px;overflow-x:auto;padding:8px 10px;"></div>
+  <div id="main-content-area" style="display:flex;flex-direction:column;flex:1;overflow:hidden;padding:0 10px 10px;min-height:0;">
+    <div id="combat-log" style="flex:1;overflow-y:auto;font-size:.78em;line-height:1.7;padding:4px 0;min-height:0;display:none;"></div>
+    <div id="choices-box" style="display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex:1;min-height:0;"></div>
   </div>
 
-  <!-- Auto-Skill Slots -->
-  <div class="char-panel" id="auto-skill-panel">
-    <div class="panel-title">
-      Auto-Skill Slots
-      <span style="font-size:.7em;color:var(--text-dim);font-family:var(--font-body);" id="auto-skill-hint">tap a skill then tap a slot</span>
+  <!-- Bottom combat controls - only show during combat -->
+  <div id="combat-controls" style="display:none;flex-direction:column;flex-shrink:0;">
+    
+    <!-- Auto fight button -->
+    <button id="auto-fight-btn" onclick="toggleAutoFight()" style="display:none;">⚡ Auto Fight</button>
+
+    <!-- Skills bar -->
+    <div id="skills-bar" style="display:none;">
+      <div id="skills-slot-row" style="display:flex;gap:6px;overflow-x:auto;padding:8px 10px;"></div>
     </div>
-    <div class="auto-slots-wrap" style="padding:0;margin:0;">
-      <div class="auto-slot" id="auto-slot-0" onclick="assignSelectedSkill(0)">
-        <div class="auto-slot-icon" id="auto-slot-content-0">➕</div>
-        <span class="skill-lbl">Slot 1</span>
+
+    <!-- Auto-Skill Slots -->
+    <div class="char-panel" id="auto-skill-panel">
+      <div class="panel-title">
+        Auto-Skill Slots
+        <span style="font-size:.7em;color:var(--text-dim);font-family:var(--font-body);">tap a skill then tap a slot</span>
       </div>
-      <div class="auto-slot" id="auto-slot-1" onclick="assignSelectedSkill(1)">
-        <div class="auto-slot-icon" id="auto-slot-content-1">➕</div>
-        <span class="skill-lbl">Slot 2</span>
-      </div>
-      <div class="auto-slot" id="auto-slot-2" onclick="assignSelectedSkill(2)">
-        <div class="auto-slot-icon" id="auto-slot-content-2">➕</div>
-        <span class="skill-lbl">Slot 3</span>
+      <div class="auto-slots-wrap" style="padding:0;margin:0;">
+        <div class="auto-slot" id="auto-slot-0" onclick="assignSelectedSkill(0)">
+          <div class="auto-slot-icon" id="auto-slot-content-0">➕</div>
+          <span class="skill-lbl">Slot 1</span>
+        </div>
+        <div class="auto-slot" id="auto-slot-1" onclick="assignSelectedSkill(1)">
+          <div class="auto-slot-icon" id="auto-slot-content-1">➕</div>
+          <span class="skill-lbl">Slot 2</span>
+        </div>
+        <div class="auto-slot" id="auto-slot-2" onclick="assignSelectedSkill(2)">
+          <div class="auto-slot-icon" id="auto-slot-content-2">➕</div>
+          <span class="skill-lbl">Slot 3</span>
+        </div>
       </div>
     </div>
+
+    <!-- Log box -->
+    <div id="log-box"></div>
   </div>
 
-  <!-- Log box -->
-  <div id="log-box"></div>
 </div><!-- /main-scene-adv -->
 
     <!-- ───────────── TOWN / SHOP SCENE ───────────── -->
