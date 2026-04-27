@@ -985,6 +985,10 @@ const enemies = {
 
 // ── STATE ──
 const state={
+
+  soulWeapon: null, // { classId, tier, name, passive, skill, skillCd }
+  craftedSoulTiers: {},  // { warrior: 2, mage: 1, ... }
+  soulSkillCd: 0,
   // Identity (set on login/register)
   character_id: null,
   user_id: null,
@@ -1058,6 +1062,106 @@ const state={
     level50:{text:'👑 Reach Level 50',done:false},
     level100:{text:'🌟 Reach Max Level 100',done:false},
   }
+};
+
+// ── SOUL WEAPONS ──
+const SOUL_WEAPONS = {
+  warrior: {
+    tiers: [
+      { tier:1, name:"⚔️ Warlord's Edge I",      rarity:'uncommon', levelReq:10,  stats:{str:500,  crit:3,  lifeSteal:0.15} },
+      { tier:2, name:"⚔️ Warlord's Edge II",     rarity:'rare',     levelReq:30,  stats:{str:1500, crit:6,  lifeSteal:0.25, strMult:0.3} },
+      { tier:3, name:"⚔️ Warlord's Edge III",    rarity:'epic',     levelReq:50,  stats:{str:4000, crit:10, lifeSteal:0.4,  strMult:0.6} },
+      { tier:4, name:"⚔️ Warlord's Edge IV",     rarity:'legendary',levelReq:75,  stats:{str:9000, crit:15, lifeSteal:0.6,  strMult:1.2} },
+      { tier:5, name:"⚔️ Soul of the Warlord",   rarity:'legendary',levelReq:100, stats:{str:20000,crit:25, lifeSteal:1.0,  strMult:2.5} },
+    ],
+    passive: { name:'Kill Stack', desc:'Every kill gives +3% ATK (resets on death)', stat:'attackPowerMult', perKill:0.03 },
+    skill: { name:'Colossus Smash', icon:'💥', desc:'500% ATK + enemy armor -50% for 3 turns', cd:5,
+      effect(enemy){ const d=Math.floor(state.attackPower*5); enemy.armor=Math.floor(enemy.armor*0.5); enemy.armorDebuffTurns=3; return d; }},
+  },
+  mage: {
+    tiers: [
+      { tier:1, name:"🔮 Arcane Tome I",      rarity:'uncommon', levelReq:10,  stats:{int:500,  mpMult:0.1} },
+      { tier:2, name:"🔮 Arcane Tome II",     rarity:'rare',     levelReq:30,  stats:{int:1500, mpMult:0.2, intMult:0.3} },
+      { tier:3, name:"🔮 Arcane Tome III",    rarity:'epic',     levelReq:50,  stats:{int:4000, mpMult:0.3, intMult:0.6} },
+      { tier:4, name:"🔮 Arcane Tome IV",     rarity:'legendary',levelReq:75,  stats:{int:9000, mpMult:0.5, intMult:1.2} },
+      { tier:5, name:"🔮 Arcane Grimoire",    rarity:'legendary',levelReq:100, stats:{int:20000,mpMult:1.0, intMult:2.5} },
+    ],
+    passive: { name:'Echo Cast', desc:'15% chance any spell casts twice', chance:0.15 },
+    skill: { name:'Arcane Overload', icon:'✨', desc:'Next 3 spells cost 0 MP and deal +300% damage', cd:6,
+      effect(){ state.arcaneOverloadStacks=3; }},
+  },
+  rogue: {
+    tiers: [
+      { tier:1, name:"🗡️ Shadow Blade I",     rarity:'uncommon', levelReq:10,  stats:{agi:500,  crit:5,  dodge:200} },
+      { tier:2, name:"🗡️ Shadow Blade II",    rarity:'rare',     levelReq:30,  stats:{agi:1500, crit:8,  dodge:500,  agiMult:0.3} },
+      { tier:3, name:"🗡️ Shadow Blade III",   rarity:'epic',     levelReq:50,  stats:{agi:4000, crit:12, dodge:1500, agiMult:0.6} },
+      { tier:4, name:"🗡️ Shadow Blade IV",    rarity:'legendary',levelReq:75,  stats:{agi:9000, crit:18, dodge:4000, agiMult:1.2} },
+      { tier:5, name:"🗡️ Shadow Covenant",    rarity:'legendary',levelReq:100, stats:{agi:20000,crit:30, dodge:10000,agiMult:2.5} },
+    ],
+    passive: { name:'First Blood', desc:'First attack each combat is always a crit' },
+    skill: { name:'Death Mark', icon:'🎯', desc:'All attacks deal +100% damage for 5 turns', cd:6,
+      effect(){ state.deathMarkTurns=5; }},
+  },
+  hunter: {
+    tiers: [
+      { tier:1, name:"🏹 Eagle Bow I",        rarity:'uncommon', levelReq:10,  stats:{agi:500,  hit:200} },
+      { tier:2, name:"🏹 Eagle Bow II",       rarity:'rare',     levelReq:30,  stats:{agi:1500, hit:600,  agiMult:0.3} },
+      { tier:3, name:"🏹 Eagle Bow III",      rarity:'epic',     levelReq:50,  stats:{agi:4000, hit:2000, agiMult:0.6, crit:8} },
+      { tier:4, name:"🏹 Eagle Bow IV",       rarity:'legendary',levelReq:75,  stats:{agi:9000, hit:5000, agiMult:1.2, crit:15} },
+      { tier:5, name:"🏹 Eagle Pact",         rarity:'legendary',levelReq:100, stats:{agi:20000,hit:12000,agiMult:2.5, crit:25} },
+    ],
+    passive: { name:'Momentum', desc:'Each consecutive attack +5% damage (max 20 stacks)', perHit:0.05, maxStacks:20 },
+    skill: { name:'Killshot', icon:'🎯', desc:'Guaranteed crit dealing 800% ATK', cd:7,
+      effect(enemy){ const d=Math.floor(state.attackPower*8); return d; }},
+  },
+  paladin: {
+    tiers: [
+      { tier:1, name:"✨ Holy Mace I",        rarity:'uncommon', levelReq:10,  stats:{sta:500,  armor:5000,  hpRegen:200} },
+      { tier:2, name:"✨ Holy Mace II",       rarity:'rare',     levelReq:30,  stats:{sta:1500, armor:15000, hpRegen:600,  staMult:0.3} },
+      { tier:3, name:"✨ Holy Mace III",      rarity:'epic',     levelReq:50,  stats:{sta:4000, armor:40000, hpRegen:2000, staMult:0.6} },
+      { tier:4, name:"✨ Holy Mace IV",       rarity:'legendary',levelReq:75,  stats:{sta:9000, armor:90000, hpRegen:5000, staMult:1.2} },
+      { tier:5, name:"✨ Divine Covenant",    rarity:'legendary',levelReq:100, stats:{sta:20000,armor:200000,hpRegen:15000,staMult:2.5} },
+    ],
+    passive: { name:'Holy Aura', desc:'Heal 5% max HP every combat turn' },
+    skill: { name:'Divine Wrath', icon:'⚡', desc:'300% ATK damage + shield 30% max HP', cd:5,
+      effect(enemy){ const d=Math.floor(state.attackPower*3); state.divineShield=Math.floor(state.maxHp*0.3); return d; }},
+  },
+  necromancer: {
+    tiers: [
+      { tier:1, name:"💀 Death Wand I",       rarity:'uncommon', levelReq:10,  stats:{int:500,  lifeSteal:0.2} },
+      { tier:2, name:"💀 Death Wand II",      rarity:'rare',     levelReq:30,  stats:{int:1500, lifeSteal:0.4,  intMult:0.3} },
+      { tier:3, name:"💀 Death Wand III",     rarity:'epic',     levelReq:50,  stats:{int:4000, lifeSteal:0.6,  intMult:0.6} },
+      { tier:4, name:"💀 Death Wand IV",      rarity:'legendary',levelReq:75,  stats:{int:9000, lifeSteal:0.8,  intMult:1.2} },
+      { tier:5, name:"💀 Tome of the Damned", rarity:'legendary',levelReq:100, stats:{int:20000,lifeSteal:1.5,  intMult:2.5} },
+    ],
+    passive: { name:'Soul Drain', desc:'20% of damage dealt restores MP' },
+    skill: { name:'Soul Harvest', icon:'💀', desc:'Drain 40% of enemy current HP as damage', cd:6,
+      effect(enemy){ const d=Math.floor(enemy.hp*0.4); return d; }},
+  },
+  shaman: {
+    tiers: [
+      { tier:1, name:"⚡ Storm Staff I",      rarity:'uncommon', levelReq:10,  stats:{int:500,  hit:200,  mpRegen:100} },
+      { tier:2, name:"⚡ Storm Staff II",     rarity:'rare',     levelReq:30,  stats:{int:1500, hit:600,  mpRegen:300,  intMult:0.3} },
+      { tier:3, name:"⚡ Storm Staff III",    rarity:'epic',     levelReq:50,  stats:{int:4000, hit:2000, mpRegen:1000, intMult:0.6} },
+      { tier:4, name:"⚡ Storm Staff IV",     rarity:'legendary',levelReq:75,  stats:{int:9000, hit:5000, mpRegen:3000, intMult:1.2} },
+      { tier:5, name:"⚡ Stormbinder",        rarity:'legendary',levelReq:100, stats:{int:20000,hit:12000,mpRegen:8000, intMult:2.5} },
+    ],
+    passive: { name:'Chain Lightning', desc:'25% chance to deal bonus 200% ATK after any attack', chance:0.25 },
+    skill: { name:'Tempest', icon:'⚡', desc:'Hit 5 times for 150% ATK each', cd:5,
+      effect(enemy){ const d=Math.floor(state.attackPower*1.5); return d*5; }},
+  },
+  berserker: {
+    tiers: [
+      { tier:1, name:"🩸 Rage Axe I",         rarity:'uncommon', levelReq:10,  stats:{str:500,  attackPower:1000} },
+      { tier:2, name:"🩸 Rage Axe II",        rarity:'rare',     levelReq:30,  stats:{str:1500, attackPower:3000,  strMult:0.3} },
+      { tier:3, name:"🩸 Rage Axe III",       rarity:'epic',     levelReq:50,  stats:{str:4000, attackPower:8000,  strMult:0.6} },
+      { tier:4, name:"🩸 Rage Axe IV",        rarity:'legendary',levelReq:75,  stats:{str:9000, attackPower:20000, strMult:1.2} },
+      { tier:5, name:"🩸 Bloodrage Axe",      rarity:'legendary',levelReq:100, stats:{str:20000,attackPower:50000, strMult:2.5} },
+    ],
+    passive: { name:'Death Wish', desc:'Below 30% HP deal 200% bonus damage' },
+    skill: { name:'Rampage', icon:'🩸', desc:'Sacrifice 20% HP to deal 1000% ATK', cd:6,
+      effect(enemy){ state.hp=Math.max(1,state.hp-Math.floor(state.maxHp*0.2)); const d=Math.floor(state.attackPower*10); return d; }},
+  },
 };
 
 // ── DIFFICULTY ──
@@ -2060,7 +2164,19 @@ function respecClass(){
   if(state.gold < cost){
     notify(`❌ Need ${formatNumber(cost)}g to respec!`,'var(--red)');return;
   }
-  if(!confirm(`Respec class for ${formatNumber(cost)}g?\nAll talents will be reset and talent points refunded.`))return;
+  const soulWarning = state.soulWeapon ? `\n\n⚠️ WARNING: Your Soul Weapon "${state.soulWeapon.name}" will be DESTROYED FOREVER!` : '';
+if(!confirm(`Respec class for ${formatNumber(cost)}g?${soulWarning}\nAll talents will be reset and talent points refunded.`))return;
+
+// Destroy soul weapon
+if (state.soulWeapon) {
+  const old = SOUL_WEAPONS[state.soulWeapon.classId]?.tiers.find(t => t.tier === state.soulWeapon.tier);
+  if (old) Object.entries(old.stats).forEach(([k,v]) => {
+    const ek = 'equip' + k.charAt(0).toUpperCase() + k.slice(1);
+    state[ek] = (state[ek] || 0) - v;
+  });
+  addLog(`💔 Soul Weapon "${state.soulWeapon.name}" destroyed on respec!`, 'bad');
+  state.soulWeapon = null;
+}
 
   state.gold -= cost;
   state.respecCount++;
@@ -2103,7 +2219,7 @@ state.talentPoints += refunded;
   state.class = null;
   // Reset portrait to placeholder
 const portraitEl = document.getElementById('char-portrait-img');
-if (portraitEl) portraitEl.src = 'warrior.jpg';
+if (portraitEl) portraitEl.src = 'warrior.jpeg';
 document.getElementById('char-class').textContent = 'No Class';
   state.skills = [];
 
@@ -2178,7 +2294,6 @@ document.querySelectorAll('.choice-btn').forEach(btn => {
   });   
   });
   updateUI();updateAutoFightBtn();
-  addTouchDragSupport();
 }
 
 function showCombatMode() {
@@ -2301,7 +2416,7 @@ function autoFightStep(){
     animateAttack(true,dmg,isCrit);
   }
   if(currentEnemy.hp<=0){currentEnemy.hp=0;updateEnemyBar();clearInterval(autoFightTimer);autoFightTimer=null;endCombat(true);return;}
-  Object.keys(state.skillCooldowns).forEach(k=>{if(state.skillCooldowns[k]>0)state.skillCooldowns[k]--;});
+  Object.keys(state.skillCooldowns).forEach(k=>{if(state.skillCooldowns[k]>0)state.skillCooldowns[k]--;});if(state.soulSkillCd>0) state.soulSkillCd--;
 
   // Tick down Arcane Surge
 if (state.arcaneSurgeActive && state.arcaneSurgeTurns > 0) {
@@ -6123,6 +6238,69 @@ function rollMatDrop(stageId, isBoss=false) {
     addToInventory(mat);
     addLog(`🧪 ${mat.name} dropped!`, 'gold');
   }
+  // Soul weapon material drops from bosses only
+  if (isBoss) {
+    const SOUL_MAT_DROPS = {
+      3:  { warrior:'⚔️ Warlord Soul',   shaman:'⚡ Storm Crystal' },
+      4:  { paladin:'✨ Holy Relic' },
+      5:  { warrior:'⚔️ Warlord Soul',   berserker:'🩸 Rage Stone' },
+      6:  { rogue:'🗡️ Shadow Shard' },
+      7:  { hunter:'🏹 Eagle Eye' },
+      8:  { necromancer:'💀 Soul Gem' },
+      9:  { mage:'🔮 Arcane Core' },
+      10: { berserker:'🩸 Rage Stone',   mage:'🔮 Arcane Core' },
+    };
+    const drops = SOUL_MAT_DROPS[stageId];
+    if (drops && state.class) {
+      const classKey = state.class.toLowerCase();
+      const matName = drops[classKey];
+      if (matName) {
+        const qty = Math.floor(Math.random() * 3) + 1;
+        const mat = mkMat(matName, 'epic', qty);
+        addToInventory(mat);
+        addLog(`✨ ${matName} x${qty} dropped! (Soul Weapon material)`, 'legendary');
+        notify(`✨ Soul material dropped!`, 'var(--legendary)');
+      }
+    }
+  }
+}
+
+function equipSoulWeapon(uid){
+  const item=state.inventory.find(i=>i.uid===uid);
+  if(!item||item.category!=='soul_weapon')return;
+
+  const classKey=state.class?.toLowerCase();
+
+  // Remove old soul weapon stats
+  if(state.soulWeapon){
+    const sw=SOUL_WEAPONS[state.soulWeapon.classId];
+    const old=sw?.tiers.find(t=>t.tier===state.soulWeapon.tier);
+    if(old)Object.entries(old.stats).forEach(([k,v])=>{
+      const ek='equip'+k.charAt(0).toUpperCase()+k.slice(1);
+      state[ek]=(state[ek]||0)-v;
+    });
+  }
+
+  // Apply new soul weapon stats
+  Object.entries(item.stats||{}).forEach(([k,v])=>{
+    const ek='equip'+k.charAt(0).toUpperCase()+k.slice(1);
+    state[ek]=(state[ek]||0)+v;
+  });
+
+  // Track crafted tier
+  state.craftedSoulTiers[classKey]=item.soulTier;
+
+  // Bind to character
+  state.soulWeapon={classId:classKey,tier:item.soulTier,name:item.name,uid:item.uid};
+
+  // Remove from inventory
+  state.inventory=state.inventory.filter(i=>i.uid!==uid);
+
+  calcStats();
+  renderSoulWeaponSlot();
+  renderSkillBar();
+  updateUI();
+  savePlayerToSupabase();
 }
 
 // ── CRAFTING ──
@@ -6336,6 +6514,176 @@ const CRAFTING = [
     req:[{name:'🌟 Eternal Shard',qty:400},{name:'👑 Eternal Crown',qty:300}],
     desc:'The ultimate ring. Requires Stage 10 mats. Best-in-slot for any build.'
   },
+  // ── SOUL WEAPON RECIPES ──
+// Tier 1 — existing early mats
+{ id:'soul_warrior_1', classReq:'warrior',
+  result:{name:"⚔️ Warlord's Edge I", slot:'soul', rarity:'uncommon', levelReq:10, soulTier:1, category:'soul_weapon', stats:{str:500,crit:3,lifeSteal:0.15}},
+  req:[{name:'🐺 Wolf Fang',qty:30},{name:'🐺 Alpha Pelt',qty:5}],
+  desc:"Warrior only. Binds on craft. First step of the Warlord's Soul Weapon." },
+{ id:'soul_mage_1', classReq:'mage',
+  result:{name:"🔮 Arcane Tome I", slot:'soul', rarity:'uncommon', levelReq:10, soulTier:1, category:'soul_weapon', stats:{int:500,mpMult:0.1}},
+  req:[{name:'🐺 Wolf Fang',qty:30},{name:'🐺 Alpha Pelt',qty:5}],
+  desc:'Mage only. Binds on craft.' },
+{ id:'soul_rogue_1', classReq:'rogue',
+  result:{name:"🗡️ Shadow Blade I", slot:'soul', rarity:'uncommon', levelReq:10, soulTier:1, category:'soul_weapon', stats:{agi:500,crit:5,dodge:200}},
+  req:[{name:'🐺 Wolf Fang',qty:30},{name:'🐺 Alpha Pelt',qty:5}],
+  desc:'Rogue only. Binds on craft.' },
+{ id:'soul_hunter_1', classReq:'hunter',
+  result:{name:"🏹 Eagle Bow I", slot:'soul', rarity:'uncommon', levelReq:10, soulTier:1, category:'soul_weapon', stats:{agi:500,hit:200}},
+  req:[{name:'🐺 Wolf Fang',qty:30},{name:'🐺 Alpha Pelt',qty:5}],
+  desc:'Hunter only. Binds on craft.' },
+{ id:'soul_paladin_1', classReq:'paladin',
+  result:{name:"✨ Holy Mace I", slot:'soul', rarity:'uncommon', levelReq:10, soulTier:1, category:'soul_weapon', stats:{sta:500,armor:5000,hpRegen:200}},
+  req:[{name:'🐺 Wolf Fang',qty:30},{name:'🐺 Alpha Pelt',qty:5}],
+  desc:'Paladin only. Binds on craft.' },
+{ id:'soul_necromancer_1', classReq:'necromancer',
+  result:{name:"💀 Death Wand I", slot:'soul', rarity:'uncommon', levelReq:10, soulTier:1, category:'soul_weapon', stats:{int:500,lifeSteal:0.2}},
+  req:[{name:'🐺 Wolf Fang',qty:30},{name:'🐺 Alpha Pelt',qty:5}],
+  desc:'Necromancer only. Binds on craft.' },
+{ id:'soul_shaman_1', classReq:'shaman',
+  result:{name:"⚡ Storm Staff I", slot:'soul', rarity:'uncommon', levelReq:10, soulTier:1, category:'soul_weapon', stats:{int:500,hit:200,mpRegen:100}},
+  req:[{name:'🐺 Wolf Fang',qty:30},{name:'🐺 Alpha Pelt',qty:5}],
+  desc:'Shaman only. Binds on craft.' },
+{ id:'soul_berserker_1', classReq:'berserker',
+  result:{name:"🩸 Rage Axe I", slot:'soul', rarity:'uncommon', levelReq:10, soulTier:1, category:'soul_weapon', stats:{str:500,attackPower:1000}},
+  req:[{name:'🐺 Wolf Fang',qty:30},{name:'🐺 Alpha Pelt',qty:5}],
+  desc:'Berserker only. Binds on craft.' },
+
+// Tier 2 — existing mats + class mat from boss 3-4
+{ id:'soul_warrior_2', classReq:'warrior',
+  result:{name:"⚔️ Warlord's Edge II", slot:'soul', rarity:'rare', levelReq:30, soulTier:2, category:'soul_weapon', stats:{str:1500,crit:6,lifeSteal:0.25,strMult:0.3}},
+  req:[{name:'💀 Bone Shard',qty:30},{name:'⚔️ Warlord Soul',qty:5}],
+  desc:'Warrior only. Upgrade from Tier 1.' },
+{ id:'soul_mage_2', classReq:'mage',
+  result:{name:"🔮 Arcane Tome II", slot:'soul', rarity:'rare', levelReq:30, soulTier:2, category:'soul_weapon', stats:{int:1500,mpMult:0.2,intMult:0.3}},
+  req:[{name:'💀 Bone Shard',qty:30},{name:'🔮 Arcane Core',qty:5}],
+  desc:'Mage only.' },
+{ id:'soul_rogue_2', classReq:'rogue',
+  result:{name:"🗡️ Shadow Blade II", slot:'soul', rarity:'rare', levelReq:30, soulTier:2, category:'soul_weapon', stats:{agi:1500,crit:8,dodge:500,agiMult:0.3}},
+  req:[{name:'💀 Bone Shard',qty:30},{name:'🗡️ Shadow Shard',qty:5}],
+  desc:'Rogue only.' },
+{ id:'soul_hunter_2', classReq:'hunter',
+  result:{name:"🏹 Eagle Bow II", slot:'soul', rarity:'rare', levelReq:30, soulTier:2, category:'soul_weapon', stats:{agi:1500,hit:600,agiMult:0.3}},
+  req:[{name:'💀 Bone Shard',qty:30},{name:'🏹 Eagle Eye',qty:5}],
+  desc:'Hunter only.' },
+{ id:'soul_paladin_2', classReq:'paladin',
+  result:{name:"✨ Holy Mace II", slot:'soul', rarity:'rare', levelReq:30, soulTier:2, category:'soul_weapon', stats:{sta:1500,armor:15000,hpRegen:600,staMult:0.3}},
+  req:[{name:'💀 Bone Shard',qty:30},{name:'✨ Holy Relic',qty:5}],
+  desc:'Paladin only.' },
+{ id:'soul_necromancer_2', classReq:'necromancer',
+  result:{name:"💀 Death Wand II", slot:'soul', rarity:'rare', levelReq:30, soulTier:2, category:'soul_weapon', stats:{int:1500,lifeSteal:0.4,intMult:0.3}},
+  req:[{name:'💀 Bone Shard',qty:30},{name:'💀 Soul Gem',qty:5}],
+  desc:'Necromancer only.' },
+{ id:'soul_shaman_2', classReq:'shaman',
+  result:{name:"⚡ Storm Staff II", slot:'soul', rarity:'rare', levelReq:30, soulTier:2, category:'soul_weapon', stats:{int:1500,hit:600,mpRegen:300,intMult:0.3}},
+  req:[{name:'💀 Bone Shard',qty:30},{name:'⚡ Storm Crystal',qty:5}],
+  desc:'Shaman only.' },
+{ id:'soul_berserker_2', classReq:'berserker',
+  result:{name:"🩸 Rage Axe II", slot:'soul', rarity:'rare', levelReq:30, soulTier:2, category:'soul_weapon', stats:{str:1500,attackPower:3000,strMult:0.3}},
+  req:[{name:'💀 Bone Shard',qty:30},{name:'🩸 Rage Stone',qty:5}],
+  desc:'Berserker only.' },
+
+// Tier 3 — epic mats + more class mats
+{ id:'soul_warrior_3', classReq:'warrior',
+  result:{name:"⚔️ Warlord's Edge III", slot:'soul', rarity:'epic', levelReq:50, soulTier:3, category:'soul_weapon', stats:{str:4000,crit:10,lifeSteal:0.4,strMult:0.6}},
+  req:[{name:'👊 Stone Core',qty:50},{name:'⚔️ Warlord Soul',qty:20}],
+  desc:'Warrior only.' },
+{ id:'soul_mage_3', classReq:'mage',
+  result:{name:"🔮 Arcane Tome III", slot:'soul', rarity:'epic', levelReq:50, soulTier:3, category:'soul_weapon', stats:{int:4000,mpMult:0.3,intMult:0.6}},
+  req:[{name:'👊 Stone Core',qty:50},{name:'🔮 Arcane Core',qty:20}],
+  desc:'Mage only.' },
+{ id:'soul_rogue_3', classReq:'rogue',
+  result:{name:"🗡️ Shadow Blade III", slot:'soul', rarity:'epic', levelReq:50, soulTier:3, category:'soul_weapon', stats:{agi:4000,crit:12,dodge:1500,agiMult:0.6}},
+  req:[{name:'👊 Stone Core',qty:50},{name:'🗡️ Shadow Shard',qty:20}],
+  desc:'Rogue only.' },
+{ id:'soul_hunter_3', classReq:'hunter',
+  result:{name:"🏹 Eagle Bow III", slot:'soul', rarity:'epic', levelReq:50, soulTier:3, category:'soul_weapon', stats:{agi:4000,hit:2000,agiMult:0.6,crit:8}},
+  req:[{name:'👊 Stone Core',qty:50},{name:'🏹 Eagle Eye',qty:20}],
+  desc:'Hunter only.' },
+{ id:'soul_paladin_3', classReq:'paladin',
+  result:{name:"✨ Holy Mace III", slot:'soul', rarity:'epic', levelReq:50, soulTier:3, category:'soul_weapon', stats:{sta:4000,armor:40000,hpRegen:2000,staMult:0.6}},
+  req:[{name:'👊 Stone Core',qty:50},{name:'✨ Holy Relic',qty:20}],
+  desc:'Paladin only.' },
+{ id:'soul_necromancer_3', classReq:'necromancer',
+  result:{name:"💀 Death Wand III", slot:'soul', rarity:'epic', levelReq:50, soulTier:3, category:'soul_weapon', stats:{int:4000,lifeSteal:0.6,intMult:0.6}},
+  req:[{name:'👊 Stone Core',qty:50},{name:'💀 Soul Gem',qty:20}],
+  desc:'Necromancer only.' },
+{ id:'soul_shaman_3', classReq:'shaman',
+  result:{name:"⚡ Storm Staff III", slot:'soul', rarity:'epic', levelReq:50, soulTier:3, category:'soul_weapon', stats:{int:4000,hit:2000,mpRegen:1000,intMult:0.6}},
+  req:[{name:'👊 Stone Core',qty:50},{name:'⚡ Storm Crystal',qty:20}],
+  desc:'Shaman only.' },
+{ id:'soul_berserker_3', classReq:'berserker',
+  result:{name:"🩸 Rage Axe III", slot:'soul', rarity:'epic', levelReq:50, soulTier:3, category:'soul_weapon', stats:{str:4000,attackPower:8000,strMult:0.6}},
+  req:[{name:'👊 Stone Core',qty:50},{name:'🩸 Rage Stone',qty:20}],
+  desc:'Berserker only.' },
+
+// Tier 4 — legendary mats + class mats
+{ id:'soul_warrior_4', classReq:'warrior',
+  result:{name:"⚔️ Warlord's Edge IV", slot:'soul', rarity:'legendary', levelReq:75, soulTier:4, category:'soul_weapon', stats:{str:9000,crit:15,lifeSteal:0.6,strMult:1.2}},
+  req:[{name:'😈 Demon Horn',qty:100},{name:'⚔️ Warlord Soul',qty:50}],
+  desc:'Warrior only.' },
+{ id:'soul_mage_4', classReq:'mage',
+  result:{name:"🔮 Arcane Tome IV", slot:'soul', rarity:'legendary', levelReq:75, soulTier:4, category:'soul_weapon', stats:{int:9000,mpMult:0.5,intMult:1.2}},
+  req:[{name:'😈 Demon Horn',qty:100},{name:'🔮 Arcane Core',qty:50}],
+  desc:'Mage only.' },
+{ id:'soul_rogue_4', classReq:'rogue',
+  result:{name:"🗡️ Shadow Blade IV", slot:'soul', rarity:'legendary', levelReq:75, soulTier:4, category:'soul_weapon', stats:{agi:9000,crit:18,dodge:4000,agiMult:1.2}},
+  req:[{name:'😈 Demon Horn',qty:100},{name:'🗡️ Shadow Shard',qty:50}],
+  desc:'Rogue only.' },
+{ id:'soul_hunter_4', classReq:'hunter',
+  result:{name:"🏹 Eagle Bow IV", slot:'soul', rarity:'legendary', levelReq:75, soulTier:4, category:'soul_weapon', stats:{agi:9000,hit:5000,agiMult:1.2,crit:15}},
+  req:[{name:'😈 Demon Horn',qty:100},{name:'🏹 Eagle Eye',qty:50}],
+  desc:'Hunter only.' },
+{ id:'soul_paladin_4', classReq:'paladin',
+  result:{name:"✨ Holy Mace IV", slot:'soul', rarity:'legendary', levelReq:75, soulTier:4, category:'soul_weapon', stats:{sta:9000,armor:90000,hpRegen:5000,staMult:1.2}},
+  req:[{name:'😈 Demon Horn',qty:100},{name:'✨ Holy Relic',qty:50}],
+  desc:'Paladin only.' },
+{ id:'soul_necromancer_4', classReq:'necromancer',
+  result:{name:"💀 Death Wand IV", slot:'soul', rarity:'legendary', levelReq:75, soulTier:4, category:'soul_weapon', stats:{int:9000,lifeSteal:0.8,intMult:1.2}},
+  req:[{name:'😈 Demon Horn',qty:100},{name:'💀 Soul Gem',qty:50}],
+  desc:'Necromancer only.' },
+{ id:'soul_shaman_4', classReq:'shaman',
+  result:{name:"⚡ Storm Staff IV", slot:'soul', rarity:'legendary', levelReq:75, soulTier:4, category:'soul_weapon', stats:{int:9000,hit:5000,mpRegen:3000,intMult:1.2}},
+  req:[{name:'😈 Demon Horn',qty:100},{name:'⚡ Storm Crystal',qty:50}],
+  desc:'Shaman only.' },
+{ id:'soul_berserker_4', classReq:'berserker',
+  result:{name:"🩸 Rage Axe IV", slot:'soul', rarity:'legendary', levelReq:75, soulTier:4, category:'soul_weapon', stats:{str:9000,attackPower:20000,strMult:1.2}},
+  req:[{name:'😈 Demon Horn',qty:100},{name:'🩸 Rage Stone',qty:50}],
+  desc:'Berserker only.' },
+
+// Tier 5 — endgame class mats only
+{ id:'soul_warrior_5', classReq:'warrior',
+  result:{name:"⚔️ Soul of the Warlord", slot:'soul', rarity:'legendary', levelReq:100, soulTier:5, category:'soul_weapon', stats:{str:20000,crit:25,lifeSteal:1.0,strMult:2.5}},
+  req:[{name:'⚔️ Warlord Soul',qty:200}],
+  desc:'Warrior only. Final form. Unlocks Colossus Smash.' },
+{ id:'soul_mage_5', classReq:'mage',
+  result:{name:"🔮 Arcane Grimoire", slot:'soul', rarity:'legendary', levelReq:100, soulTier:5, category:'soul_weapon', stats:{int:20000,mpMult:1.0,intMult:2.5}},
+  req:[{name:'🔮 Arcane Core',qty:200}],
+  desc:'Mage only. Final form. Unlocks Arcane Overload.' },
+{ id:'soul_rogue_5', classReq:'rogue',
+  result:{name:"🗡️ Shadow Covenant", slot:'soul', rarity:'legendary', levelReq:100, soulTier:5, category:'soul_weapon', stats:{agi:20000,crit:30,dodge:10000,agiMult:2.5}},
+  req:[{name:'🗡️ Shadow Shard',qty:200}],
+  desc:'Rogue only. Final form. Unlocks Death Mark.' },
+{ id:'soul_hunter_5', classReq:'hunter',
+  result:{name:"🏹 Eagle Pact", slot:'soul', rarity:'legendary', levelReq:100, soulTier:5, category:'soul_weapon', stats:{agi:20000,hit:12000,agiMult:2.5,crit:25}},
+  req:[{name:'🏹 Eagle Eye',qty:200}],
+  desc:'Hunter only. Final form. Unlocks Killshot.' },
+{ id:'soul_paladin_5', classReq:'paladin',
+  result:{name:"✨ Divine Covenant", slot:'soul', rarity:'legendary', levelReq:100, soulTier:5, category:'soul_weapon', stats:{sta:20000,armor:200000,hpRegen:15000,staMult:2.5}},
+  req:[{name:'✨ Holy Relic',qty:200}],
+  desc:'Paladin only. Final form. Unlocks Divine Wrath.' },
+{ id:'soul_necromancer_5', classReq:'necromancer',
+  result:{name:"💀 Tome of the Damned", slot:'soul', rarity:'legendary', levelReq:100, soulTier:5, category:'soul_weapon', stats:{int:20000,lifeSteal:1.5,intMult:2.5}},
+  req:[{name:'💀 Soul Gem',qty:200}],
+  desc:'Necromancer only. Final form. Unlocks Soul Harvest.' },
+{ id:'soul_shaman_5', classReq:'shaman',
+  result:{name:"⚡ Stormbinder", slot:'soul', rarity:'legendary', levelReq:100, soulTier:5, category:'soul_weapon', stats:{int:20000,hit:12000,mpRegen:8000,intMult:2.5}},
+  req:[{name:'⚡ Storm Crystal',qty:200}],
+  desc:'Shaman only. Final form. Unlocks Tempest.' },
+{ id:'soul_berserker_5', classReq:'berserker',
+  result:{name:"🩸 Bloodrage Axe", slot:'soul', rarity:'legendary', levelReq:100, soulTier:5, category:'soul_weapon', stats:{str:20000,attackPower:50000,strMult:2.5}},
+  req:[{name:'🩸 Rage Stone',qty:200}],
+  desc:'Berserker only. Final form. Unlocks Rampage.' },
 ];
 
 // ── TREASURE CHEST ──
@@ -6645,25 +6993,77 @@ function updateAutoSlotHighlight() {
 }
 
 // ── SKILLS BAR (updated with tap-to-assign support) ──
-function renderSkillBar() {
-  if (!state.skills || !state.skills.length) {
-    document.getElementById('skills-bar').style.display = 'none';
+function renderSkillBar(){
+  if(!state.skills||!state.skills.length){
+    document.getElementById('skills-bar').style.display='none';
     return;
   }
-  document.getElementById('skills-bar').style.display = 'block';
-  document.getElementById('skills-slot-row').innerHTML = state.skills.map(sid => {
-    const sk = SKILLS[sid]; if (!sk) return '';
-    const cd = state.skillCooldowns[sid] || 0;
-    const inSlot = autoSkillSlots.includes(sid);
-    return `<div class="skill-slot ${inSlot ? 'in-slot' : ''}"
+  document.getElementById('skills-bar').style.display='block';
+
+  // Regular skills
+  const regularSkills=state.skills.map(sid=>{
+    const sk=SKILLS[sid];if(!sk)return'';
+    const cd=state.skillCooldowns[sid]||0;
+    const inSlot=autoSkillSlots.includes(sid);
+    return`<div class="skill-slot ${inSlot?'in-slot':''}"
       draggable="true"
       ondragstart="event.dataTransfer.setData('skillId','${sid}')"
-      onclick="${currentEnemy ? `useSkillInCombat('${sid}')` : `assignSkillToAutoSlot('${sid}')`}">
-      <div class="skill-icon-wrap ${cd > 0 ? 'on-cd' : ''}">${sk.icon}</div>
+      onclick="${currentEnemy?`useSkillInCombat('${sid}')`:`assignSkillToAutoSlot('${sid}')`}">
+      <div class="skill-icon-wrap ${cd>0?'on-cd':''}">${sk.icon}</div>
       <div class="skill-lbl">${sk.name}</div>
-      <div class="skill-cd-lbl">${cd > 0 ? `CD:${cd}` : `${typeof sk.mp === 'function' ? sk.mp() : sk.mp}MP`}</div>
+      <div class="skill-cd-lbl">${cd>0?`CD:${cd}`:`${typeof sk.mp==='function'?sk.mp():sk.mp}MP`}</div>
     </div>`;
   }).join('');
+
+  // Soul weapon skill
+  let soulSkillHtml='';
+  if(state.soulWeapon){
+    const sw=SOUL_WEAPONS[state.soulWeapon.classId];
+    if(sw?.skill){
+      const cd=state.soulSkillCd||0;
+      soulSkillHtml=`<div class="skill-slot soul-skill ${cd>0?'on-cd':''}"
+        onclick="${currentEnemy?`useSoulSkill()`:`''`}"
+        style="border-color:var(--legendary);background:rgba(255,153,0,0.08);">
+        <div class="skill-icon-wrap ${cd>0?'on-cd':''}">${sw.skill.icon}</div>
+        <div class="skill-lbl" style="color:var(--legendary);">${sw.skill.name}</div>
+        <div class="skill-cd-lbl">${cd>0?`CD:${cd}`:'SOUL'}</div>
+      </div>`;
+    }
+  }
+
+  document.getElementById('skills-slot-row').innerHTML=regularSkills+soulSkillHtml;
+}
+
+function useSoulSkill(){
+  if(!currentEnemy){notify('No enemy!','var(--red)');return;}
+  if(!state.soulWeapon){notify('No Soul Weapon!','var(--red)');return;}
+  if(state.soulSkillCd>0){notify(`Soul skill on cooldown! (${state.soulSkillCd} turns)`,'var(--red)');return;}
+
+  const sw=SOUL_WEAPONS[state.soulWeapon.classId];
+  if(!sw?.skill)return;
+
+  const skill=sw.skill;
+  let dmg=0;
+
+  try{ dmg=skill.effect(currentEnemy)||0; }catch(e){ console.error(e); }
+
+  state.soulSkillCd=skill.cd;
+
+  if(dmg>0){
+    // Apply damage
+    const actualDmg=Math.max(1,dmg-Math.floor(currentEnemy.armor*0.3));
+    currentEnemy.hp=Math.max(0,currentEnemy.hp-actualDmg);
+    spawnDmgFloat(actualDmg,true);
+    addCombatLog(`✨ ${skill.name}! ${formatNumber(actualDmg)} damage!`,'gold');
+    updateEnemyBar();
+    if(currentEnemy.hp<=0){endCombat(true);return;}
+  } else {
+    addCombatLog(`✨ ${skill.name} activated!`,'gold');
+    spawnAbilityFloat(`✨ ${skill.name}!`,'var(--legendary)');
+  }
+
+  renderSkillBar();
+  notify(`✨ ${skill.name}!`,'var(--legendary)');
 }
 
 function assignSkillToAutoSlot(skillId) {
@@ -6886,6 +7286,21 @@ function showItemPopup(source,id){
       if(!item.equipped)btns+=`<button class="start-btn" onclick="closeItemPopup();listItemForAuction(${item.uid})" style="background:linear-gradient(135deg,#005580,#0088cc);">🏛️ Auction</button>`;
     }
     if(item.category==='consumable')btns+=`<button class="start-btn" onclick="useItem(${item.uid});closeItemPopup()">Use</button>`;
+    if(item.category==='soul_weapon'){
+  const sw=SOUL_WEAPONS[item.slot==='soul'?state.class?.toLowerCase():''];
+  const alreadyHas=state.soulWeapon&&state.soulWeapon.tier>=item.soulTier;
+  const wrongClass=item.classReq&&item.classReq!==state.class?.toLowerCase();
+  const passiveDesc=sw?.passive?`<div style="font-size:.72em;color:var(--deep-gold);margin:4px 0;">⚡ Passive: ${sw.passive.desc}</div>`:'';
+  const skillDesc=sw?.skill?`<div style="font-size:.72em;color:var(--legendary);margin:4px 0;">🎯 Skill: ${sw.skill.name} — ${sw.skill.desc}</div>`:'';
+  statsHtml+=passiveDesc+skillDesc;
+  if(wrongClass){
+    btns=`<button class="start-btn" disabled style="opacity:.4;">❌ Wrong Class</button>`;
+  } else if(alreadyHas){
+    btns=`<button class="start-btn" disabled style="opacity:.4;">✅ Already Bound</button>`;
+  } else {
+    btns=`<button class="start-btn" style="border-color:var(--legendary);color:var(--legendary);" onclick="equipSoulWeapon(${item.uid});closeItemPopup()">✨ Bind to Soul</button>`;
+  }
+}
     if(!item.equipped)btns+=`<button class="start-btn red-btn" onclick="sellItem(${item.uid});closeItemPopup()">Sell ${item.stackable&&item.qty>1?'All':''} (${(item.sellPrice||0)*(item.stackable?item.qty:1)}g)</button>`;
   }
 
@@ -6942,10 +7357,25 @@ function getMaterialQty(name){const item=state.inventory.find(i=>i.name===name&&
 function renderCrafting(){
   const grid=document.getElementById('craft-grid'),r_=r=>RARITY[r]||RARITY.normal;
   grid.innerHTML=CRAFTING.map(recipe=>{
+    // Hide other class soul weapons
+    if(recipe.classReq){
+      const classKey=state.class?.toLowerCase();
+      if(recipe.classReq!==classKey)return'';
+    }
+
+    // Block soul weapon if tier already crafted or skipping tiers
+    if(recipe.result.category==='soul_weapon'){
+      const classKey=state.class?.toLowerCase();
+      const currentTier=state.craftedSoulTiers[classKey]||0;
+      const recipeTier=recipe.result.soulTier;
+      if(recipeTier<=currentTier)return''; // already crafted
+      if(recipeTier>currentTier+1)return''; // can't skip tiers
+    }
+
     const result=recipe.result,rColor=r_(result.rarity).color;
-    const reqHtml=recipe.req.map(r=>{const have=getMaterialQty(r.name),ok=have>=r.qty;return `<div class="${ok?'ok':'no'}">• ${r.name}: ${have}/${r.qty} ${ok?'✅':'❌'}</div>`;}).join('');
+    const reqHtml=recipe.req.map(r=>{const have=getMaterialQty(r.name),ok=have>=r.qty;return`<div class="${ok?'ok':'no'}">• ${r.name}: ${have}/${r.qty} ${ok?'✅':'❌'}</div>`;}).join('');
     const canCraft=recipe.req.every(r=>getMaterialQty(r.name)>=r.qty);
-    return `<div class="craft-card"><div class="craft-result" style="color:${rColor}">${result.name||result.slot} — <span style="color:${rColor}">${r_(result.rarity).label}</span></div><div style="font-size:.78em;color:#888;margin-bottom:5px;">${recipe.desc}</div><div class="craft-req">${reqHtml}</div><button class="craft-btn" onclick="craftItem('${recipe.id}')" ${canCraft?'':'disabled'}>⚗️ Craft</button></div>`;
+    return`<div class="craft-card"><div class="craft-result" style="color:${rColor}">${result.name||result.slot} — <span style="color:${rColor}">${r_(result.rarity).label}</span></div><div style="font-size:.78em;color:#888;margin-bottom:5px;">${recipe.desc}</div><div class="craft-req">${reqHtml}</div><button class="craft-btn" onclick="craftItem('${recipe.id}')" ${canCraft?'':'disabled'}>⚗️ Craft</button></div>`;
   }).join('');
 }
 function craftItem(recipeId){
@@ -6955,7 +7385,52 @@ function craftItem(recipeId){
   const result={...recipe.result,uid:genUid(),sellPrice:Math.round((RARITY[recipe.result.rarity]?.mult||1)*15*state.level*.5)};
   if(result.stackable)result.qty=1;if(result.category==='equipment')result.equipped=false;
   addToInventory(result);state.quests.craft.done=true;
-  addLog(`⚗️ Crafted: ${result.name}!`,result.rarity==='legendary'?'legendary':'purple');notify(`⚗️ Crafted ${result.name}!`,'var(--purple)');playSound('snd-craft');renderCrafting();renderInventory();renderQuests();
+
+  if(result.category==='soul_weapon'){
+    equipSoulWeapon(result.uid);
+    addLog(`⚗️ Crafted & bound: ${result.name}!`,'legendary');
+    notify(`✨ Soul Weapon bound!`,'var(--legendary)');
+    playSound('snd-craft');
+    console.log('result.category:', result.category);
+    renderCrafting();renderInventory();renderQuests();
+    return;
+  }
+
+  addLog(`⚗️ Crafted: ${result.name}!`,result.rarity==='legendary'?'legendary':'purple');
+  notify(`⚗️ Crafted ${result.name}!`,'var(--purple)');
+  playSound('snd-craft');renderCrafting();renderInventory();renderQuests();
+}
+
+function renderSoulWeaponSlot(){
+  const nameEl=document.getElementById('soul-weapon-name');
+  const iconEl=document.getElementById('soul-weapon-icon');
+  const passiveEl=document.getElementById('soul-weapon-passive');
+  const skillEl=document.getElementById('soul-weapon-skill');
+  if(!nameEl)return;
+
+  if(!state.soulWeapon){
+    nameEl.textContent='No Soul Weapon';
+    nameEl.style.color='var(--text-dim)';
+    iconEl.textContent='❓';
+    iconEl.style.borderColor='var(--border)';
+    iconEl.style.borderStyle='dashed';
+    passiveEl.textContent='Craft your class Soul Weapon in the Town!';
+    skillEl.textContent='';
+    return;
+  }
+
+  const sw=SOUL_WEAPONS[state.soulWeapon.classId];
+  const tier=sw?.tiers.find(t=>t.tier===state.soulWeapon.tier);
+  const rarity=RARITY[tier?.rarity]||RARITY.normal;
+
+  nameEl.textContent=`${state.soulWeapon.name} (Tier ${state.soulWeapon.tier}/5)`;
+  nameEl.style.color=rarity.color;
+  iconEl.textContent=state.soulWeapon.name.split(' ')[0];
+  iconEl.style.borderColor=rarity.color;
+  iconEl.style.borderStyle='solid';
+  iconEl.style.boxShadow=`0 0 12px ${rarity.color}66`;
+  passiveEl.innerHTML=sw?.passive?`<span style="color:var(--deep-gold);">⚡ Passive:</span> ${sw.passive.desc}`:'';
+  skillEl.innerHTML=sw?.skill?`<span style="color:var(--legendary);">🎯 ${sw.skill.name}:</span> ${sw.skill.desc} <span style="color:var(--text-dim);">(CD: ${sw.skill.cd} turns)</span>`:'';
 }
 
 // ── SHOP ──
@@ -7225,6 +7700,7 @@ if (charClassEl) {
   document.getElementById('arena-player-hp').style.width=Math.max(0,(hp/state.maxHp)*100)+'%';
   document.getElementById('arena-player-mp').style.width=Math.max(0,(mp/state.maxHp)*100)+'%';
   renderStatPoints();
+  renderSoulWeaponSlot();
   renderTournamentRewards();
   updateTutorialStatus();
 }

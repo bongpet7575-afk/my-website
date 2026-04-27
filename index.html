@@ -912,7 +912,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
         </div>
       </div>
       <!-- Class -->
-<div class="char-panel">
+      <div class="char-panel">
   <div class="panel-title">Class</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
     <!-- Class portrait -->
@@ -924,8 +924,19 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <button class="start-btn" onclick="respecClass()" style="font-size:.65em;padding:4px 10px;">🔄 Respec</button>
     </div>
   </div>
+      </div>
+        <!-- Soul Weapon Slot -->
+<div class="char-panel" id="soul-weapon-panel">
+  <div class="panel-title">✨ Soul Weapon <span style="font-size:.7em;color:var(--text-dim);font-family:var(--font-body);">bound to your soul</span></div>
+  <div id="soul-weapon-display" style="display:flex;align-items:center;gap:12px;padding:4px 0;">
+    <div id="soul-weapon-icon" style="width:52px;height:52px;border:2px dashed var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.6em;flex-shrink:0;">❓</div>
+    <div style="flex:1;">
+      <div id="soul-weapon-name" style="font-family:var(--font-title);font-size:.82em;color:var(--text-dim);">No Soul Weapon</div>
+      <div id="soul-weapon-passive" style="font-size:.72em;color:var(--text-dim);margin-top:3px;"></div>
+      <div id="soul-weapon-skill" style="font-size:.72em;color:var(--deep-gold);margin-top:2px;"></div>
+    </div>
+  </div>
 </div>
-
       <!-- Free Stat Points -->
       <div class="char-panel" id="stat-points-panel">
         <div class="panel-title">
@@ -1095,6 +1106,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
             <button class="inv-tab active" id="inv-tab-equipment" onclick="switchInvTab('equipment')">Equipment</button>
             <button class="inv-tab" id="inv-tab-consumable" onclick="switchInvTab('consumable')">Potions</button>
             <button class="inv-tab" id="inv-tab-material" onclick="switchInvTab('material')">Materials</button>
+            <button class="inv-tab" id="inv-tab-soul_weapon" onclick="switchInvTab('soul_weapon')">✨ Soul</button>
           </div>
           <div id="inventory-list"><div class="inv-empty">No items here</div></div>
         </div>
