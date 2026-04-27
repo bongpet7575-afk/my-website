@@ -104,7 +104,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .btn-auth:hover{background:linear-gradient(135deg,rgba(200,168,75,0.28),rgba(139,105,20,0.38));box-shadow:0 0 20px rgba(200,168,75,0.2);transform:translateY(-1px);}
 
 /* ═══════════════════════════════ GAME WRAPPER ════ */
-#game-wrapper{display:none;height:100vh;flex-direction:column;overflow:hidden;}
+#game-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
 
 /* ═══════════════════════════════ TOP BAR ════ */
 #top-bar{
@@ -1247,6 +1252,7 @@ window.showGame = async function() {
   // Fix layout
   document.getElementById('game-wrapper').style.display = 'flex';
   document.getElementById('top-bar').style.display = 'flex';
+  document.getElementById('bottom-nav').style.display = 'flex'; // 👈 add this
 };
 
 // ── OVERRIDE switchMainScene ──
