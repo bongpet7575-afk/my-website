@@ -442,6 +442,23 @@ function buildSkillUse(skillId, m) {
   }
 }
 
+// ── CLASS AVATAR ──
+const CLASS_AVATARS = {
+  Warrior:     'warrior.jpg',
+  Mage:        'mage.jpg',
+  Rogue:       'rogue.jpg',
+  Hunter:      'hunter.jpg',
+  Paladin:     'paladin.jpg',
+  Necromancer: 'necromancer.jfif',
+  Shaman:      'shaman.jfif',
+  Berserker:   'berserker.jfif',
+};
+
+function getPlayerAvatar(borderColor = 'var(--dark-gold)') {
+  const img = CLASS_AVATARS[state.class] || 'warrior.jpg';
+  return `<img src="${img}" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:2px solid ${borderColor};">`;
+}
+
 // ── RENDER STAT POINTS PANEL ──
 function renderStatPoints() {
   const panel = document.getElementById('stat-points-panel');
@@ -2099,7 +2116,7 @@ function showGame(){
   document.getElementById('bottom-nav').style.display='flex';
   document.getElementById('top-btns').style.display='flex';
   document.getElementById('char-name').textContent=state.name;
-  document.getElementById('arena-player').innerHTML='<img src="warrior.jpg" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:2px solid var(--dark-gold);">';
+  document.getElementById('arena-player').innerHTML = getPlayerAvatar();
   document.getElementById('arena-player-label').textContent=state.name;
   loadAutoSellUI();calcStats();updateUI();renderShop();renderQuests();
   renderInventory();renderSkillBar();renderEquipSlots();fetchLeaderboard();
@@ -5585,7 +5602,7 @@ function startCombatWith(enemy){
     <div class="scene-title">⚔️ Combat!</div>
     <p><strong style="color:var(--red)">${enemy.name}</strong> appears!${enemy.boss?'<span style="color:var(--gold);margin-left:6px;">⚠️ BOSS BATTLE!</span>':''}</p>`;
 
-  document.getElementById('arena-player').innerHTML='<img src="warrior.jpg" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:2px solid var(--dark-gold);">';
+  document.getElementById('arena-player').innerHTML = getPlayerAvatar();
   updateAutoFightBtn();
 }
 
@@ -6456,7 +6473,7 @@ function selectClass(classId){
   Object.entries(c.bonuses).forEach(([k,v])=>{state.classBonuses[k]=v;state[k]=(state[k]||1)+v;});
   state.skills=c.skills;
   document.getElementById('char-class').textContent=`${c.icon} ${c.name}`;
-  document.getElementById('arena-player').innerHTML='<img src="warrior.jpg" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:2px solid var(--dark-gold);">';
+  document.getElementById('arena-player').innerHTML = getPlayerAvatar();
   document.getElementById('class-screen').style.display='none';
   document.getElementById('talent-btn').style.display='inline-block';
   Object.entries(c.trees).forEach(([treeId,tree])=>{tree.talents.forEach(talent=>{state.talentUnlockedFlags[`${classId}_${talent.id}`]=false;});});
