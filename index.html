@@ -911,13 +911,20 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
           <button class="diff-btn" id="diff-btn-hell"   onclick="setDifficulty('hell')">💀 Hell</button>
         </div>
       </div>
-      <div class="char-panel">
-        <div class="panel-title">Class</div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-          <div id="char-class" style="font-family:var(--font-title);color:var(--gold);">No Class</div>
-           <button class="start-btn" onclick="respecClass()" style="font-size:.65em;padding:4px 10px;">🔄 Respec</button>
-        </div>
-      </div>
+      <!-- Class -->
+<div class="char-panel">
+  <div class="panel-title">Class</div>
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+    <!-- Class portrait -->
+    <div id="char-portrait" style="width:64px;height:64px;flex-shrink:0;background:var(--bg3);border:2px solid var(--border-bright);border-radius:10px;overflow:hidden;">
+      <img id="char-portrait-img" src="warrior.jpg" style="width:100%;height:100%;object-fit:cover;">
+    </div>
+    <div style="flex:1;">
+      <div id="char-class-panel" style="font-family:var(--font-title);color:var(--gold);margin-bottom:6px;">No Class</div>
+      <button class="start-btn" onclick="respecClass()" style="font-size:.65em;padding:4px 10px;">🔄 Respec</button>
+    </div>
+  </div>
+</div>
 
       <!-- Free Stat Points -->
       <div class="char-panel" id="stat-points-panel">

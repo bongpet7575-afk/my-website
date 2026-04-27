@@ -444,18 +444,18 @@ function buildSkillUse(skillId, m) {
 
 // ── CLASS AVATAR ──
 const CLASS_AVATARS = {
-  Warrior:     'warrior.jpg',
-  Mage:        'mage.jpg',
-  Rogue:       'rogue.jpg',
-  Hunter:      'hunter.jpg',
-  Paladin:     'paladin.jpg',
+  Warrior:     'warrior.jpeg',
+  Mage:        'mage.jpeg',
+  Rogue:       'rogue.jpeg',
+  Hunter:      'hunter.jpeg',
+  Paladin:     'paladin.jpeg',
   Necromancer: 'necromancer.jfif',
   Shaman:      'shaman.jfif',
   Berserker:   'berserker.jfif',
 };
 
 function getPlayerAvatar(borderColor = 'var(--dark-gold)') {
-  const img = CLASS_AVATARS[state.class] || 'warrior.jpg';
+  const img = CLASS_AVATARS[state.class] || 'warrior.jpeg';
   return `<img src="${img}" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:2px solid ${borderColor};">`;
 }
 
@@ -598,6 +598,29 @@ function spendStatPoint(statKey, amount) {
   updateUI();
   renderStatPoints();
   savePlayerToSupabase();
+}
+
+// Update both places
+function updateClassDisplay() {
+  const className = state.class ? `${CLASSES[state.class].icon} ${CLASSES[state.class].name}` : 'No Class';
+  const topBar = document.getElementById('char-class');
+  const panel = document.getElementById('char-class-panel');
+  if (topBar) topBar.textContent = className;
+  if (panel) panel.textContent = className;
+  updatePlayerAvatar();
+}
+
+function updatePlayerAvatar() {
+  const classKey = state.class ? state.class.charAt(0).toUpperCase() + state.class.slice(1) : null;
+  const img = CLASS_AVATARS[classKey] || 'warrior.jpeg';
+  
+  // Update arena avatar
+  const arenaEl = document.getElementById('arena-player');
+  if (arenaEl) arenaEl.innerHTML = `<img src="${img}" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:2px solid var(--dark-gold);">`;
+  
+  // Update character scene portrait
+  const portraitEl = document.getElementById('char-portrait-img');
+  if (portraitEl) portraitEl.src = img;
 }
 
 // ══════════════════════════════════════════
@@ -2078,6 +2101,10 @@ state.talentPoints += refunded;
   state.unlockedTalents = [];
   state.talentUnlockedFlags = {};
   state.class = null;
+  // Reset portrait to placeholder
+const portraitEl = document.getElementById('char-portrait-img');
+if (portraitEl) portraitEl.src = 'warrior.jpg';
+document.getElementById('char-class').textContent = 'No Class';
   state.skills = [];
 
   // Reset stat multipliers
@@ -2089,8 +2116,9 @@ state.talentPoints += refunded;
   calcStats();
   addLog(`🔄 Respec complete! ${refunded} talent points refunded. Cost: ${formatNumber(cost)}g`,'gold');
   notify(`🔄 Class reset! Choose a new class.`,'var(--gold)');
-  document.getElementById('char-class').textContent='No Class';
+  updateClassDisplay();
   showClassSelection();
+  updatePlayerAvatar(); // 👈 add this
   updateUI();renderSkillBar();renderQuests();
 }
 
@@ -2116,7 +2144,7 @@ function showGame(){
   document.getElementById('bottom-nav').style.display='flex';
   document.getElementById('top-btns').style.display='flex';
   document.getElementById('char-name').textContent=state.name;
-  document.getElementById('arena-player').innerHTML = getPlayerAvatar();
+  updatePlayerAvatar();
   document.getElementById('arena-player-label').textContent=state.name;
   loadAutoSellUI();calcStats();updateUI();renderShop();renderQuests();
   renderInventory();renderSkillBar();renderEquipSlots();fetchLeaderboard();
@@ -5602,7 +5630,7 @@ function startCombatWith(enemy){
     <div class="scene-title">⚔️ Combat!</div>
     <p><strong style="color:var(--red)">${enemy.name}</strong> appears!${enemy.boss?'<span style="color:var(--gold);margin-left:6px;">⚠️ BOSS BATTLE!</span>':''}</p>`;
 
-  document.getElementById('arena-player').innerHTML = getPlayerAvatar();
+  updatePlayerAvatar();
   updateAutoFightBtn();
 }
 
@@ -6472,12 +6500,14 @@ function selectClass(classId){
   const c=CLASSES[classId];state.class=classId;state.quests.class.done=true;
   Object.entries(c.bonuses).forEach(([k,v])=>{state.classBonuses[k]=v;state[k]=(state[k]||1)+v;});
   state.skills=c.skills;
-  document.getElementById('char-class').textContent=`${c.icon} ${c.name}`;
-  document.getElementById('arena-player').innerHTML = getPlayerAvatar();
+  updateClassDisplay();
+  updatePlayerAvatar();
   document.getElementById('class-screen').style.display='none';
   document.getElementById('talent-btn').style.display='inline-block';
   Object.entries(c.trees).forEach(([treeId,tree])=>{tree.talents.forEach(talent=>{state.talentUnlockedFlags[`${classId}_${talent.id}`]=false;});});
-  addLog(`🎉 You are now a ${c.name}!`,'purple');playSound('snd-levelup');updateUI();renderSkillBar();renderQuests();
+  addLog(`🎉 You are now a ${c.name}!`,'purple');playSound('snd-levelup');
+  updatePlayerAvatar(); // 👈 add this
+  updateUI();renderSkillBar();renderQuests();
 }
 
 // ── TALENTS ──
@@ -7156,6 +7186,9 @@ function updateUI(){
   document.getElementById('hpregen-val').textContent=formatNumber(state.hpRegen);
   document.getElementById('mpregen-val').textContent=formatNumber(state.manaRegen);
   document.getElementById('lifesteal-val').textContent=(state.lifeSteal*100).toFixed(2)+'%';document.getElementById('char-level').textContent = `Level ${state.level} / 100`;
+
+  
+  updatePlayerAvatar();
 
   const atkspdEl = document.getElementById('atkspd-val');
 if (atkspdEl) {
