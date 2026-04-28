@@ -612,7 +612,7 @@ function updateClassDisplay() {
 
 function updatePlayerAvatar() {
   const classKey = state.class ? state.class.charAt(0).toUpperCase() + state.class.slice(1) : null;
-  const img = CLASS_AVATARS[classKey] || 'warrior.jpeg';
+  const img = CLASS_AVATARS[classKey] || 'images/classes/warrior.jpeg';
   
   // Update arena avatar
   const arenaEl = document.getElementById('arena-player');
