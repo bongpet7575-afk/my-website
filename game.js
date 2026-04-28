@@ -7792,36 +7792,48 @@ if (charClassEl) {
 async function fetchLeaderboard(){
   try {
     document.getElementById('lb-list').innerHTML='<div class="lb-empty">Loading...</div>';
-    // Two-step: fetch leaderboard, then get character names separately
-    const{data,error}=await dbClient.from('leaderboard').select('*').order('level',{ascending:false}).order('gold',{ascending:false}).limit(20);
-    if(error)throw error;
-    if(!data||!data.length){document.getElementById('lb-list').innerHTML='<div class="lb-empty">No scores yet! 🏆</div>';return;}
-    // Fetch character names for each player_id
-    const ids=[...new Set(data.map(r=>r.player_id).filter(Boolean))];
-    let nameMap={};
-    if(ids.length){
-      const{data:chars}=await dbClient.from('characters').select('id,name,class').in('id',ids);
-      if(chars)chars.forEach(c=>{nameMap[c.id]={name:c.name,class:c.class};});
+    
+    const { data, error } = await dbClient
+  .from('characters_public')
+  .select('*')
+  .order('level', { ascending: false })
+  .order('id', { ascending: false })
+  .limit(10);
+
+    if(error) throw error;
+    if(!data || !data.length){
+      document.getElementById('lb-list').innerHTML='<div class="lb-empty">No players yet! 🏆</div>';
+      return;
     }
-    renderLeaderboard(data,nameMap);
-  } catch(e){ document.getElementById('lb-list').innerHTML='<div class="lb-empty">Could not load leaderboard.</div>';console.error('Leaderboard error:',e); }
+
+    renderLeaderboard(data);
+  } catch(e){
+    document.getElementById('lb-list').innerHTML='<div class="lb-empty">Could not load leaderboard.</div>';
+    console.error('Leaderboard error:',e);
+  }
 }
-async function submitScore(){
-  if(!state.character_id||!state.name){alert('Start the game first!');return;}
-  try {
-    const{data:{user}}=await dbClient.auth.getUser();if(!user){alert('You must be logged in.');return;}
-    const{error}=await dbClient.from('leaderboard').upsert({player_id:state.character_id,user_id:user.id,level:state.level,gold:state.gold,class:state.class?CLASSES[state.class].name:'Adventurer',updated_at:new Date().toISOString()},{onConflict:'player_id'});
-    if(error)throw error;
-    addLog('🏆 Score submitted!','gold');notify('🏆 Score submitted!','var(--gold)');fetchLeaderboard();
-  } catch(e){ alert('Could not submit score: '+e.message);console.error('Submit score error:',e); }
-}
-function renderLeaderboard(scores,nameMap={}){
+
+function renderLeaderboard(scores){
   const list=document.getElementById('lb-list');
-  if(!scores||!scores.length){list.innerHTML='<div class="lb-empty">No scores yet! 🏆</div>';return;}
-  const medals=['🥇','🥈','🥉'],cls=['gold','silver','bronze'];
+  if(!scores||!scores.length){
+    list.innerHTML='<div class="lb-empty">No scores yet! 🏆</div>';
+    return;
+  }
+  const medals=['🥇','🥈','🥉'];
+  const cls=['gold','silver','bronze'];
   list.innerHTML=scores.map((s,i)=>{
-    const charInfo=nameMap[s.player_id]||{};
-    return `<div class="lb-row"><div class="lb-rank ${cls[i]||''}">${medals[i]||'#'+(i+1)}</div><div class="lb-name">${charInfo.name||'Unknown'}</div><div class="lb-class">${charInfo.class||s.class||'Adventurer'}</div><div class="lb-level">⭐ Lv.${s.level}</div><div class="lb-gold-col">💰 ${formatNumber(s.gold)}g</div></div>`;
+    const title = s.reputation >= 75000 ? '👑' :
+                  s.reputation >= 35000 ? '🔵' :
+                  s.reputation >= 15000 ? '🟢' :
+                  s.reputation >= 5000  ? '🟡' :
+                  s.reputation >= 1000  ? '⚪' : '';
+    return `<div class="lb-row">
+      <div class="lb-rank ${cls[i]||''}">${medals[i]||'#'+(i+1)}</div>
+      <div class="lb-name">${title} ${s.name||'Unknown'}</div>
+      <div class="lb-class">${s.class||'Adventurer'}</div>
+      <div class="lb-level">⭐ Lv.${s.level}</div>
+      <div class="lb-gold-col">💰 ${formatNumber(s.gold)}g</div>
+    </div>`;
   }).join('');
 }
 
