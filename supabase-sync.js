@@ -63,6 +63,8 @@ function syncCharacterToState(character) {
   state.xp = character.exp || 0;                    // ✅ only 'exp' column — 'experience' was dropped
   state.xpNext = Math.floor((character.level || 1) * 100 * 20);
   state.gold = character.gold || 0;
+  state.reputation = character.reputation || 0;
+  state.reputationTitle = character.reputation_title || null;
   state.class = character.class || null;
   state.currentScene = character.current_scene || 'town';
 
