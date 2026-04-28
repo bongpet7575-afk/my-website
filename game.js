@@ -444,18 +444,18 @@ function buildSkillUse(skillId, m) {
 
 // ── CLASS AVATAR ──
 const CLASS_AVATARS = {
-  Warrior:     'warrior.jpeg',
-  Mage:        'mage.jpeg',
-  Rogue:       'rogue.jpeg',
-  Hunter:      'hunter.jpeg',
-  Paladin:     'paladin.jpeg',
-  Necromancer: 'necromancer.jfif',
-  Shaman:      'shaman.jfif',
-  Berserker:   'berserker.jfif',
+  Warrior:     'images/classes/warrior.jpeg',
+  Mage:        'images/classes/mage.jpeg',
+  Rogue:       'images/classes/rogue.jpeg',
+  Hunter:      'images/classes/hunter.jpeg',
+  Paladin:     'images/classes/paladin.jpeg',
+  Necromancer: 'images/classes/necromancer.jfif',
+  Shaman:      'images/classes/shaman.jfif',
+  Berserker:   'images/classes/berserker.jfif',
 };
 
 function getPlayerAvatar(borderColor = 'var(--dark-gold)') {
-  const img = CLASS_AVATARS[state.class] || 'warrior.jpeg';
+  const img = CLASS_AVATARS[state.class] || 'images/classes/warrior.jpeg';
   return `<img src="${img}" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:2px solid ${borderColor};">`;
 }
 
@@ -2300,7 +2300,7 @@ state.talentPoints += refunded;
   state.class = null;
   // Reset portrait to placeholder
 const portraitEl = document.getElementById('char-portrait-img');
-if (portraitEl) portraitEl.src = 'warrior.jpeg';
+if (portraitEl) portraitEl.src = 'images/classes/warrior.jpeg';
 document.getElementById('char-class').textContent = 'No Class';
   state.skills = [];
 
