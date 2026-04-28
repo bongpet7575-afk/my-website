@@ -7784,6 +7784,7 @@ if (charClassEl) {
   document.getElementById('xp-bar').style.width=Math.min(100,(state.xp/state.xpNext)*100)+'%';
   document.getElementById('arena-player-hp').style.width=Math.max(0,(hp/state.maxHp)*100)+'%';
   document.getElementById('arena-player-mp').style.width=Math.max(0,(mp/state.maxHp)*100)+'%';
+  updateClassDisplay()
   updateRepBar();
   renderStatPoints();
   renderSoulWeaponSlot();
