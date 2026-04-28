@@ -5787,9 +5787,7 @@ function startCombat(enemyId,isBoss){
   const hitScale=(1+Math.max(0,(state.level-1))*0.3)*diff.hitMult;
   const dodgeScale=(1+Math.max(0,(state.level-1))*0.3)*diff.dodgeMult;
   const prefix=state.difficulty==='hell'?'💀 Hell ':state.difficulty==='hard'?'🔥 Hard ':'';
-  const el=document.getElementById('arena-enemy');
-  if(enemy.icon&&!enemy.icon.includes(' ')&&enemy.icon.length<20){el.innerHTML=`<img src="${enemy.icon}.jpg" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:2px solid var(--red);">`;}
-  else{el.textContent=enemy.icon;}
+  
   currentEnemy={...tmpl,name:prefix+tmpl.name,hp:Math.floor(tmpl.hp*scale),maxHp:Math.floor(tmpl.hp*scale),atk:Math.floor(tmpl.atk*atkScale),armor:tmpl.armor,hit:Math.floor((tmpl.hit||0)*5),dodge:Math.floor((tmpl.dodge||0)*5),poisoned:0,frozen:false,crippled:0,boss:false,_xpMult:diff.xpMult,_goldMult:diff.goldMult};
   currentEnemy=applyTutorialScaling(currentEnemy);
   startCombatWith(currentEnemy);

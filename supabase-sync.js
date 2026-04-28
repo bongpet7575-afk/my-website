@@ -209,19 +209,14 @@ async function savePlayerToSupabase() {
     if (!state.character_id) throw new Error('No character ID');
 
     // ── GOLD RECONCILIATION ──
-    // Always read fresh gold from DB before saving to prevent
-    // auto-save from overwriting gold paid by external auction transactions
     const { data: freshChar } = await dbClient
       .from('characters')
       .select('gold')
       .eq('id', state.character_id)
       .single();
 
-    // Use whichever is higher — DB gold (from auction payments) or state gold
-    // This prevents auto-save from wiping gold that was added externally
     const safeGold = freshChar ? Math.max(state.gold, freshChar.gold) : state.gold;
     
-    // If DB has more gold than state, sync state up first
     if (freshChar && freshChar.gold > state.gold) {
       const diff = freshChar.gold - state.gold;
       state.gold = freshChar.gold;
@@ -229,22 +224,32 @@ async function savePlayerToSupabase() {
       updateUI();
     }
 
+    // ── SAFE UPDATE VIA RPC ──
+    const { error: rpcError } = await dbClient.rpc('update_character_safe', {
+      p_character_id: state.character_id,
+      p_level: state.level,
+      p_xp: state.xp,
+      p_gold: safeGold,
+      p_hp: state.hp,
+      p_mp: state.mp,
+      p_reputation: state.reputation || 0,
+    });
+
+    if (rpcError) throw rpcError;
+
+    // ── SAFE UPDATE FOR NON-CRITICAL FIELDS ──
+    // These fields can't be easily exploited so direct update is fine
     const { error } = await dbClient
       .from('characters')
       .update({
         respec_count: state.respecCount,
         gold_mult_expiry: state.goldMultExpiry,
         name: state.name,
-        level: state.level,
-        exp: state.xp,
-        gold: safeGold,           // ← use reconciled gold
         class: state.class,
-        health: state.hp,
         max_health: state.maxHp,
-        mana: state.mp,
         max_mana: state.maxMp,
         free_stat_points: state.freeStatPoints || 0,
-        legacy_points:    state.legacyPoints || 0,
+        legacy_points: state.legacyPoints || 0,
         legacy_skills: state.legacySkills || {},
         current_scene: state.currentScene,
         talent_points: state.talentPoints,
