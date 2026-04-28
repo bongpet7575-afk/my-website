@@ -2321,6 +2321,9 @@ document.getElementById('char-class').textContent = 'No Class';
 
 // ── AUTH: LOGOUT ──
 async function logoutUser(){
+  if(currentEnemy){
+    if(!confirm('⚠️ You are in combat! Logging out will abandon the fight. Continue?')) return;
+  }
   try {
     await savePlayerToSupabase();
   } catch(e){ console.warn('Save on logout failed:',e); }
