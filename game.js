@@ -459,6 +459,11 @@ function getPlayerAvatar(borderColor = 'var(--dark-gold)') {
   return `<img src="${img}" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:2px solid ${borderColor};">`;
 }
 
+function toggleQR(){
+  const overlay = document.getElementById('qr-overlay');
+  overlay.style.display = overlay.style.display === 'flex' ? 'none' : 'flex';
+}
+
 // ── RENDER STAT POINTS PANEL ──
 function renderStatPoints() {
   const panel = document.getElementById('stat-points-panel');
