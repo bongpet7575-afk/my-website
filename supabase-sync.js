@@ -195,9 +195,13 @@ state.tournamentTitle          = character.tournament_title || null;
 state.tournamentBuff           = character.tournament_buff || null;
 state.tournamentItem           = character.tournament_item || null;
 state.tournamentRewardsExpireAt = character.tournament_rewards_expire_at || null;
+   // Register legacy skills into SKILLS object
+  if (typeof registerLegacySkills === 'function') registerLegacySkills();
+
 
   // Recalculate stats after loading
   if (typeof calcStats === 'function') calcStats();
+
 }
 
 // ============================================
