@@ -981,8 +981,16 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     </span>
   </div>
   <div id="legacy-points-content"></div>
-      </div>
-
+ </div>
+    <div id="chat-container">
+  <div id="chat-header">⚔️ World Chat</div>
+  <div id="chat-messages"></div>
+  <div id="chat-status"></div>
+  <div id="chat-input-row">
+    <input id="chat-input-field" type="text" maxlength="200" placeholder="Say something..." />
+    <button id="chat-send-btn">Send</button>
+  </div>
+</div>
       <!-- Tournament Rewards -->
       <div class="char-panel" id="tournament-rewards-panel" style="display:none;">
         <div class="panel-title">🏆 Tournament Rewards</div>
@@ -1262,6 +1270,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 <!-- ═══════════════════════════════════════ SCRIPTS ═══ -->
 <script src="game.js"></script>
 <script src="supabase-sync.js"></script>
+<link rel="stylesheet" href="chat-styles.css">
+<script src="chat-module.js"></script>
 
 <script>
 

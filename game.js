@@ -150,9 +150,7 @@ function applyGameConfig() {
   }
 
   // ── Practice fees now handled by getPracticeFee() — no assignment needed ──
-
-  // ── Register legacy skills ──
-  if (typeof registerLegacySkills === 'function') registerLegacySkills();
+ 
 }
 
 // ── BUILD TALENT EFFECT FROM CONFIG ──
@@ -787,13 +785,8 @@ function learnLegacySkill(skillId) {
   if (!state.legacySkills) state.legacySkills = {};
   state.legacySkills[skillId] = nextRank;
 
-  // Register into SKILLS
-  registerLegacySkills();
-
-  // Add to skill bar if not already there
-  if (!state.skills.includes(skillId)) {
-    state.skills.push(skillId);
-  }
+  // Rebuild skills from source of truth
+rebuildSkills();
 
   const action2 = currentRank === 0 ? 'Learned' : `Upgraded to Rank ${nextRank}`;
   addLog(`✨ ${action2}: ${def.icon} ${def.name}! (${rankData.desc})`, 'legendary');
@@ -1358,6 +1351,29 @@ state.cdr = Math.min(0.50, state.castSpeed / 200);
 
   state.hp = Math.min(state.hp, state.maxHp);
   state.mp = Math.min(state.mp, state.maxMp);
+}
+
+function rebuildSkills() {
+  // Start fresh
+  state.skills = [];
+
+  // Step 1: Add class skills
+  if (state.class && CLASSES[state.class]) {
+    state.skills = [...CLASSES[state.class].skills];
+  }
+
+  // Step 2: Register legacy skills into SKILLS object
+  if (typeof registerLegacySkills === 'function') {
+    registerLegacySkills();
+  }
+
+  // Step 3: Add legacy skill IDs that player has learned
+  const learned = state.legacySkills || {};
+  Object.keys(learned).forEach(skillId => {
+    if (!state.skills.includes(skillId)) {
+      state.skills.push(skillId);
+    }
+  });
 }
 
 // ── CLASSES ──
@@ -2307,21 +2323,23 @@ state.talentPoints += refunded;
 const portraitEl = document.getElementById('char-portrait-img');
 if (portraitEl) portraitEl.src = 'images/classes/warrior.jpeg';
 document.getElementById('char-class').textContent = 'No Class';
-  state.skills = [];
+  rebuildSkills();
 
   // Reset stat multipliers
   state.strMult=1.0;state.agiMult=1.0;state.intMult=1.0;state.staMult=1.0;
   state.armorMult=1.0;state.critMult=1.0;state.dodgeMult=1.0;
   state.hpRegenMult=1.0;state.mpRegenMult=1.0;state.hitMult=1.0;
-  state.mpMult=1.0;state.attackPowerMult=1.0;
-
+  state.mpMult=1.0;state.attackPowerMult=1.;
   calcStats();
   addLog(`🔄 Respec complete! ${refunded} talent points refunded. Cost: ${formatNumber(cost)}g`,'gold');
   notify(`🔄 Class reset! Choose a new class.`,'var(--gold)');
-  updateClassDisplay();
+  updateClassDisplay();  
+  updateAutoSlotHighlight();
   showClassSelection();
   updatePlayerAvatar(); // 👈 add this
-  updateUI();renderSkillBar();renderQuests();
+  renderSkillBar();
+  renderQuests();
+  updateUI();
 }
 
 // ── AUTH: LOGOUT ──
@@ -7691,13 +7709,8 @@ async function buySkillBook(bookId, skillId) {
   if (!state.legacySkills) state.legacySkills = {};
   state.legacySkills[skillId] = nextRank;
 
-  // Register into SKILLS object
-  registerLegacySkills();
-
-  // Add to skill bar if rank 1 (first time learning)
-  if (currentRank === 0 && !state.skills.includes(skillId)) {
-    state.skills.push(skillId);
-  }
+  // Rebuild skills from source of truth
+rebuildSkills();
 
   const action2 = currentRank === 0 ? 'Learned' : `Upgraded to Rank ${nextRank}`;
   addLog(`✨ ${action2}: ${def.icon} ${def.name}! ${rankData.desc}`, 'legendary');

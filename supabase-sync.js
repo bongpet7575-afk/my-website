@@ -160,7 +160,7 @@ function syncCharacterToState(character) {
   state.talentPoints = character.talent_points || 0;
   state.unlockedTalents = character.unlocked_talents || [];
   state.talentUnlockedFlags = character.talent_unlocked_flags || {};
-  state.skills = character.skills || [];
+  // Skills are rebuilt from class + legacySkills — never trust saved skills array
   state.skillCooldowns = character.skill_cooldowns || {};
 
   // Quests
@@ -191,17 +191,16 @@ function syncCharacterToState(character) {
   state.autoSell = character.auto_sell || { normal:false, uncommon:false, rare:false, epic:false };
 
   // Tournament rewards
-state.tournamentTitle          = character.tournament_title || null;
-state.tournamentBuff           = character.tournament_buff || null;
-state.tournamentItem           = character.tournament_item || null;
-state.tournamentRewardsExpireAt = character.tournament_rewards_expire_at || null;
-   // Register legacy skills into SKILLS object
-  if (typeof registerLegacySkills === 'function') registerLegacySkills();
+  state.tournamentTitle           = character.tournament_title || null;
+  state.tournamentBuff            = character.tournament_buff || null;
+  state.tournamentItem            = character.tournament_item || null;
+  state.tournamentRewardsExpireAt = character.tournament_rewards_expire_at || null;
 
+  // ── Rebuild skills after everything is loaded ──
+  rebuildSkills();
 
   // Recalculate stats after loading
   if (typeof calcStats === 'function') calcStats();
-
 }
 
 // ============================================
@@ -250,7 +249,6 @@ async function savePlayerToSupabase() {
       p_talent_points:        state.talentPoints,
       p_unlocked_talents:     state.unlockedTalents,
       p_talent_unlocked_flags: state.talentUnlockedFlags,
-      p_skills:               state.skills,
       p_skill_cooldowns:      state.skillCooldowns,
       p_quests:               state.quests,
       p_inventory:            state.inventory,
