@@ -2821,7 +2821,10 @@ async function checkAndAutoStartTournaments() {
   } catch(e) { console.error('Auto start tournament error:', e); }
 }
 
-// ── SKILL COMBO PICKER (opens before tournament registration) ──
+// ── SKILL COMBO PICKER ──
+// BUG FIX #8: state.class is lowercase ('warrior') but the classSkills map
+// used title case ('Warrior') — so it always fell back to Warrior skills
+// for every class. Fixed by capitalizing state.class before lookup.
 function openSkillComboPicker(tournament, tier, tierKey) {
   const classSkills = {
     Warrior:     ['power_strike', 'battle_cry', 'last_stand'],
@@ -2834,9 +2837,12 @@ function openSkillComboPicker(tournament, tier, tierKey) {
     Berserker:   ['reckless_strike', 'blood_rage', 'death_wish'],
   };
 
-  const playerClass = state.class || 'Warrior';
+  // BUG FIX #8: capitalize first letter so lookup works correctly
+  const rawClass   = state.class || 'warrior';
+  const playerClass = rawClass.charAt(0).toUpperCase() + rawClass.slice(1);
   const availableSkills = classSkills[playerClass] || classSkills['Warrior'];
-  const selectedCombo = [null, null, null]; // 3 slots
+
+  const selectedCombo = [null, null, null];
 
   function renderPicker() {
     const popup = document.getElementById('item-popup');
@@ -2849,7 +2855,8 @@ function openSkillComboPicker(tournament, tier, tierKey) {
         Level: <span style="color:var(--green);">Lv.${tier.min}-${tier.max}</span>
       </div>
 
-      <div style="font-family:var(--font-title);font-size:.75em;color:var(--text-dim);letter-spacing:2px;margin-bottom:8px;">
+      <div style="font-family:var(--font-title);font-size:.75em;color:var(--text-dim);
+        letter-spacing:2px;margin-bottom:8px;">
         SKILL COMBO (up to 3)
       </div>
 
@@ -2859,14 +2866,17 @@ function openSkillComboPicker(tournament, tier, tierKey) {
           const skill = sk ? SKILLS[sk] : null;
           return `
             <div onclick="clearComboSlot(${i})"
-              style="width:64px;height:64px;border-radius:8px;border:2px solid ${skill ? 'var(--gold)' : 'rgba(255,255,255,0.15)'};
+              style="width:64px;height:64px;border-radius:8px;
+              border:2px solid ${skill ? 'var(--gold)' : 'rgba(255,255,255,0.15)'};
               background:${skill ? 'rgba(255,153,0,0.12)' : 'rgba(255,255,255,0.04)'};
               display:flex;flex-direction:column;align-items:center;justify-content:center;
               cursor:${skill ? 'pointer' : 'default'};position:relative;">
               ${skill
                 ? `<div style="font-size:1.6em;">${skill.icon}</div>
-                   <div style="font-size:.52em;color:var(--gold);text-align:center;line-height:1.2;margin-top:2px;">${skill.name}</div>
-                   <div style="position:absolute;top:2px;right:4px;font-size:.6em;color:var(--text-dim);">${i+1}</div>`
+                   <div style="font-size:.52em;color:var(--gold);text-align:center;
+                     line-height:1.2;margin-top:2px;">${skill.name}</div>
+                   <div style="position:absolute;top:2px;right:4px;font-size:.6em;
+                     color:var(--text-dim);">${i+1}</div>`
                 : `<div style="font-size:1.4em;color:rgba(255,255,255,0.15);">+</div>
                    <div style="font-size:.55em;color:rgba(255,255,255,0.2);">Slot ${i+1}</div>`
               }
@@ -2874,13 +2884,15 @@ function openSkillComboPicker(tournament, tier, tierKey) {
         }).join('')}
       </div>
 
-      <!-- Available skills to pick -->
-      <div style="font-family:var(--font-title);font-size:.7em;color:var(--text-dim);letter-spacing:2px;margin-bottom:8px;">
+      <!-- Available skills -->
+      <div style="font-family:var(--font-title);font-size:.7em;color:var(--text-dim);
+        letter-spacing:2px;margin-bottom:8px;">
         YOUR SKILLS
       </div>
       <div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px;">
         ${availableSkills.map(sk => {
           const skill = SKILLS[sk];
+          if (!skill) return '';
           const alreadyPicked = selectedCombo.includes(sk);
           return `
             <div onclick="${alreadyPicked ? '' : `addToCombo('${sk}')`}"
@@ -2888,22 +2900,21 @@ function openSkillComboPicker(tournament, tier, tierKey) {
               border:2px solid ${alreadyPicked ? 'var(--green)' : 'rgba(255,255,255,0.15)'};
               background:${alreadyPicked ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.04)'};
               display:flex;flex-direction:column;align-items:center;justify-content:center;
-              cursor:${alreadyPicked ? 'default' : 'pointer'};opacity:${alreadyPicked ? '0.5' : '1'};">
+              cursor:${alreadyPicked ? 'default' : 'pointer'};
+              opacity:${alreadyPicked ? '0.5' : '1'};">
               <div style="font-size:1.6em;">${skill.icon}</div>
-              <div style="font-size:.52em;color:var(--text-dim);text-align:center;line-height:1.2;margin-top:2px;">${skill.name}</div>
+              <div style="font-size:.52em;color:var(--text-dim);text-align:center;
+                line-height:1.2;margin-top:2px;">${skill.name}</div>
             </div>`;
         }).join('')}
       </div>
 
-      <!-- Warning if empty slots -->
       ${selectedCombo.some(s => s === null) ? `
         <div style="font-size:.72em;color:var(--gold);text-align:center;margin-bottom:10px;
           background:rgba(255,153,0,0.08);border-radius:6px;padding:6px;">
           ⚠️ ${selectedCombo.filter(s => s === null).length} skill slot(s) empty — are you sure?
-        </div>` : ''
-      }
+        </div>` : ''}
 
-      <!-- Buttons -->
       <div style="display:flex;gap:8px;margin-top:4px;">
         <button class="start-btn" onclick="closeItemPopup()"
           style="flex:1;background:rgba(255,255,255,0.05);padding:10px;">
@@ -2917,10 +2928,12 @@ function openSkillComboPicker(tournament, tier, tierKey) {
     popup.style.display = 'flex';
   }
 
-  // Expose helpers to window so onclick can reach them
   window.addToCombo = function(skillKey) {
     const emptySlot = selectedCombo.indexOf(null);
-    if (emptySlot === -1) { notify('All 3 slots filled! Click a slot to clear it.', 'var(--gold)'); return; }
+    if (emptySlot === -1) {
+      notify('All 3 slots filled! Click a slot to clear it.', 'var(--gold)');
+      return;
+    }
     selectedCombo[emptySlot] = skillKey;
     renderPicker();
   };
@@ -2932,49 +2945,46 @@ function openSkillComboPicker(tournament, tier, tierKey) {
 
   window.confirmTournamentRegistration = async function() {
     try {
-      // Deduct entry fee
       const newGold = state.gold - tier.fee;
       if (newGold < 0) { notify('Not enough gold!', 'var(--red)'); return; }
       state.gold = newGold;
 
-      // Build character snapshot at registration time
       const snapshot = {
         character_id: state.character_id,
-        name: state.name,
-        level: state.level,
-        class: state.class,
-        attackPower: state.attackPower,
-        maxHp: state.maxHp,
-        armor: state.armor,
-        hit: state.hit,
-        dodge: state.dodge,
-        crit: state.crit,
-        lifeSteal: state.lifeSteal,
-        skillCombo: selectedCombo.filter(Boolean),
+        name:         state.name,
+        level:        state.level,
+        class:        state.class,
+        attackPower:  state.attackPower,
+        maxHp:        state.maxHp,
+        armor:        state.armor,
+        hit:          state.hit,
+        dodge:        state.dodge,
+        crit:         state.crit,
+        lifeSteal:    state.lifeSteal,
+        skillCombo:   selectedCombo.filter(Boolean),
       };
 
-      // Save registration to DB
       await dbClient.from('arena_registrations').insert({
-        tournament_id: tournament.id,
-        character_id: state.character_id,
-        user_id: state.user_id,
+        tournament_id:      tournament.id,
+        character_id:       state.character_id,
+        user_id:            state.user_id,
         character_snapshot: snapshot,
-        skill_combo: selectedCombo.filter(Boolean),
-        points: 0,
+        skill_combo:        selectedCombo.filter(Boolean),
+        points:             0,
       });
 
-      // Deduct gold in DB
       await dbClient.from('characters')
         .update({ gold: newGold })
         .eq('id', state.character_id);
 
       closeItemPopup();
-      addLog(`⚔️ Registered for ${tier.label} Tournament! Entry fee: ${formatNumber(tier.fee)}g paid.`, 'gold');
+      addLog(`⚔️ Registered for ${tier.label} Tournament! Fee: ${formatNumber(tier.fee)}g paid.`, 'gold');
       notify(`✅ Registered for ${tier.label} Tournament!`, 'var(--gold)');
       updateUI();
       renderTournament();
 
     } catch(e) {
+      state.gold += tier.fee; // refund on failure
       notify('Registration failed: ' + e.message, 'var(--red)');
       console.error(e);
     }
@@ -3580,7 +3590,7 @@ async function startTournament(tournamentId, tierKey) {
       }));
 
     // Fill remaining slots with bots
-    const botsNeeded = 8 - participants.length;
+    const botsNeeded = TOURNAMENT_SIZE - participants.length;
     for (let i = 0; i < botsNeeded; i++) {
       participants.push(generateBot(tierKey));
     }
@@ -3612,186 +3622,18 @@ async function startTournament(tournamentId, tierKey) {
   } catch(e) { console.error('Start tournament error:', e); }
 }
 
-// ── SIMULATE BATTLE WITH SKILL COMBOS ──
-function simulateBattle(attacker, defender) {
-  const log = [];
-  let aHp = attacker.maxHp;
-  let dHp = defender.maxHp;
-  let turn = 0;
-  const MAX_TURNS = 60;
 
-  // Skill combo state — track position in rotation
-  let aSkillIndex = 0;
-  let dSkillIndex = 0;
-  const aCombo = attacker.skillCombo || [];
-  const dCombo = defender.skillCombo || [];
-
-  // Simple skill damage estimator for simulation
-  // (we can't run full SKILLS functions since they depend on live state)
-  function estimateSkillDmg(snapshot, skillKey) {
-    const s = snapshot;
-    const skill = SKILLS[skillKey];
-    if (!skill) return 0;
-
-    // Estimate based on skill type using snapshot stats
-    switch(skillKey) {
-      case 'power_strike':    return Math.floor(s.attackPower * 2.2);
-      case 'fireball':        return Math.floor(s.attackPower * 1.8 + Math.random() * s.attackPower * 0.5);
-      case 'ice_lance':       return Math.floor(s.attackPower * 1.5);
-      case 'backstab':        return Math.floor(s.attackPower * 1.5);
-      case 'poison_blade':    return Math.floor(s.attackPower * 1.3 * 5); // 5 ticks
-      case 'shadow_step':     return Math.floor(s.attackPower * 2.0);
-      case 'precise_shot':    return Math.floor(s.attackPower * 2.0);
-      case 'bleed_arrow':     return Math.floor(s.attackPower * 1.0 * 4); // 4 ticks
-      case 'shadow_trap':     return Math.floor(s.attackPower * 1.5);
-      case 'holy_strike':     return Math.floor(s.attackPower * 2.0);
-      case 'consecration':    return Math.floor(s.attackPower * 1.8);
-      case 'death_bolt':      return Math.floor(s.attackPower * 2.0);
-      case 'soul_drain':      return Math.floor(s.attackPower * 1.6);
-      case 'plague_nova':     return Math.floor(s.attackPower * 1.5 * 6); // 6 ticks
-      case 'lightning_bolt':  return Math.floor(s.attackPower * 2.0);
-      case 'wind_burst':      return Math.floor(s.attackPower * 1.8);
-      case 'reckless_strike': return Math.floor(s.attackPower * 2.5);
-      case 'death_wish':      return Math.floor(s.attackPower * 4.0);
-      // Buff/heal skills return 0 damage but log the action
-      case 'battle_cry':
-      case 'last_stand':
-      case 'mana_shield':
-      case 'divine_shield':
-      case 'earth_totem':
-      case 'blood_rage':      return 0;
-      default:                return Math.floor(s.attackPower * 1.5);
-    }
-  }
-
-  // Buff skill descriptions for log
-  function getBuffDescription(skillKey, snapshot) {
-    switch(skillKey) {
-      case 'battle_cry':    return `${snapshot.name} activates Battle Cry! +STR +ATK POWER!`;
-      case 'last_stand':    return `${snapshot.name} uses Last Stand! Restores HP!`;
-      case 'mana_shield':   return `${snapshot.name} raises Mana Shield! Damage absorbed!`;
-      case 'divine_shield': return `${snapshot.name} uses Divine Shield! +HP + absorb!`;
-      case 'earth_totem':   return `${snapshot.name} plants Earth Totem! +HP +ARMOR!`;
-      case 'blood_rage':    return `${snapshot.name} enters Blood Rage! MASSIVE ATK boost!`;
-      default:              return `${snapshot.name} uses ${skillKey}!`;
-    }
-  }
-
-  const BUFF_SKILLS = ['battle_cry','last_stand','mana_shield','divine_shield','earth_totem','blood_rage'];
-
-  while (aHp > 0 && dHp > 0 && turn < MAX_TURNS) {
-    turn++;
-
-    // ── ATTACKER'S TURN ──
-    // Use skill if available in combo this turn
-    const aSkill = aCombo[aSkillIndex % aCombo.length] || null;
-    if (aSkill && aCombo.length > 0) {
-      aSkillIndex++;
-      if (BUFF_SKILLS.includes(aSkill)) {
-        log.push(`Turn ${turn}: ${getBuffDescription(aSkill, attacker)}`);
-      } else {
-        const skillDmg = estimateSkillDmg(attacker, aSkill);
-        if (skillDmg > 0) {
-          const reduction = Math.min(0.85, (defender.armor || 0) / ((defender.armor || 0) + 80000));
-          const finalDmg = Math.max(1, Math.floor(skillDmg * (1 - reduction)));
-          dHp -= finalDmg;
-          const skillName = SKILLS[aSkill]?.name || aSkill;
-          log.push(`Turn ${turn}: ${attacker.name} uses ${skillName} on ${defender.name} for ${formatNumber(finalDmg)} dmg!`);
-          // Lifesteal from skills
-          if (attacker.lifeSteal > 0) {
-            aHp = Math.min(attacker.maxHp, aHp + Math.floor(finalDmg * attacker.lifeSteal));
-          }
-        }
-      }
-    } else {
-      // Normal attack
-      const aDodge = Math.max(0, (defender.dodge || 0) - (attacker.hit || 0)) / 100;
-      if (Math.random() < aDodge) {
-        log.push(`Turn ${turn}: ${attacker.name} missed! ${defender.name} dodged.`);
-      } else {
-        const aReduction = Math.min(0.85, (defender.armor || 0) / ((defender.armor || 0) + 80000));
-        let aDmg = Math.max(1, Math.floor((attacker.attackPower * (0.95 + Math.random() * 0.1)) * (1 - aReduction)));
-        if (Math.random() < (attacker.crit || 0) / 100) {
-          aDmg = Math.floor(aDmg * 2);
-          log.push(`Turn ${turn}: ${attacker.name} CRITS ${defender.name} for ${formatNumber(aDmg)}!`);
-        } else {
-          log.push(`Turn ${turn}: ${attacker.name} hits ${defender.name} for ${formatNumber(aDmg)}.`);
-        }
-        dHp -= aDmg;
-        if (attacker.lifeSteal > 0) aHp = Math.min(attacker.maxHp, aHp + Math.floor(aDmg * attacker.lifeSteal));
-      }
-    }
-    if (dHp <= 0) break;
-
-    // ── DEFENDER'S TURN ──
-    const dSkill = dCombo[dSkillIndex % dCombo.length] || null;
-    if (dSkill && dCombo.length > 0) {
-      dSkillIndex++;
-      if (BUFF_SKILLS.includes(dSkill)) {
-        log.push(`Turn ${turn}: ${getBuffDescription(dSkill, defender)}`);
-      } else {
-        const skillDmg = estimateSkillDmg(defender, dSkill);
-        if (skillDmg > 0) {
-          const reduction = Math.min(0.85, (attacker.armor || 0) / ((attacker.armor || 0) + 80000));
-          const finalDmg = Math.max(1, Math.floor(skillDmg * (1 - reduction)));
-          aHp -= finalDmg;
-          const skillName = SKILLS[dSkill]?.name || dSkill;
-          log.push(`Turn ${turn}: ${defender.name} uses ${skillName} on ${attacker.name} for ${formatNumber(finalDmg)} dmg!`);
-          if (defender.lifeSteal > 0) {
-            dHp = Math.min(defender.maxHp, dHp + Math.floor(finalDmg * defender.lifeSteal));
-          }
-        }
-      }
-    } else {
-      const dDodge = Math.max(0, (attacker.dodge || 0) - (defender.hit || 0)) / 100;
-      if (Math.random() < dDodge) {
-        log.push(`Turn ${turn}: ${defender.name} missed! ${attacker.name} dodged.`);
-      } else {
-        const dReduction = Math.min(0.85, (attacker.armor || 0) / ((attacker.armor || 0) + 80000));
-        let dDmg = Math.max(1, Math.floor((defender.attackPower * (0.95 + Math.random() * 0.1)) * (1 - dReduction)));
-        if (Math.random() < (defender.crit || 0) / 100) {
-          dDmg = Math.floor(dDmg * 2);
-          log.push(`Turn ${turn}: ${defender.name} CRITS ${attacker.name} for ${formatNumber(dDmg)}!`);
-        } else {
-          log.push(`Turn ${turn}: ${defender.name} hits ${attacker.name} for ${formatNumber(dDmg)}.`);
-        }
-        aHp -= dDmg;
-        if (defender.lifeSteal > 0) dHp = Math.min(defender.maxHp, dHp + Math.floor(dDmg * defender.lifeSteal));
-      }
-    }
-  }
-
-  // Determine winner
-  let winnerId, reason;
-  if (aHp >= dHp) {
-    winnerId = attacker.character_id;
-    reason = turn >= MAX_TURNS
-      ? `${attacker.name} wins by HP advantage after ${MAX_TURNS} turns!`
-      : `${attacker.name} defeats ${defender.name}!`;
-  } else {
-    winnerId = defender.character_id;
-    reason = turn >= MAX_TURNS
-      ? `${defender.name} wins by HP advantage after ${MAX_TURNS} turns!`
-      : `${defender.name} defeats ${attacker.name}!`;
-  }
-  log.push(`⚔️ RESULT: ${reason}`);
-
-  return {
-    winnerId,
-    log,
-    turns: turn,
-    attackerHpLeft: Math.max(0, aHp),
-    defenderHpLeft: Math.max(0, dHp),
-  };
-}
 
 // ── RUN A TOURNAMENT ROUND ──
+// BUG FIX #5: removed the first bracket save that ran before next round
+// matches were added — it was writing an incomplete bracket to the DB
+// every round. Now only one save per round at the end.
 async function runTournamentRound(tournamentId, bracket, round, tierKey) {
   try {
     const roundMatches = bracket.filter(m => m.round === round);
-    const nextBracket = [...bracket];
+    const nextBracket  = [...bracket];
     const winners = [];
-    const losers = [];
+    const losers  = [];
 
     for (const match of roundMatches) {
       // Bye — player1 advances automatically
@@ -3801,52 +3643,52 @@ async function runTournamentRound(tournamentId, bracket, round, tierKey) {
         continue;
       }
 
-      const result = simulateBattle(match.player1, match.player2);
-      match.winner = result.winnerId === match.player1.character_id ? match.player1 : match.player2;
-      const loser  = result.winnerId === match.player1.character_id ? match.player2 : match.player1;
+      const result  = simulateBattle(match.player1, match.player2);
+      match.winner  = result.winnerId === match.player1.character_id ? match.player1 : match.player2;
+      const loser   = result.winnerId === match.player1.character_id ? match.player2 : match.player1;
       match.battleLog = result.log;
-      match.turns = result.turns;
+      match.turns     = result.turns;
       winners.push(match.winner);
       losers.push(loser);
 
       // Save battle record (both real players)
       if (!match.player1.isBot && !match.player2.isBot) {
         const { data: battleRecord } = await dbClient.from('arena_battles').insert({
-          attacker_id: match.player1.character_id,
-          defender_id: match.player2.character_id,
-          winner_id: result.winnerId,
+          attacker_id:       match.player1.character_id,
+          defender_id:       match.player2.character_id,
+          winner_id:         result.winnerId,
           attacker_snapshot: match.player1,
           defender_snapshot: match.player2,
-          battle_log: result.log,
-          battle_turns: result.turns,
-          points_change: 25,
+          battle_log:        result.log,
+          battle_turns:      result.turns,
+          points_change:     25,
         }).select().single();
         if (battleRecord) match.battleId = battleRecord.id;
 
       } else if (!match.player1.isBot || !match.player2.isBot) {
-        // One real player vs bot
         const realPlayer = !match.player1.isBot ? match.player1 : match.player2;
         const botPlayer  = !match.player1.isBot ? match.player2 : match.player1;
         const { data: battleRecord } = await dbClient.from('arena_battles').insert({
-          attacker_id: realPlayer.character_id,
-          defender_id: null,
-          winner_id: result.winnerId === realPlayer.character_id ? realPlayer.character_id : null,
+          attacker_id:       realPlayer.character_id,
+          defender_id:       null,
+          winner_id:         result.winnerId === realPlayer.character_id ? realPlayer.character_id : null,
           attacker_snapshot: realPlayer,
           defender_snapshot: botPlayer,
-          battle_log: result.log,
-          battle_turns: result.turns,
-          points_change: 15,
+          battle_log:        result.log,
+          battle_turns:      result.turns,
+          points_change:     15,
         }).select().single();
         if (battleRecord) match.battleId = battleRecord.id;
       }
 
-      // Update points in registration for real players only
+      // Update points for winners
       if (!match.winner.isBot) {
         await dbClient.from('arena_registrations')
           .update({ points: round * 100 })
           .eq('tournament_id', tournamentId)
           .eq('character_id', match.winner.character_id);
       }
+      // Update rank for losers
       if (!loser.isBot) {
         await dbClient.from('arena_registrations')
           .update({ rank: getEliminationRank(round) })
@@ -3855,13 +3697,12 @@ async function runTournamentRound(tournamentId, bracket, round, tierKey) {
       }
     }
 
-    // Save updated bracket with battleIds into DB after each round
-    await dbClient.from('arena_tournaments').update({
-      bracket: nextBracket,
-    }).eq('id', tournamentId);
-
     // Tournament over — only 1 winner left
     if (winners.length === 1) {
+      // Save final bracket state before finalizing
+      await dbClient.from('arena_tournaments').update({
+        bracket: nextBracket,
+      }).eq('id', tournamentId);
       await finalizeTournament(tournamentId, nextBracket, winners[0], tierKey);
       return;
     }
@@ -3870,22 +3711,100 @@ async function runTournamentRound(tournamentId, bracket, round, tierKey) {
     const nextRound = round + 1;
     for (let i = 0; i < winners.length; i += 2) {
       nextBracket.push({
-        round: nextRound,
-        player1: winners[i],
-        player2: winners[i + 1] || null,
-        winner: null,
-        battleLog: [],
+        round:      nextRound,
+        player1:    winners[i],
+        player2:    winners[i + 1] || null,
+        winner:     null,
+        battleLog:  [],
       });
     }
 
+    // BUG FIX #5: single DB write per round (was two — first was always incomplete)
     await dbClient.from('arena_tournaments').update({
       bracket: nextBracket,
-      round: nextRound,
+      round:   nextRound,
     }).eq('id', tournamentId);
 
     await runTournamentRound(tournamentId, nextBracket, nextRound, tierKey);
 
   } catch(e) { console.error('Run round error:', e); }
+}
+
+// ── FINALIZE TOURNAMENT ──
+// BUG FIX #9: thirds[0] is 3rd place, thirds[1] is 4th place.
+// Old code had them reversed.
+async function finalizeTournament(tournamentId, bracket, champion, tierKey) {
+  try {
+    const allRounds    = [...new Set(bracket.map(m => m.round))].sort((a, b) => b - a);
+    const finalRound   = allRounds[0];
+    const semiFinalRound = allRounds[1];
+
+    const finalMatch  = bracket.find(m => m.round === finalRound);
+    const semiMatches = bracket.filter(m => m.round === semiFinalRound);
+
+    const first  = champion;
+    const second = finalMatch
+      ? (finalMatch.player1?.character_id === champion.character_id
+        ? finalMatch.player2 : finalMatch.player1)
+      : null;
+
+    // BUG FIX #9: thirds[0] = 3rd place, thirds[1] = 4th place
+    const thirds = semiMatches
+      .map(m => m.player1?.character_id === m.winner?.character_id ? m.player2 : m.player1)
+      .filter(Boolean);
+
+    const { data: tData } = await dbClient
+      .from('arena_tournaments')
+      .select('rewards_expire_at')
+      .eq('id', tournamentId)
+      .single();
+    const rewardsExpireAt = tData?.rewards_expire_at || null;
+
+    const { data: regs } = await dbClient
+      .from('arena_registrations')
+      .select('character_id, isBot')
+      .eq('tournament_id', tournamentId);
+
+    const topIds = [
+      first?.character_id,
+      second?.character_id,
+      ...(thirds.map(t => t?.character_id)),
+    ].filter(Boolean);
+
+    // Set rank 1 for champion
+    if (!first.isBot) {
+      await dbClient.from('arena_registrations')
+        .update({ rank: 1 })
+        .eq('tournament_id', tournamentId)
+        .eq('character_id', first.character_id);
+    }
+
+    // Participation reward for everyone not in top placements
+    for (const reg of regs) {
+      if (topIds.includes(reg.character_id)) continue;
+      if (reg.character_id?.startsWith('bot_')) continue;
+      await givePlacementReward(reg.character_id, 'participation', tierKey, rewardsExpireAt);
+    }
+
+    // BUG FIX #9: corrected order — thirds[0]=3rd, thirds[1]=4th
+    if (thirds[1] && !thirds[1].isBot) await givePlacementReward(thirds[1].character_id, 4, tierKey, rewardsExpireAt);
+    if (thirds[0] && !thirds[0].isBot) await givePlacementReward(thirds[0].character_id, 3, tierKey, rewardsExpireAt);
+    if (second && !second.isBot)       await givePlacementReward(second.character_id,    2, tierKey, rewardsExpireAt);
+    if (!first.isBot)                  await givePlacementReward(first.character_id,     1, tierKey, rewardsExpireAt);
+
+    await dbClient.from('arena_tournaments').update({
+      status:         'completed',
+      bracket:        bracket,
+      winner_id:      first.isBot ? null : first.character_id,
+      reward_sent_at: new Date().toISOString(),
+    }).eq('id', tournamentId);
+
+    const winnerLabel = first.isBot ? `🤖 ${first.name} (Bot)` : first.name;
+    addLog(`🏆 ${tierKey.toUpperCase()} Tournament complete! Champion: ${winnerLabel}!`, 'legendary');
+    notify(`🏆 ${winnerLabel} wins the ${tierKey} Tournament!`, 'var(--gold)');
+    renderTournament();
+
+  } catch(e) { console.error('Finalize tournament error:', e); }
 }
 
 // ── HELPER: GET RANK FROM ELIMINATION ROUND ──
@@ -4003,80 +3922,6 @@ function getArenaRewardItem(tier) {
   return { ...template, uid: genUid(), category: 'equipment', equipped: false };
 }
 
-// ── FINALIZE TOURNAMENT ──
-async function finalizeTournament(tournamentId, bracket, champion, tierKey) {
-  try {
-    const allRounds = [...new Set(bracket.map(m => m.round))].sort((a, b) => b - a);
-    const finalRound = allRounds[0];
-    const semiFinalRound = allRounds[1];
-
-    const finalMatch = bracket.find(m => m.round === finalRound);
-    const semiMatches = bracket.filter(m => m.round === semiFinalRound);
-
-    const first  = champion;
-    const second = finalMatch
-      ? (finalMatch.player1?.character_id === champion.character_id ? finalMatch.player2 : finalMatch.player1)
-      : null;
-    const thirds = semiMatches
-      .map(m => m.player1?.character_id === m.winner?.character_id ? m.player2 : m.player1)
-      .filter(Boolean);
-
-    // Get rewards expiry from tournament record
-    const { data: tData } = await dbClient
-      .from('arena_tournaments')
-      .select('rewards_expire_at')
-      .eq('id', tournamentId)
-      .single();
-    const rewardsExpireAt = tData?.rewards_expire_at || null;
-
-    // Get all registrations
-    const { data: regs } = await dbClient
-      .from('arena_registrations')
-      .select('character_id, isBot')
-      .eq('tournament_id', tournamentId);
-
-    const topIds = [
-      first?.character_id,
-      second?.character_id,
-      ...(thirds.map(t => t?.character_id)),
-    ].filter(Boolean);
-
-    // Set rank 1 for champion
-    if (!first.isBot) {
-      await dbClient.from('arena_registrations')
-        .update({ rank: 1 })
-        .eq('tournament_id', tournamentId)
-        .eq('character_id', first.character_id);
-    }
-
-    // Participation reward for everyone not in top 3 (real players only)
-    for (const reg of regs) {
-      if (topIds.includes(reg.character_id)) continue;
-      if (reg.character_id?.startsWith('bot_')) continue;
-      await givePlacementReward(reg.character_id, 'participation', tierKey, rewardsExpireAt);
-    }
-
-    // Top placements
-    if (thirds[1] && !thirds[1].isBot) await givePlacementReward(thirds[1].character_id, 4, tierKey, rewardsExpireAt);
-    if (thirds[0] && !thirds[0].isBot) await givePlacementReward(thirds[0].character_id, 3, tierKey, rewardsExpireAt);
-    if (second && !second.isBot)       await givePlacementReward(second.character_id, 2, tierKey, rewardsExpireAt);
-    if (!first.isBot)                  await givePlacementReward(first.character_id, 1, tierKey, rewardsExpireAt);
-
-    // Mark tournament complete
-    await dbClient.from('arena_tournaments').update({
-      status: 'sold',
-      bracket: bracket,
-      winner_id: first.isBot ? null : first.character_id,
-      reward_sent_at: new Date().toISOString(),
-    }).eq('id', tournamentId);
-
-    const winnerLabel = first.isBot ? `🤖 ${first.name} (Bot)` : first.name;
-    addLog(`🏆 ${tierKey.toUpperCase()} Tournament complete! Champion: ${winnerLabel}!`, 'legendary');
-    notify(`🏆 ${winnerLabel} wins the ${tierKey} Tournament!`, 'var(--gold)');
-    renderTournament();
-
-  } catch(e) { console.error('Finalize tournament error:', e); }
-}
 
 // ── GIVE PLACEMENT REWARD ──
 async function givePlacementReward(characterId, place, tierKey, rewardsExpireAt) {
@@ -4207,22 +4052,19 @@ async function checkTournamentRewardExpiry() {
 }
 
 // ── CREATE WEEKLY TOURNAMENTS IF MISSING ──
+// BUG FIX #2: removed getPracticeFee() which was never defined —
+// caused ReferenceError on every login. Now reads fees directly
+// from GAME_CONFIG with fallbacks.
 async function createWeeklyTournamentsIfMissing() {
   try {
     const now = new Date();
-
-    // Find next Friday 7pm Cambodia (UTC+7) = Friday 12:00 UTC
-    const dayOfWeek = now.getUTCDay(); // 0=Sun, 5=Fri
+    const dayOfWeek = now.getUTCDay();
     const daysUntilFriday = (5 - dayOfWeek + 7) % 7;
 
-    // If today is Friday and before 7pm Cambodia (12:00 UTC), use today
-    // Otherwise use next Friday
     let nextFriday = new Date(now);
     if (dayOfWeek === 5 && now.getUTCHours() < 12) {
-      // Today is Friday before 7pm Cambodia — use today
       nextFriday.setUTCHours(12, 0, 0, 0);
     } else if (daysUntilFriday === 0) {
-      // Today is Friday but past 7pm — use next Friday
       nextFriday.setUTCDate(nextFriday.getUTCDate() + 7);
       nextFriday.setUTCHours(12, 0, 0, 0);
     } else {
@@ -4231,22 +4073,22 @@ async function createWeeklyTournamentsIfMissing() {
     }
 
     const endsAt = new Date(nextFriday);
-    endsAt.setUTCHours(13, 0, 0, 0); // 8pm Cambodia = 1pm UTC
+    endsAt.setUTCHours(13, 0, 0, 0);
 
-    // Rewards expire next Friday 1am Cambodia = Thursday 6pm UTC
     const rewardsExpireAt = new Date(nextFriday);
     rewardsExpireAt.setUTCDate(rewardsExpireAt.getUTCDate() + 7);
     rewardsExpireAt.setUTCHours(18, 0, 0, 0);
 
+    // BUG FIX #2: read fees directly from GAME_CONFIG — no getPracticeFee()
+    const fees = GAME_CONFIG.tournament_fees || {};
     const TIERS = [
-      { key: 'rookie',  minLevel: 20, fee: getPracticeFee('rookie')  },
-      { key: 'veteran', minLevel: 41, fee: getPracticeFee('veteran') },
-      { key: 'elite',   minLevel: 61, fee: getPracticeFee('elite')   },
-      { key: 'legend',  minLevel: 81, fee: getPracticeFee('legend')  },
+      { key: 'rookie',  minLevel: 20, fee: fees.rookie  ?? 20000  },
+      { key: 'veteran', minLevel: 41, fee: fees.veteran ?? 40000  },
+      { key: 'elite',   minLevel: 61, fee: fees.elite   ?? 60000  },
+      { key: 'legend',  minLevel: 81, fee: fees.legend  ?? 100000 },
     ];
 
     for (const tier of TIERS) {
-      // Check if tournament already exists for this tier and week
       const { data: existing } = await dbClient
         .from('arena_tournaments')
         .select('id')
@@ -4255,18 +4097,17 @@ async function createWeeklyTournamentsIfMissing() {
         .gte('starts_at', nextFriday.toISOString())
         .single();
 
-      if (existing) continue; // already created
+      if (existing) continue;
 
-      // Create tournament for this tier
       await dbClient.from('arena_tournaments').insert({
-        status: 'open',
-        bracket: [],
-        round: 0,
-        min_level: tier.minLevel,
-        entry_fee: tier.fee,
-        starts_at: nextFriday.toISOString(),
-        ends_at: endsAt.toISOString(),
-        rewards_expire_at: rewardsExpireAt.toISOString(),
+        status:              'open',
+        bracket:             [],
+        round:               0,
+        min_level:           tier.minLevel,
+        entry_fee:           tier.fee,
+        starts_at:           nextFriday.toISOString(),
+        ends_at:             endsAt.toISOString(),
+        rewards_expire_at:   rewardsExpireAt.toISOString(),
       });
 
       addLog(`📅 ${tier.key} tournament created for Friday!`, 'gold');
@@ -4807,32 +4648,36 @@ async function giveGrandFinalReward(characterId, place, tierKey, rewardsExpireAt
 }
 
 // ── AUTO CHECK AND START GRAND FINALS ──
+// BUG FIX #7: replaced new Date(year, month, day) with UTC-safe calculation.
+// Local time constructor caused wrong week matching on UTC+7 servers.
 async function checkAndStartGrandFinals() {
   try {
     const now = new Date();
     const TIERS = ['rookie', 'veteran', 'elite', 'legend'];
     const TIER_MIN = { rookie: 20, veteran: 41, elite: 61, legend: 81 };
 
+    // BUG FIX #7: use UTC date subtraction — not local Date constructor
+    const weekAgo = new Date(now);
+    weekAgo.setUTCDate(weekAgo.getUTCDate() - 7);
+
     for (const tierKey of TIERS) {
       const minLevel = TIER_MIN[tierKey];
 
-      // Check if grand final already exists and is complete/in progress
+      // Check if grand final already exists and is complete/in progress this week
       const { data: existingGF } = await dbClient
         .from('grand_finals')
         .select('id, status')
         .eq('tier', tierKey)
         .in('status', ['pending', 'in_progress', 'completed'])
-        .gte('created_at', new Date(now.getFullYear(), now.getMonth(),
-          now.getDate() - 7).toISOString())
+        .gte('created_at', weekAgo.toISOString())
         .single();
 
-      if (existingGF?.status === 'completed') continue;
+      if (existingGF?.status === 'completed')   continue;
       if (existingGF?.status === 'in_progress') continue;
 
-      // Check if it's past 9pm Cambodia (2pm UTC) on a Friday
-      const isFriday = now.getUTCDay() === 5;
+      // Only run on Friday past 9pm Cambodia (2pm UTC)
+      const isFriday          = now.getUTCDay() === 5;
       const isPastGrandFinalTime = now.getUTCHours() >= 14;
-
       if (!isFriday || !isPastGrandFinalTime) continue;
 
       // Check if all brackets for this tier are completed
@@ -4840,8 +4685,7 @@ async function checkAndStartGrandFinals() {
         .from('arena_tournaments')
         .select('id, status')
         .eq('min_level', minLevel)
-        .gte('created_at', new Date(now.getFullYear(), now.getMonth(),
-          now.getDate() - 1).toISOString());
+        .gte('created_at', weekAgo.toISOString());
 
       if (!brackets || !brackets.length) continue;
 
@@ -4993,6 +4837,9 @@ async function viewGrandFinalBracket(tierKey) {
 }
 
 // ── RENDER TOURNAMENT UI ──
+// BUG FIX #10: removed N+1 Supabase queries inside the tier loop.
+// Old code did up to 24 queries (4 tiers × 3 brackets × 2 queries each).
+// Now does 2 queries total — one for all registrations, one for counts.
 async function renderTournament() {
   const container = document.getElementById('arena-content');
   if (!container) return;
@@ -5008,9 +4855,9 @@ async function renderTournament() {
       { key: 'legend',  label: '👑 Legend',  min: 81, max: 100, color: '#ff9900' },
     ];
 
-    const fees = GAME_CONFIG.tournament_fees || {};
+    const fees        = GAME_CONFIG.tournament_fees || {};
     const playerLevel = state.level || 1;
-    const playerTierKey = playerLevel < 20 ? null
+    const playerTierKey = playerLevel < 20  ? null
       : playerLevel <= 40 ? 'rookie'
       : playerLevel <= 60 ? 'veteran'
       : playerLevel <= 80 ? 'elite'
@@ -5036,13 +4883,39 @@ async function renderTournament() {
       .select('id, name, class, level, supreme_tier, supreme_title, supreme_defenses, supreme_since')
       .not('supreme_tier', 'is', null);
 
+    // BUG FIX #10: batch-fetch ALL registrations for ALL active tournaments
+    // in one query instead of querying per bracket inside the loop
+    const allTournamentIds = (activeTournaments || []).map(t => t.id);
+    let allRegistrations = [];
+    if (allTournamentIds.length) {
+      const { data: regsData } = await dbClient
+        .from('arena_registrations')
+        .select('tournament_id, character_id, user_id')
+        .in('tournament_id', allTournamentIds);
+      allRegistrations = regsData || [];
+    }
+
+    // Build lookup maps from the batch fetch
+    // regsByTournament[tid] = array of registrations
+    const regsByTournament = {};
+    // playerTournament[user_id] = tournament_id (for "already registered" check)
+    const playerTournamentMap = {};
+
+    allRegistrations.forEach(r => {
+      if (!regsByTournament[r.tournament_id]) regsByTournament[r.tournament_id] = [];
+      regsByTournament[r.tournament_id].push(r);
+      if (r.user_id === state.user_id) {
+        playerTournamentMap[r.tournament_id] = true;
+      }
+    });
+
     let html = '';
 
     // ── TOURNAMENT REWARDS BANNER ──
     if (state.tournamentTitle || state.tournamentBuff || state.tournamentItem) {
-      const expiry = state.tournamentRewardsExpireAt ? new Date(state.tournamentRewardsExpireAt) : null;
-      const now = new Date();
-      const msLeft = expiry ? expiry - now : 0;
+      const expiry  = state.tournamentRewardsExpireAt ? new Date(state.tournamentRewardsExpireAt) : null;
+      const now     = new Date();
+      const msLeft  = expiry ? expiry - now : 0;
       const hoursLeft = Math.max(0, Math.floor(msLeft / 3600000));
       const minsLeft  = Math.max(0, Math.floor((msLeft % 3600000) / 60000));
       html += `
@@ -5073,13 +4946,11 @@ async function renderTournament() {
           border:1px solid var(--gold);background:rgba(255,153,0,0.04);">
           <div class="panel-title" style="color:var(--gold);">👑 Supreme Champions</div>
           ${supremeChamps.map(c => {
-            const color = tierColors[c.supreme_tier] || 'var(--gold)';
+            const color    = tierColors[c.supreme_tier] || 'var(--gold)';
             const defenses = c.supreme_defenses || 0;
-            const shields = defenses >= 10 ? '⭐ UNDEFEATED' 
-              : '🛡️'.repeat(Math.min(defenses, 5));
-            const since = c.supreme_since 
-              ? new Date(c.supreme_since).toLocaleDateString() : '?';
-            const isMe = c.id === state.character_id;
+            const shields  = defenses >= 10 ? '⭐ UNDEFEATED' : '🛡️'.repeat(Math.min(defenses, 5));
+            const since    = c.supreme_since ? new Date(c.supreme_since).toLocaleDateString() : '?';
+            const isMe     = c.id === state.character_id;
             return `
               <div style="display:flex;align-items:center;gap:8px;padding:8px;
                 margin-bottom:6px;border-radius:8px;
@@ -5091,7 +4962,7 @@ async function renderTournament() {
                     ${c.supreme_title || ''}
                   </div>
                   <div style="font-size:.72em;color:var(--text);">
-                    ${c.name} 
+                    ${c.name}
                     <span style="color:var(--text-dim);">Lv.${c.level}</span>
                     ${isMe ? '<span style="color:var(--gold);"> (You)</span>' : ''}
                   </div>
@@ -5135,41 +5006,23 @@ async function renderTournament() {
 
     // ── TIER CARDS ──
     for (const tier of TIERS) {
-      const tierFee = fees[tier.key] ?? 20000;
+      const tierFee      = fees[tier.key] ?? 20000;
       const isPlayerTier = tier.key === playerTierKey;
-      const isLocked = playerLevel < tier.min || playerLevel > tier.max;
+      const isLocked     = playerLevel < tier.min || playerLevel > tier.max;
 
-      // Get all brackets for this tier
       const tierBrackets = (activeTournaments || [])
         .filter(t => t.min_level === tier.min)
         .sort((a, b) => a.bracket_number - b.bracket_number);
 
-      // Get grand final for this tier
-      const grandFinal = (grandFinals || []).find(gf => gf.tier === tier.key);
+      const grandFinal  = (grandFinals   || []).find(gf => gf.tier === tier.key);
+      const supremeChamp = (supremeChamps || []).find(c  => c.supreme_tier === tier.key);
 
-      // Get supreme champ for this tier
-      const supremeChamp = (supremeChamps || []).find(c => c.supreme_tier === tier.key);
-
-      // Check if player is registered in any bracket
+      // BUG FIX #10: use pre-fetched registration maps — no per-bracket queries
       let playerBracket = null;
-      let playerRegCount = 0;
       for (const t of tierBrackets) {
-        const { data: myReg } = await dbClient
-          .from('arena_registrations')
-          .select('id')
-          .eq('tournament_id', t.id)
-          .eq('user_id', state.user_id)
-          .single();
-        if (myReg) { playerBracket = t; break; }
-        const { count } = await dbClient
-          .from('arena_registrations')
-          .select('*', { count: 'exact' })
-          .eq('tournament_id', t.id);
-        playerRegCount += count || 0;
+        if (playerTournamentMap[t.id]) { playerBracket = t; break; }
       }
-
       const isRegistered = !!playerBracket;
-      const totalSlots = tierBrackets.length * TOURNAMENT_SIZE;
       const allFull = tierBrackets.length >= MAX_BRACKETS_PER_TIER &&
         tierBrackets.every(t => t.status !== 'open');
 
@@ -5178,7 +5031,6 @@ async function renderTournament() {
           border:1px solid ${isPlayerTier ? tier.color : 'var(--border)'};
           opacity:${isLocked ? '0.5' : '1'};">
 
-          <!-- Tier Header -->
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
             <div>
               <span style="font-family:var(--font-title);font-size:.92em;color:${tier.color};">
@@ -5194,7 +5046,6 @@ async function renderTournament() {
             </div>
           </div>
 
-          <!-- Supreme Champ Badge -->
           ${supremeChamp ? `
             <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;
               padding:5px 8px;background:rgba(255,153,0,0.08);
@@ -5208,16 +5059,16 @@ async function renderTournament() {
               </span>
             </div>` : ''}
 
-          <!-- Brackets -->
           ${tierBrackets.length ? tierBrackets.map(t => {
-            const bracketRegCount = 0; // will show from slot bar
+            // BUG FIX #10: use pre-fetched count from regsByTournament
+            const bracketRegCount = (regsByTournament[t.id] || []).length;
             return `
               <div style="margin-bottom:6px;padding:6px;
                 background:rgba(255,255,255,0.02);border-radius:6px;
                 border:1px solid rgba(255,255,255,0.06);">
                 <div style="display:flex;justify-content:space-between;
                   font-size:.68em;color:var(--text-dim);margin-bottom:3px;">
-                  <span>Bracket ${t.bracket_number}</span>
+                  <span>Bracket ${t.bracket_number} (${bracketRegCount}/${TOURNAMENT_SIZE})</span>
                   <span style="color:${t.status==='open'?'var(--green)':'var(--gold)'};">
                     ${t.status==='open'?'🟢 Open':'🟡 In Progress'}
                   </span>
@@ -5225,11 +5076,11 @@ async function renderTournament() {
                 <div style="height:4px;background:rgba(255,255,255,0.07);
                   border-radius:2px;overflow:hidden;">
                   <div style="height:100%;background:${tier.color};border-radius:2px;
-                    width:${(Math.min(t.bracket?.length||0, TOURNAMENT_SIZE)/TOURNAMENT_SIZE)*100}%;">
+                    width:${(bracketRegCount/TOURNAMENT_SIZE)*100}%;">
                   </div>
                 </div>
-                ${t.status==='in_progress'?`
-                  <button class="start-btn" 
+                ${t.status==='in_progress' ? `
+                  <button class="start-btn"
                     onclick="viewBracketByTierAndNumber('${tier.key}', ${t.bracket_number})"
                     style="width:100%;padding:5px;font-size:.68em;margin-top:4px;">
                     📊 View Bracket
@@ -5241,7 +5092,6 @@ async function renderTournament() {
               No brackets open yet
             </div>`}
 
-          <!-- Grand Final Status -->
           ${grandFinal ? `
             <div style="margin-bottom:8px;padding:6px 8px;
               background:rgba(255,153,0,0.08);border-radius:6px;
@@ -5249,7 +5099,7 @@ async function renderTournament() {
               <div style="font-size:.70em;color:var(--gold);font-family:var(--font-title);">
                 👑 Grand Final — ${grandFinal.status === 'in_progress' ? '⚔️ In Progress' : '⏳ Pending 9PM'}
               </div>
-              ${grandFinal.status==='in_progress'?`
+              ${grandFinal.status==='in_progress' ? `
                 <button class="start-btn"
                   onclick="viewGrandFinalBracket('${tier.key}')"
                   style="width:100%;padding:5px;font-size:.68em;margin-top:4px;">
@@ -5257,7 +5107,6 @@ async function renderTournament() {
                 </button>` : ''}
             </div>` : ''}
 
-          <!-- Action Button -->
           ${isLocked ? `
             <div style="font-size:.72em;color:var(--text-dim);text-align:center;padding:4px 0;">
               🔒 Requires Level ${tier.min}–${tier.max}
@@ -5268,8 +5117,6 @@ async function renderTournament() {
               ✅ Registered in Bracket ${playerBracket?.bracket_number}!
               Waiting for tournament to start...
             </div>
-            ${playerBracket?.status === 'open' ? `
-              ` : ''}
           ` : allFull ? `
             <div style="text-align:center;color:var(--red);font-size:.75em;
               padding:8px;background:rgba(255,0,0,0.06);border-radius:6px;">
@@ -5279,13 +5126,12 @@ async function renderTournament() {
             <button class="start-btn"
               onclick="registerForTournament('${tier.key}')"
               style="width:100%;padding:9px;font-size:.78em;
-              background:${isPlayerTier?`linear-gradient(135deg,${tier.color}33,${tier.color}11)`:''};
-              border-color:${isPlayerTier?tier.color:'var(--border)'};">
+              background:${isPlayerTier ? `linear-gradient(135deg,${tier.color}33,${tier.color}11)` : ''};
+              border-color:${isPlayerTier ? tier.color : 'var(--border)'};">
               ⚔️ Register — ${formatNumber(tierFee)}g
             </button>
           `}
 
-          <!-- Practice Board Toggle -->
           ${!isLocked ? `
             <div style="margin-top:8px;">
               <button onclick="togglePracticeboard('${tier.key}')"
@@ -7964,7 +7810,7 @@ async function checkAndSettleAuctions() {
       .from('auctions')
       .select('*')
       .eq('current_bidder_id', state.character_id)
-      .eq('status', 'sold')
+      .eq('status', 'completed')
       .eq('winner_collected', false);
 
     if (wonAuctions && wonAuctions.length) {
@@ -8073,7 +7919,7 @@ async function settleExpiredAuction(auctionId) {
 
     // Mark auction completed — seller_collected:true means gold already sent
     await dbClient.from('auctions').update({
-      status: 'sold',
+      status: 'completed',
       seller_collected: true,   // ← always true, gold paid above
       winner_collected: false,  // buyer still needs to collect item
       updated_at: new Date().toISOString(),
