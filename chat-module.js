@@ -145,7 +145,7 @@ async function sendChatMessage() {
 
   // BUG FIX #1: use state.name, not state.playerName
   const playerName = (typeof state !== 'undefined' && state?.name) ? state.name : 'Unknown';
-  console.log('DEBUG state.name:', state?.name, state);
+  
 
   const { error } = await dbClient
   
