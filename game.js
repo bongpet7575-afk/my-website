@@ -603,13 +603,15 @@ function spendStatPoint(statKey, amount) {
   savePlayerToSupabase();
 }
 
-// Update both places
+// BUG FIX #13: CLASSES[state.class] could be undefined if class key is invalid,
+// causing .icon to throw. Now uses optional chaining so it degrades gracefully.
 function updateClassDisplay() {
-  const className = state.class ? `${CLASSES[state.class].icon} ${CLASSES[state.class].name}` : 'No Class';
+  const cls = state.class && CLASSES[state.class];
+  const className = cls ? `${cls.icon} ${cls.name}` : 'No Class';
   const topBar = document.getElementById('char-class');
-  const panel = document.getElementById('char-class-panel');
+  const panel  = document.getElementById('char-class-panel');
   if (topBar) topBar.textContent = className;
-  if (panel) panel.textContent = className;
+  if (panel)  panel.textContent  = className;
   updatePlayerAvatar();
 }
 
@@ -1253,102 +1255,109 @@ function setDifficulty(diff){
 }
 
 // ── CALC STATS ──
-function calcStats(){
-  // Reputation title boost
+// BUG FIXES:
+// #2  — reputation boost now runs AFTER stats are calculated (not before)
+// #3  — removed duplicate attackSpeed/castSpeed/attackInterval/cdr block;
+//        GAME_CONFIG.combat_speed values are now actually used
+// #12 — lifeSteal operator precedence fixed
+// #15 — maxHpMult and equipMaxHpMult are now applied in the maxHp formula
+function calcStats() {
 
-  // Check gold multiplier expiry
-if(state.goldMultExpiry && new Date() > new Date(state.goldMultExpiry)) {
-  state.goldMult = 1.0;
-  state.goldMultExpiry = null;
-}
-  const strMult      = state.strMult      + (state.classBonuses.strMult     ||0) + (state.talentBonuses.strMult     ||0) + (state.equipStrMult || 0);
-  const agiMult      = state.agiMult      + (state.classBonuses.agiMult     ||0) + (state.talentBonuses.agiMult     ||0) + (state.equipAgiMult || 0);
-  const intMult      = state.intMult      + (state.classBonuses.intMult     ||0) + (state.talentBonuses.intMult     ||0) + (state.equipIntMult || 0);
-  const staMult      = state.staMult      + (state.classBonuses.staMult     ||0) + (state.talentBonuses.staMult     ||0) + (state.equipStaMult || 0);
-  const atkpMult     = state.attackPowerMult + (state.classBonuses.attackPowerMult||0) + (state.talentBonuses.attackPowerMult||0) + (state.equipAttackPowerMult || 0);
-  const armorMult    = state.armorMult    + (state.classBonuses.armorMult   ||0) + (state.talentBonuses.armorMult   ||0) + (state.equipArmorMult || 0);
-  const critMult     = state.critMult     + (state.classBonuses.critMult    ||0) + (state.talentBonuses.critMult    ||0);
-  const dodgeMult    = state.dodgeMult    + (state.classBonuses.dodgeMult   ||0) + (state.talentBonuses.dodgeMult   ||0) + (state.equipDodgeMult || 0);
-  const hitMult      = state.hitMult      + (state.classBonuses.hitMult     ||0) + (state.talentBonuses.hitMult     ||0) + (state.equipHitMult || 0);
-  const mpMult       = state.mpMult       + (state.classBonuses.mpMult      ||0) + (state.talentBonuses.mpMult      ||0) + (state.equipMpMult || 0);
-  const hpRegenMult  = state.hpRegenMult  + (state.classBonuses.hpRegenMult ||0) + (state.talentBonuses.hpRegenMult ||0) + (state.equipHpRenMult || 0);
-  const mpRegenMult  = state.mpRegenMult  + (state.classBonuses.mpRegenMult ||0) + (state.talentBonuses.mpRegenMult ||0) + (state.equipMpRegenMult || 0);
-  const speedCfg = GAME_CONFIG.combat_speed || {};
-  const repTitle = getCurrentTitle();
-if (repTitle) {
-  const boost = 1 + repTitle.boost;
-  state.attackPower = Math.floor(state.attackPower * boost);
-  state.maxHp = Math.floor(state.maxHp * boost);
-  state.armor = Math.floor(state.armor * boost);
-}
-const atkSpdPerAgi = speedCfg.attack_speed_per_agi || 0.5;
-const castSpdPerInt = speedCfg.cast_speed_per_int || 0.3;
-const minInterval = speedCfg.min_attack_interval_ms || 400;
-const maxInterval = speedCfg.max_attack_interval_ms || 2000;
-const maxAtkSpd = speedCfg.max_attack_speed || 800;
-const maxCastSpd = speedCfg.max_cast_speed || 100;
-const maxCdr = speedCfg.max_cdr || 0.50;
+  // ── Check gold multiplier expiry ──
+  if (state.goldMultExpiry && new Date() > new Date(state.goldMultExpiry)) {
+    state.goldMult    = 1.0;
+    state.goldMultExpiry = null;
+  }
 
-state.attackSpeed = Math.min(maxAtkSpd, Math.floor(state.agi * atkSpdPerAgi));
-state.castSpeed = Math.min(maxCastSpd, Math.floor(state.int * castSpdPerInt));
-state.attackInterval = Math.max(minInterval, maxInterval - (state.attackSpeed * 2));
-state.cdr = Math.min(maxCdr, state.castSpeed / 200);
+  // ── Aggregate multipliers (base + class bonus + talent bonus + equip bonus) ──
+  const strMult      = state.strMult         + (state.classBonuses.strMult          || 0) + (state.talentBonuses.strMult          || 0) + (state.equipStrMult          || 0);
+  const agiMult      = state.agiMult         + (state.classBonuses.agiMult          || 0) + (state.talentBonuses.agiMult          || 0) + (state.equipAgiMult          || 0);
+  const intMult      = state.intMult         + (state.classBonuses.intMult          || 0) + (state.talentBonuses.intMult          || 0) + (state.equipIntMult          || 0);
+  const staMult      = state.staMult         + (state.classBonuses.staMult          || 0) + (state.talentBonuses.staMult          || 0) + (state.equipStaMult          || 0);
+  const atkpMult     = state.attackPowerMult + (state.classBonuses.attackPowerMult  || 0) + (state.talentBonuses.attackPowerMult  || 0) + (state.equipAttackPowerMult  || 0);
+  const armorMult    = state.armorMult       + (state.classBonuses.armorMult        || 0) + (state.talentBonuses.armorMult        || 0) + (state.equipArmorMult        || 0);
+  const maxHpMult    = state.maxHpMult       + (state.classBonuses.maxHpMult        || 0) + (state.talentBonuses.maxHpMult        || 0) + (state.equipMaxHpMult        || 0); // BUG FIX #15: was calculated but never used below
+  const critMult     = state.critMult        + (state.classBonuses.critMult         || 0) + (state.talentBonuses.critMult         || 0);
+  const dodgeMult    = state.dodgeMult       + (state.classBonuses.dodgeMult        || 0) + (state.talentBonuses.dodgeMult        || 0) + (state.equipDodgeMult        || 0);
+  const hitMult      = state.hitMult         + (state.classBonuses.hitMult          || 0) + (state.talentBonuses.hitMult          || 0) + (state.equipHitMult          || 0);
+  const mpMult       = state.mpMult          + (state.classBonuses.mpMult           || 0) + (state.talentBonuses.mpMult           || 0) + (state.equipMpMult           || 0);
+  const hpRegenMult  = state.hpRegenMult     + (state.classBonuses.hpRegenMult      || 0) + (state.talentBonuses.hpRegenMult      || 0) + (state.equipHpRegenMult      || 0); // BUG FIX #6 (sync): correct key name
+  const mpRegenMult  = state.mpRegenMult     + (state.classBonuses.mpRegenMult      || 0) + (state.talentBonuses.mpRegenMult      || 0) + (state.equipMpRegenMult      || 0);
 
-  state.str = Math.floor(state.baseStr * strMult) + (state.equipStr||0) + (state.talentBonuses.baseStr||0);
-  state.agi = Math.floor(state.baseAgi * agiMult) + (state.equipAgi||0) + (state.talentBonuses.baseAgi||0);
-  state.int = Math.floor(state.baseInt * intMult) + (state.equipInt||0) + (state.talentBonuses.baseInt||0);
-  state.sta = Math.floor(state.baseSta * staMult) + (state.equipSta||0) + (state.talentBonuses.baseSta||0);
+  // ── Primary stats ──
+  state.str = Math.floor(state.baseStr * strMult) + (state.equipStr || 0) + (state.talentBonuses.baseStr || 0);
+  state.agi = Math.floor(state.baseAgi * agiMult) + (state.equipAgi || 0) + (state.talentBonuses.baseAgi || 0);
+  state.int = Math.floor(state.baseInt * intMult) + (state.equipInt || 0) + (state.talentBonuses.baseInt || 0);
+  state.sta = Math.floor(state.baseSta * staMult) + (state.equipSta || 0) + (state.talentBonuses.baseSta || 0);
+
+  // ── Attack power ──
   state.attackPower = Math.floor(
-  (state.str * 4 + state.int * 3 + state.level * 15) * atkpMult
-) + (state.equipAttackPower||0) + (state.talentBonuses.baseAttackPower||0);
+    (state.str * 4 + state.int * 3 + state.level * 15) * atkpMult
+  ) + (state.equipAttackPower || 0) + (state.talentBonuses.baseAttackPower || 0);
+
+  // ── Max HP — BUG FIX #15: maxHpMult is now actually applied ──
   state.maxHp = Math.floor(
-  100 + (state.str * 20) + (state.sta * 30) + (state.level * 80)
-) + (state.equipMaxHp||0);
+    (100 + (state.str * 20) + (state.sta * 30) + (state.level * 80)) * maxHpMult
+  ) + (state.equipMaxHp || 0);
+
+  // ── Armor ──
   state.armor = Math.floor(
-  ((state.agi * 8 + state.baseArmor + state.level * 10 + (state.talentBonuses.baseArmor||0)) * armorMult)
-) + (state.equipArmor||0);
-  state.crit         = Math.floor(((state.agi*0.0005+state.baseCrit)*critMult) + (state.equipCrit||0) + (state.talentBonuses.baseCrit||0));
-  state.dodge        = Math.floor(((state.agi*1.9+state.baseDodge)*dodgeMult) + (state.equipDodge||0) + (state.talentBonuses.baseDodge||0));
-  state.hit          = Math.floor(((state.agi*5.3+state.baseHit)*hitMult) + (state.equipHit||0) + (state.talentBonuses.baseHit||0));
-  state.maxMp        = Math.floor((50+state.int*3)*mpMult) + (state.equipMaxMp||0);
-  state.manaRegen    = Math.floor((0.5+state.int*1.5)*mpRegenMult) + (state.equipMpRegen||0);
-  state.hpRegen      = Math.floor((state.sta*0.5+state.baseHpRegen+(state.talentBonuses.baseHpRegen||0))*hpRegenMult) + (state.equipHpRegen||0);
-  state.lifeSteal    = (state.baseLifeSteal+state.talentBonuses.baseLifeSteal||0) + (state.equipLifeSteal||0);
-  // Magic penetration (Mage class bonus)
-  state.magicPen = (CLASSES[state.class]?.bonuses?.magicPen || 0) +
-  (state.talentBonuses.magicPen || 0);
+    (state.agi * 8 + (state.baseArmor || 0) + state.level * 10 + (state.talentBonuses.baseArmor || 0)) * armorMult
+  ) + (state.equipArmor || 0);
 
-  // Spell power multiplier (from Mage arcane talents)
+  // ── Secondary stats ──
+  state.crit      = Math.floor(((state.agi * 0.0005 + state.baseCrit) * critMult)  + (state.equipCrit  || 0) + (state.talentBonuses.baseCrit  || 0));
+  state.dodge     = Math.floor(((state.agi * 1.9    + state.baseDodge) * dodgeMult) + (state.equipDodge || 0) + (state.talentBonuses.baseDodge || 0));
+  state.hit       = Math.floor(((state.agi * 5.3    + state.baseHit)   * hitMult)   + (state.equipHit   || 0) + (state.talentBonuses.baseHit   || 0));
+  state.maxMp     = Math.floor((50 + state.int * 3) * mpMult) + (state.equipMaxMp || 0);
+  state.manaRegen = Math.floor((0.5 + state.int * 1.5) * mpRegenMult) + (state.equipMpRegen || 0);
+  state.hpRegen   = Math.floor((state.sta * 0.5 + (state.baseHpRegen || 0) + (state.talentBonuses.baseHpRegen || 0)) * hpRegenMult) + (state.equipHpRegen || 0);
+
+  // ── Lifesteal — BUG FIX #12: operator precedence fixed ──
+  // Old: (state.baseLifeSteal + state.talentBonuses.baseLifeSteal || 0)
+  //   → if the sum was 0 the whole thing collapsed to 0, not (0+0)
+  state.lifeSteal = ((state.baseLifeSteal || 0) + (state.talentBonuses.baseLifeSteal || 0)) + (state.equipLifeSteal || 0);
+
+  // ── Magic penetration (Mage class bonus) ──
+  state.magicPen       = (CLASSES[state.class]?.bonuses?.magicPen || 0) + (state.talentBonuses.magicPen || 0);
+
+  // ── Spell / heal / damage modifiers from talents ──
   state.spellPowerMult = state.talentBonuses.spellPowerMult || 0;
-
-  // Heal power multiplier (from Paladin holy talents)
-  state.healPowerMult = state.talentBonuses.healPowerMult || 0;
-
-  // Damage reduction (from Shaman earth talents)
-  state.dmgReduction = state.talentBonuses.dmgReduction || 0;
-
-  // Damage reflect (from Paladin protection talents)
-  state.dmgReflect = state.talentBonuses.dmgReflect || 0;
-
-  // Chain lightning chance (from Shaman lightning talents)
+  state.healPowerMult  = state.talentBonuses.healPowerMult  || 0;
+  state.dmgReduction   = state.talentBonuses.dmgReduction   || 0;
+  state.dmgReflect     = state.talentBonuses.dmgReflect     || 0;
   state.chainLightningChance = state.talentBonuses.chainChance || 0;
 
-  // Attack speed — scales with AGI (how fast auto attacks fire)
-// Base 0, each AGI point gives 0.5 speed, soft cap at 800
-state.attackSpeed = Math.min(800, Math.floor(state.agi * 0.5));
+  // ── Attack & cast speed — BUG FIX #3: single block using GAME_CONFIG values ──
+  // Old code had two blocks; the second (hardcoded) always overwrote the first
+  // (GAME_CONFIG), making combat_speed config completely ignored.
+  const speedCfg       = GAME_CONFIG.combat_speed || {};
+  const atkSpdPerAgi   = speedCfg.attack_speed_per_agi    || 0.5;
+  const castSpdPerInt  = speedCfg.cast_speed_per_int      || 0.3;
+  const minInterval    = speedCfg.min_attack_interval_ms  || 400;
+  const maxInterval    = speedCfg.max_attack_interval_ms  || 2000;
+  const maxAtkSpd      = speedCfg.max_attack_speed        || 800;
+  const maxCastSpd     = speedCfg.max_cast_speed          || 100;
+  const maxCdr         = speedCfg.max_cdr                 || 0.50;
 
-// Cast speed — scales with INT (reduces skill cooldowns)
-// Base 0, each INT point gives 0.3 speed, soft cap at 100 (= 50% CDR)
-state.castSpeed = Math.min(100, Math.floor(state.int * 0.3));
+  state.attackSpeed    = Math.min(maxAtkSpd,  Math.floor(state.agi * atkSpdPerAgi));
+  state.castSpeed      = Math.min(maxCastSpd, Math.floor(state.int * castSpdPerInt));
+  state.attackInterval = Math.max(minInterval, maxInterval - (state.attackSpeed * 2));
+  state.cdr            = Math.min(maxCdr, state.castSpeed / 200);
 
-// Attack interval in ms — used by auto fight timer
-// Min 400ms, Max 2000ms
-state.attackInterval = Math.max(400, 2000 - (state.attackSpeed * 2));
+  // ── Reputation title boost — BUG FIX #2: runs AFTER stats are calculated ──
+  // Old code applied this BEFORE state.attackPower / state.maxHp were set,
+  // meaning it multiplied stale values from the previous calcStats() call.
+  // This caused stats to compound and inflate on every call.
+  const repTitle = getCurrentTitle();
+  if (repTitle) {
+    const boost      = 1 + repTitle.boost;
+    state.attackPower = Math.floor(state.attackPower * boost);
+    state.maxHp       = Math.floor(state.maxHp       * boost);
+    state.armor       = Math.floor(state.armor       * boost);
+  }
 
-// Cooldown reduction % from cast speed
-// castSpeed 100 = 50% CDR, castSpeed 0 = 0% CDR
-state.cdr = Math.min(0.50, state.castSpeed / 200);
-
+  // ── Clamp HP/MP to their maximums ──
   state.hp = Math.min(state.hp, state.maxHp);
   state.mp = Math.min(state.mp, state.maxMp);
 }
@@ -1424,7 +1433,7 @@ const CLASSES={
       assassination:{name:'☠️ Assassin',talents:[
         {id:'crit',name:'Precision',desc:'1% CRIT per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+1;}},
         {id:'ambush',name:'Swift Strike',desc:'2% CRIT per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+2;}},
-        {id:'death_mark',name:'Lethal Focus',desc:'3% CRIT per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+2;}},
+        {id:'death_mark',name:'Lethal Focus',desc:'3% CRIT per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.baseCrit=(state.talentBonuses.baseCrit||0)+3;}},
       ]},
       subtlety:{name:'🌑 Subtlety',talents:[
         {id:'evasion',name:'Agility',desc:'1% DODGE per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.dodgeMult=(state.talentBonuses.dodgeMult||0)+0.1;}},
@@ -1651,7 +1660,7 @@ lightning_bolt:{name:'Lightning Bolt',icon:'⚡',mp:()=>Math.floor(state.maxMp*0
 earth_totem:{name:'Earth Totem',icon:'🪨',mp:()=>Math.floor(state.maxMp*0.15),cd:6,use:(e)=>{
   const healAmt=Math.floor(state.maxHp*0.20);state.hp=Math.min(state.maxHp,state.hp+healAmt);
   state.armorMult*=1.2;
-  addCombatLog(`🪨 Earth Totem! +${healAmt} HP, +30% ARMOR!`,'good');
+  addCombatLog(`🪨 Earth Totem! +${healAmt} HP, +20% ARMOR!`,'good');
   playSound('snd-heal');calcStats();return 0;}},
 
 wind_burst:{name:'Wind Burst',icon:'🌪️',mp:()=>Math.floor(state.maxMp*0.18),cd:10,use:(e)=>{
@@ -1932,16 +1941,18 @@ function startNextWave(){
   dungeonMonstersLeft=dungeonQueue.length;
   setTimeout(()=>spawnNextDungeonMonster(),2500);
 }
-function triggerStageBoss(bossId){
-  const boss=STAGE_BOSSES[bossId];if(!boss)return;
-  pendingBossId=bossId;
-  document.getElementById('boss-icon').textContent=boss.icon;
-  document.getElementById('boss-cs-name').textContent=boss.cs.title;
-  document.getElementById('boss-cs-req').textContent=boss.cs.req;
-  document.getElementById('boss-cs-text').textContent=boss.cs.text;
-  document.getElementById('boss-cutscene').style.display='block';
-  startStageBossFight();return;
-  playSound('snd-boss');
+// BUG FIX #4: playSound was after 'return' so boss music never played
+function triggerStageBoss(bossId) {
+  const boss = STAGE_BOSSES[bossId];
+  if (!boss) return;
+  pendingBossId = bossId;
+  document.getElementById('boss-icon').textContent       = boss.icon;
+  document.getElementById('boss-cs-name').textContent    = boss.cs.title;
+  document.getElementById('boss-cs-req').textContent     = boss.cs.req;
+  document.getElementById('boss-cs-text').textContent    = boss.cs.text;
+  document.getElementById('boss-cutscene').style.display = 'block';
+  playSound('snd-boss'); // BUG FIX: was after return, now plays correctly
+  startStageBossFight();
 }
 function startBossFight(){
   if(currentStage){startStageBossFight();return;}
@@ -1960,20 +1971,24 @@ function startStageBossFight(){
   clearInterval(autoFightTimer);
   autoFightTimer=setInterval(()=>{if(!currentEnemy){clearInterval(autoFightTimer);return;}autoFightStep();},1000);
 }
-function dungeonComplete(){
-  const stageId = currentStage.id;
+// BUG FIX #10: was 15ms (effectively instant) — player never saw rewards.
+// Now waits 3 seconds so the treasure box notification is visible.
+function dungeonComplete() {
+  const stageId        = currentStage.id;
   const completedStage = currentStage;
-  currentStage = null; dungeonWave = 0; dungeonQueue = [];
-  addLog('🏆 Dungeon Complete! Starting next run...', 'legendary');
+  currentStage  = null;
+  dungeonWave   = 0;
+  dungeonQueue  = [];
+  addLog('🏆 Dungeon Complete! Next run starting in 3s...', 'legendary');
   notify('🏆 Dungeon Complete!', 'var(--gold)');
   dropTreasureBox(stageId);
-  updateUI(); renderInventory();
-
-  // Auto loop — restart same dungeon after short delay
+  updateUI();
+  renderInventory();
+ 
+  // Auto loop — restart same dungeon after short pause
   setTimeout(() => {
-      enterDungeon(completedStage.id);
-    
-  }, 15);
+    enterDungeon(completedStage.id);
+  }, 3000);
 }
 
 // ── SCENES ──
@@ -2158,8 +2173,17 @@ function showCharacterSelect(characters) {
 
   const characterCards = characters.map(c => {
     const cls = c.class
-      ? ({ warrior: '⚔️ Warrior', mage: '🔮 Mage', rogue: '🗡️ Rogue' }[c.class] || c.class)
-      : 'No Class';
+  ? ({
+      warrior:     '⚔️ Warrior',
+      mage:        '🔮 Mage',
+      rogue:       '🗡️ Rogue',
+      hunter:      '🏹 Hunter',
+      paladin:     '🛡️ Paladin',
+      necromancer: '💀 Necromancer',
+      shaman:      '⚡ Shaman',
+      berserker:   '🐉 Berserker',
+    }[c.class] || c.class)
+  : 'No Class';
     const inv = (c.inventory || []).length;
     const lastSeen = c.updated_at ? new Date(c.updated_at).toLocaleDateString() : '—';
 
@@ -6554,7 +6578,7 @@ const CRAFTING = [
   {
     id:'craft_troll_sword',
     result:{name:'⚔️ Trollhide Sword',slot:'weapon',rarity:'legendary',levelReq:80,
-      stats:{str:9000,strMul:2.4,crit:15,lifeSteal:0.7,hitMult:2.4},category:'equipment'},
+      stats:{str:9000,strMult:2.4,crit:15,lifeSteal:0.7,hitMult:2.4},category:'equipment'},
     req:[{name:'💎 Troll Gem',qty:200},{name:'👾 Troll Heart',qty:150}],
     desc:'Practically indestructible. The ultimate dps weapon.'
   },
@@ -6588,7 +6612,7 @@ const CRAFTING = [
   },
   {
     id:'craft_hellfire_armor',
-    result:{name:'🛡️ Hellfire Greatarmor',slot:'weapon',rarity:'legendary',levelReq:90,
+    result:{name:'🛡️ Hellfire Greatarmor',slot:'armor',rarity:'legendary',levelReq:90,
       stats:{armor:120000,sta:15000,dodge:20000,armorMult:3.45,staMult:3.45,dodgeMult:3.45},category:'equipment'},
     req:[{name:'😈 Demon Horn',qty:300},{name:'🔥 Hellfire Core',qty:200}],
     desc:'Forged in the Demon Citadel. The most powerful armor in the mid-game.'
@@ -7801,7 +7825,7 @@ if (charClassEl) {
   document.getElementById('mp-bar').style.width=Math.max(0,(mp/state.maxMp)*100)+'%';
   document.getElementById('xp-bar').style.width=Math.min(100,(state.xp/state.xpNext)*100)+'%';
   document.getElementById('arena-player-hp').style.width=Math.max(0,(hp/state.maxHp)*100)+'%';
-  document.getElementById('arena-player-mp').style.width=Math.max(0,(mp/state.maxHp)*100)+'%';
+  document.getElementById('arena-player-mp').style.width=Math.max(0,(mp/state.maxMp)*100)+'%';
   updateClassDisplay()
   updateRepBar();
   renderStatPoints();
