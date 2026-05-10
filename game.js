@@ -8214,22 +8214,58 @@ async function listItemForAuction(uid){
   } catch(error){state.inventory.push(item);notify('❌ Listing failed: '+error.message,'var(--red)');console.error('List error:',error);}
 }
 
-async function cancelAuction(auctionId){
-  if(!confirm('Cancel this auction? Item will be returned.'))return;
+async function cancelAuction(auctionId) {
+  if (!confirm('Cancel this auction? Item will be returned.')) return;
   try {
-    const{data:auction}=await dbClient.from('auctions').select('*').eq('id',auctionId).single();
-    if(!auction){notify('❌ Auction not found!','var(--red)');return;}
-    if(auction.current_bidder_id&&auction.current_bid>0){
-      const{data:bidder}=await dbClient.from('characters').select('gold').eq('id',auction.current_bidder_id).single();
-      if(bidder){await dbClient.from('characters').update({gold:bidder.gold+auction.current_bid}).eq('id',auction.current_bidder_id);}
-      if(auction.current_bidder_id===state.character_id)state.gold+=auction.current_bid;
+    const { data: auction } = await dbClient
+      .from('auctions').select('*').eq('id', auctionId).single();
+    if (!auction) { notify('❌ Auction not found!', 'var(--red)'); return; }
+    if (auction.seller_id !== state.character_id) {
+      notify('❌ Not your auction!', 'var(--red)'); return;
     }
-    const item=auction.item_description?(typeof auction.item_description==='string'?JSON.parse(auction.item_description):auction.item_description):{name:auction.item_name,rarity:auction.rarity,uid:genUid(),category:'equipment',equipped:false};
-    item.uid=genUid();addToInventory(item);
-    await dbClient.from('auctions').update({status:'cancelled'}).eq('id',auctionId);
+
+    // ── Refund current bidder first if there is one ──
+    if (auction.current_bidder_id && auction.current_bid > 0) {
+      const { data: bidder } = await dbClient
+        .from('characters').select('gold').eq('id', auction.current_bidder_id).single();
+      if (bidder) {
+        await dbClient.from('characters')
+          .update({ gold: bidder.gold + auction.current_bid })
+          .eq('id', auction.current_bidder_id);
+      }
+      if (auction.current_bidder_id === state.character_id)
+        state.gold += auction.current_bid;
+    }
+
+    // ── Cancel in DB FIRST before touching inventory ──
+    const { error } = await dbClient
+      .from('auctions')
+      .update({ status: 'cancelled' })
+      .eq('id', auctionId)
+      .eq('seller_id', state.character_id); // ← extra safety: only cancel own auctions
+
+    if (error) throw error;
+
+    // ── Only add item back AFTER DB confirms cancellation ──
+    const item = auction.item_description
+      ? (typeof auction.item_description === 'string'
+        ? JSON.parse(auction.item_description)
+        : auction.item_description)
+      : { name: auction.item_name, rarity: auction.rarity, category: 'equipment', equipped: false };
+    item.uid = genUid();
+    addToInventory(item);
+
     await savePlayerToSupabase();
-    notify('✅ Auction cancelled!','var(--gold)');addLog(`❌ Cancelled auction for ${auction.item_name}`,'info');renderInventory();updateUI();fetchAuctions();
-  } catch(error){notify('❌ Cancel failed: '+error.message,'var(--red)');console.error('Cancel error:',error);}
+    notify('✅ Auction cancelled!', 'var(--gold)');
+    addLog(`❌ Cancelled auction for ${auction.item_name}`, 'info');
+    renderInventory();
+    updateUI();
+    fetchAuctions();
+
+  } catch (error) {
+    notify('❌ Cancel failed: ' + error.message, 'var(--red)');
+    console.error('Cancel error:', error);
+  }
 }
 
 function switchMarketTab(tab){
