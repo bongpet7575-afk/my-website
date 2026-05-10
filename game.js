@@ -2063,15 +2063,19 @@ let currentInvTab='equipment',currentShopTab='equipment';
 let autoSkillSlots=[null,null,null],autoSkillIndex=0;
 
 // ── ANIMATIONS ──
-function animateAttack(isPlayer,dmg,isCrit){
-  if(isPlayer){
-    const a=document.getElementById('char-avatar');a.classList.remove('attacking');void a.offsetWidth;a.classList.add('attacking');setTimeout(()=>a.classList.remove('attacking'),500);
-    const e=document.getElementById('arena-enemy');e.classList.remove('enemy-shake','enemy-hit');void e.offsetWidth;e.classList.add('enemy-shake');setTimeout(()=>e.classList.remove('enemy-shake'),500);
+function animateAttack(isPlayer, dmg, isCrit) {
+  if (isPlayer) {
+    const a = document.getElementById('arena-player'); // was 'char-avatar'
+    if (a) { a.classList.remove('attacking'); void a.offsetWidth; a.classList.add('attacking'); setTimeout(() => a.classList.remove('attacking'), 500); }
+    const e = document.getElementById('arena-enemy');
+    if (e) { e.classList.remove('enemy-shake','enemy-hit'); void e.offsetWidth; e.classList.add('enemy-shake'); setTimeout(() => e.classList.remove('enemy-shake'), 500); }
   } else {
-    const p=document.getElementById('arena-player');p.classList.remove('enemy-shake');void p.offsetWidth;p.classList.add('enemy-shake');setTimeout(()=>p.classList.remove('enemy-shake'),400);
-    const c=document.getElementById('char-avatar');c.classList.add('hit');setTimeout(()=>c.classList.remove('hit'),400);
+    const p = document.getElementById('arena-player'); // was 'arena-player' — already correct
+    if (p) { p.classList.remove('enemy-shake'); void p.offsetWidth; p.classList.add('enemy-shake'); setTimeout(() => p.classList.remove('enemy-shake'), 400); }
+    const c = document.getElementById('arena-player'); // was 'char-avatar'
+    if (c) { c.classList.add('hit'); setTimeout(() => c.classList.remove('hit'), 400); }
   }
-  spawnDmgFloat(isCrit?`💥${dmg}!`:String(dmg),!isPlayer,isCrit?'crit-dmg':isPlayer?'enemy-dmg':'player-dmg');
+  spawnDmgFloat(isCrit ? `💥${dmg}!` : String(dmg), !isPlayer, isCrit ? 'crit-dmg' : isPlayer ? 'enemy-dmg' : 'player-dmg');
 }
 function spawnDmgFloat(text,onEnemy,cls=''){
   const arena=document.getElementById('arena');if(!arena)return;
