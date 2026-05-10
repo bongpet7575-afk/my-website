@@ -2085,9 +2085,9 @@ function spawnDmgFloat(text,onEnemy,cls=''){
 
 // ── AUTH: REGISTER ──
 async function registerUser(){
-  const email=document.getElementById('auth-email').value.trim();
-  const password=document.getElementById('auth-password').value.trim();
-  const name=document.getElementById('name-input').value.trim();
+  const email    = (document.getElementById('reg-email')?.value || document.getElementById('auth-email')?.value || '').trim();
+  const password = (document.getElementById('reg-pass')?.value  || document.getElementById('auth-password')?.value || '').trim();
+  const name     = (document.getElementById('reg-name')?.value  || document.getElementById('name-input')?.value || '').trim();
   const msg=document.getElementById('auth-msg');
   if(!email||!password||!name){msg.textContent='Please fill in all fields!';return;}
 
