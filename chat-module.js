@@ -86,7 +86,7 @@ function appendChatMessage({ player_name, message, created_at, isSystem }) {
   const time = new Date(created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   // BUG FIX #1: use state.name, not state.playerName (which doesn't exist)
-  const isMe = player_name === (window.state?.name || '');
+  const isMe = player_name === ((typeof state !== 'undefined' && state?.name) ? state.name : '');
 
   if (isSystem) {
     line.innerHTML = `<span class="chat-ts">[${time}]</span> <span class="chat-system-text">*** ${escHtml(message)}</span>`;
@@ -144,8 +144,8 @@ async function sendChatMessage() {
   }
 
   // BUG FIX #1: use state.name, not state.playerName
-  const playerName = window.state?.name || 'Unknown';
-  console.log('DEBUG state.name:', window.state?.name, window.state);
+  const playerName = (typeof state !== 'undefined' && state?.name) ? state.name : 'Unknown';
+  console.log('DEBUG state.name:', state?.name, state);
 
   const { error } = await dbClient
   
