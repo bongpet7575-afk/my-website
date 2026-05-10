@@ -4064,7 +4064,7 @@ async function finalizeTournament(tournamentId, bracket, champion, tierKey) {
 
     // Mark tournament complete
     await dbClient.from('arena_tournaments').update({
-      status: 'completed',
+      status: 'sold',
       bracket: bracket,
       winner_id: first.isBot ? null : first.character_id,
       reward_sent_at: new Date().toISOString(),
@@ -7964,7 +7964,7 @@ async function checkAndSettleAuctions() {
       .from('auctions')
       .select('*')
       .eq('current_bidder_id', state.character_id)
-      .eq('status', 'completed')
+      .eq('status', 'sold')
       .eq('winner_collected', false);
 
     if (wonAuctions && wonAuctions.length) {
@@ -8073,7 +8073,7 @@ async function settleExpiredAuction(auctionId) {
 
     // Mark auction completed — seller_collected:true means gold already sent
     await dbClient.from('auctions').update({
-      status: 'completed',
+      status: 'sold',
       seller_collected: true,   // ← always true, gold paid above
       winner_collected: false,  // buyer still needs to collect item
       updated_at: new Date().toISOString(),
