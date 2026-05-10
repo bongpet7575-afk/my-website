@@ -145,9 +145,12 @@ async function sendChatMessage() {
 
   // BUG FIX #1: use state.name, not state.playerName
   const playerName = window.state?.name || 'Unknown';
+  console.log('DEBUG state.name:', window.state?.name, window.state);
 
   const { error } = await dbClient
+  
     .from('chat_messages')
+    
     .insert({ player_name: playerName, message: result.text });
 
   if (error) {
