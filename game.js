@@ -8205,7 +8205,9 @@ async function listItemForAuction(uid){
   try {
     const idx=state.inventory.findIndex(i=>i.uid===uid);state.inventory.splice(idx,1);
     const endsAt=new Date();endsAt.setHours(endsAt.getHours()+24);
-    const{error}=await dbClient.from('auctions').insert({seller_id:state.character_id,item_name:item.name,item_description:JSON.stringify(item),rarity:item.rarity||'normal',start_price:startPrice,buyout_price:buyoutPrice||null,current_bid:0,current_bidder_id:null,ends_at:endsAt.toISOString(),status:'active',source:'player',seller_collected:false,winner_collected:false});
+    const{error}=await dbClient.from('auctions').insert({
+  seller_id:state.character_id,
+  user_id:state.user_id,item_name:item.name,item_description:JSON.stringify(item),rarity:item.rarity||'normal',start_price:startPrice,buyout_price:buyoutPrice||null,current_bid:0,current_bidder_id:null,ends_at:endsAt.toISOString(),status:'active',source:'player',seller_collected:false,winner_collected:false});
     if(error)throw error;
     await savePlayerToSupabase();
     addLog(`🏛️ ${item.name} listed! Starts at ${formatNumber(startPrice)}g`,'gold');notify(`🏛️ Item listed for auction!`,'var(--gold)');renderInventory();updateUI();
