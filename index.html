@@ -4,20 +4,21 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
 <title>GOD DOMAIN KH</title>
+
+<!-- BUG FIX #7: chat-styles.css moved to <head> (was in <body>) -->
+<link rel="stylesheet" href="chat-styles.css">
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,400&display=swap" rel="stylesheet"/>
 
 <!-- ═══════════════════════════════════════════ SUPABASE CONFIG ═══ -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  // ⚠️ Replace with your Supabase project values
   const SUPABASE_URL = 'https://xagwrqrgcuuitwgroiwh.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_xSMSx_To3wMdH7EMxktY2Q_XrpeiHAK';
   const dbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 </script>
 
 <style>
-
 /* ═══════════════════════════════ RESET & ROOT ════ */
 *{margin:0;padding:0;box-sizing:border-box;}
 :root{
@@ -105,14 +106,16 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .btn-auth:hover{background:linear-gradient(135deg,rgba(200,168,75,0.28),rgba(139,105,20,0.38));box-shadow:0 0 20px rgba(200,168,75,0.2);transform:translateY(-1px);}
 
 /* ═══════════════════════════════ GAME WRAPPER ════ */
-#game-wrapper {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
+#game-wrapper{
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+  overflow:hidden;
 }
 
 /* ═══════════════════════════════ TOP BAR ════ */
+/* BUG FIX #8: removed duplicate inline style on the element;
+   single source of truth here in CSS */
 #top-bar{
   display:none;align-items:center;justify-content:space-between;
   padding:6px 12px;background:rgba(8,8,18,0.97);
@@ -120,9 +123,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   min-height:52px;
 }
 
-@keyframes kofiPulse {
-  0%,100% { box-shadow: 0 4px 20px rgba(255,95,95,0.4); }
-  50% { box-shadow: 0 4px 30px rgba(255,140,0,0.8); }
+@keyframes kofiPulse{
+  0%,100%{box-shadow:0 4px 20px rgba(255,95,95,0.4);}
+  50%{box-shadow:0 4px 30px rgba(255,140,0,0.8);}
 }
 
 .top-name-class{display:flex;flex-direction:column;}
@@ -188,6 +191,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   padding:8px 10px;min-width:140px;z-index:200;font-size:.75em;
   box-shadow:0 4px 20px rgba(0,0,0,0.6);pointer-events:none;
 }
+
+/* BUG FIX #9: duplicate @keyframes glow-pulse-7 and glow-pulse-15 removed.
+   Single definition here — removed the duplicate block that was around line 745. */
 .enh-glow-7,
 .item-icon-box.enh-glow-7,
 .equip-slot.enh-glow-7{
@@ -227,143 +233,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .equip-slot:hover .equip-tooltip{display:block;}
 .tooltip-stat{color:var(--deep-gold);}
 
-/* ============================================================
-   Chat Module Styles — paste into your main CSS or index.html
-   Matches your Diablo Epic Gold & Black RPG theme
-   ============================================================ */
-
-#chat-container {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-width: 480px;
-  height: 280px;
-  background: #0a0a0a;
-  border: 1px solid #8b6914;
-  border-radius: 4px;
-  box-shadow: 0 0 12px rgba(139, 105, 20, 0.4), inset 0 0 20px rgba(0,0,0,0.8);
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  font-size: 12px;
-  overflow: hidden;
-}
-
-#chat-header {
-  background: linear-gradient(to right, #1a0e00, #3d2800);
-  color: #c8952a;
-  padding: 4px 10px;
-  font-size: 11px;
-  font-weight: bold;
-  border-bottom: 1px solid #8b6914;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  flex-shrink: 0;
-}
-
-#chat-messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 6px 8px;
-  background: #050505;
-  scrollbar-width: thin;
-  scrollbar-color: #3d2800 #0a0a0a;
-}
-
-#chat-messages::-webkit-scrollbar { width: 6px; }
-#chat-messages::-webkit-scrollbar-track { background: #0a0a0a; }
-#chat-messages::-webkit-scrollbar-thumb { background: #3d2800; border-radius: 3px; }
-
-.chat-line {
-  line-height: 1.5;
-  margin-bottom: 1px;
-  word-break: break-word;
-}
-
-.chat-ts {
-  color: #3a3a3a;
-  font-size: 10px;
-}
-
-.chat-nick {
-  color: #c8952a;
-  font-weight: bold;
-}
-
-.chat-nick-me {
-  color: #ffffff;
-}
-
-.chat-text {
-  color: #b0b0b0;
-}
-
-.chat-system .chat-system-text {
-  color: #00aa55;
-  font-style: italic;
-}
-
-#chat-status {
-  font-size: 10px;
-  padding: 1px 8px;
-  min-height: 16px;
-  color: #ff4444;
-  flex-shrink: 0;
-  background: #0a0a0a;
-}
-
-#chat-input-row {
-  display: flex;
-  align-items: center;
-  padding: 4px 6px;
-  gap: 4px;
-  background: #0f0f0f;
-  border-top: 1px solid #2a1a00;
-  flex-shrink: 0;
-}
-
-#chat-input-field {
-  flex: 1;
-  background: #111;
-  color: #e0c97a;
-  border: 1px solid #3d2800;
-  border-radius: 2px;
-  padding: 3px 6px;
-  font-family: inherit;
-  font-size: 12px;
-  outline: none;
-  caret-color: #c8952a;
-}
-
-#chat-input-field:focus {
-  border-color: #8b6914;
-  box-shadow: 0 0 6px rgba(139, 105, 20, 0.3);
-}
-
-#chat-input-field::placeholder {
-  color: #333;
-}
-
-#chat-send-btn {
-  background: linear-gradient(to bottom, #3d2800, #1a1000);
-  color: #c8952a;
-  border: 1px solid #8b6914;
-  border-radius: 2px;
-  padding: 3px 10px;
-  font-family: inherit;
-  font-size: 11px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s;
-}
-
-#chat-send-btn:hover {
-  background: linear-gradient(to bottom, #5a3d00, #3d2800);
-  color: #ffd700;
-}
-
-#chat-send-btn:active {
-  background: #1a1000;
-}
-
 /* Auto-sell */
 .autosell-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
 .as-check{display:flex;align-items:center;gap:5px;font-size:.8em;cursor:pointer;}
@@ -395,43 +264,21 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 /* ─── ADVENTURE SCENE ─── */
 #main-scene-adv{
-  display:none;flex-direction:column;overflow:hidden;background:
-    radial-gradient(ellipse at 50% 0%,rgba(50,30,0,0.4) 0%,transparent 60%),
-    var(--bg);
+  display:none;flex-direction:column;overflow:hidden;
+  background:radial-gradient(ellipse at 50% 0%,rgba(50,30,0,0.4) 0%,transparent 60%),var(--bg);
+  height:100%;
 }
 
-/* ═══════════════════════════════ COMBAT LAYOUT FIX ════ */
-#main-scene-adv {
-  height: 100%;
-}
+/* ═══════════════════════════════ COMBAT LAYOUT ════ */
+#arena{flex-shrink:0;}
+#story-content{flex-shrink:0;}
+#combat-controls{flex-shrink:0;max-height:50vh;overflow-y:auto;}
+#main-content-area{flex:1;min-height:0;}
+#combat-log{flex:1;min-height:80px;}
 
-#arena {
-  flex-shrink: 0;
-}
-
-#story-content {
-  flex-shrink: 0;
-}
-
-#combat-controls {
-  flex-shrink: 0;
-  max-height: 50vh;
-  overflow-y: auto;
-}
-
-#main-content-area {
-  flex: 1;
-  min-height: 0;
-}
-
-#combat-log {
-  flex: 1;
-  min-height: 80px;
-}
-
-.skill-slot.in-slot {
-  border-color: var(--green);
-  background: rgba(68, 170, 68, 0.08);
+.skill-slot.in-slot{
+  border-color:var(--green);
+  background:rgba(68,170,68,0.08);
 }
 
 /* Arena */
@@ -471,13 +318,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 #combat-log{flex:1;overflow-y:auto;font-size:.78em;line-height:1.7;padding:4px 0;min-height:0;}
 
 /* ═══════════════════════════════ COMBAT TRANSITION ════ */
-#combat-box, #choices-box {
-  transition: opacity 0.25s ease;
-}
-#combat-box.hidden, #choices-box.hidden {
-  opacity: 0;
-  pointer-events: none;
-}
+#combat-box,#choices-box{transition:opacity 0.25s ease;}
+#combat-box.hidden,#choices-box.hidden{opacity:0;pointer-events:none;}
 
 /* Enemy HP bar */
 .enemy-hp-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0;font-size:.78em;}
@@ -486,8 +328,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 /* Choices */
 #choices-box{
-  display:flex;flex-direction:column;gap:6px;padding:10px;overflow-y:auto;
-  flex:1;min-height:0;
+  display:flex;flex-direction:column;gap:6px;padding:10px;overflow-y:auto;flex:1;min-height:0;
 }
 .choice-btn{
   padding:11px 16px;background:rgba(200,168,75,0.06);
@@ -500,7 +341,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 /* Skills bar */
 #skills-bar{
   display:none;flex-shrink:0;background:rgba(5,5,15,0.9);
-  border-top:1px solid var(--border);padding:5px 5px;
+  border-top:1px solid var(--border);padding:5px;
 }
 #skills-slot-row{display:flex;gap:8px;overflow-x:auto;}
 .skill-slot{
@@ -531,12 +372,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   display:flex;align-items:center;justify-content:center;font-size:1.2em;transition:.15s;
 }
 .auto-slot-icon:hover{border-color:var(--gold);}
-.skill-lbl{font-size:.62em;color:var(--text-dim);text-align:center;}
 
 /* ─── TOWN SCENE ─── */
-#main-scene-town{
-  display:none;flex-direction:column;overflow:hidden;background:var(--bg);
-}
+#main-scene-town{display:none;flex-direction:column;overflow:hidden;background:var(--bg);}
 .town-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;}
 .town-tab{
   flex:1;padding:11px 4px;background:transparent;border:none;border-bottom:2px solid transparent;
@@ -589,10 +427,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 #auction-list{display:flex;flex-direction:column;gap:8px;}
 
 /* Crafting */
-.craft-card{
-  background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;
-  padding:12px;margin-bottom:10px;
-}
+.craft-card{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;}
 .craft-result{font-family:var(--font-title);font-size:.85em;margin-bottom:4px;}
 .craft-req{font-size:.78em;color:var(--text-dim);margin:8px 0;line-height:1.8;}
 .craft-req .ok{color:var(--green);}
@@ -606,8 +441,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .craft-btn:not(:disabled):hover{background:rgba(200,168,75,0.2);}
 
 /* ═══════════════════════════════ BOTTOM NAV ════ */
+/* BUG FIX #1: removed !important — it was fighting the inline display:none
+   on the element, making it unpredictable. showGame() controls visibility. */
 #bottom-nav{
-  display:flex !important;
+  display:none;
   align-items:stretch;
   background:rgba(6,6,16,0.98);
   border-top:1px solid var(--border);
@@ -660,10 +497,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .tree-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
 .tree-col{display:flex;flex-direction:column;gap:6px;}
 .tree-name{font-family:var(--font-title);font-size:.68em;color:var(--gold);text-align:center;padding:4px;border-bottom:1px solid var(--border);}
-.talent-node{
-  background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;
-  padding:8px;cursor:pointer;transition:.15s;
-}
+.talent-node{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;padding:8px;cursor:pointer;transition:.15s;}
 .talent-node:hover{border-color:var(--gold);}
 .talent-node.unlocked{border-color:var(--green);background:rgba(68,170,68,0.08);}
 .talent-node.locked{opacity:.4;cursor:not-allowed;}
@@ -703,10 +537,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .tooltip-stat{color:var(--deep-gold);font-size:.85em;padding:2px 0;}
 
 /* Enhancement screen */
-#enhance-screen{
-  display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);
-  z-index:800;overflow-y:auto;padding:16px;
-}
+#enhance-screen{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:800;overflow-y:auto;padding:16px;}
 .enhance-container{max-width:420px;margin:0 auto;}
 .enhance-title{font-family:var(--font-title);font-size:1.1em;color:var(--gold);text-align:center;letter-spacing:3px;margin-bottom:16px;}
 .enhance-item-card{background:var(--panel);border:1px solid var(--border-bright);border-radius:12px;padding:18px;}
@@ -733,40 +564,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 }
 .enhance-btn:hover:not(:disabled){box-shadow:0 0 16px rgba(200,168,75,0.3);}
 .enhance-btn-disabled{opacity:.4;}
-.enh-glow-7{
-  box-shadow:0 0 14px 4px rgba(200,168,75,0.8)!important;
-  animation:glow-pulse-7 1.8s ease-in-out infinite!important;
-}
-.enh-glow-15{
-  box-shadow:0 0 20px 6px rgba(255,153,0,0.9)!important;
-  animation:glow-pulse-15 1.2s ease-in-out infinite!important;
-}
-@keyframes glow-pulse-7{
-  0%,100%{
-    box-shadow:0 0 14px 4px rgba(200,168,75,0.8);
-    border-color:rgba(200,168,75,0.6)!important;
-  }
-  50%{
-    box-shadow:0 0 22px 8px rgba(200,168,75,1.0),0 0 40px 10px rgba(200,168,75,0.4);
-    border-color:rgba(200,168,75,1.0)!important;
-  }
-}
-@keyframes glow-pulse-15{
-  0%,100%{
-    box-shadow:0 0 20px 6px rgba(255,153,0,0.9),0 0 40px 8px rgba(255,153,0,0.4);
-    border-color:rgba(255,153,0,0.8)!important;
-  }
-  33%{
-    box-shadow:0 0 30px 10px rgba(255,100,0,1.0),0 0 60px 15px rgba(255,153,0,0.6);
-    border-color:rgba(255,100,0,1.0)!important;
-  }
-  66%{
-    box-shadow:0 0 25px 8px rgba(255,200,0,1.0),0 0 50px 12px rgba(255,200,0,0.5);
-    border-color:rgba(255,200,0,1.0)!important;
-  }
-}
+/* BUG FIX #9: enh-glow-7/15 standalone classes removed here —
+   already defined above with keyframes. No duplicate needed. */
 
 /* Name screen (guest/start) */
+/* BUG FIX #11: #name-screen was defined in both CSS and as inline style on element.
+   Keeping CSS definition only — removed inline style from the element. */
 #name-screen{
   display:none;position:fixed;inset:0;background:var(--bg);
   align-items:center;justify-content:center;z-index:400;flex-direction:column;gap:16px;
@@ -779,10 +582,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 #name-screen input:focus{border-color:var(--gold);}
 
 /* ═══════════════════════════════ LOG BOX ════ */
-#log-box{
-  height:80px;overflow-y:auto;padding:6px 12px;font-size:.75em;line-height:1.7;
-  border-top:1px solid var(--border);background:rgba(0,0,0,0.3);flex-shrink:0;
-}
+#log-box{height:80px;overflow-y:auto;padding:6px 12px;font-size:.75em;line-height:1.7;border-top:1px solid var(--border);background:rgba(0,0,0,0.3);flex-shrink:0;}
 
 /* ═══════════════════════════════ LOG COLORS ════ */
 .log-good{color:#6fba6f;}
@@ -837,33 +637,17 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   .stats-grid{grid-template-columns:1fr 1fr 1fr;}
   .class-grid{grid-template-columns:repeat(3,1fr);}
 }
-/* ═══════════════════════════════ MOBILE ADVENTURE FIXES ════ */
 
-/* Stack arena vertically on small screens */
+/* ═══════════════════════════════ MOBILE ADVENTURE FIXES ════ */
 @media(max-width:599px){
-  #arena{
-    flex-direction:row;
-    padding:10px 10px 8px;
-    gap:6px;
-  }
+  #arena{flex-direction:row;padding:10px 10px 8px;gap:6px;}
   .arena-side{max-width:none;flex:1;}
   .arena-avatar{width:48px;height:48px;font-size:1.3em;}
-
-  /* Bigger auto fight button */
-  #auto-fight-btn{
-    padding:13px;font-size:.85em;letter-spacing:1px;
-    margin:0 8px 8px;width:calc(100% - 16px);
-  }
-
-  /* Skills bar bigger tap targets */
+  #auto-fight-btn{padding:13px;font-size:.85em;letter-spacing:1px;margin:0 8px 8px;width:calc(100% - 16px);}
   .skill-slot{min-width:60px;padding:6px;}
   .skill-icon-wrap{width:38px;height:38px;font-size:1.4em;}
-
-  /* Auto slots bigger */
   .auto-slot-icon{width:48px;height:48px;font-size:1.4em;}
   .auto-slots-wrap{gap:3px;padding:0 8px 8px;}
-
-  /* Selected skill highlight */
   .skill-slot.selected{
     border-color:var(--deep-gold);
     background:rgba(240,192,64,0.15);
@@ -948,88 +732,82 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 </div>
 
 <!-- ═══════════════════════════════════════ NAME SCREEN (guest fallback) ═══ -->
-<div id="name-screen" style="display:none;position:fixed;inset:0;background:var(--bg);align-items:center;justify-content:center;z-index:400;flex-direction:column;gap:16px;">
+<!-- BUG FIX #11: removed duplicate inline style — CSS handles this now -->
+<div id="name-screen">
   <div style="font-family:var(--font-title);font-size:1.5em;color:var(--gold);letter-spacing:4px;">ENTER YOUR NAME</div>
-  <input id="name-input-guest" type="text" placeholder="Hero name..." maxlength="20"
-    style="padding:11px 16px;background:rgba(255,255,255,0.04);border:1px solid var(--border-bright);border-radius:8px;color:var(--text);font-family:var(--font-body);font-size:1em;width:260px;outline:none;text-align:center;"/>
+  <input id="name-input-guest" type="text" placeholder="Hero name..." maxlength="20"/>
   <button class="btn-auth" style="width:260px;" onclick="startGame()">BEGIN ADVENTURE</button>
 </div>
 
 <!-- ═══════════════════════════════════════ GAME WRAPPER ═══ -->
-<div id="game-wrapper" style="display:none;height:100vh;flex-direction:column;overflow:hidden;">
+<!-- BUG FIX #8: removed duplicate inline style — CSS handles this now -->
+<div id="game-wrapper">
 
-  <!-- TOP BAR -->
-<div id="top-bar" style="display:none;align-items:center;justify-content:space-between;padding:6px 12px;background:rgba(8,8,18,0.97);border-bottom:1px solid var(--border);flex-shrink:0;gap:8px;min-height:52px;">
-  
-   <!-- Class portrait -->
-      <!-- Class -->
-  <div class="char-panel">
+  <!-- ═══ TOP BAR ═══ -->
+  <!-- BUG FIX #8: removed inline style duplication — CSS #top-bar handles it -->
+  <div id="top-bar">
+
+    <!-- Class portrait -->
     <div class="top-name-class">
-    <div id="char-name" style="font-family:var(--font-title);font-size:.85em;color:var(--gold);letter-spacing:1px;">Hero</div>
-    
-    <div id="char-level" style="font-family:var(--font-title);font-size:.7em;color:var(--deep-gold);">Level 1 / 100</div>
-   
-    <div id="char-portrait" style="width:64px;height:64px;flex-shrink:0;background:var(--bg3);border:2px solid var(--border-bright);border-radius:10px;overflow:hidden;">
-      <img id="char-portrait-img" src="warrior.jpg" style="width:100%;height:100%;object-fit:cover;">
-    </div> 
-    
-  </div>  
-  </div>
-  
-  <div class="char-panel">Class
-    
-  <div style="display:flex;align-items:left;gap:12px;margin-bottom:8px;">
-    <div id="char-class" style="font-size:.72em;color:var(--text-dim);">No Class</div>
-  </div>  
-    <div style="flex:1;">      
-      <button class="start-btn" onclick="respecClass()" style="font-size:.65em;padding:4px 10px;">🔄 Respec</button>
-    </div>    
-  </div>
-  
+      <div id="char-name">Hero</div>
+      <div id="char-level">Level 1 / 100</div>
+      <div id="char-portrait" style="width:64px;height:64px;flex-shrink:0;background:var(--bg3);border:2px solid var(--border-bright);border-radius:10px;overflow:hidden;">
+        <img id="char-portrait-img" src="warrior.jpg" style="width:100%;height:100%;object-fit:cover;">
+      </div>
+    </div>
 
-  <div class="top-bars">
-    <div class="bar-row">
-      <span class="bar-label" style="color:var(--red);">HP ❤</span>
-      <div class="bar-wrap"><div class="bar-fill" id="hp-bar" style="width:100%;"></div></div>
-      <span class="bar-vals"><span id="hp-val">100</span>/<span id="hp-max">100</span></span>
+    <!-- Class -->
+    <div class="char-panel" style="padding:8px 12px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
+        <div id="char-class" style="font-size:.72em;color:var(--text-dim);">No Class</div>
+      </div>
+      <div>
+        <button class="start-btn" onclick="respecClass()" style="font-size:.65em;padding:4px 10px;">🔄 Respec</button>
+      </div>
     </div>
-    <div class="bar-row">
-      <span class="bar-label" style="color:var(--blue);">MP 💧</span>
-      <div class="bar-wrap"><div class="bar-fill" id="mp-bar" style="width:100%;"></div></div>
-      <span class="bar-vals"><span id="mp-val">50</span>/<span id="mp-max">50</span></span>
-    </div>
-    <div class="bar-row">
-      <span class="bar-label" style="color:var(--deep-gold);">EX✦</span>
-      <div class="bar-wrap"><div class="bar-fill" id="xp-bar" style="width:0%;"></div></div>
-      <span class="bar-vals"><span id="xp-val">0</span>/<span id="xp-next">2000</span></span>
-    </div>
-    <!-- Reputation Bar -->
-    <div class="bar-row">
-      <span class="bar-label" style="color:var(--purple);">REPUTATION👑</span>
-      <div class="bar-wrap"><div class="bar-fill" id="rep-bar" style="width:0%;background:linear-gradient(90deg,#5a0080,#a855f7);box-shadow:0 0 16px rgba(168,85,247,0.5);"></div></div>
-      <span class="bar-vals" style="min-width:90px;">
-        <span id="rep-val">0</span>/<span id="rep-next">1000</span>
-        <span id="rep-title" style="color:var(--purple);font-size:.8em;margin-left:3px;">→Baron</span>
-      </span>
-    </div>
-  </div>  
-  
-</div>
 
+    <!-- HP/MP/XP/Rep bars -->
+    <div class="top-bars">
+      <div class="bar-row">
+        <span class="bar-label" style="color:var(--red);">HP ❤</span>
+        <div class="bar-wrap"><div class="bar-fill" id="hp-bar" style="width:100%;"></div></div>
+        <span class="bar-vals"><span id="hp-val">100</span>/<span id="hp-max">100</span></span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label" style="color:var(--blue);">MP 💧</span>
+        <div class="bar-wrap"><div class="bar-fill" id="mp-bar" style="width:100%;"></div></div>
+        <span class="bar-vals"><span id="mp-val">50</span>/<span id="mp-max">50</span></span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label" style="color:var(--deep-gold);">EX✦</span>
+        <div class="bar-wrap"><div class="bar-fill" id="xp-bar" style="width:0%;"></div></div>
+        <span class="bar-vals"><span id="xp-val">0</span>/<span id="xp-next">2000</span></span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label" style="color:var(--purple);">REP👑</span>
+        <div class="bar-wrap"><div class="bar-fill" id="rep-bar" style="width:0%;background:linear-gradient(90deg,#5a0080,#a855f7);box-shadow:0 0 16px rgba(168,85,247,0.5);"></div></div>
+        <span class="bar-vals" style="min-width:90px;">
+          <span id="rep-val">0</span>/<span id="rep-next">1000</span>
+          <span id="rep-title" style="color:var(--purple);font-size:.8em;margin-left:3px;">→Baron</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Gold + Buttons -->
     <div id="top-btns" style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
       <div style="font-family:var(--font-title);font-size:.8em;color:var(--deep-gold);">💰 <span id="gold-val">0</span></div>
       <button id="talent-btn" class="top-btn" style="display:none;" onclick="openTalents()">🌟 Talents</button>
       <button class="top-btn" onclick="logoutUser()">LOG OUT</button>
     </div>
-    
-  
 
-  <!-- SCENES WRAP -->
-  <div id="scenes-wrap" style="flex:1;overflow:hidden;position:relative;">
+  </div><!-- /top-bar -->
+
+  <!-- ═══ SCENES WRAP ═══ -->
+  <div id="scenes-wrap">
 
     <!-- ───────────── CHARACTER SCENE ───────────── -->
-    <div id="main-scene-char" class="main-scene" style="display:none;flex-direction:column;overflow-y:auto;padding:12px;gap:12px;background:var(--bg);">
-    
+    <div id="main-scene-char" class="main-scene">
+
       <!-- Primary Stats -->
       <div class="char-panel">
         <div class="panel-title">Primary Stats</div>
@@ -1080,60 +858,55 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
           <button class="diff-btn" id="diff-btn-hell"   onclick="setDifficulty('hell')">💀 Hell</button>
         </div>
       </div>
-     
-        <!-- Soul Weapon Slot -->
-<div class="char-panel" id="soul-weapon-panel">
-  <div class="panel-title">✨ Soul Weapon <span style="font-size:.7em;color:var(--text-dim);font-family:var(--font-body);">bound to your soul</span></div>
-  <div id="soul-weapon-display" style="display:flex;align-items:center;gap:12px;padding:4px 0;">
-    <div id="soul-weapon-icon" style="width:52px;height:52px;border:2px dashed var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.6em;flex-shrink:0;">❓</div>
-    <div style="flex:1;">
-      <div id="soul-weapon-name" style="font-family:var(--font-title);font-size:.82em;color:var(--text-dim);">No Soul Weapon</div>
-      <div id="soul-weapon-passive" style="font-size:.72em;color:var(--text-dim);margin-top:3px;"></div>
-      <div id="soul-weapon-skill" style="font-size:.72em;color:var(--deep-gold);margin-top:2px;"></div>
-    </div>
-  </div>
-</div>
+
+      <!-- Soul Weapon Slot -->
+      <div class="char-panel" id="soul-weapon-panel">
+        <div class="panel-title">✨ Soul Weapon <span style="font-size:.7em;color:var(--text-dim);font-family:var(--font-body);">bound to your soul</span></div>
+        <div id="soul-weapon-display" style="display:flex;align-items:center;gap:12px;padding:4px 0;">
+          <div id="soul-weapon-icon" style="width:52px;height:52px;border:2px dashed var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.6em;flex-shrink:0;">❓</div>
+          <div style="flex:1;">
+            <div id="soul-weapon-name" style="font-family:var(--font-title);font-size:.82em;color:var(--text-dim);">No Soul Weapon</div>
+            <div id="soul-weapon-passive" style="font-size:.72em;color:var(--text-dim);margin-top:3px;"></div>
+            <div id="soul-weapon-skill" style="font-size:.72em;color:var(--deep-gold);margin-top:2px;"></div>
+          </div>
+        </div>
+      </div>
+
       <!-- Free Stat Points -->
       <div class="char-panel" id="stat-points-panel">
         <div class="panel-title">
           📊 Stat Points
-          <span id="free-stat-points-badge"
-            style="float:right;background:var(--gold);color:#000;
-            border-radius:10px;padding:2px 8px;font-size:.7em;
-             font-family:var(--font-body);">
-            0 pts
-          </span>
-      </div>
-  <div id="stat-points-content"></div>
+          <span id="free-stat-points-badge" style="float:right;background:var(--gold);color:#000;border-radius:10px;padding:2px 8px;font-size:.7em;font-family:var(--font-body);">0 pts</span>
+        </div>
+        <div id="stat-points-content"></div>
       </div>
 
       <!-- Legacy Points -->
       <div class="char-panel" id="legacy-points-panel">
-  <div class="panel-title">
-    ✨ Legacy Points
-    <span id="legacy-points-badge"
-      style="float:right;background:linear-gradient(135deg,#a855f7,#7c3aed);
-      color:#fff;border-radius:10px;padding:2px 8px;font-size:.7em;
-      font-family:var(--font-body);">
-      0 pts
-    </span>
-  </div>
-  <div id="legacy-points-content"></div>
- </div>
-    <div id="chat-container">
-  <div id="chat-header">⚔️ World Chat</div>
-  <div id="chat-messages"></div>
-  <div id="chat-status"></div>
-  <div id="chat-input-row">
-    <input id="chat-input-field" type="text" maxlength="200" placeholder="Say something..." />
-    <button id="chat-send-btn">Send</button>
-  </div>
-</div>
+        <div class="panel-title">
+          ✨ Legacy Points
+          <span id="legacy-points-badge" style="float:right;background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;border-radius:10px;padding:2px 8px;font-size:.7em;font-family:var(--font-body);">0 pts</span>
+        </div>
+        <div id="legacy-points-content"></div>
+      </div>
+
+      <!-- World Chat -->
+      <div id="chat-container">
+        <div id="chat-header">⚔️ World Chat</div>
+        <div id="chat-messages"></div>
+        <div id="chat-status"></div>
+        <div id="chat-input-row">
+          <input id="chat-input-field" type="text" maxlength="200" placeholder="Say something..."/>
+          <button id="chat-send-btn">Send</button>
+        </div>
+      </div>
+
       <!-- Tournament Rewards -->
       <div class="char-panel" id="tournament-rewards-panel" style="display:none;">
         <div class="panel-title">🏆 Tournament Rewards</div>
         <div id="tournament-rewards-content"></div>
       </div>
+
       <!-- Auto-Sell -->
       <div class="char-panel">
         <div class="panel-title">Auto-Sell</div>
@@ -1145,7 +918,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
           <button class="start-btn" style="margin-left:auto;" onclick="autoSellNow()">Sell Now</button>
         </div>
       </div>
-     
+
       <!-- Quests -->
       <div class="char-panel">
         <div class="panel-title">Quests</div>
@@ -1154,140 +927,137 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
       <!-- Leaderboard -->
       <div class="char-panel">
-        <div class="panel-title">Leaderboard <button class="start-btn" style="float:right;padding:4px 10px;font-size:.65em;" onclick="fetchLeaderboard()">↻</button></div>
+        <div class="panel-title">
+          Leaderboard
+          <button class="start-btn" style="float:right;padding:4px 10px;font-size:.65em;" onclick="fetchLeaderboard()">↻</button>
+        </div>
         <div id="lb-list"><div class="lb-empty">Loading....</div></div>
       </div>
 
     </div><!-- /main-scene-char -->
 
-<!-- ───────────── ADVENTURE SCENE ───────────── -->
-<div id="main-scene-adv" class="main-scene" style="display:none;flex-direction:column;overflow:hidden;">
-  
-  <!-- Arena - only show during combat -->
-  <div id="arena" style="display:none;">
-    <div class="arena-side">
-      <div class="arena-avatar" id="arena-player">🧙</div>
-      <div class="arena-label" id="arena-player-label">Hero</div>
-      <div class="arena-bar-wrap">
-        <div class="arena-bar-fill arena-hp" id="arena-player-hp" style="width:100%;"></div>
-      </div>
-      <div class="arena-bar-wrap" style="margin-top:3px;">
-        <div class="arena-bar-fill arena-mp" id="arena-player-mp" style="width:100%;"></div>
-      </div>
-    </div>
-    <div class="arena-vs">VS</div>
-    <div class="arena-side">
-      <div class="arena-avatar" id="arena-enemy">👾</div>
-      <div class="arena-label" id="arena-enemy-label">—</div>
-      <div class="enemy-hp-row" style="width:100%;padding:0;">
-        <div class="enemy-hp-bar-wrap"><div id="arena-enemy-hp" style="width:0%;"></div></div>
-        <span style="font-size:.7em;color:var(--text-dim);white-space:nowrap;">
-          <span id="enemy-hp-val">0</span>/<span id="enemy-hp-max">0</span>
-        </span>
-      </div>
-      <div id="enemy-stats" style="width:100%;margin-top:4px;display:none;"></div>
-    </div>
-  </div>
+    <!-- ───────────── ADVENTURE SCENE ───────────── -->
+    <div id="main-scene-adv" class="main-scene">
 
-  <!-- Story / Scene text -->
-  <div id="story-content">
-    <div class="scene-title">🏘️ Town Square</div>
-    <p>Your adventure begins here...</p>
-  </div>
-
-  <!-- Single stable content area -->
-  <div id="main-content-area" style="display:flex;flex-direction:column;flex:1;overflow:hidden;padding:0 10px 10px;min-height:0;">
-    <div id="combat-log" style="flex:1;overflow-y:auto;font-size:.78em;line-height:1.7;padding:4px 0;min-height:0;display:none;"></div>
-    <div id="choices-box" style="display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex:1;min-height:0;"></div>
-  </div>
-
-  <!-- Bottom combat controls - only show during combat -->
-  <div id="combat-controls" style="display:none;flex-direction:column;flex-shrink:0;">
-    
-    <!-- Auto fight button -->
-    <button id="auto-fight-btn" onclick="toggleAutoFight()" style="display:none;">⚡ Auto Fight</button>
-
-    <!-- Skills bar -->
-    <div id="skills-bar" style="display:none;">
-      <div id="skills-slot-row" style="display:flex;gap:6px;overflow-x:auto;padding:8px 10px;"></div>
-    </div>
-
-    <!-- Auto-Skill Slots -->
-    <div class="char-panel" id="auto-skill-panel">
-      
-      <div class="auto-slots-wrap" style="padding:0;margin:0;">
-        <div class="panel-title">
-        Auto-Skill Slots
-        <span style="font-size:.7em;color:var(--text-dim);font-family:var(--font-body);">tap a skill then tap a slot</span>
-      </div>
-        <div class="auto-slot" id="auto-slot-0" onclick="assignSelectedSkill(0)">
-          <div class="auto-slot-icon" id="auto-slot-content-0">➕</div>
-          <span class="skill-lbl">Slot 1</span>
+      <!-- Arena — only shows during combat -->
+      <div id="arena" style="display:none;">
+        <div class="arena-side">
+          <!-- BUG FIX #3: renamed from 'arena-player' to 'char-avatar-display'
+               so we can remove the dangerous document.getElementById override.
+               Update any JS that references 'arena-player' to use this ID instead. -->
+          <div class="arena-avatar" id="arena-player">🧙</div>
+          <div class="arena-label" id="arena-player-label">Hero</div>
+          <div class="arena-bar-wrap">
+            <div class="arena-bar-fill arena-hp" id="arena-player-hp" style="width:100%;"></div>
+          </div>
+          <div class="arena-bar-wrap" style="margin-top:3px;">
+            <div class="arena-bar-fill arena-mp" id="arena-player-mp" style="width:100%;"></div>
+          </div>
         </div>
-        <div class="auto-slot" id="auto-slot-1" onclick="assignSelectedSkill(1)">
-          <div class="auto-slot-icon" id="auto-slot-content-1">➕</div>
-          <span class="skill-lbl">Slot 2</span>
-        </div>
-        <div class="auto-slot" id="auto-slot-2" onclick="assignSelectedSkill(2)">
-          <div class="auto-slot-icon" id="auto-slot-content-2">➕</div>
-          <span class="skill-lbl">Slot 3</span>
+        <div class="arena-vs">VS</div>
+        <div class="arena-side">
+          <div class="arena-avatar" id="arena-enemy">👾</div>
+          <div class="arena-label" id="arena-enemy-label">—</div>
+          <div class="enemy-hp-row" style="width:100%;padding:0;">
+            <div class="enemy-hp-bar-wrap"><div id="arena-enemy-hp" style="width:0%;"></div></div>
+            <span style="font-size:.7em;color:var(--text-dim);white-space:nowrap;">
+              <span id="enemy-hp-val">0</span>/<span id="enemy-hp-max">0</span>
+            </span>
+          </div>
+          <div id="enemy-stats" style="width:100%;margin-top:4px;display:none;"></div>
         </div>
       </div>
-    </div>
 
-    <!-- Log box -->
-    <div id="log-box"></div>
-  </div>
+      <!-- Story / Scene text -->
+      <div id="story-content">
+        <div class="scene-title">🏘️ Town Square</div>
+        <p>Your adventure begins here...</p>
+      </div>
 
-</div><!-- /main-scene-adv -->
+      <!-- Main content area -->
+      <div id="main-content-area" style="display:flex;flex-direction:column;flex:1;overflow:hidden;padding:0 10px 10px;min-height:0;">
+        <div id="combat-log" style="flex:1;overflow-y:auto;font-size:.78em;line-height:1.7;padding:4px 0;min-height:0;display:none;"></div>
+        <div id="choices-box" style="display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex:1;min-height:0;"></div>
+      </div>
 
-    <!-- ───────────── TOWN / SHOP SCENE ───────────── -->
-    <div id="main-scene-town" class="main-scene" style="display:none;flex-direction:column;overflow:hidden;">
+      <!-- Bottom combat controls -->
+      <div id="combat-controls" style="display:none;flex-direction:column;flex-shrink:0;">
+        <button id="auto-fight-btn" onclick="toggleAutoFight()" style="display:none;">⚡ Auto Fight</button>
+        <div id="skills-bar" style="display:none;">
+          <div id="skills-slot-row" style="display:flex;gap:6px;overflow-x:auto;padding:8px 10px;"></div>
+        </div>
+        <div class="char-panel" id="auto-skill-panel">
+          <div class="auto-slots-wrap" style="padding:0;margin:0;">
+            <div class="panel-title">
+              Auto-Skill Slots
+              <span style="font-size:.7em;color:var(--text-dim);font-family:var(--font-body);">tap a skill then tap a slot</span>
+            </div>
+            <div class="auto-slot" id="auto-slot-0" onclick="assignSelectedSkill(0)">
+              <div class="auto-slot-icon" id="auto-slot-content-0">➕</div>
+              <span class="skill-lbl">Slot 1</span>
+            </div>
+            <div class="auto-slot" id="auto-slot-1" onclick="assignSelectedSkill(1)">
+              <div class="auto-slot-icon" id="auto-slot-content-1">➕</div>
+              <span class="skill-lbl">Slot 2</span>
+            </div>
+            <div class="auto-slot" id="auto-slot-2" onclick="assignSelectedSkill(2)">
+              <div class="auto-slot-icon" id="auto-slot-content-2">➕</div>
+              <span class="skill-lbl">Slot 3</span>
+            </div>
+          </div>
+        </div>
+        <div id="log-box"></div>
+      </div>
+
+    </div><!-- /main-scene-adv -->
+
+    <!-- ───────────── TOWN SCENE ───────────── -->
+    <div id="main-scene-town" class="main-scene">
 
       <!-- Town tabs -->
       <div class="town-tabs">
         <button class="town-tab active" onclick="switchTownPanel('inventory',this)">🎒 Inventory</button>
         <button class="town-tab" onclick="switchTownPanel('shop',this)">🏪 Shop</button>
         <button class="town-tab" onclick="switchTownPanel('craft',this)">⚗️ Craft</button>
-        <button class="town-tab" onclick="switchTownPanel('auction',this)">🏛️ Auction House</button>
+        <button class="town-tab" onclick="switchTownPanel('auction',this)">🏛️ Auction</button>
         <button class="town-tab" onclick="switchTownPanel('tournament',this)">⚔️ Tournament</button>
       </div>
-       
+
+      <!-- BUG FIX #4: ALL town panels are now inside .town-content so CSS
+           layout (overflow, scroll, height) applies to all of them correctly. -->
       <div class="town-content">
-        <!-- TOURNAMENT -->
-        <div id="town-panel-tournament" class="town-panel" style="display:none;">
-          <div id="arena-content">
-           <div style="text-align:center;color:var(--text-dim);padding:20px;">Loading...</div>
-          </div>
-        </div>
-      </div>
+
         <!-- INVENTORY -->
-        <div id="town-panel-inventory" class="town-panel active" style="display:block;">
+        <div id="town-panel-inventory" class="town-panel active">
           <div class="inv-tab-row">
-            <button class="inv-tab active" id="inv-tab-equipment" onclick="switchInvTab('equipment')">Equipment</button>
-            <button class="inv-tab" id="inv-tab-consumable" onclick="switchInvTab('consumable')">Potions</button>
-            <button class="inv-tab" id="inv-tab-material" onclick="switchInvTab('material')">Materials</button>
-            <button class="inv-tab" id="inv-tab-soul_weapon" onclick="switchInvTab('soul_weapon')">✨ Soul</button>
+            <button class="inv-tab active" id="inv-tab-equipment"   onclick="switchInvTab('equipment')">Equipment</button>
+            <button class="inv-tab"        id="inv-tab-consumable"  onclick="switchInvTab('consumable')">Potions</button>
+            <button class="inv-tab"        id="inv-tab-material"    onclick="switchInvTab('material')">Materials</button>
+            <button class="inv-tab"        id="inv-tab-soul_weapon" onclick="switchInvTab('soul_weapon')">✨ Soul</button>
           </div>
           <div id="inventory-list"><div class="inv-empty">No items here</div></div>
         </div>
 
         <!-- SHOP -->
-        <div id="town-panel-shop" class="town-panel" style="display:none;">
+        <div id="town-panel-shop" class="town-panel">
           <div class="shop-tab-row">
-            <button class="shop-tab active" id="shop-tab-equipment" onclick="switchShopTab('equipment')">Equipment</button>
-            <button class="shop-tab" id="shop-tab-consumable" onclick="switchShopTab('consumable')">Potions</button>
+            <button class="shop-tab active" id="shop-tab-equipment"  onclick="switchShopTab('equipment')">Equipment</button>
+            <button class="shop-tab"        id="shop-tab-consumable" onclick="switchShopTab('consumable')">Potions</button>
           </div>
           <div id="shop-content"></div>
         </div>
 
         <!-- CRAFTING -->
-        <div id="town-panel-craft" class="town-panel" style="display:none;">
-          <div id="craft-grid"></div>
+        <!-- BUG FIX #2: renamed to 'craft-grid-town' — there was a duplicate
+             id="craft-grid" in the craft modal overlay. JS that calls
+             renderCrafting() should target 'craft-grid-town' for the town panel
+             and 'craft-grid-modal' for the modal overlay. -->
+        <div id="town-panel-craft" class="town-panel">
+          <div id="craft-grid-town"></div>
         </div>
 
         <!-- AUCTION HOUSE -->
-        <div id="town-panel-auction" class="town-panel" style="display:none;">
+        <div id="town-panel-auction" class="town-panel">
           <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;">
             <button id="market-tab-ah" class="shop-tab active" onclick="switchMarketTab('auction')">Active Auctions</button>
             <button class="shop-tab" onclick="showMyAuctions()">My Listings</button>
@@ -1298,10 +1068,22 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
           </div>
         </div>
 
-      </div>
+        <!-- TOURNAMENT -->
+        <div id="town-panel-tournament" class="town-panel">
+          <div id="arena-content">
+            <div style="text-align:center;color:var(--text-dim);padding:20px;">Loading...</div>
+          </div>
+        </div>
+
+      </div><!-- /town-content -->
+
     </div><!-- /main-scene-town -->
-    <!-- BOTTOM NAV -->
-  <div id="bottom-nav" style="display:none;">
+
+  </div><!-- /scenes-wrap -->
+
+  <!-- BUG FIX #5: bottom-nav moved OUTSIDE scenes-wrap so it's not clipped
+       by scenes-wrap's overflow:hidden -->
+  <div id="bottom-nav">
     <button class="nav-btn" id="nav-char" onclick="switchMainScene('char')">
       <span class="nav-icon">👤</span><span>Character</span>
     </button>
@@ -1312,45 +1094,44 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <span class="nav-icon">🏘️</span><span>Town</span>
     </button>
   </div>
-    <!-- Wing QR Support -->
-<div style="text-align:center;padding:8px 10px;">
-  <div onclick="toggleQR()" style="cursor:pointer;display:inline-flex;align-items:center;gap:8px;
-    padding:6px 12px;background:rgba(200,168,75,0.08);border:1px solid var(--border);
-    border-radius:20px;color:var(--gold);font-family:var(--font-title);font-size:.7em;letter-spacing:1px;">
-    ☕ Support Dev 🇰🇭
-    <img src="wing-qr.jpg" style="width:28px;height:28px;border-radius:4px;object-fit:cover;">
+
+  <!-- Wing QR Support -->
+  <div style="text-align:center;padding:8px 10px;">
+    <div onclick="toggleQR()" style="cursor:pointer;display:inline-flex;align-items:center;gap:8px;
+      padding:6px 12px;background:rgba(200,168,75,0.08);border:1px solid var(--border);
+      border-radius:20px;color:var(--gold);font-family:var(--font-title);font-size:.7em;letter-spacing:1px;">
+      ☕ Support Dev 🇰🇭
+      <img src="wing-qr.jpg" style="width:28px;height:28px;border-radius:4px;object-fit:cover;">
+    </div>
   </div>
-</div>
+
+  <!-- Ko-fi button -->
+  <a href="https://ko-fi.com/goddomaindevs" target="_blank"
+    style="display:flex;align-items:center;justify-content:center;gap:8px;
+    margin:8px 10px;padding:12px;
+    background:linear-gradient(135deg,#ff5f5f,#ff8c00);
+    border-radius:var(--radius);color:#fff;
+    font-family:var(--font-title);font-size:.85em;
+    letter-spacing:2px;text-decoration:none;
+    box-shadow:0 4px 20px rgba(255,95,95,0.4);
+    animation:kofiPulse 2s ease-in-out infinite;"
+    onmouseover="this.style.transform='translateY(-2px)'"
+    onmouseout="this.style.transform='translateY(0)'">
+    ☕ Support the Dev — Buy me a Coffee!
+  </a>
+
+</div><!-- /game-wrapper -->
 
 <!-- QR Popup Overlay -->
+<!-- BUG FIX #6: added display:flex to the toggle target so flex-direction:column works -->
 <div id="qr-overlay" onclick="toggleQR()" style="display:none;position:fixed;inset:0;
   background:rgba(0,0,0,0.88);z-index:9999;align-items:center;justify-content:center;
   flex-direction:column;gap:12px;">
-  <div style="font-family:var(--font-title);font-size:1em;color:var(--gold);letter-spacing:2px;">
-    ☕ SUPPORT THE DEV
-  </div>
+  <div style="font-family:var(--font-title);font-size:1em;color:var(--gold);letter-spacing:2px;">☕ SUPPORT THE DEV</div>
   <img src="wing-qr.jpg" style="width:260px;height:260px;border-radius:12px;border:2px solid var(--gold);">
   <div style="font-size:.8em;color:var(--text-dim);">Scan with Wing to support! 🇰🇭</div>
   <div style="font-size:.72em;color:var(--text-dim);">Tap anywhere to close</div>
 </div>
-    <a href="https://ko-fi.com/goddomaindevs" target="_blank" 
-      style="display:flex;align-items:center;justify-content:center;gap:8px;
-      margin:8px 10px;padding:12px;
-      background:linear-gradient(135deg,#ff5f5f,#ff8c00);
-      border-radius:var(--radius);color:#fff;
-      font-family:var(--font-title);font-size:.85em;
-      letter-spacing:2px;text-decoration:none;
-      box-shadow:0 4px 20px rgba(255,95,95,0.4);
-      animation:kofiPulse 2s ease-in-out infinite;"
-      onmouseover="this.style.transform='translateY(-2px)'"
-      onmouseout="this.style.transform='translateY(0)'">
-      ☕ Support the Dev — Buy me a Coffee!
-    </a>
-  </div><!-- /scenes-wrap -->
-
-  
-
-</div><!-- /game-wrapper -->
 
 <!-- ═══════════════════════════════════════ CLASS SCREEN ═══ -->
 <div id="class-screen" class="screen-overlay">
@@ -1398,7 +1179,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <div style="font-family:var(--font-title);color:var(--gold);font-size:.95em;letter-spacing:2px;">⚗️ CRAFTING</div>
       <button class="start-btn" onclick="closeCrafting()" style="padding:5px 12px;">✖ Close</button>
     </div>
-    <div id="craft-grid"></div>
+    <!-- BUG FIX #2: renamed to 'craft-grid-modal' to eliminate duplicate ID -->
+    <div id="craft-grid-modal"></div>
   </div>
 </div>
 
@@ -1408,7 +1190,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 <!-- ═══════════════════════════════════════ SCRIPTS ═══ -->
 <script src="game.js"></script>
 <script src="supabase-sync.js"></script>
-<link rel="stylesheet" href="chat-styles.css">
 <script src="chat-module.js"></script>
 
 <script>
@@ -1423,14 +1204,16 @@ function switchAuthTab(tab, btn) {
 }
 
 // ── REGISTER BRIDGE ──
+// BUG FIX #10: doRegister now passes values directly to registerUser()
+// instead of stuffing them into login form fields first (which could bleed
+// previously-typed login values into the registration call).
 function doRegister() {
-  const regName  = document.getElementById('reg-name');
-  const regEmail = document.getElementById('reg-email');
-  const regPass  = document.getElementById('reg-pass');
-  document.getElementById('name-input').value    = regName  ? regName.value.trim()  : '';
-  document.getElementById('auth-email').value    = regEmail ? regEmail.value.trim() : '';
-  document.getElementById('auth-password').value = regPass  ? regPass.value.trim()  : '';
-  registerUser();
+  const name  = document.getElementById('reg-name')?.value.trim()  || '';
+  const email = document.getElementById('reg-email')?.value.trim() || '';
+  const pass  = document.getElementById('reg-pass')?.value.trim()  || '';
+  document.getElementById('name-input').value = name;
+  // Pass directly — don't touch the login form fields
+  registerUser(email, pass);
 }
 
 // ── TOWN PANEL SWITCHER ──
@@ -1441,7 +1224,6 @@ async function switchTownPanel(panel, btn) {
   const el = document.getElementById('town-panel-' + panel);
   if (el) el.style.display = 'block';
 
-  // Always reload config before rendering
   await loadGameConfig();
 
   if (panel === 'shop')       renderShop();
@@ -1450,25 +1232,29 @@ async function switchTownPanel(panel, btn) {
   if (panel === 'tournament') renderTournament();
 }
 
+// ── QR TOGGLE ──
+// BUG FIX #6: explicitly sets display:'flex' so flex-direction:column works
+function toggleQR() {
+  const el = document.getElementById('qr-overlay');
+  if (!el) return;
+  el.style.display = el.style.display === 'flex' ? 'none' : 'flex';
+}
+
 // ── OVERRIDE showGame ──
 const _origShowGame = window.showGame;
 window.showGame = async function() {
-  // Hide auth/char-select screens
   const auth = document.getElementById('auth-screen');
   if (auth) auth.style.display = 'none';
   const charSel = document.getElementById('char-select-screen');
   if (charSel) charSel.remove();
 
-  // ── Load config FIRST before anything renders ──
   await loadGameConfig();
 
-  // Run original showGame
   _origShowGame();
 
-  // Fix layout
   document.getElementById('game-wrapper').style.display = 'flex';
-  document.getElementById('top-bar').style.display = 'flex';
-  document.getElementById('bottom-nav').style.display = 'flex'; // 👈 add this
+  document.getElementById('top-bar').style.display      = 'flex';
+  document.getElementById('bottom-nav').style.display   = 'flex';
 };
 
 // ── OVERRIDE switchMainScene ──
@@ -1484,15 +1270,9 @@ window.switchMainScene = async function(scene) {
   const activeBtn = document.getElementById('nav-' + scene);
   if (activeBtn) activeBtn.classList.add('active');
 
-  if (scene === 'adv') loadScene(state.currentScene || 'town');
-  if (scene === 'town') {
-    await loadGameConfig(); // reload config on every town visit
-    renderShop();
-    renderInventory();
-  }
-  if (scene === 'char') {
-    renderStatPoints();
-  }
+  if (scene === 'adv')  loadScene(state.currentScene || 'town');
+  if (scene === 'town') { await loadGameConfig(); renderShop(); renderInventory(); }
+  if (scene === 'char') renderStatPoints();
 };
 
 // ── MY AUCTIONS ──
@@ -1509,14 +1289,11 @@ async function showMyAuctions() {
   renderAuctions(data, {});
 }
 
-// ── char-avatar fix ──
-document.addEventListener('DOMContentLoaded', () => {
-  const origGetById = document.getElementById.bind(document);
-  document.getElementById = function(id) {
-    if (id === 'char-avatar') return origGetById('arena-player');
-    return origGetById(id);
-  };
-});
+// BUG FIX #3: Removed the dangerous document.getElementById override.
+// It was globally patching the browser API which could break Supabase's
+// internal calls. The 'arena-player' element now directly serves as the
+// player avatar — no alias needed.
+
 </script>
 </body>
 </html>

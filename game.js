@@ -1557,8 +1557,8 @@ berserker:{
       {id:'primal_fury',name:'Primal Fury',desc:'30% STR per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.strMult=(state.talentBonuses.strMult||0)+0.3;}},
     ]},
     bloodlust:{name:'🩸 Bloodlust',talents:[
-      {id:'bloodthirst',name:'Bloodthirst',desc:'10% LIFESTEAL per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.baseLifeSteal=(state.talentBonuses.baseLifeSteal||0)+0.1;}},
-      {id:'savage_wounds',name:'Savage Wounds',desc:'20% LIFESTEAL per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.baseLifeSteal=(state.talentBonuses.baseLifeSteal||0)+0.2;}},
+      {id:'bloodthirst',name:'Bloodthirst',desc:'10% LIFESTEAL per rank',cost:10,ranks:10,effect:()=>{state.talentBonuses.baseLifeSteal=(state.talentBonuses.baseLifeSteal||0)+0.01;}},
+      {id:'savage_wounds',name:'Savage Wounds',desc:'20% LIFESTEAL per rank',cost:20,ranks:5,effect:()=>{state.talentBonuses.baseLifeSteal=(state.talentBonuses.baseLifeSteal||0)+0.02;}},
       {id:'blood_frenzy',name:'Blood Frenzy',desc:'30% ATK per rank',cost:30,ranks:3,effect:()=>{state.talentBonuses.attackPowerMult=(state.talentBonuses.attackPowerMult||0)+0.3;}},
     ]},
     endurance:{name:'💪 Endurance',talents:[
@@ -2085,8 +2085,8 @@ function spawnDmgFloat(text,onEnemy,cls=''){
 
 // ── AUTH: REGISTER ──
 async function registerUser(){
-  const email=document.getElementById('auth-email').value.trim();
-  const password=document.getElementById('auth-password').value.trim();
+  const email=document.getElementById('email').value.trim();
+  const password=document.getElementById('pass').value.trim();
   const name=document.getElementById('name-input').value.trim();
   const msg=document.getElementById('auth-msg');
   if(!email||!password||!name){msg.textContent='Please fill in all fields!';return;}
@@ -2132,8 +2132,8 @@ async function registerUser(){
 
 // ── AUTH: LOGIN ──
 async function loginUser(){
-  const email=document.getElementById('auth-email').value.trim();
-  const password=document.getElementById('auth-password').value.trim();
+  const email=document.getElementById('email').value.trim();
+  const password=document.getElementById('pass').value.trim();
   const msg=document.getElementById('auth-msg');
   if(!email||!password){msg.textContent='Please enter email and password!';return;}
 
@@ -2151,10 +2151,12 @@ async function loginUser(){
     if(charError||!characters||!characters.length){
       msg.textContent='❌ No character found. Please register first.';
       await dbClient.auth.signOut();return;
+      
     }
 
     msg.style.color='#44ff44';msg.textContent='✅ Logged in! Choose your character.';
     showCharacterSelect(characters);
+    await initChat();
 
   } catch(error){ msg.textContent='❌ Login failed: '+error.message; console.error('Login error:',error); }
 }
@@ -6397,36 +6399,86 @@ function rollMatDrop(stageId, isBoss=false) {
   }
 }
 
-function equipSoulWeapon(uid){
-  const item=state.inventory.find(i=>i.uid===uid);
-  if(!item||item.category!=='soul_weapon')return;
+// BUG FIX #9: The old key builder did:
+//   'equip' + k.charAt(0).toUpperCase() + k.slice(1)
+// This works for flat stats:  str     → equipStr      ✅
+// But breaks for multipliers: strMult → equipStrmult  ❌ (lowercase 'm')
+// The correct key is equipStrMult (capital M).
+//
+// Fix: map known multiplier stat keys to their correct equip field names
+// explicitly, and fall back to the old builder only for flat stats.
 
-  const classKey=state.class?.toLowerCase();
+const SOUL_WEAPON_STAT_KEY_MAP = {
+  // flat stats — old builder works fine for these
+  str:          'equipStr',
+  agi:          'equipAgi',
+  int:          'equipInt',
+  sta:          'equipSta',
+  armor:        'equipArmor',
+  crit:         'equipCrit',
+  dodge:        'equipDodge',
+  hit:          'equipHit',
+  hpRegen:      'equipHpRegen',
+  mpRegen:      'equipMpRegen',
+  attackPower:  'equipAttackPower',
+  maxHp:        'equipMaxHp',
+  maxMp:        'equipMaxMp',
+  lifeSteal:    'equipLifeSteal',
+  // multiplier stats — old builder got these wrong
+  strMult:          'equipStrMult',
+  agiMult:          'equipAgiMult',
+  intMult:          'equipIntMult',
+  staMult:          'equipStaMult',
+  armorMult:        'equipArmorMult',
+  critMult:         'equipCritMult',
+  dodgeMult:        'equipDodgeMult',
+  hitMult:          'equipHitMult',
+  hpRegenMult:      'equipHpRegenMult',
+  mpRegenMult:      'equipMpRegenMult',
+  attackPowerMult:  'equipAttackPowerMult',
+  maxHpMult:        'equipMaxHpMult',
+  maxMpMult:        'equipMaxMpMult',
+  lifeStealMult:    'equipLifeStealMult',
+};
 
-  // Remove old soul weapon stats
-  if(state.soulWeapon){
-    const sw=SOUL_WEAPONS[state.soulWeapon.classId];
-    const old=sw?.tiers.find(t=>t.tier===state.soulWeapon.tier);
-    if(old)Object.entries(old.stats).forEach(([k,v])=>{
-      const ek='equip'+k.charAt(0).toUpperCase()+k.slice(1);
-      state[ek]=(state[ek]||0)-v;
-    });
+function getSoulWeaponEquipKey(statKey) {
+  // Use explicit map if available, otherwise fall back to old builder
+  return SOUL_WEAPON_STAT_KEY_MAP[statKey]
+    || ('equip' + statKey.charAt(0).toUpperCase() + statKey.slice(1));
+}
+
+function equipSoulWeapon(uid) {
+  const item = state.inventory.find(i => i.uid === uid);
+  if (!item || item.category !== 'soul_weapon') return;
+
+  const classKey = state.class?.toLowerCase();
+
+  // ── Remove old soul weapon stats ──
+  if (state.soulWeapon) {
+    const sw  = SOUL_WEAPONS[state.soulWeapon.classId];
+    const old = sw?.tiers.find(t => t.tier === state.soulWeapon.tier);
+    if (old) {
+      Object.entries(old.stats).forEach(([k, v]) => {
+        const ek = getSoulWeaponEquipKey(k);
+        state[ek] = (state[ek] || 0) - v;
+      });
+    }
   }
 
-  // Apply new soul weapon stats
-  Object.entries(item.stats||{}).forEach(([k,v])=>{
-    const ek='equip'+k.charAt(0).toUpperCase()+k.slice(1);
-    state[ek]=(state[ek]||0)+v;
+  // ── Apply new soul weapon stats ──
+  Object.entries(item.stats || {}).forEach(([k, v]) => {
+    const ek = getSoulWeaponEquipKey(k);
+    state[ek] = (state[ek] || 0) + v;
   });
 
-  // Track crafted tier
-  state.craftedSoulTiers[classKey]=item.soulTier;
+  // ── Track crafted tier ──
+  state.craftedSoulTiers[classKey] = item.soulTier;
 
-  // Bind to character
-  state.soulWeapon={classId:classKey,tier:item.soulTier,name:item.name,uid:item.uid};
+  // ── Bind to character ──
+  state.soulWeapon = { classId: classKey, tier: item.soulTier, name: item.name, uid: item.uid };
 
-  // Remove from inventory
-  state.inventory=state.inventory.filter(i=>i.uid!==uid);
+  // ── Remove from inventory ──
+  state.inventory = state.inventory.filter(i => i.uid !== uid);
 
   calcStats();
   renderSoulWeaponSlot();
@@ -6598,7 +6650,7 @@ const CRAFTING = [
   },
   {
     id:'craft_troll_helm',
-    result:{name:'⛑️ Trollhide Helm',slot:'helm',rarity:'legendary',levelReq:80,
+    result:{name:'⛑️ Trollhide Helm',slot:'helmet',rarity:'legendary',levelReq:80,
       stats:{armor:82000,int:9000,intMult:2.4},category:'equipment'},
     req:[{name:'💎 Troll Gem',qty:200},{name:'👾 Troll Heart',qty:150}],
     desc:'Practically indestructible. The ultimate tank chest piece.'
@@ -6626,7 +6678,7 @@ const CRAFTING = [
   },
   {
     id:'craft_hellfire_helm',
-    result:{name:'⛑️ Hellfire Great Helm',slot:'helm',rarity:'legendary',levelReq:90,
+    result:{name:'⛑️ Hellfire Great Helm',slot:'helmet',rarity:'legendary',levelReq:90,
       stats:{armor:120000,int:15000,intMult:3.45},category:'equipment'},
     req:[{name:'😈 Demon Horn',qty:300},{name:'🔥 Hellfire Core',qty:200}],
     desc:'Forged in the Demon Citadel. The most powerful helm in the mid-game.'
@@ -7487,7 +7539,7 @@ function openCrafting(){document.getElementById('craft-screen').style.display='b
 function closeCrafting(){document.getElementById('craft-screen').style.display='none';}
 function getMaterialQty(name){const item=state.inventory.find(i=>i.name===name&&i.stackable);return item?item.qty:0;}
 function renderCrafting(){
-  const grid=document.getElementById('craft-grid'),r_=r=>RARITY[r]||RARITY.normal;
+  const grid=document.getElementById('craft-grid-town'),r_=r=>RARITY[r]||RARITY.normal;
   grid.innerHTML=CRAFTING.map(recipe=>{
     // Hide other class soul weapons
     if(recipe.classReq){
