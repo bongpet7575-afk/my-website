@@ -2160,7 +2160,7 @@ async function loginUser(){
 
     msg.style.color='#44ff44';msg.textContent='✅ Logged in! Choose your character.';
     showCharacterSelect(characters);
-    await initChat();
+    
 
   } catch(error){ msg.textContent='❌ Login failed: '+error.message; console.error('Login error:',error); }
 }
@@ -2271,6 +2271,9 @@ async function selectCharacterAndPlay(characterId){
       notify('❌ Game initialization failed', 'var(--red)');
       return;
     }
+    // BUG FIX: initChat AFTER sync so state.name is set correctly
+    if (typeof initChat === 'function') await initChat();
+
     
     showGame();
     loadScene(state.currentScene || 'town');
