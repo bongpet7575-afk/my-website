@@ -246,21 +246,29 @@ function subscribeChatRealtime() {
 // ── Public Init ──────────────────────────────────────────────
 async function initChat() {
   await loadChatHistory();
+
+  // Small delay to let Supabase auth token settle before subscribing
+  await new Promise(resolve => setTimeout(resolve, 500));
+
   subscribeChatRealtime();
 
-  // Wire up Enter key on input
+  // Guard against duplicate event listeners on re-init
   const input = getChatInput();
   if (input) {
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') sendChatMessage();
-    });
+    input.removeEventListener('keydown', _onChatKeyDown);
+    input.addEventListener('keydown', _onChatKeyDown);
   }
 
-  // Wire up Send button
   const btn = document.getElementById('chat-send-btn');
   if (btn) {
+    btn.removeEventListener('click', sendChatMessage);
     btn.addEventListener('click', sendChatMessage);
   }
+}
+
+// Named handler so we can remove it properly
+function _onChatKeyDown(e) {
+  if (e.key === 'Enter') sendChatMessage();
 }
 
 // ── Cleanup (call on logout) ──────────────────────────────────
