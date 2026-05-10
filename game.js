@@ -2085,8 +2085,8 @@ function spawnDmgFloat(text,onEnemy,cls=''){
 
 // ── AUTH: REGISTER ──
 async function registerUser(){
-  const email=document.getElementById('email').value.trim();
-  const password=document.getElementById('pass').value.trim();
+  const email=document.getElementById('auth-email').value.trim();
+  const password=document.getElementById('auth-password').value.trim();
   const name=document.getElementById('name-input').value.trim();
   const msg=document.getElementById('auth-msg');
   if(!email||!password||!name){msg.textContent='Please fill in all fields!';return;}
@@ -2132,8 +2132,8 @@ async function registerUser(){
 
 // ── AUTH: LOGIN ──
 async function loginUser(){
-  const email=document.getElementById('email').value.trim();
-  const password=document.getElementById('pass').value.trim();
+  const email=document.getElementById('auth-email').value.trim();
+  const password=document.getElementById('auth-password').value.trim();
   const msg=document.getElementById('auth-msg');
   if(!email||!password){msg.textContent='Please enter email and password!';return;}
 
