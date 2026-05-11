@@ -3402,18 +3402,18 @@ function generateBot(tierKey) {
   const botClass = classes[Math.floor(Math.random() * classes.length)];
 
   // Scale stats based on tier multiplier and level
-  const baseStr = Math.floor((5 + level * 2) * m);
-  const baseAgi = Math.floor((5 + level * 2) * m);
-  const baseInt = Math.floor((5 + level * 2) * m);
-  const baseSta = Math.floor((5 + level * 2) * m);
+  const baseStr = Math.floor(5 + level * 2);
+  const baseAgi = Math.floor(5 + level * 2);
+  const baseInt = Math.floor(5 + level * 2);
+  const baseSta = Math.floor(5 + level * 2);
 
   const attackPower = Math.floor((baseStr * 4 + baseInt * 3 + level * 15) * m);
   const maxHp       = Math.floor((100 + baseStr * 20 + baseSta * 30 + level * 80) * m);
   const armor       = Math.floor((baseAgi * 8 + level * 10) * m);
-  const crit        = Math.floor(baseAgi * 0.0005 * m + 5);
+  const crit        = Math.floor(baseAgi * 0.0005 + 5); // crit doesn't need m
   const dodge       = Math.floor(baseAgi * 1.9 * m);
   const hit         = Math.floor(baseAgi * 5.3 * m);
-  const lifeSteal   = 0.05 * m;
+  const lifeSteal   = 0.02 * m; // also reduced — 0.05 * 5.5 = 27.5% lifesteal is too high
 
   // Bot skill combo — pick 3 random skills from any pool
   const allSkillKeys = Object.keys(SKILLS);
@@ -8127,20 +8127,20 @@ function getPracticeFee(tierKey) {
   return fees[tierKey] ?? defaults[tierKey];
 }
 
+// BUG FIX #5: now fetches ALL brackets for this tier, not just the most recent one
+// BUG FIX #8: added limit(200) to win/loss query
 async function renderPracticeboard(tierKey, containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
   container.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:12px;">Loading fighters...</div>';
 
-  const TIER_MIN = { rookie: 20, veteran: 41, elite: 61, legend: 81 };
-  const TIER_MAX = { rookie: 40, veteran: 60, elite: 80, legend: 100 };
+  const TIER_MIN    = { rookie: 20, veteran: 41, elite: 61, legend: 81 };
+  const TIER_MAX    = { rookie: 40, veteran: 60, elite: 80, legend: 100 };
   const TIER_COLORS = { rookie: '#22c55e', veteran: '#3b82f6', elite: '#a855f7', legend: '#ff9900' };
-  const fee = getPracticeFee(tierKey);
+  const fee      = getPracticeFee(tierKey);
   const minLevel = TIER_MIN[tierKey];
-  const maxLevel = TIER_MAX[tierKey];
   const tierColor = TIER_COLORS[tierKey];
 
-  // Level requirement check
   if (state.level < minLevel) {
     container.innerHTML = `
       <div style="text-align:center;font-size:.75em;color:var(--text-dim);
@@ -8151,17 +8151,15 @@ async function renderPracticeboard(tierKey, containerId) {
   }
 
   try {
-    // Get current tournament for this tier
-    const { data: tournament } = await dbClient
+    // BUG FIX #5: fetch ALL brackets for this tier (not just most recent)
+    const { data: tournaments } = await dbClient
       .from('arena_tournaments')
-      .select('id, status')
+      .select('id, status, bracket_number')
       .in('status', ['open', 'in_progress', 'completed'])
       .eq('min_level', minLevel)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+      .order('bracket_number', { ascending: true });
 
-    if (!tournament) {
+    if (!tournaments || !tournaments.length) {
       container.innerHTML = `
         <div style="text-align:center;font-size:.75em;color:var(--text-dim);
           padding:10px;background:rgba(255,255,255,0.03);border-radius:6px;">
@@ -8170,11 +8168,13 @@ async function renderPracticeboard(tierKey, containerId) {
       return;
     }
 
-    // Get all registrations with snapshots for this tier
+    const tournamentIds = tournaments.map(t => t.id);
+
+    // Batch fetch all registrations across all brackets
     const { data: regs } = await dbClient
       .from('arena_registrations')
-      .select('character_id, character_snapshot, skill_combo, points, rank')
-      .eq('tournament_id', tournament.id)
+      .select('character_id, character_snapshot, skill_combo, points, rank, tournament_id')
+      .in('tournament_id', tournamentIds)
       .order('points', { ascending: false });
 
     if (!regs || !regs.length) {
@@ -8186,7 +8186,7 @@ async function renderPracticeboard(tierKey, containerId) {
       return;
     }
 
-    // Filter out bots
+    // Filter out bots and self
     const realPlayers = regs.filter(r =>
       r.character_snapshot &&
       !r.character_snapshot.isBot &&
@@ -8202,18 +8202,33 @@ async function renderPracticeboard(tierKey, containerId) {
       return;
     }
 
-    // Get win/loss records from arena_battles
-    const charIds = realPlayers.map(r => r.character_id);
-    const { data: battles } = await dbClient
-      .from('arena_battles')
-      .select('winner_id, attacker_id, defender_id')
-      .or(`attacker_id.in.(${charIds.join(',')}),defender_id.in.(${charIds.join(',')})`);
-
-    // Build win/loss map
-    const records = {};
+    // BUG FIX #1/#4: guard empty array before win/loss query
+    const charIds = realPlayers.map(r => r.character_id).filter(Boolean);
+    let records = {};
     charIds.forEach(id => { records[id] = { wins: 0, losses: 0 }; });
-    if (battles) {
-      battles.forEach(b => {
+
+    if (charIds.length > 0) {
+      // BUG FIX #8: added limit(200) — no unbounded query
+      // BUG FIX #1: safer query using .in() separately instead of raw .or() string
+      const { data: wonBattles } = await dbClient
+        .from('arena_battles')
+        .select('winner_id, attacker_id, defender_id')
+        .in('attacker_id', charIds)
+        .limit(200);
+
+      const { data: defBattles } = await dbClient
+        .from('arena_battles')
+        .select('winner_id, attacker_id, defender_id')
+        .in('defender_id', charIds)
+        .limit(200);
+
+      const allBattles = [...(wonBattles || []), ...(defBattles || [])];
+      // Deduplicate by using a Set of IDs we've already counted
+      const seen = new Set();
+      allBattles.forEach(b => {
+        const key = `${b.attacker_id}-${b.defender_id}`;
+        if (seen.has(key)) return;
+        seen.add(key);
         if (b.winner_id && records[b.winner_id]) records[b.winner_id].wins++;
         const loserId = b.winner_id === b.attacker_id ? b.defender_id : b.attacker_id;
         if (loserId && records[loserId]) records[loserId].losses++;
@@ -8221,12 +8236,14 @@ async function renderPracticeboard(tierKey, containerId) {
     }
 
     const classIcons = {
-      Warrior: '⚔️', Mage: '🔮', Rogue: '🗡️',
-      Hunter: '🏹', Paladin: '✨', Necromancer: '💀',
-      Shaman: '⚡', Berserker: '🐉',
+      Warrior:'⚔️', Mage:'🔮', Rogue:'🗡️', Hunter:'🏹',
+      Paladin:'✨', Necromancer:'💀', Shaman:'⚡', Berserker:'🐉',
     };
 
-    // Render fighter cards
+    // Build tournament lookup for bracket number display
+    const tMap = {};
+    tournaments.forEach(t => { tMap[t.id] = t; });
+
     let html = `
       <div style="font-family:var(--font-title);font-size:.68em;color:var(--text-dim);
         letter-spacing:2px;margin-bottom:8px;">
@@ -8234,20 +8251,20 @@ async function renderPracticeboard(tierKey, containerId) {
       </div>`;
 
     realPlayers.forEach((reg, index) => {
-      const snap = reg.character_snapshot;
-      const record = records[reg.character_id] || { wins: 0, losses: 0 };
+      const snap      = reg.character_snapshot;
+      const record    = records[reg.character_id] || { wins: 0, losses: 0 };
       const classIcon = classIcons[snap.class] || '👤';
-      const combo = reg.skill_combo || [];
+      const combo     = reg.skill_combo || [];
       const rankLabel = reg.rank === 1 ? '🏆' : reg.rank === 2 ? '🥈' : reg.rank === 3 ? '🥉' : `#${index + 1}`;
-      const winRate = record.wins + record.losses > 0
+      const winRate   = record.wins + record.losses > 0
         ? Math.round((record.wins / (record.wins + record.losses)) * 100)
         : 0;
+      const bracketNum = tMap[reg.tournament_id]?.bracket_number || '?';
 
       html += `
         <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);
           border-radius:8px;padding:8px;margin-bottom:6px;">
 
-          <!-- Fighter Header -->
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
             <div style="font-size:1.3em;">${classIcon}</div>
             <div style="flex:1;">
@@ -8255,7 +8272,7 @@ async function renderPracticeboard(tierKey, containerId) {
                 ${rankLabel} ${snap.name}
               </div>
               <div style="font-size:.65em;color:var(--text-dim);">
-                Lv.${snap.level} ${snap.class || ''}
+                Lv.${snap.level} ${snap.class || ''} · Bracket ${bracketNum}
               </div>
             </div>
             <div style="text-align:right;font-size:.68em;">
@@ -8265,7 +8282,6 @@ async function renderPracticeboard(tierKey, containerId) {
             </div>
           </div>
 
-          <!-- Stats Row -->
           <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
             <span style="font-size:.62em;color:var(--text-dim);
               background:rgba(255,255,255,0.04);border-radius:4px;padding:2px 5px;">
@@ -8285,7 +8301,6 @@ async function renderPracticeboard(tierKey, containerId) {
             </span>
           </div>
 
-          <!-- Skill Combo -->
           ${combo.length ? `
             <div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;">
               <span style="font-size:.62em;color:var(--text-dim);">Combo:</span>
@@ -8298,9 +8313,8 @@ async function renderPracticeboard(tierKey, containerId) {
               No skill combo set
             </div>`}
 
-          <!-- Fight Button -->
           <button class="start-btn"
-            onclick="initiatePracticeFight('${reg.character_id}', '${tierKey}')"
+            onclick="initiatePracticeFight('${reg.character_id}', '${tierKey}', '${reg.tournament_id}')"
             style="width:100%;padding:7px;font-size:.72em;
             background:linear-gradient(135deg,${tierColor}22,${tierColor}11);
             border-color:${tierColor}88;">
@@ -8318,8 +8332,13 @@ async function renderPracticeboard(tierKey, containerId) {
 }
 
 // ── INITIATE PRACTICE FIGHT ──
-async function initiatePracticeFight(targetCharId, tierKey) {
-  const fee = getPracticeFee(tierKey);
+// BUG FIX #6: now accepts tournamentId directly from the fighter card
+// so we always look up the right bracket (not just the most recent one)
+// BUG FIX #7: saves practice result to arena_battles so win/loss records update
+// BUG FIX #10: challenger snapshot capped to registration stats if registered,
+// preventing live overpowered stats vs a stale registration snapshot
+async function initiatePracticeFight(targetCharId, tierKey, tournamentId) {
+  const fee      = getPracticeFee(tierKey);
   const TIER_MIN = { rookie: 20, veteran: 41, elite: 61, legend: 81 };
   const minLevel = TIER_MIN[tierKey];
 
@@ -8333,73 +8352,59 @@ async function initiatePracticeFight(targetCharId, tierKey) {
   }
 
   try {
-    // Get target registration snapshot + skill combo
-    const { data: tournament } = await dbClient
-      .from('arena_tournaments')
-      .select('id')
-      .in('status', ['open', 'in_progress', 'completed'])
-      .eq('min_level', minLevel)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (!tournament) { notify('No active tournament found!', 'var(--red)'); return; }
-
+    // BUG FIX #6: use the exact tournamentId from the fighter's bracket
     const { data: targetReg } = await dbClient
       .from('arena_registrations')
       .select('character_snapshot, skill_combo')
-      .eq('tournament_id', tournament.id)
+      .eq('tournament_id', tournamentId)
       .eq('character_id', targetCharId)
       .single();
 
-    if (!targetReg) { notify('Fighter not found!', 'var(--red)'); return; }
+    if (!targetReg || !targetReg.character_snapshot) {
+      notify('Fighter not found!', 'var(--red)');
+      return;
+    }
 
     // Build challenger snapshot
-    // Use registered snapshot if challenger is registered, else use current stats
-    let challengerSnapshot;
+    // BUG FIX #10: if challenger is registered, use their snapshot not live stats
+    // prevents using current gear vs an old snapshot
     const { data: myReg } = await dbClient
       .from('arena_registrations')
       .select('character_snapshot, skill_combo')
-      .eq('tournament_id', tournament.id)
+      .eq('tournament_id', tournamentId)
       .eq('character_id', state.character_id)
       .single();
 
-    if (myReg && myReg.character_snapshot) {
-      challengerSnapshot = {
-        ...myReg.character_snapshot,
-        skillCombo: myReg.skill_combo || [],
-      };
-    } else {
-      // Use current live stats
-      challengerSnapshot = {
-        character_id: state.character_id,
-        name: state.name,
-        level: state.level,
-        class: state.class,
-        attackPower: state.attackPower,
-        maxHp: state.maxHp,
-        armor: state.armor,
-        hit: state.hit,
-        dodge: state.dodge,
-        crit: state.crit,
-        lifeSteal: state.lifeSteal,
-        skillCombo: [],
-        isBot: false,
-      };
-    }
+    const challengerSnapshot = myReg?.character_snapshot
+      ? { ...myReg.character_snapshot, skillCombo: myReg.skill_combo || [] }
+      : {
+          character_id: state.character_id,
+          name:         state.name,
+          level:        state.level,
+          class:        state.class,
+          attackPower:  state.attackPower,
+          maxHp:        state.maxHp,
+          armor:        state.armor,
+          hit:          state.hit,
+          dodge:        state.dodge,
+          crit:         state.crit,
+          lifeSteal:    state.lifeSteal,
+          skillCombo:   [],
+          isBot:        false,
+        };
 
     const targetSnapshot = {
       ...targetReg.character_snapshot,
       skillCombo: targetReg.skill_combo || [],
     };
 
-    // Deduct fee from challenger
+    // Deduct fee
     state.gold -= fee;
     await dbClient.from('characters')
       .update({ gold: state.gold })
       .eq('id', state.character_id);
 
-    // Pay 50% to target (passive gold)
+    // Pay 50% to target
     const targetCut = Math.floor(fee * 0.5);
     const { data: targetChar } = await dbClient
       .from('characters')
@@ -8417,10 +8422,26 @@ async function initiatePracticeFight(targetCharId, tierKey) {
     notify(`⚔️ Fighting ${targetSnapshot.name}...`, 'var(--gold)');
     const result = simulateBattle(challengerSnapshot, targetSnapshot);
 
-    updateUI();
-    addLog(`⚔️ Practice fight vs ${targetSnapshot.name} — ${result.winnerId === state.character_id ? '✅ YOU WON!' : '❌ You lost!'}`, result.winnerId === state.character_id ? 'legendary' : 'info');
+    // BUG FIX #7: save practice battle to arena_battles so records update
+    await dbClient.from('arena_battles').insert({
+      attacker_id:       state.character_id,
+      defender_id:       targetCharId,
+      winner_id:         result.winnerId,
+      attacker_snapshot: challengerSnapshot,
+      defender_snapshot: targetSnapshot,
+      battle_log:        result.log,
+      battle_turns:      result.turns,
+      points_change:     0, // practice fights don't award points
+    });
 
-    // Show replay immediately
+    const won = result.winnerId === state.character_id;
+    updateUI();
+    addLog(
+      `⚔️ Practice fight vs ${targetSnapshot.name} — ${won ? '✅ YOU WON!' : '❌ You lost!'}`,
+      won ? 'legendary' : 'info'
+    );
+
+    // Show replay
     openPracticeReplay(result, challengerSnapshot, targetSnapshot);
 
   } catch(e) {
