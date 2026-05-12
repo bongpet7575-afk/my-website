@@ -8170,6 +8170,7 @@ async function fetchAuctions(){
   const container=document.getElementById('auction-list');if(!container)return;
   container.innerHTML='<div style="text-align:center;color:#888;padding:20px;">Loading...</div>';
   try {
+    await checkAndSettleAuctions(); // ← ADD THIS
     await generateSystemAuctionItems();
     const{data,error}=await dbClient.from('auctions').select('*').eq('status','active').gt('ends_at',new Date().toISOString()).order('ends_at',{ascending:true});
     if(error)throw error;
