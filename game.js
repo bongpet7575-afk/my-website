@@ -1948,7 +1948,7 @@ function spawnNextDungeonMonster(){
   clearInterval(autoFightTimer);
   autoFightTimer=setInterval(()=>{if(!currentEnemy){clearInterval(autoFightTimer);return;}autoFightStep();},1000);
 }
-function startNextWave(){
+async function startNextWave(){
   if(!currentStage)return;
   dungeonWave++;
   if(dungeonWave===1){
@@ -1964,7 +1964,7 @@ function startNextWave(){
   } else if(dungeonWave===4){
     dungeonQueue=['BOSS'];showWaveAnnouncement('💀 BOSS INCOMING!','#ff0000');
   } else {
-    dungeonComplete();return;
+    await dungeonComplete();
   }
   dungeonMonstersLeft=dungeonQueue.length;
   setTimeout(()=>spawnNextDungeonMonster(),2500);
