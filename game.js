@@ -2563,11 +2563,11 @@ function startAutoFight(){
     autoFightStep();
   }, interval);
 }
-function stopAutoFight(){
-  autoFightOn=false;clearInterval(autoFightTimer);autoFightTimer=null;updateAutoFightBtn();
+async function stopAutoFight(){
+  autoFightOn=false;clearInterval(autoFightTimer);autoFightTimer=null;updateAutoFightBtn();await savePlayerToSupabase();
 }
 
-function autoFightStep(){
+async function autoFightStep(){
   if(!currentEnemy)return;
   // Player attacks
   const eDodge=Math.max(0,(currentEnemy.dodge||0)-state.hit)/100;
@@ -2641,7 +2641,7 @@ if (state.soulBarrierAbsorb > 0) {
     currentStage=null;dungeonWave=0;dungeonQueue=[];
     addLog('💀 You died!','bad');notify('💀 You died!','var(--red)');endCombat(false);return;
   }
-  updateEnemyBar();updateUI();
+  updateEnemyBar();updateUI();await savePlayerToSupabase();
 }
 
 // ── END COMBAT ── (fixed: no more double gold/XP)
@@ -2712,7 +2712,8 @@ async function endCombat(won){
     // Mat drop — only works inside dungeons (currentStage tells us which stage)
     if(currentStage) rollMatDrop(currentStage.id, wasBoss);
     checkLevelUp();
-renderQuests();
+    await savePlayerToSupabase();
+    renderQuests();
 
 // ── QUEST TRACKING ──
 trackQuestKill(
