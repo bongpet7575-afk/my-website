@@ -724,10 +724,58 @@ function buildLegacySkillUse(skillId, rank) {
   }
 }
 
+// BUG FIX: rebuildSkills was synchronous but registerLegacySkills depends on
+// GAME_CONFIG.skill_definitions which is loaded asynchronously. If config
+// wasn't loaded yet, getLegacySkillDefs() returned {} and no legacy skills
+// got registered into the SKILLS object — so renderSkillBar skipped them all.
+//
+// Fix: made rebuildSkills async, awaits loadGameConfig() before registering
+// legacy skills. Also added a re-render of the skill bar after registration.
+async function rebuildSkills() {
+  // Step 1: Start fresh
+  state.skills = [];
+
+  // Step 2: Add class skills
+  if (state.class && CLASSES[state.class]) {
+    state.skills = [...CLASSES[state.class].skills];
+  }
+
+  // Step 3: Ensure GAME_CONFIG is loaded before registering legacy skills
+  // This is the key fix — legacy skill defs live in GAME_CONFIG.skill_definitions
+  if (typeof loadGameConfig === 'function') {
+    await loadGameConfig();
+  }
+
+  // Step 4: Register legacy skills into SKILLS object
+  if (typeof registerLegacySkills === 'function') {
+    registerLegacySkills();
+  }
+
+  // Step 5: Add legacy skill IDs that player has learned
+  const learned = state.legacySkills || {};
+  Object.keys(learned).forEach(skillId => {
+    if (learned[skillId] && !state.skills.includes(skillId)) {
+      state.skills.push(skillId);
+    }
+  });
+
+  // Step 6: Re-render skill bar now that SKILLS object is fully populated
+  if (typeof renderSkillBar === 'function') {
+    renderSkillBar();
+  }
+}
+
 // ── REGISTER LEGACY SKILLS INTO SKILLS OBJECT ──
+// No changes needed here — just needs GAME_CONFIG to be loaded first (done above)
 function registerLegacySkills() {
   const learned = getLearnedLegacySkills();
-  const defs = getLegacySkillDefs();
+  const defs    = getLegacySkillDefs();
+
+  // Guard: if config not loaded yet, bail — rebuildSkills will retry
+  if (!defs || !Object.keys(defs).length) {
+    console.warn('registerLegacySkills: skill_definitions not loaded yet — skipping');
+    return;
+  }
 
   Object.entries(learned).forEach(([skillId, rank]) => {
     const def = defs[skillId];
@@ -736,15 +784,15 @@ function registerLegacySkills() {
     const rankData = def.ranks[String(rank)];
     if (!rankData) return;
 
-    // Register into SKILLS object so combat system picks it up
+    // Register into SKILLS object so combat system and renderSkillBar pick it up
     SKILLS[skillId] = {
-      name: def.name,
-      icon: def.icon,
-      mp: () => Math.floor(state.maxMp * def.mp),
-      cd: def.cd,
+      name:     def.name,
+      icon:     def.icon,
+      mp:       () => Math.floor(state.maxMp * def.mp),
+      cd:       def.cd,
       isLegacy: true,
-      rank: rank,
-      use: buildLegacySkillUse(skillId, rank),
+      rank:     rank,
+      use:      buildLegacySkillUse(skillId, rank),
     };
   });
 }
@@ -788,7 +836,7 @@ function learnLegacySkill(skillId) {
   state.legacySkills[skillId] = nextRank;
 
   // Rebuild skills from source of truth
-rebuildSkills();
+  await rebuildSkills();
 
   const action2 = currentRank === 0 ? 'Learned' : `Upgraded to Rank ${nextRank}`;
   addLog(`✨ ${action2}: ${def.icon} ${def.name}! (${rankData.desc})`, 'legendary');
@@ -1362,28 +1410,6 @@ function calcStats() {
   state.mp = Math.min(state.mp, state.maxMp);
 }
 
-function rebuildSkills() {
-  // Start fresh
-  state.skills = [];
-
-  // Step 1: Add class skills
-  if (state.class && CLASSES[state.class]) {
-    state.skills = [...CLASSES[state.class].skills];
-  }
-
-  // Step 2: Register legacy skills into SKILLS object
-  if (typeof registerLegacySkills === 'function') {
-    registerLegacySkills();
-  }
-
-  // Step 3: Add legacy skill IDs that player has learned
-  const learned = state.legacySkills || {};
-  Object.keys(learned).forEach(skillId => {
-    if (!state.skills.includes(skillId)) {
-      state.skills.push(skillId);
-    }
-  });
-}
 
 // ── CLASSES ──
 const CLASSES={
@@ -2356,7 +2382,7 @@ state.talentPoints += refunded;
 const portraitEl = document.getElementById('char-portrait-img');
 if (portraitEl) portraitEl.src = 'images/classes/warrior.jpeg';
 document.getElementById('char-class').textContent = 'No Class';
-  rebuildSkills();
+  await rebuildSkills();
 
   // Reset stat multipliers
   state.strMult=1.0;state.agiMult=1.0;state.intMult=1.0;state.staMult=1.0;
@@ -7639,7 +7665,7 @@ async function buySkillBook(bookId, skillId) {
   state.legacySkills[skillId] = nextRank;
 
   // Rebuild skills from source of truth
-rebuildSkills();
+  await rebuildSkills();
 
   const action2 = currentRank === 0 ? 'Learned' : `Upgraded to Rank ${nextRank}`;
   addLog(`✨ ${action2}: ${def.icon} ${def.name}! ${rankData.desc}`, 'legendary');
