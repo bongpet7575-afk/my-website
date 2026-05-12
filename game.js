@@ -798,7 +798,7 @@ function registerLegacySkills() {
 }
 
 // ── LEARN LEGACY SKILL FROM BOOK ──
-function learnLegacySkill(skillId) {
+async function learnLegacySkill(skillId) {
   const defs = getLegacySkillDefs();
   const def = defs[skillId];
   if (!def) { notify('Unknown skill!', 'var(--red)'); return; }
