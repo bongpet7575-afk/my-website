@@ -2086,7 +2086,7 @@ const SHOP_CONS=[
 let autoFightOn=false,autoFightEnemyId=null,autoFightTimer=null;
 let currentEnemy=null,pendingBossId=null;
 let currentInvTab='equipment',currentShopTab='equipment';
-let autoSkillSlots=[null,null,null],autoSkillIndex=0;
+let autoSkillSlots=[null,null,null,null,null,null],autoSkillIndex=0;
 
 // ── ANIMATIONS ──
 function animateAttack(isPlayer, dmg, isCrit) {
