@@ -8263,7 +8263,7 @@ async function buyoutAuction(auctionId, buyoutPrice) {
     // Note: if seller === buyer (buying own listing), we just keep state.gold as-is (already deducted buyoutPrice, no fee payout to self)
 
     await dbClient.from('auctions').update({
-      status: 'sold',
+      status: 'completed',
       current_bidder_id: state.character_id,
       current_bid: buyoutPrice,
       winner_collected: true,
