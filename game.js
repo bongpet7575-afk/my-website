@@ -2852,26 +2852,24 @@ async function checkAndAutoStartTournaments() {
 // used title case ('Warrior') — so it always fell back to Warrior skills
 // for every class. Fixed by capitalizing state.class before lookup.
 function openSkillComboPicker(tournament, tier, tierKey) {
-  const classSkills = {
-    Warrior:     ['power_strike', 'battle_cry', 'last_stand'],
-    Mage:        ['fireball', 'ice_lance', 'mana_shield'],
-    Rogue:       ['backstab', 'poison_blade', 'shadow_step'],
-    Hunter:      ['precise_shot', 'bleed_arrow', 'shadow_trap'],
-    Paladin:     ['holy_strike', 'divine_shield', 'consecration'],
-    Necromancer: ['death_bolt', 'soul_drain', 'plague_nova'],
-    Shaman:      ['lightning_bolt', 'earth_totem', 'wind_burst'],
-    Berserker:   ['reckless_strike', 'blood_rage', 'death_wish'],
-  };
-
   // BUG FIX #8: capitalize first letter so lookup works correctly
-  const rawClass   = state.class || 'warrior';
+  const rawClass    = state.class || 'warrior';
   const playerClass = rawClass.charAt(0).toUpperCase() + rawClass.slice(1);
-  const availableSkills = classSkills[playerClass] || classSkills['Warrior'];
 
-  const selectedCombo = [null, null, null];
+  // BUG FIX #3: use state.skills which includes both class AND legacy skills
+  // Old code only showed hardcoded class skills — legacy skills were excluded
+  const availableSkills = (state.skills || []).filter(sk => SKILLS[sk]);
+
+  // BUG FIX #1: tournament combo is 3 slots — was accidentally set to 6
+  // (6 slots is for auto-fight, not tournament registration)
+  const COMBO_SIZE   = 3;
+  const selectedCombo = new Array(COMBO_SIZE).fill(null);
 
   function renderPicker() {
     const popup = document.getElementById('item-popup');
+    const filledCount = selectedCombo.filter(Boolean).length;
+    const emptyCount  = COMBO_SIZE - filledCount;
+
     document.getElementById('item-popup-content').innerHTML = `
       <div style="font-family:var(--font-title);color:var(--gold);margin-bottom:4px;font-size:.95em;">
         ⚔️ ${tier.label} Tournament
@@ -2883,10 +2881,10 @@ function openSkillComboPicker(tournament, tier, tierKey) {
 
       <div style="font-family:var(--font-title);font-size:.75em;color:var(--text-dim);
         letter-spacing:2px;margin-bottom:8px;">
-        SKILL COMBO (up to 3)
+        SKILL COMBO (up to ${COMBO_SIZE})
       </div>
 
-      <!-- 3 combo slots -->
+      <!-- Combo slots -->
       <div style="display:flex;gap:8px;justify-content:center;margin-bottom:14px;">
         ${selectedCombo.map((sk, i) => {
           const skill = sk ? SKILLS[sk] : null;
@@ -2910,35 +2908,38 @@ function openSkillComboPicker(tournament, tier, tierKey) {
         }).join('')}
       </div>
 
-      <!-- Available skills -->
+      <!-- Available skills — class + legacy -->
       <div style="font-family:var(--font-title);font-size:.7em;color:var(--text-dim);
         letter-spacing:2px;margin-bottom:8px;">
         YOUR SKILLS
       </div>
-      <div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:16px;">
         ${availableSkills.map(sk => {
           const skill = SKILLS[sk];
           if (!skill) return '';
           const alreadyPicked = selectedCombo.includes(sk);
+          const isLegacy = skill.isLegacy;
           return `
             <div onclick="${alreadyPicked ? '' : `addToCombo('${sk}')`}"
               style="width:64px;height:64px;border-radius:8px;
-              border:2px solid ${alreadyPicked ? 'var(--green)' : 'rgba(255,255,255,0.15)'};
-              background:${alreadyPicked ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.04)'};
+              border:2px solid ${alreadyPicked ? 'var(--green)' : isLegacy ? 'rgba(168,85,247,0.4)' : 'rgba(255,255,255,0.15)'};
+              background:${alreadyPicked ? 'rgba(34,197,94,0.1)' : isLegacy ? 'rgba(168,85,247,0.06)' : 'rgba(255,255,255,0.04)'};
               display:flex;flex-direction:column;align-items:center;justify-content:center;
               cursor:${alreadyPicked ? 'default' : 'pointer'};
               opacity:${alreadyPicked ? '0.5' : '1'};">
               <div style="font-size:1.6em;">${skill.icon}</div>
-              <div style="font-size:.52em;color:var(--text-dim);text-align:center;
-                line-height:1.2;margin-top:2px;">${skill.name}</div>
+              <div style="font-size:.52em;color:${isLegacy ? 'var(--purple)' : 'var(--text-dim)'};
+                text-align:center;line-height:1.2;margin-top:2px;">${skill.name}</div>
+              ${isLegacy ? `<div style="font-size:.48em;color:var(--purple);">✨Legacy</div>` : ''}
             </div>`;
         }).join('')}
       </div>
 
-      ${selectedCombo.some(s => s === null) ? `
+      <!-- BUG FIX #2: empty count now correctly based on COMBO_SIZE not array length -->
+      ${emptyCount > 0 ? `
         <div style="font-size:.72em;color:var(--gold);text-align:center;margin-bottom:10px;
           background:rgba(255,153,0,0.08);border-radius:6px;padding:6px;">
-          ⚠️ ${selectedCombo.filter(s => s === null).length} skill slot(s) empty — are you sure?
+          ⚠️ ${emptyCount} skill slot(s) empty — are you sure?
         </div>` : ''}
 
       <div style="display:flex;gap:8px;margin-top:4px;">
@@ -2957,7 +2958,8 @@ function openSkillComboPicker(tournament, tier, tierKey) {
   window.addToCombo = function(skillKey) {
     const emptySlot = selectedCombo.indexOf(null);
     if (emptySlot === -1) {
-      notify('All 3 slots filled! Click a slot to clear it.', 'var(--gold)');
+      // BUG FIX #1: correct slot count in message
+      notify(`All ${COMBO_SIZE} slots filled! Click a slot to clear it.`, 'var(--gold)');
       return;
     }
     selectedCombo[emptySlot] = skillKey;
@@ -7044,13 +7046,27 @@ function assignSelectedSkill(slotIndex) {
 }
 
 function updateAutoSlotHighlight() {
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 6; i++) {
     const icon = document.getElementById(`auto-slot-content-${i}`);
     if (!icon) continue;
+
+    const assignedSkill = autoSkillSlots[i];
+    const sk = assignedSkill ? SKILLS[assignedSkill] : null;
+
     if (selectedSkillForSlot) {
+      // Show slot-ready pulse when player is picking a slot
       icon.classList.add('slot-ready');
     } else {
       icon.classList.remove('slot-ready');
+    }
+
+    // Show assigned skill icon or empty placeholder
+    if (sk) {
+      icon.textContent = sk.icon;
+      icon.title = sk.name;
+    } else {
+      icon.textContent = '➕';
+      icon.title = '';
     }
   }
 }
@@ -7131,10 +7147,9 @@ function useSoulSkill(){
 
 function assignSkillToAutoSlot(skillId) {
   if (!skillId || !SKILLS[skillId]) return;
-  // Find first empty slot
   const emptySlot = autoSkillSlots.indexOf(null);
   if (emptySlot === -1) {
-    notify('All 3 slots filled! Tap a slot icon to clear it.', 'var(--gold)');
+    notify('All 6 slots filled! Tap a slot icon to clear it.', 'var(--gold)');
     return;
   }
   autoSkillSlots[emptySlot] = skillId;
