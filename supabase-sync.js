@@ -253,7 +253,7 @@ async function savePlayerToSupabase() {
       p_character_id:          state.character_id,
       p_level:                 state.level,
       p_xp:                    state.xp,
-      p_gold:                  state.gold,
+      p_gold:                  safeGold,
       p_hp:                    state.hp,
       p_mp:                    state.mp,
       p_reputation:            state.reputation    || 0,
