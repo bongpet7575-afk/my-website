@@ -8224,43 +8224,62 @@ async function placeBid(auctionId,currentBid){
   } catch(error){state.gold+=bidAmount;notify('❌ Bid failed: '+error.message,'var(--red)');console.error('Bid error:',error);}
 }
 
-async function buyoutAuction(auctionId,buyoutPrice){
-  if(buyoutPrice>state.gold){notify('❌ Not enough gold!','var(--red)');return;}
-  if(!confirm(`Buy now for ${formatNumber(buyoutPrice)}g?\n(10% fee applies to seller)`))return;
+async function buyoutAuction(auctionId, buyoutPrice) {
+  if (buyoutPrice > state.gold) { notify('❌ Not enough gold!', 'var(--red)'); return; }
+  if (!confirm(`Buy now for ${formatNumber(buyoutPrice)}g?\n(10% fee applies to seller)`)) return;
   try {
-    const{data:auction}=await dbClient.from('auctions').select('*').eq('id',auctionId).single();
-    if(!auction||auction.status!=='active'){notify('❌ Auction no longer active!','var(--red)');return;}
-    if(auction.current_bidder_id&&auction.current_bid>0&&auction.current_bidder_id!==state.character_id){
-      const{data:prev}=await dbClient.from('characters').select('gold').eq('id',auction.current_bidder_id).single();
-      if(prev)await dbClient.from('characters').update({gold:prev.gold+auction.current_bid}).eq('id',auction.current_bidder_id);
+    const { data: auction } = await dbClient.from('auctions').select('*').eq('id', auctionId).single();
+    if (!auction || auction.status !== 'active') { notify('❌ Auction no longer active!', 'var(--red)'); return; }
+
+    // Refund previous bidder if any (and not us)
+    if (auction.current_bidder_id && auction.current_bid > 0 && auction.current_bidder_id !== state.character_id) {
+      const { data: prev } = await dbClient.from('characters').select('gold').eq('id', auction.current_bidder_id).single();
+      if (prev) await dbClient.from('characters').update({ gold: prev.gold + auction.current_bid }).eq('id', auction.current_bidder_id);
     }
-    state.gold-=buyoutPrice;
-    const item=auction.item_description?(typeof auction.item_description==='string'?JSON.parse(auction.item_description):auction.item_description):{name:auction.item_name,rarity:auction.rarity,uid:genUid(),category:'equipment',equipped:false};
-    item.uid=genUid();addToInventory(item);
-    if (auction.source === 'player' && auction.seller_id) {
-  const goldAfterFee = Math.floor(buyoutPrice * (1 - AUCTION_FEE));
-  const { data: sc } = await dbClient
-    .from('characters')
-    .select('gold')
-    .eq('id', auction.seller_id)
-    .single();
-  if (sc) {
-    const newSellerGold = sc.gold + goldAfterFee;
-    await dbClient.from('characters')
-      .update({ gold: newSellerGold })
-      .eq('id', auction.seller_id);
-    // If seller is current player, sync state immediately
-    if (auction.seller_id === state.character_id) {
-      state.gold = newSellerGold;
-      updateUI();
+
+    // Deduct gold from buyer
+    state.gold -= buyoutPrice;
+
+    // Give item to buyer
+    const item = auction.item_description
+      ? (typeof auction.item_description === 'string' ? JSON.parse(auction.item_description) : auction.item_description)
+      : { name: auction.item_name, rarity: auction.rarity, uid: genUid(), category: 'equipment', equipped: false };
+    item.uid = genUid();
+    addToInventory(item);
+
+    // Pay seller (never touch state.gold here — buyer deduction already done above)
+    if (auction.source === 'player' && auction.seller_id && auction.seller_id !== state.character_id) {
+      const goldAfterFee = Math.floor(buyoutPrice * (1 - AUCTION_FEE));
+      const { data: sc } = await dbClient.from('characters').select('gold').eq('id', auction.seller_id).single();
+      if (sc) {
+        await dbClient.from('characters').update({ gold: sc.gold + goldAfterFee }).eq('id', auction.seller_id);
+      }
     }
-  }
-}
-    await dbClient.from('auctions').update({status:'sold',current_bidder_id:state.character_id,current_bid:buyoutPrice,winner_collected:true,seller_collected:true,updated_at:new Date().toISOString()}).eq('id',auctionId);
-trackQuestAuction();
+    // Note: if seller === buyer (buying own listing), we just keep state.gold as-is (already deducted buyoutPrice, no fee payout to self)
+
+    await dbClient.from('auctions').update({
+      status: 'sold',
+      current_bidder_id: state.character_id,
+      current_bid: buyoutPrice,
+      winner_collected: true,
+      seller_collected: true,
+      updated_at: new Date().toISOString(),
+    }).eq('id', auctionId);
+
+    trackQuestAuction();
     await savePlayerToSupabase();
-    addLog(`🏛️ Bought ${auction.item_name} for ${formatNumber(buyoutPrice)}g!`,'legendary');notify(`🏛️ Item purchased!`,'var(--gold)');playSound('snd-craft');updateUI();renderInventory();fetchAuctions();
-  } catch(error){state.gold+=buyoutPrice;notify('❌ Purchase failed: '+error.message,'var(--red)');console.error('Buyout error:',error);}
+    addLog(`🏛️ Bought ${auction.item_name} for ${formatNumber(buyoutPrice)}g!`, 'legendary');
+    notify(`🏛️ Item purchased!`, 'var(--gold)');
+    playSound('snd-craft');
+    updateUI();
+    renderInventory();
+    fetchAuctions();
+
+  } catch (error) {
+    state.gold += buyoutPrice;
+    notify('❌ Purchase failed: ' + error.message, 'var(--red)');
+    console.error('Buyout error:', error);
+  }
 }
 
 async function listItemForAuction(uid){
