@@ -24,7 +24,7 @@ async function loadPlayerFromSupabase(characterId) {
     if (error) throw error;
     if (!character) throw new Error('Character not found');
 
-    syncCharacterToState(character);
+    await syncCharacterToState(character);
     await checkTournamentRewardExpiry();
     await createWeeklyTournamentsIfMissing();
     await checkAndAutoStartTournaments();
@@ -203,8 +203,7 @@ async function syncCharacterToState(character) {
 
   // ── Rebuild skills AFTER all state is loaded ──
   // (class and legacySkills are now set, so rebuildSkills works correctly)
-  // Replace with:
-await rebuildSkills();
+  await rebuildSkills();
 
   // ── Talent unlocks (needs class + level to be set first) ──
   if (state.class && state.level >= 10) {
