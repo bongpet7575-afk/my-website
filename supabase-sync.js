@@ -231,21 +231,9 @@ async function savePlayerToSupabase() {
     // ── GOLD RECONCILIATION ──
     // Take the higher of in-memory gold vs DB gold to avoid wiping
     // gold that arrived from an auction settlement in another tab/session.
-    const { data: freshChar } = await dbClient
-      .from('characters')
-      .select('gold')
-      .eq('id', state.character_id)
-      .single();
 
     // ── GOLD: trust state.gold (already updated by all spend/earn events) ──
-      const safeGold = state.gold;
-
-    if (freshChar && freshChar.gold > state.gold) {
-      const diff = freshChar.gold - state.gold;
-      state.gold = freshChar.gold;
-      addLog(`💰 +${formatNumber(diff)}g synced from auction!`, 'gold');
-      updateUI();
-    }
+      const safeGold = state.gold;    
 
     // ── FULL SAFE UPDATE VIA RPC ──
     const { error } = await dbClient.rpc('update_character_safe', {
