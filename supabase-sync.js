@@ -63,6 +63,8 @@ async function syncCharacterToState(character) {
   state.currentScene  = character.current_scene || 'town';
 
   // ── Progression flags ──
+  state.soulWeapon        = character.soul_weapon         || null;
+  state.craftedSoulTiers  = character.crafted_soul_tiers  || {};
   state.freeStatPoints = character.free_stat_points || 0;
   state.legacyPoints   = character.legacy_points || 0;
   state.legacySkills   = character.legacy_skills || {};
@@ -246,6 +248,8 @@ async function savePlayerToSupabase() {
 
     // ── FULL SAFE UPDATE VIA RPC ──
     const { error } = await dbClient.rpc('update_character_safe', {
+      p_soul_weapon: state.soulWeapon || null,
+      p_crafted_soul_tiers: state.craftedSoulTiers || {},
       p_character_id:          state.character_id,
       p_level:                 state.level,
       p_xp:                    state.xp,
