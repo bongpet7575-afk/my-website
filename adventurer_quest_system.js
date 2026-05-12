@@ -63,7 +63,7 @@ async function acceptQuest(questId) {
       return;
     }
 
-    // Get quest definition
+    // Get quest definition FIRST — needed for cooldown check and validation
     const { data: quest, error } = await dbClient
       .from('quests_available')
       .select('*')
@@ -83,6 +83,29 @@ async function acceptQuest(questId) {
     if (!allowed.includes(quest.difficulty)) {
       notify(`❌ Need higher reputation to accept ${quest.difficulty} quests!`, 'var(--red)');
       return;
+    }
+
+    // BUG FIX: cooldown check AFTER quest is fetched so repeat_cooldown_hours is available
+    // BUG FIX: use maybeSingle() instead of single() — single() throws if no rows found
+    const { data: recentClaim } = await dbClient
+      .from('adventurer_quests')
+      .select('updated_at')
+      .eq('character_id', state.character_id)
+      .eq('quest_id', questId)
+      .eq('claimed', true)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (recentClaim) {
+      const cooldownHours = quest.repeat_cooldown_hours || 24;
+      const cooldownEnds  = new Date(new Date(recentClaim.updated_at).getTime() + cooldownHours * 3600000);
+      const now           = new Date();
+      if (now < cooldownEnds) {
+        const hoursLeft = Math.ceil((cooldownEnds - now) / 3600000);
+        notify(`⏳ Quest on cooldown! Available again in ${hoursLeft}h`, 'var(--gold)');
+        return;
+      }
     }
 
     // Insert into adventurer_quests
@@ -288,6 +311,20 @@ async function renderAdventurerBoard() {
     const incomplete  = active.filter(q => !q.claimed);
     const acceptedIds = new Set(incomplete.map(q => q.quest_id));
 
+    // ── BUG FIX: fetch cooldown data — last claimed time per quest ──
+    const { data: claimedHistory } = await dbClient
+      .from('adventurer_quests')
+      .select('quest_id, updated_at')
+      .eq('character_id', state.character_id)
+      .eq('claimed', true)
+      .order('updated_at', { ascending: false });
+
+    // Build cooldown map: quest_id → last claimed timestamp
+    const cooldownMap = {};
+    (claimedHistory || []).forEach(cq => {
+      if (!cooldownMap[cq.quest_id]) cooldownMap[cq.quest_id] = cq.updated_at;
+    });
+
     const diffColors = {
       easy:      '#22c55e',
       normal:    '#3b82f6',
@@ -306,6 +343,7 @@ async function renderAdventurerBoard() {
 
     const currentTitle = getCurrentTitle();
     const nextTitle    = getNextTitle();
+    const now          = new Date();
 
     let html = '';
 
@@ -343,10 +381,10 @@ async function renderAdventurerBoard() {
         </div>`;
 
       incomplete.forEach(aq => {
-        const pct      = Math.min(100, Math.floor((aq.progress / aq.req_qty) * 100));
-        const color    = diffColors[aq.difficulty] || 'var(--gold)';
-        const isExpired = aq.expires_at && new Date(aq.expires_at) < new Date();
-        const timeLeft  = aq.expires_at ? Math.max(0, new Date(aq.expires_at) - new Date()) : 0;
+        const pct       = Math.min(100, Math.floor((aq.progress / aq.req_qty) * 100));
+        const color     = diffColors[aq.difficulty] || 'var(--gold)';
+        const isExpired = aq.expires_at && new Date(aq.expires_at) < now;
+        const timeLeft  = aq.expires_at ? Math.max(0, new Date(aq.expires_at) - now) : 0;
         const hoursLeft = Math.floor(timeLeft / 3600000);
         const minsLeft  = Math.floor((timeLeft % 3600000) / 60000);
 
@@ -424,10 +462,11 @@ async function renderAdventurerBoard() {
       </div>`;
 
     if (!notAccepted.length) {
-      html += `<div style="text-align:center;color:var(--text-dim);
-        font-size:.78em;padding:16px;font-style:italic;">
-        All available quests accepted!
-      </div>`;
+      html += `
+        <div style="text-align:center;color:var(--text-dim);
+          font-size:.78em;padding:16px;font-style:italic;">
+          All available quests accepted!
+        </div>`;
     } else {
       // Group by difficulty
       const grouped = {};
@@ -451,25 +490,40 @@ async function renderAdventurerBoard() {
 
         grouped[diff].forEach(q => {
           const locked = isLocked || state.level < q.min_level;
+
+          // ── Cooldown check ──
+          const lastClaim    = cooldownMap[q.id];
+          const cooldownHrs  = q.repeat_cooldown_hours || 24;
+          const cooldownEnds = lastClaim
+            ? new Date(new Date(lastClaim).getTime() + cooldownHrs * 3600000)
+            : null;
+          const onCooldown   = cooldownEnds && now < cooldownEnds;
+          const cdHoursLeft  = onCooldown
+            ? Math.ceil((cooldownEnds - now) / 3600000)
+            : 0;
+
           html += `
             <div style="background:rgba(255,255,255,0.02);
-              border:1px solid ${locked?'rgba(255,255,255,0.06)':color+'33'};
+              border:1px solid ${locked||onCooldown?'rgba(255,255,255,0.06)':color+'33'};
               border-radius:var(--radius);padding:8px;margin-bottom:6px;
-              opacity:${locked?'0.5':'1'};">
+              opacity:${locked||onCooldown?'0.5':'1'};">
+
               <div style="display:flex;align-items:center;
                 justify-content:space-between;margin-bottom:3px;">
                 <div style="font-family:var(--font-title);font-size:.75em;
-                  color:${locked?'var(--text-dim)':color};">
+                  color:${locked||onCooldown?'var(--text-dim)':color};">
                   ${q.title}
                 </div>
                 <div style="font-size:.60em;color:var(--text-dim);">
                   Lv.${q.min_level}+
                 </div>
               </div>
+
               <div style="font-size:.68em;color:var(--text-dim);margin-bottom:6px;">
                 ${q.description}
                 <span style="color:var(--text-dim);"> (0/${q.req_qty})</span>
               </div>
+
               <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
                 <div style="display:flex;gap:6px;">
                   <span style="font-size:.62em;color:var(--gold);
@@ -481,10 +535,16 @@ async function renderAdventurerBoard() {
                     👑 +${q.rep_reward}
                   </span>
                 </div>
+
                 ${locked ? `
                   <div style="font-size:.62em;color:var(--text-dim);">
                     ${isLocked ? `Need ${diff} rep title` : `Need Lv.${q.min_level}`}
-                  </div>` : `
+                  </div>
+                ` : onCooldown ? `
+                  <div style="font-size:.62em;color:var(--red);">
+                    ⏳ ${cdHoursLeft}h cooldown
+                  </div>
+                ` : `
                   <button class="start-btn" onclick="acceptQuest('${q.id}')"
                     style="padding:5px 12px;font-size:.65em;
                     border-color:${color}88;color:${color};">
