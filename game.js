@@ -8254,12 +8254,14 @@ async function buyoutAuction(auctionId, buyoutPrice) {
 
     // Pay seller (never touch state.gold here — buyer deduction already done above)
     if (auction.source === 'player' && auction.seller_id && auction.seller_id !== state.character_id) {
-      const goldAfterFee = Math.floor(buyoutPrice * (1 - AUCTION_FEE));
-      const { data: sc } = await dbClient.from('characters').select('gold').eq('id', auction.seller_id).single();
-      if (sc) {
-        await dbClient.from('characters').update({ gold: sc.gold + goldAfterFee }).eq('id', auction.seller_id);
-      }
-    }
+  const goldAfterFee = Math.floor(buyoutPrice * (1 - AUCTION_FEE));
+  const { data: sc, error: scError } = await dbClient.from('characters').select('gold').eq('id', auction.seller_id).single();
+  console.log('Seller fetch:', sc, scError); // ← add this
+  if (sc) {
+    const { error: payError } = await dbClient.from('characters').update({ gold: sc.gold + goldAfterFee }).eq('id', auction.seller_id);
+    console.log('Seller pay result:', payError); // ← and this
+  }
+}
     // Note: if seller === buyer (buying own listing), we just keep state.gold as-is (already deducted buyoutPrice, no fee payout to self)
 
     await dbClient.from('auctions').update({
