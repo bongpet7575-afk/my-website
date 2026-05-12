@@ -2290,13 +2290,14 @@ async function selectCharacterAndPlay(characterId){
     }
     
     // ✅ Now safely sync
-    if(typeof syncCharacterToState==='function') {
-      syncCharacterToState(character);
-    } else {
-      console.warn('syncCharacterToState not loaded yet');
-      notify('❌ Game initialization failed', 'var(--red)');
-      return;
-    }
+    // Replace with:
+if(typeof syncCharacterToState==='function') {
+  await syncCharacterToState(character);
+} else {
+  console.warn('syncCharacterToState not loaded yet');
+  notify('❌ Game initialization failed', 'var(--red)');
+  return;
+}
     // BUG FIX: initChat AFTER sync so state.name is set correctly
     if (typeof initChat === 'function') await initChat();
 
@@ -2431,6 +2432,7 @@ function showGame(){
   loadAutoSellUI();calcStats();updateUI();renderShop();renderQuests();
   renderInventory();renderSkillBar();renderEquipSlots();fetchLeaderboard();
   setDifficulty(state.difficulty||'normal');
+  renderSoulWeaponSlot(); // ← ADD THIS
   switchMainScene('adv');
 }
 

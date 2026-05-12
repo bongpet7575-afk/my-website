@@ -47,7 +47,7 @@ async function loadPlayerFromSupabase(characterId) {
 // once at the very bottom after rebuildSkills(). This prevents
 // calcStats() from operating on stale/default values on load.
 
-function syncCharacterToState(character) {
+async function syncCharacterToState(character) {
 
   // ── Identity ──
   state.character_id  = character.id;
@@ -203,7 +203,8 @@ function syncCharacterToState(character) {
 
   // ── Rebuild skills AFTER all state is loaded ──
   // (class and legacySkills are now set, so rebuildSkills works correctly)
-  rebuildSkills();
+  // Replace with:
+await rebuildSkills();
 
   // ── Talent unlocks (needs class + level to be set first) ──
   if (state.class && state.level >= 10) {
