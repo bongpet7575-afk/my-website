@@ -2001,7 +2001,7 @@ function startStageBossFight(){
 }
 // BUG FIX #10: was 15ms (effectively instant) — player never saw rewards.
 // Now waits 3 seconds so the treasure box notification is visible.
-function dungeonComplete() {
+async function dungeonComplete() {
   const stageId        = currentStage.id;
   const completedStage = currentStage;
   currentStage  = null;
@@ -2012,6 +2012,7 @@ function dungeonComplete() {
   dropTreasureBox(stageId);
   updateUI();
   renderInventory();
+  await savePlayerToSupabase();
  
   // Auto loop — restart same dungeon after short pause
   setTimeout(() => {
