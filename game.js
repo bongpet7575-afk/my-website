@@ -7244,25 +7244,6 @@ function switchInvTab(tab){
   document.querySelectorAll('.inv-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById(`inv-tab-${tab}`).classList.add('active');renderInventory();
 }
-function renderInventory(){
-  const list=document.getElementById('inventory-list'),items=state.inventory.filter(i=>i.category===currentInvTab);
-  if(!items.length){list.innerHTML='<div class="inv-empty">No items here</div>';return;}
-  list.innerHTML=`<div class="item-grid">${items.map(item=>{
-    const stackBadge=item.stackable&&item.qty>1?`<div class="item-icon-stack">×${item.qty}</div>`:'';
-    const equippedBadge=item.equipped?`<div class="item-icon-equipped">E</div>`:'';
-    const enh=item.enhLevel||0;
-    const enhBadge=enh>0?`<div class="item-icon-stack" style="top:2px;left:3px;right:auto;color:${enh>=7?'var(--legendary)':'var(--gold)'}">+${enh}</div>`:'';
-    const glowClass=enh>=15?'enh-glow-15':enh>=7?'enh-glow-7':'';
-    const isLocked=item.levelReq&&item.levelReq>state.level;
-    const lockBadge=isLocked?`<div style="position:absolute;top:2px;left:3px;font-size:.6em;color:var(--red);">🔒${item.levelReq}</div>`:'';
-    return `<div class="item-icon-box ${item.rarity} ${glowClass}"
-      onclick="showItemPopup('inv',${item.uid})" title="${item.name}"
-      style="${isLocked?'opacity:0.5;':''}">
-      <div class="item-icon-emoji">${item.name.split(' ')[0]}</div>
-      ${stackBadge}${equippedBadge}${enhBadge}${lockBadge}
-    </div>`;
-  }).join('')}</div>`;
-}
 
 function formatNumber(num){if(num>=1000000)return(num/1000000).toFixed(1)+'M';if(num>=1000)return(num/1000).toFixed(1)+'K';return num;}
 
@@ -7421,31 +7402,202 @@ function sellItem(uid){
   renderInventory();updateUI();if(state.gold>=50)state.quests.gold50.done=true;renderQuests();
 }
 
-// ── AUTO SELL ──
-function saveAutoSell(){
-  state.autoSell.normal=document.getElementById('as-normal').checked;
-  state.autoSell.uncommon=document.getElementById('as-uncommon').checked;
-  state.autoSell.rare=document.getElementById('as-rare').checked;
-  state.autoSell.epic=document.getElementById('as-epic').checked;
-}
-function loadAutoSellUI(){
-  document.getElementById('as-normal').checked=state.autoSell?.normal||false;
-  document.getElementById('as-uncommon').checked=state.autoSell?.uncommon||false;
-  document.getElementById('as-rare').checked=state.autoSell?.rare||false;
-  document.getElementById('as-epic').checked=state.autoSell?.epic||false;
-}
-function autoSellAfterCombat(){
-  if(!state.autoSell?.normal&&!state.autoSell?.uncommon&&!state.autoSell?.rare&&!state.autoSell?.epic)return;
-  let totalGold=0,count=0;
-  const toSell=state.inventory.filter(i=>{
-    if(i.equipped||!(i.category==='equipment'||i.category==='material'))return false;
-    return(state.autoSell.normal&&i.rarity==='normal')||(state.autoSell.uncommon&&i.rarity==='uncommon')||(state.autoSell.rare&&i.rarity==='rare')||(state.autoSell.epic&&i.rarity==='epic');
-  });
-  toSell.forEach(item=>{totalGold+=(item.sellPrice||0)*(item.stackable?item.qty:1);count++;const idx=state.inventory.findIndex(i=>i.uid===item.uid);if(idx!==-1)state.inventory.splice(idx,1);});
-  if(count>0){addLog(`🗑️ Auto-sold ${count} items for ${totalGold}g!`,'gold');state.gold+=totalGold;notify(`🗑️ Auto-sold ${count} items for ${totalGold}g`,'var(--gold)');renderInventory();updateUI();}
-}
-function autoSellNow(){ autoSellAfterCombat(); }
+// ══════════════════════════════════════════
+// AUTO-SELL SYSTEM — Per inventory tab
+// ══════════════════════════════════════════
 
+// ── STATE MIGRATION ──
+// Old: state.autoSell = { normal, uncommon, rare, epic }
+// New: state.autoSell = {
+//   equipment:  { normal, uncommon, rare, epic },
+//   consumable: { normal, uncommon, rare, epic },
+//   material:   { normal, uncommon, rare, epic },
+// }
+// Migration runs once on load — converts old flat structure to new per-tab structure
+
+function migrateAutoSell() {
+  const s = state.autoSell;
+  if (!s || typeof s.equipment === 'object') return; // already migrated
+
+  // Old flat structure — migrate to per-tab
+  const flat = {
+    normal:   s.normal   || false,
+    uncommon: s.uncommon || false,
+    rare:     s.rare     || false,
+    epic:     s.epic     || false,
+  };
+
+  state.autoSell = {
+    equipment:  { ...flat },
+    consumable: { normal: false, uncommon: false, rare: false, epic: false },
+    material:   { normal: false, uncommon: false, rare: false, epic: false },
+  };
+}
+
+// ── RENDER INVENTORY (updated to include per-tab auto-sell UI) ──
+function renderInventory() {
+  migrateAutoSell();
+
+  const list  = document.getElementById('inventory-list');
+  const items = state.inventory.filter(i => i.category === currentInvTab);
+
+  // Only show auto-sell for tabs that make sense
+  const sellableTabs = ['equipment', 'material'];
+  const showAutoSell = sellableTabs.includes(currentInvTab);
+  const tabSell = state.autoSell[currentInvTab] || {};
+
+  // ── Auto-sell bar HTML ──
+  const autoSellBar = showAutoSell ? `
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+      padding:8px 10px;margin-bottom:10px;
+      background:rgba(255,255,255,0.03);border:1px solid var(--border);
+      border-radius:var(--radius);">
+      <span style="font-family:var(--font-title);font-size:.65em;
+        color:var(--text-dim);letter-spacing:1px;margin-right:4px;">
+        AUTO-SELL:
+      </span>
+      <label class="as-check">
+        <input type="checkbox" id="as-${currentInvTab}-normal"
+          ${tabSell.normal ? 'checked' : ''}
+          onchange="saveTabAutoSell('${currentInvTab}')">
+        <span style="color:#aaa;">Normal</span>
+      </label>
+      <label class="as-check">
+        <input type="checkbox" id="as-${currentInvTab}-uncommon"
+          ${tabSell.uncommon ? 'checked' : ''}
+          onchange="saveTabAutoSell('${currentInvTab}')">
+        <span style="color:var(--uncommon);">Uncommon</span>
+      </label>
+      <label class="as-check">
+        <input type="checkbox" id="as-${currentInvTab}-rare"
+          ${tabSell.rare ? 'checked' : ''}
+          onchange="saveTabAutoSell('${currentInvTab}')">
+        <span style="color:var(--rare);">Rare</span>
+      </label>
+      <label class="as-check">
+        <input type="checkbox" id="as-${currentInvTab}-epic"
+          ${tabSell.epic ? 'checked' : ''}
+          onchange="saveTabAutoSell('${currentInvTab}')">
+        <span style="color:var(--epic);">Epic</span>
+      </label>
+      <button class="start-btn" style="margin-left:auto;padding:5px 12px;font-size:.68em;"
+        onclick="autoSellTab('${currentInvTab}')">
+        🗑️ Sell Now
+      </button>
+    </div>` : '';
+
+  // ── Item grid HTML ──
+  const gridHtml = !items.length
+    ? '<div class="inv-empty">No items here</div>'
+    : `<div class="item-grid">${items.map(item => {
+        const stackBadge   = item.stackable && item.qty > 1 ? `<div class="item-icon-stack">×${item.qty}</div>` : '';
+        const equippedBadge = item.equipped ? `<div class="item-icon-equipped">E</div>` : '';
+        const enh          = item.enhLevel || 0;
+        const enhBadge     = enh > 0 ? `<div class="item-icon-stack" style="top:2px;left:3px;right:auto;color:${enh >= 7 ? 'var(--legendary)' : 'var(--gold)'}">+${enh}</div>` : '';
+        const glowClass    = enh >= 15 ? 'enh-glow-15' : enh >= 7 ? 'enh-glow-7' : '';
+        const isLocked     = item.levelReq && item.levelReq > state.level;
+        const lockBadge    = isLocked ? `<div style="position:absolute;top:2px;left:3px;font-size:.6em;color:var(--red);">🔒${item.levelReq}</div>` : '';
+        return `<div class="item-icon-box ${item.rarity} ${glowClass}"
+          onclick="showItemPopup('inv',${item.uid})" title="${item.name}"
+          style="${isLocked ? 'opacity:0.5;' : ''}">
+          <div class="item-icon-emoji">${item.name.split(' ')[0]}</div>
+          ${stackBadge}${equippedBadge}${enhBadge}${lockBadge}
+        </div>`;
+      }).join('')}</div>`;
+
+  list.innerHTML = autoSellBar + gridHtml;
+}
+
+// ── SAVE AUTO-SELL FOR A SPECIFIC TAB ──
+function saveTabAutoSell(tab) {
+  if (!state.autoSell[tab]) state.autoSell[tab] = {};
+  state.autoSell[tab].normal   = document.getElementById(`as-${tab}-normal`)?.checked   || false;
+  state.autoSell[tab].uncommon = document.getElementById(`as-${tab}-uncommon`)?.checked || false;
+  state.autoSell[tab].rare     = document.getElementById(`as-${tab}-rare`)?.checked     || false;
+  state.autoSell[tab].epic     = document.getElementById(`as-${tab}-epic`)?.checked     || false;
+  savePlayerToSupabase();
+}
+
+// ── AUTO-SELL NOW FOR A SPECIFIC TAB ──
+function autoSellTab(tab) {
+  migrateAutoSell();
+  const tabSell = state.autoSell[tab];
+  if (!tabSell) return;
+  if (!tabSell.normal && !tabSell.uncommon && !tabSell.rare && !tabSell.epic) {
+    notify('No rarities selected to auto-sell!', 'var(--gold)');
+    return;
+  }
+
+  let totalGold = 0, count = 0;
+  const toSell = state.inventory.filter(i => {
+    if (i.equipped) return false;
+    if (i.category !== tab) return false;
+    return (tabSell.normal   && i.rarity === 'normal')   ||
+           (tabSell.uncommon && i.rarity === 'uncommon') ||
+           (tabSell.rare     && i.rarity === 'rare')     ||
+           (tabSell.epic     && i.rarity === 'epic');
+  });
+
+  toSell.forEach(item => {
+    totalGold += (item.sellPrice || 0) * (item.stackable ? item.qty : 1);
+    count++;
+    const idx = state.inventory.findIndex(i => i.uid === item.uid);
+    if (idx !== -1) state.inventory.splice(idx, 1);
+  });
+
+  if (count > 0) {
+    addLog(`🗑️ Auto-sold ${count} ${tab} items for ${formatNumber(totalGold)}g!`, 'gold');
+    state.gold += totalGold;
+    notify(`🗑️ Sold ${count} items for ${formatNumber(totalGold)}g`, 'var(--gold)');
+    renderInventory();
+    updateUI();
+    savePlayerToSupabase();
+  } else {
+    notify('No items to sell in this tab!', 'var(--text-dim)');
+  }
+}
+
+// ── AUTO-SELL AFTER COMBAT (uses per-tab settings) ──
+function autoSellAfterCombat() {
+  migrateAutoSell();
+  let totalGold = 0, count = 0;
+
+  ['equipment', 'consumable', 'material'].forEach(tab => {
+    const tabSell = state.autoSell[tab];
+    if (!tabSell) return;
+    if (!tabSell.normal && !tabSell.uncommon && !tabSell.rare && !tabSell.epic) return;
+
+    const toSell = state.inventory.filter(i => {
+      if (i.equipped) return false;
+      if (i.category !== tab) return false;
+      return (tabSell.normal   && i.rarity === 'normal')   ||
+             (tabSell.uncommon && i.rarity === 'uncommon') ||
+             (tabSell.rare     && i.rarity === 'rare')     ||
+             (tabSell.epic     && i.rarity === 'epic');
+    });
+
+    toSell.forEach(item => {
+      totalGold += (item.sellPrice || 0) * (item.stackable ? item.qty : 1);
+      count++;
+      const idx = state.inventory.findIndex(i => i.uid === item.uid);
+      if (idx !== -1) state.inventory.splice(idx, 1);
+    });
+  });
+
+  if (count > 0) {
+    addLog(`🗑️ Auto-sold ${count} items for ${formatNumber(totalGold)}g!`, 'gold');
+    state.gold += totalGold;
+    notify(`🗑️ Auto-sold ${count} items for ${formatNumber(totalGold)}g`, 'var(--gold)');
+    renderInventory();
+    updateUI();
+  }
+}
+
+// ── LEGACY STUBS (kept so nothing crashes if called) ──
+// Old saveAutoSell/loadAutoSellUI/autoSellNow are replaced by the new system
+function saveAutoSell()  { /* replaced by saveTabAutoSell */ }
+function loadAutoSellUI(){ migrateAutoSell(); }
+function autoSellNow()   { autoSellAfterCombat(); }
 // ── CRAFTING ──
 function openCrafting(){document.getElementById('craft-screen').style.display='block';renderCrafting();}
 function closeCrafting(){document.getElementById('craft-screen').style.display='none';}
