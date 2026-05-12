@@ -1010,7 +1010,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
     </div><!-- /main-scene-adv -->
 
-    <!-- ───────────── TOWN SCENE ───────────── -->
+   <!-- ───────────── TOWN SCENE ───────────── -->
     <div id="main-scene-town" class="main-scene">
 
       <!-- Town tabs -->
@@ -1022,12 +1022,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
         <button class="town-tab" onclick="switchTownPanel('tournament',this)">⚔️ Tournament</button>
         <button class="town-tab" onclick="switchTownPanel('quests',this)">📋 Quests</button>
       </div>
-      <div id="town-panel-quests" class="town-panel">
-  <div id="adventurer-board"></div>
-</div>
 
-      <!-- BUG FIX #4: ALL town panels are now inside .town-content so CSS
-           layout (overflow, scroll, height) applies to all of them correctly. -->
       <div class="town-content">
 
         <!-- INVENTORY -->
@@ -1051,10 +1046,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
         </div>
 
         <!-- CRAFTING -->
-        <!-- BUG FIX #2: renamed to 'craft-grid-town' — there was a duplicate
-             id="craft-grid" in the craft modal overlay. JS that calls
-             renderCrafting() should target 'craft-grid-town' for the town panel
-             and 'craft-grid-modal' for the modal overlay. -->
         <div id="town-panel-craft" class="town-panel">
           <div id="craft-grid-town"></div>
         </div>
@@ -1075,6 +1066,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
         <div id="town-panel-tournament" class="town-panel">
           <div id="arena-content">
             <div style="text-align:center;color:var(--text-dim);padding:20px;">Loading...</div>
+          </div>
+        </div>
+
+        <!-- QUESTS -->
+        <div id="town-panel-quests" class="town-panel">
+          <div id="adventurer-board">
+            <div style="text-align:center;color:var(--text-dim);padding:20px;">Loading quests...</div>
           </div>
         </div>
 
