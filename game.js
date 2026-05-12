@@ -2317,7 +2317,7 @@ async function selectCharacterAndPlay(characterId){
   }
 }
 
-function respecClass(){
+async function respecClass(){
   if(!state.class){
     notify('No class to respec!','var(--red)');return;
   }
