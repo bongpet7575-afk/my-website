@@ -7033,10 +7033,19 @@ function selectSkillForSlot(skillId) {
 
 function assignSelectedSkill(slotIndex) {
   if (!selectedSkillForSlot) {
-    // No skill selected — clear the slot instead
     clearSlot(slotIndex);
     return;
   }
+
+  // BUG FIX: prevent same skill being assigned to multiple slots
+  if (autoSkillSlots.includes(selectedSkillForSlot)) {
+    const sk = SKILLS[selectedSkillForSlot];
+    notify(`${sk?.icon || ''} ${sk?.name || selectedSkillForSlot} is already in a slot!`, 'var(--gold)');
+    selectedSkillForSlot = null;
+    updateAutoSlotHighlight();
+    return;
+  }
+
   autoSkillSlots[slotIndex] = selectedSkillForSlot;
   selectedSkillForSlot = null;
   renderAutoSlots();
@@ -7147,6 +7156,13 @@ function useSoulSkill(){
 
 function assignSkillToAutoSlot(skillId) {
   if (!skillId || !SKILLS[skillId]) return;
+
+  // BUG FIX: prevent same skill being assigned to multiple slots
+  if (autoSkillSlots.includes(skillId)) {
+    notify(`${SKILLS[skillId].icon} ${SKILLS[skillId].name} is already in a slot!`, 'var(--gold)');
+    return;
+  }
+
   const emptySlot = autoSkillSlots.indexOf(null);
   if (emptySlot === -1) {
     notify('All 6 slots filled! Tap a slot icon to clear it.', 'var(--gold)');
