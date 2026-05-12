@@ -6850,8 +6850,7 @@ state.legacyPoints = (state.legacyPoints || 0) + legacyPts;
 
 addLog(`🎉 LEVEL UP! Level ${state.level}! +5 Talent Points, +${freeStats} Stat Points, +${legacyPts} Legacy Points!`, 'gold');
     calcStats();state.hp=state.maxHp;state.mp=state.maxMp;
-    document.getElementById('char-level').textContent=`Level ${state.level} / 100`;
-    addLog(`🎉 LEVEL UP! Level ${state.level}! +5 Talent Points!`,'gold');
+    document.getElementById('char-level').textContent=`Level ${state.level} / 100`;    
     playSound('snd-levelup');showLevelUpEffect();notify(`🎉 Level Up! Now Level ${state.level}!`,'var(--gold)');
     if(state.level>=5)state.quests.level5.done=true;
     if(state.level>=10){state.quests.level10.done=true;if(!state.class)showClassSelection();checkTalentUnlocks();}

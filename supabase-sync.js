@@ -353,7 +353,7 @@ function startAutoSave() {
     } catch (error) {
       console.warn('Auto-save failed:', error);
     }
-  }, 30000); // every 30 seconds
+  }, 120000); // every 2 minutes
 }
 
 function stopAutoSave() {
