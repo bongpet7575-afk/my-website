@@ -237,7 +237,8 @@ async function savePlayerToSupabase() {
       .eq('id', state.character_id)
       .single();
 
-    const safeGold = freshChar ? Math.max(state.gold, freshChar.gold) : state.gold;
+    // ── GOLD: trust state.gold (already updated by all spend/earn events) ──
+      const safeGold = state.gold;
 
     if (freshChar && freshChar.gold > state.gold) {
       const diff = freshChar.gold - state.gold;
