@@ -577,7 +577,7 @@ function renderStatPoints() {
 }
 
 // ── SPEND STAT POINT ──
-function spendStatPoint(statKey, amount) {
+async function spendStatPoint(statKey, amount) {
   const pts = state.freeStatPoints || 0;
   if (pts < amount) {
     notify(`❌ Not enough stat points! Need ${amount}, have ${pts}.`, 'var(--red)');
@@ -600,7 +600,7 @@ function spendStatPoint(statKey, amount) {
   notify(`+${amount} ${statNames[statKey]}!`, 'var(--gold)');
   updateUI();
   renderStatPoints();
-  savePlayerToSupabase();
+  await savePlayerToSupabase();
 }
 
 // BUG FIX #13: CLASSES[state.class] could be undefined if class key is invalid,
@@ -847,7 +847,7 @@ async function learnLegacySkill(skillId) {
   updateUI();
   renderStatPoints();
   renderSkillBar();
-  savePlayerToSupabase();
+  await savePlayerToSupabase();
 }
 
 // ── UPGRADE LEGACY SKILL ──
@@ -1169,7 +1169,7 @@ function updateRepBar() {
   repTitle.textContent = current ? `${current.label} → ${next.label}` : `→${next.label}`;
 }
 
-function addReputation(points) {
+async function addReputation(points) {
   state.reputation = (state.reputation || 0) + points;
   const current = getCurrentTitle();
   const prev = state.reputationTitle;
@@ -1183,7 +1183,7 @@ function addReputation(points) {
   }
 
   updateRepBar();
-  savePlayerToSupabase();
+  await savePlayerToSupabase();
 }
 
 // ── SOUL WEAPONS ──
@@ -2644,7 +2644,7 @@ if (state.soulBarrierAbsorb > 0) {
 }
 
 // ── END COMBAT ── (fixed: no more double gold/XP)
-function endCombat(won){
+async function endCombat(won){
   const es=document.getElementById('enemy-stats');if(es)es.style.display='none';
   if(!currentEnemy)return;
 
@@ -2740,7 +2740,7 @@ currentEnemy=null;
     loadScene('town');
   }
 
-  updateUI();renderSkillBar();updateAutoFightBtn();
+  updateUI();renderSkillBar();updateAutoFightBtn();await savePlayerToSupabase();
 }
 
 // ── AUTO SKILL SLOTS ──
@@ -2806,6 +2806,7 @@ async function collectArenaRewards() {
 
     updateUI();
     renderInventory();
+    await savePlayerToSupabase();
   } catch(e){ console.error('Collect arena rewards error:', e); }
 }
 
@@ -6340,7 +6341,7 @@ function getSoulWeaponEquipKey(statKey) {
     || ('equip' + statKey.charAt(0).toUpperCase() + statKey.slice(1));
 }
 
-function equipSoulWeapon(uid) {
+async function equipSoulWeapon(uid) {
   const item = state.inventory.find(i => i.uid === uid);
   if (!item || item.category !== 'soul_weapon') return;
 
@@ -6377,7 +6378,7 @@ function equipSoulWeapon(uid) {
   renderSoulWeaponSlot();
   renderSkillBar();
   updateUI();
-  savePlayerToSupabase();
+  await savePlayerToSupabase();
 }
 
 // ── CRAFTING ──
@@ -7290,7 +7291,7 @@ function renderEnhanceScreen(uid){
       <div style="text-align:center;margin-top:12px;"><button class="start-btn" onclick="closeEnhance()">✅ Close</button></div>
     </div>`;
 }
-function doEnhance(uid){
+async function doEnhance(uid){
   const item=state.inventory.find(i=>i.uid===uid);if(!item)return;
   const enh=item.enhLevel||0;if(enh>=15){notify('Already max enhanced!','var(--gold)');return;}
   const cost=ENHANCE_COST[enh+1],rate=ENHANCE_RATE[enh+1];
@@ -7329,10 +7330,10 @@ function doEnhance(uid){
   }
 
   if(item.equipped){Object.entries(item.stats||{}).forEach(([k,v])=>{const ek='equip'+k.charAt(0).toUpperCase()+k.slice(1);state[ek]=(state[ek]||0)+v;});}
-  if(item.equipped)calcStats();updateUI();renderInventory();renderEnhanceScreen(uid);
+  if(item.equipped)calcStats();updateUI();renderInventory();renderEnhanceScreen(uid);await savePlayerToSupabase();
 }
 
-function useItem(uid){
+async function useItem(uid){
   const idx=state.inventory.findIndex(i=>i.uid===uid);if(idx===-1)return;
   const item=state.inventory[idx];
   if(item.effect==='treasure'){openTreasureBox(item);state.inventory.splice(idx,1);renderInventory();updateUI();return;}
@@ -7341,6 +7342,7 @@ function useItem(uid){
     if(item.effect==='mp'||item.effect==='both'){state.mp=Math.min(state.maxMp,state.mp+(item.val||30));addLog(`Used ${item.name}: +${item.val} MP`,'info');spawnDmgFloat(`+${item.val}MP`,false,'mp-float');}
     if(item.stackable&&item.qty>1)item.qty--;else state.inventory.splice(idx,1);
     renderInventory();updateUI();
+    await savePlayerToSupabase();
   }
 }
 
@@ -7519,17 +7521,17 @@ function renderInventory() {
 }
 
 // ── SAVE AUTO-SELL FOR A SPECIFIC TAB ──
-function saveTabAutoSell(tab) {
+async function saveTabAutoSell(tab) {
   if (!state.autoSell[tab]) state.autoSell[tab] = {};
   state.autoSell[tab].normal   = document.getElementById(`as-${tab}-normal`)?.checked   || false;
   state.autoSell[tab].uncommon = document.getElementById(`as-${tab}-uncommon`)?.checked || false;
   state.autoSell[tab].rare     = document.getElementById(`as-${tab}-rare`)?.checked     || false;
   state.autoSell[tab].epic     = document.getElementById(`as-${tab}-epic`)?.checked     || false;
-  savePlayerToSupabase();
+  await savePlayerToSupabase();
 }
 
 // ── AUTO-SELL NOW FOR A SPECIFIC TAB ──
-function autoSellTab(tab) {
+async function autoSellTab(tab) {
   migrateAutoSell();
   const tabSell = state.autoSell[tab];
   if (!tabSell) return;
@@ -7561,14 +7563,14 @@ function autoSellTab(tab) {
     notify(`🗑️ Sold ${count} items for ${formatNumber(totalGold)}g`, 'var(--gold)');
     renderInventory();
     updateUI();
-    savePlayerToSupabase();
+    await savePlayerToSupabase();
   } else {
     notify('No items to sell in this tab!', 'var(--text-dim)');
   }
 }
 
 // ── AUTO-SELL AFTER COMBAT (uses per-tab settings) ──
-function autoSellAfterCombat() {
+async function autoSellAfterCombat() {
   migrateAutoSell();
   let totalGold = 0, count = 0;
 
@@ -7600,14 +7602,15 @@ function autoSellAfterCombat() {
     notify(`🗑️ Auto-sold ${count} items for ${formatNumber(totalGold)}g`, 'var(--gold)');
     renderInventory();
     updateUI();
+    await savePlayerToSupabase();
   }
 }
 
 // ── LEGACY STUBS (kept so nothing crashes if called) ──
 // Old saveAutoSell/loadAutoSellUI/autoSellNow are replaced by the new system
-function saveAutoSell()  { /* replaced by saveTabAutoSell */ }
-function loadAutoSellUI(){ migrateAutoSell(); }
-function autoSellNow()   { autoSellAfterCombat(); }
+async function saveAutoSell()  { /* replaced by saveTabAutoSell */ }
+async function loadAutoSellUI(){ migrateAutoSell(); }
+async function autoSellNow()   { await autoSellAfterCombat(); }
 // ── CRAFTING ──
 function openCrafting(){document.getElementById('craft-screen').style.display='block';renderCrafting();}
 function closeCrafting(){document.getElementById('craft-screen').style.display='none';}
@@ -7636,7 +7639,7 @@ function renderCrafting(){
     return`<div class="craft-card"><div class="craft-result" style="color:${rColor}">${result.name||result.slot} — <span style="color:${rColor}">${r_(result.rarity).label}</span></div><div style="font-size:.78em;color:#888;margin-bottom:5px;">${recipe.desc}</div><div class="craft-req">${reqHtml}</div><button class="craft-btn" onclick="craftItem('${recipe.id}')" ${canCraft?'':'disabled'}>⚗️ Craft</button></div>`;
   }).join('');
 }
-function craftItem(recipeId){
+async function craftItem(recipeId){
   const recipe=CRAFTING.find(r=>r.id===recipeId);if(!recipe)return;
   if(!recipe.req.every(r=>getMaterialQty(r.name)>=r.qty)){notify('Missing materials!','var(--red)');return;}
   recipe.req.forEach(req=>{let need=req.qty;state.inventory.forEach(item=>{if(item.name===req.name&&item.stackable&&need>0){const take=Math.min(item.qty,need);item.qty-=take;need-=take;}});state.inventory=state.inventory.filter(i=>!i.stackable||(i.qty||0)>0);});
@@ -7646,7 +7649,7 @@ function craftItem(recipeId){
 trackQuestCraft(result.name);
 
   if(result.category==='soul_weapon'){
-    equipSoulWeapon(result.uid);
+    await equipSoulWeapon(result.uid);
     addLog(`⚗️ Crafted & bound: ${result.name}!`,'legendary');
     notify(`✨ Soul Weapon bound!`,'var(--legendary)');
     playSound('snd-craft');
@@ -7657,7 +7660,7 @@ trackQuestCraft(result.name);
 
   addLog(`⚗️ Crafted: ${result.name}!`,result.rarity==='legendary'?'legendary':'purple');
   notify(`⚗️ Crafted ${result.name}!`,'var(--purple)');
-  playSound('snd-craft');renderCrafting();renderInventory();renderQuests();
+  playSound('snd-craft');renderCrafting();renderInventory();renderQuests();await savePlayerToSupabase();
 }
 
 function renderSoulWeaponSlot(){
