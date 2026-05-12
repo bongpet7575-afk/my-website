@@ -1113,6 +1113,8 @@ const state={
   }
 };
 
+
+
 // ── REPUTATION ──
 const REPUTATION_TITLES = [
   { id:'baron',    label:'Baron',    req:1000,  boost:0.10, soulTier:1 },
@@ -2709,10 +2711,18 @@ function endCombat(won){
     // Mat drop — only works inside dungeons (currentStage tells us which stage)
     if(currentStage) rollMatDrop(currentStage.id, wasBoss);
     checkLevelUp();
-    renderQuests();
+renderQuests();
 
-    // Clear enemy AFTER rewards
-    currentEnemy=null;
+// ── QUEST TRACKING ──
+trackQuestKill(
+  defeatedId,
+  wasBoss,
+  currentStage?.id || null,
+  g  // gold earned this fight
+);
+
+// Clear enemy AFTER rewards
+currentEnemy=null;
     showChoicesMode();
 
     // Dungeon flow
@@ -7633,6 +7643,7 @@ function craftItem(recipeId){
   const result={...recipe.result,uid:genUid(),sellPrice:Math.round((RARITY[recipe.result.rarity]?.mult||1)*15*state.level*.5)};
   if(result.stackable)result.qty=1;if(result.category==='equipment')result.equipped=false;
   addToInventory(result);state.quests.craft.done=true;
+trackQuestCraft(result.name);
 
   if(result.category==='soul_weapon'){
     equipSoulWeapon(result.uid);
@@ -8246,6 +8257,7 @@ async function buyoutAuction(auctionId,buyoutPrice){
   }
 }
     await dbClient.from('auctions').update({status:'sold',current_bidder_id:state.character_id,current_bid:buyoutPrice,winner_collected:true,seller_collected:true,updated_at:new Date().toISOString()}).eq('id',auctionId);
+trackQuestAuction();
     await savePlayerToSupabase();
     addLog(`🏛️ Bought ${auction.item_name} for ${formatNumber(buyoutPrice)}g!`,'legendary');notify(`🏛️ Item purchased!`,'var(--gold)');playSound('snd-craft');updateUI();renderInventory();fetchAuctions();
   } catch(error){state.gold+=buyoutPrice;notify('❌ Purchase failed: '+error.message,'var(--red)');console.error('Buyout error:',error);}
