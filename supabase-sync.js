@@ -219,6 +219,54 @@ async function syncCharacterToState(character) {
 }
 
 // ============================================
+// REALTIME SUBSCRIPTION
+// ============================================
+
+let realtimeChannel = null;
+
+function startRealtimeSync() {
+  if (!state.character_id) return;
+
+  // Clean up any existing subscription first
+  if (realtimeChannel) {
+    dbClient.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
+
+  realtimeChannel = dbClient
+    .channel('character-sync')
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'characters',
+      filter: `id=eq.${state.character_id}`,
+    }, (payload) => {
+      const newGold = payload.new.gold;
+
+      // Only sync gold UP (auction payout from another session)
+      // Never sync gold DOWN — that would revert spending
+      if (newGold > state.gold) {
+        const diff = newGold - state.gold;
+        state.gold = newGold;
+        addLog(`💰 +${formatNumber(diff)}g from auction sale!`, 'legendary');
+        notify(`💰 +${formatNumber(diff)}g received!`, 'var(--gold)');
+        updateUI();
+      }
+    })
+    .subscribe((status) => {
+      console.log('🔴 Realtime status:', status);
+    });
+}
+
+function stopRealtimeSync() {
+  if (realtimeChannel) {
+    dbClient.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+    console.log('🔴 Realtime stopped');
+  }
+}
+
+// ============================================
 // SAVE PLAYER TO SUPABASE
 // ============================================
 
@@ -372,17 +420,12 @@ function setupAutoSaveOnUnload() {
 function initializeSupabaseSync() {
   startAutoSave();
   setupAutoSaveOnUnload();
-
-  // Check for auction settlements every 60 seconds
-  setInterval(async () => {
-    try { await checkAndSettleAuctions(); }
-    catch (e) { console.warn('Auction settle check failed:', e); }
-  }, 60000);
-
+  startRealtimeSync(); // ← add this
   console.log('🔄 Supabase sync initialized');
 }
 
 function cleanupSupabaseSync() {
   stopAutoSave();
+  stopRealtimeSync(); // ← add this
   console.log('🔄 Supabase sync stopped');
 }
