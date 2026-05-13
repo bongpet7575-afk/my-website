@@ -182,43 +182,22 @@ async function buyoutAuction(auctionId, buyoutPrice) {
   if (buyoutPrice > state.gold) { notify('❌ Not enough gold!', 'var(--red)'); return; }
   if (!confirm(`Buy now for ${formatNumber(buyoutPrice)}g?\n(10% fee applies to seller)`)) return;
   try {
-    const { data: auction } = await dbClient.from('auctions').select('*').eq('id', auctionId).single();
-    if (!auction || auction.status !== 'active') { notify('❌ Auction no longer active!', 'var(--red)'); return; }
+    const { error } = await dbClient.rpc('process_buyout', {
+      p_auction_id: auctionId,
+      p_buyer_character_id: state.character_id,
+    });
+    if (error) throw error;
 
-    // Refund previous bidder via RPC (only if not us)
-    if (auction.current_bidder_id && auction.current_bid > 0 && auction.current_bidder_id !== state.character_id) {
-      const { error: refundError } = await dbClient.rpc('refund_auction_bidder', { p_auction_id: auctionId });
-      if (refundError) console.error('Refund failed:', refundError);
-    }
-
-    // Deduct gold from buyer
+    // Deduct gold locally to match what DB just did
     state.gold -= buyoutPrice;
 
     // Give item to buyer
+    const { data: auction } = await dbClient.from('auctions').select('*').eq('id', auctionId).single();
     const item = auction.item_description
       ? (typeof auction.item_description === 'string' ? JSON.parse(auction.item_description) : auction.item_description)
       : { name: auction.item_name, rarity: auction.rarity, uid: genUid(), category: 'equipment', equipped: false };
     item.uid = genUid();
     addToInventory(item);
-
-    // Mark auction completed FIRST so pay_auction_seller can read current_bid from it
-    await dbClient.from('auctions').update({
-      status: 'completed',
-      current_bidder_id: state.character_id,
-      current_bid: buyoutPrice,
-      winner_collected: true,
-      seller_collected: false,
-      updated_at: new Date().toISOString(),
-    }).eq('id', auctionId);
-
-    // Pay seller via RPC (skipped if system listing or seller === buyer)
-    if (auction.source === 'player' && auction.seller_id && auction.seller_id !== state.character_id) {
-      const { error: payError } = await dbClient.rpc('pay_auction_seller', { p_auction_id: auctionId });
-      if (payError) console.error('Seller pay failed:', payError);
-      else await dbClient.from('auctions').update({ seller_collected: true }).eq('id', auctionId);
-    } else {
-      await dbClient.from('auctions').update({ seller_collected: true }).eq('id', auctionId);
-    }
 
     trackQuestAuction();
     await savePlayerToSupabase();
@@ -230,7 +209,6 @@ async function buyoutAuction(auctionId, buyoutPrice) {
     fetchAuctions();
 
   } catch (error) {
-    state.gold += buyoutPrice;
     notify('❌ Purchase failed: ' + error.message, 'var(--red)');
     console.error('Buyout error:', error);
   }
