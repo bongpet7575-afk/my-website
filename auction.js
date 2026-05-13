@@ -60,18 +60,33 @@ async function checkAndSettleAuctions() {
 // ============================================
 
 async function generateSystemAuctionItems() {
-  const today = new Date().toISOString().split('T')[0];
+  const { data: existing } = await dbClient.from('auctions').select('id')
+    .eq('source', 'system')
+    .eq('status', 'active');
+  if (existing && existing.length >= SYSTEM_ITEMS_PER_DAY) return;
+  // ... rest unchanged
+const today = new Date().toISOString().split('T')[0];
   const { data: existing } = await dbClient.from('auctions').select('id')
     .eq('source', 'system').gte('created_at', today + 'T00:00:00Z').eq('status', 'active');
   if (existing && existing.length >= SYSTEM_ITEMS_PER_DAY) return;
   const slots = ['weapon', 'armor', 'helmet', 'boots', 'ring', 'amulet'];
   const rarities = ['rare', 'rare', 'epic', 'epic', 'legendary'];
+
+  // Stage ranges per rarity — auction house sells mid-to-high tier items
+  const rarityStage = {
+    rare:      [3, 5],
+    epic:      [5, 8],
+    legendary: [8, 10],
+  };
+
   const endsAt = new Date();
   endsAt.setHours(endsAt.getHours() + 24);
   for (let i = 0; i < SYSTEM_ITEMS_PER_DAY; i++) {
     const slot = slots[Math.floor(Math.random() * slots.length)];
     const rarity = rarities[Math.floor(Math.random() * rarities.length)];
-    const item = mkEquipDrop(slot, rarity);
+    const [minStage, maxStage] = rarityStage[rarity];
+    const stageId = Math.floor(Math.random() * (maxStage - minStage + 1)) + minStage;
+    const item = mkEquipDrop(slot, rarity, stageId);
     const basePrice = Math.floor(item.sellPrice * (2 + Math.random() * 2));
     await dbClient.from('auctions').insert({
       seller_id: null, item_name: item.name, item_description: JSON.stringify(item),
@@ -81,7 +96,6 @@ async function generateSystemAuctionItems() {
     });
   }
 }
-
 // ============================================
 // FETCH & RENDER
 // ============================================
