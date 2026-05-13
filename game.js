@@ -8091,65 +8091,43 @@ async function checkAndSettleAuctions() {
 
 async function settleExpiredAuction(auctionId) {
   try {
-    const { data: auction } = await dbClient
-      .from('auctions')
-      .select('*')
-      .eq('id', auctionId)
-      .single();
+    const { data: auction } = await dbClient.from('auctions').select('*').eq('id', auctionId).single();
     if (!auction || auction.status !== 'active') return;
 
     // No bids — return item to seller
     if (!auction.current_bidder_id || !auction.current_bid || auction.current_bid === 0) {
       if (auction.source === 'player' && auction.seller_id) {
-        const { data: sc } = await dbClient
-          .from('characters')
-          .select('inventory')
-          .eq('id', auction.seller_id)
-          .single();
+        const { data: sc } = await dbClient.from('characters').select('inventory').eq('id', auction.seller_id).single();
         if (sc) {
           const inv = sc.inventory || [];
           const item = auction.item_description
-            ? (typeof auction.item_description === 'string'
-              ? JSON.parse(auction.item_description)
-              : auction.item_description)
+            ? (typeof auction.item_description === 'string' ? JSON.parse(auction.item_description) : auction.item_description)
             : { name: auction.item_name, rarity: auction.rarity, uid: genUid() };
           item.uid = genUid();
           inv.push(item);
-          await dbClient.from('characters')
-            .update({ inventory: inv })
-            .eq('id', auction.seller_id);
+          await dbClient.from('characters').update({ inventory: inv }).eq('id', auction.seller_id);
         }
       }
-      await dbClient.from('auctions')
-        .update({ status: 'expired' })
-        .eq('id', auctionId);
+      await dbClient.from('auctions').update({ status: 'expired' }).eq('id', auctionId);
       return;
     }
 
-    // Has a winner — pay seller directly in DB atomically
-    const goldAfterFee = Math.floor(auction.current_bid * (1 - AUCTION_FEE));
-
-    if (auction.source === 'player' && auction.seller_id) {
-      // Read fresh gold from DB — never use state.gold here to avoid stale data
-      const { data: sc } = await dbClient
-        .from('characters')
-        .select('gold')
-        .eq('id', auction.seller_id)
-        .single();
-      if (sc) {
-        await dbClient.from('characters')
-          .update({ gold: sc.gold + goldAfterFee })
-          .eq('id', auction.seller_id);
-      }
-    }
-
-    // Mark auction completed — seller_collected:true means gold already sent
+    // Mark completed FIRST so pay_auction_seller can read current_bid
     await dbClient.from('auctions').update({
       status: 'completed',
-      seller_collected: true,   // ← always true, gold paid above
-      winner_collected: false,  // buyer still needs to collect item
+      seller_collected: false,
+      winner_collected: false,
       updated_at: new Date().toISOString(),
     }).eq('id', auctionId);
+
+    // Pay seller via RPC
+    if (auction.source === 'player' && auction.seller_id) {
+      const { error: payError } = await dbClient.rpc('pay_auction_seller', { p_auction_id: auctionId });
+      if (payError) console.error('Settle pay failed:', payError);
+      else await dbClient.from('auctions').update({ seller_collected: true }).eq('id', auctionId);
+    } else {
+      await dbClient.from('auctions').update({ seller_collected: true }).eq('id', auctionId);
+    }
 
   } catch (error) { console.error('Settle single auction error:', error); }
 }
@@ -8208,25 +8186,41 @@ function renderAuctions(auctions,sellerMap={}){
   }).join('');
 }
 
-async function placeBid(auctionId,currentBid){
-  const minBid=currentBid+Math.max(100,Math.floor(currentBid*0.05));
-  const bidAmount=parseInt(prompt(`Minimum bid: ${formatNumber(minBid)}g\nEnter your bid:`));
-  if(!bidAmount||isNaN(bidAmount))return;
-  if(bidAmount<minBid){notify(`❌ Minimum bid is ${formatNumber(minBid)}g!`,'var(--red)');return;}
-  if(bidAmount>state.gold){notify('❌ Not enough gold!','var(--red)');return;}
+async function placeBid(auctionId, currentBid) {
+  const minBid = currentBid + Math.max(100, Math.floor(currentBid * 0.05));
+  const bidAmount = parseInt(prompt(`Minimum bid: ${formatNumber(minBid)}g\nEnter your bid:`));
+  if (!bidAmount || isNaN(bidAmount)) return;
+  if (bidAmount < minBid) { notify(`❌ Minimum bid is ${formatNumber(minBid)}g!`, 'var(--red)'); return; }
+  if (bidAmount > state.gold) { notify('❌ Not enough gold!', 'var(--red)'); return; }
   try {
-    const{data:auction}=await dbClient.from('auctions').select('*').eq('id',auctionId).single();
-    if(!auction||auction.status!=='active'){notify('❌ Auction no longer active!','var(--red)');return;}
-    if(auction.current_bidder_id&&auction.current_bid>0){
-      const{data:prev}=await dbClient.from('characters').select('gold').eq('id',auction.current_bidder_id).single();
-      if(prev){await dbClient.from('characters').update({gold:prev.gold+auction.current_bid}).eq('id',auction.current_bidder_id);}
-      if(auction.current_bidder_id===state.character_id)state.gold+=auction.current_bid;
+    const { data: auction } = await dbClient.from('auctions').select('*').eq('id', auctionId).single();
+    if (!auction || auction.status !== 'active') { notify('❌ Auction no longer active!', 'var(--red)'); return; }
+
+    // Refund previous bidder via RPC (handles cross-user write safely)
+    if (auction.current_bidder_id && auction.current_bid > 0) {
+      const { error: refundError } = await dbClient.rpc('refund_auction_bidder', { p_auction_id: auctionId });
+      if (refundError) console.error('Refund failed:', refundError);
+      // If WE were the previous bidder, sync state.gold back up
+      if (auction.current_bidder_id === state.character_id) state.gold += auction.current_bid;
     }
-    state.gold-=bidAmount;
-    await dbClient.from('auctions').update({current_bid:bidAmount,current_bidder_id:state.character_id,updated_at:new Date().toISOString()}).eq('id',auctionId);
+
+    state.gold -= bidAmount;
+    await dbClient.from('auctions').update({
+      current_bid: bidAmount,
+      current_bidder_id: state.character_id,
+      updated_at: new Date().toISOString(),
+    }).eq('id', auctionId);
+
     await savePlayerToSupabase();
-    addLog(`⬆️ Bid: ${formatNumber(bidAmount)}g on ${auction.item_name}!`,'gold');notify(`⬆️ Bid: ${formatNumber(bidAmount)}g!`,'var(--gold)');updateUI();fetchAuctions();
-  } catch(error){state.gold+=bidAmount;notify('❌ Bid failed: '+error.message,'var(--red)');console.error('Bid error:',error);}
+    addLog(`⬆️ Bid: ${formatNumber(bidAmount)}g on ${auction.item_name}!`, 'gold');
+    notify(`⬆️ Bid: ${formatNumber(bidAmount)}g!`, 'var(--gold)');
+    updateUI();
+    fetchAuctions();
+  } catch (error) {
+    state.gold += bidAmount;
+    notify('❌ Bid failed: ' + error.message, 'var(--red)');
+    console.error('Bid error:', error);
+  }
 }
 
 async function buyoutAuction(auctionId, buyoutPrice) {
@@ -8236,10 +8230,10 @@ async function buyoutAuction(auctionId, buyoutPrice) {
     const { data: auction } = await dbClient.from('auctions').select('*').eq('id', auctionId).single();
     if (!auction || auction.status !== 'active') { notify('❌ Auction no longer active!', 'var(--red)'); return; }
 
-    // Refund previous bidder if any (and not us)
+    // Refund previous bidder via RPC (only if not us)
     if (auction.current_bidder_id && auction.current_bid > 0 && auction.current_bidder_id !== state.character_id) {
-      const { data: prev } = await dbClient.from('characters').select('gold').eq('id', auction.current_bidder_id).single();
-      if (prev) await dbClient.from('characters').update({ gold: prev.gold + auction.current_bid }).eq('id', auction.current_bidder_id);
+      const { error: refundError } = await dbClient.rpc('refund_auction_bidder', { p_auction_id: auctionId });
+      if (refundError) console.error('Refund failed:', refundError);
     }
 
     // Deduct gold from buyer
@@ -8252,28 +8246,26 @@ async function buyoutAuction(auctionId, buyoutPrice) {
     item.uid = genUid();
     addToInventory(item);
 
-    // Pay seller (never touch state.gold here — buyer deduction already done above)
-    if (auction.source === 'player' && auction.seller_id && auction.seller_id !== state.character_id) {
-  const goldAfterFee = Math.floor(buyoutPrice * (1 - AUCTION_FEE));
-  const { error: payError } = await dbClient.rpc('pay_auction_seller', {
-    p_seller_id: auction.seller_id,
-    p_gold_amount: goldAfterFee,
-  });
-  if (payError) console.error('Seller pay failed:', payError);
-
-}
-
-
-    // Note: if seller === buyer (buying own listing), we just keep state.gold as-is (already deducted buyoutPrice, no fee payout to self)
-
+    // Mark auction completed FIRST so pay_auction_seller can read current_bid from it
     await dbClient.from('auctions').update({
       status: 'completed',
       current_bidder_id: state.character_id,
       current_bid: buyoutPrice,
       winner_collected: true,
-      seller_collected: true,
+      seller_collected: false,
       updated_at: new Date().toISOString(),
     }).eq('id', auctionId);
+
+    // Pay seller via RPC (skipped if system listing or seller === buyer)
+    if (auction.source === 'player' && auction.seller_id && auction.seller_id !== state.character_id) {
+      const { error: payError } = await dbClient.rpc('pay_auction_seller', { p_auction_id: auctionId });
+      if (payError) console.error('Seller pay failed:', payError);
+      else {
+        await dbClient.from('auctions').update({ seller_collected: true }).eq('id', auctionId);
+      }
+    } else {
+      await dbClient.from('auctions').update({ seller_collected: true }).eq('id', auctionId);
+    }
 
     trackQuestAuction();
     await savePlayerToSupabase();
@@ -8314,40 +8306,27 @@ async function listItemForAuction(uid){
 async function cancelAuction(auctionId) {
   if (!confirm('Cancel this auction? Item will be returned.')) return;
   try {
-    const { data: auction } = await dbClient
-      .from('auctions').select('*').eq('id', auctionId).single();
+    const { data: auction } = await dbClient.from('auctions').select('*').eq('id', auctionId).single();
     if (!auction) { notify('❌ Auction not found!', 'var(--red)'); return; }
-    if (auction.seller_id !== state.character_id) {
-      notify('❌ Not your auction!', 'var(--red)'); return;
-    }
+    if (auction.seller_id !== state.character_id) { notify('❌ Not your auction!', 'var(--red)'); return; }
 
-    // ── Refund current bidder first if there is one ──
+    // Refund bidder via RPC
     if (auction.current_bidder_id && auction.current_bid > 0) {
-      const { data: bidder } = await dbClient
-        .from('characters').select('gold').eq('id', auction.current_bidder_id).single();
-      if (bidder) {
-        await dbClient.from('characters')
-          .update({ gold: bidder.gold + auction.current_bid })
-          .eq('id', auction.current_bidder_id);
-      }
-      if (auction.current_bidder_id === state.character_id)
-        state.gold += auction.current_bid;
+      const { error: refundError } = await dbClient.rpc('refund_auction_bidder', { p_auction_id: auctionId });
+      if (refundError) console.error('Refund failed:', refundError);
+      if (auction.current_bidder_id === state.character_id) state.gold += auction.current_bid;
     }
 
-    // ── Cancel in DB FIRST before touching inventory ──
-    const { error } = await dbClient
-      .from('auctions')
+    // Cancel in DB FIRST
+    const { error } = await dbClient.from('auctions')
       .update({ status: 'cancelled' })
       .eq('id', auctionId)
-      .eq('seller_id', state.character_id); // ← extra safety: only cancel own auctions
-
+      .eq('seller_id', state.character_id);
     if (error) throw error;
 
-    // ── Only add item back AFTER DB confirms cancellation ──
+    // Return item to seller
     const item = auction.item_description
-      ? (typeof auction.item_description === 'string'
-        ? JSON.parse(auction.item_description)
-        : auction.item_description)
+      ? (typeof auction.item_description === 'string' ? JSON.parse(auction.item_description) : auction.item_description)
       : { name: auction.item_name, rarity: auction.rarity, category: 'equipment', equipped: false };
     item.uid = genUid();
     addToInventory(item);
