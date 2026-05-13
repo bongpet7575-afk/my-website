@@ -372,6 +372,13 @@ function setupAutoSaveOnUnload() {
 function initializeSupabaseSync() {
   startAutoSave();
   setupAutoSaveOnUnload();
+
+  // Check for auction settlements every 60 seconds
+  setInterval(async () => {
+    try { await checkAndSettleAuctions(); }
+    catch (e) { console.warn('Auction settle check failed:', e); }
+  }, 60000);
+
   console.log('🔄 Supabase sync initialized');
 }
 
