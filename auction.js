@@ -86,6 +86,7 @@ async function generateSystemAuctionItems() {
       current_bid: 0, current_bidder_id: null, ends_at: endsAt.toISOString(),
       status: 'active', source: 'system', seller_collected: true, winner_collected: false,
     });
+    console.log('🔧 insert result:', error ? error.message : 'success');
   }
 }
 // ============================================
