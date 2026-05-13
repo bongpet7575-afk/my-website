@@ -1,6 +1,7 @@
 // ── AUCTION HOUSE ──
 const AUCTION_FEE=0.10;
 const SYSTEM_ITEMS_PER_DAY=5;
+
 async function checkAndSettleAuctions() {
   try {
     // Step 1 — settle all expired active auctions
@@ -43,32 +44,10 @@ async function checkAndSettleAuctions() {
       notify(`📦 New items from auction!`, 'var(--gold)');
     }
 
-    // Step 3 — notify seller of completed sales (gold already paid in settleExpiredAuction)
-    // We just need to sync state.gold from DB in case this session missed the settlement
-    const { data: myCompleted } = await dbClient
-      .from('auctions')
-      .select('*')
-      .eq('seller_id', state.character_id)
-      .eq('status', 'completed')
-      .eq('seller_collected', true);
-
-    if (myCompleted && myCompleted.length) {
-      // Re-sync gold from DB to make sure state matches what was already paid
-      const { data: freshChar } = await dbClient
-        .from('characters')
-        .select('gold')
-        .eq('id', state.character_id)
-        .single();
-      if (freshChar && freshChar.gold !== state.gold) {
-        const diff = freshChar.gold - state.gold;
-        if (diff > 0) {
-          state.gold = freshChar.gold;
-          addLog(`🏛️ +${formatNumber(diff)}g from auction sales!`, 'legendary');
-          notify(`💰 +${formatNumber(diff)}g from auction sales!`, 'var(--gold)');
-          updateUI();
-        }
-      }
-    }
+    // Step 3 — REMOVED
+    // Previously synced state.gold from DB here, but that caused buyer gold
+    // to revert after spending. Seller gold is written directly to DB via
+    // pay_auction_seller RPC and will be correct on next login/load.
 
   } catch (error) { console.error('Settle auctions error:', error); }
 }
@@ -78,19 +57,11 @@ async function settleExpiredAuction(auctionId) {
     const { data: auction } = await dbClient.from('auctions').select('*').eq('id', auctionId).single();
     if (!auction || auction.status !== 'active') return;
 
-    // No bids — return item to seller
+    // No bids — return item to seller via RPC (direct DB write blocked by RLS)
     if (!auction.current_bidder_id || !auction.current_bid || auction.current_bid === 0) {
       if (auction.source === 'player' && auction.seller_id) {
-        const { data: sc } = await dbClient.from('characters').select('inventory').eq('id', auction.seller_id).single();
-        if (sc) {
-          const inv = sc.inventory || [];
-          const item = auction.item_description
-            ? (typeof auction.item_description === 'string' ? JSON.parse(auction.item_description) : auction.item_description)
-            : { name: auction.item_name, rarity: auction.rarity, uid: genUid() };
-          item.uid = genUid();
-          inv.push(item);
-          await dbClient.from('characters').update({ inventory: inv }).eq('id', auction.seller_id);
-        }
+        const { error: returnError } = await dbClient.rpc('return_item_to_seller', { p_auction_id: auctionId });
+        if (returnError) console.error('Return item failed:', returnError);
       }
       await dbClient.from('auctions').update({ status: 'expired' }).eq('id', auctionId);
       return;
@@ -115,6 +86,7 @@ async function settleExpiredAuction(auctionId) {
 
   } catch (error) { console.error('Settle single auction error:', error); }
 }
+
 async function generateSystemAuctionItems(){
   const today=new Date().toISOString().split('T')[0];
   const{data:existing}=await dbClient.from('auctions').select('id').eq('source','system').gte('created_at',today+'T00:00:00Z').eq('status','active');
@@ -132,12 +104,11 @@ async function fetchAuctions(){
   const container=document.getElementById('auction-list');if(!container)return;
   container.innerHTML='<div style="text-align:center;color:#888;padding:20px;">Loading...</div>';
   try {
-    await checkAndSettleAuctions(); // ← ADD THIS
+    await checkAndSettleAuctions();
     await generateSystemAuctionItems();
     const{data,error}=await dbClient.from('auctions').select('*').eq('status','active').gt('ends_at',new Date().toISOString()).order('ends_at',{ascending:true});
     if(error)throw error;
     if(!data||!data.length){container.innerHTML='<div style="text-align:center;color:#444;padding:20px;font-style:italic;">No active auctions!</div>';return;}
-    // Fetch seller names separately
     const sellerIds=[...new Set(data.map(a=>a.seller_id).filter(Boolean))];
     let sellerMap={};
     if(sellerIds.length){const{data:chars}=await dbClient.from('characters').select('id,name').in('id',sellerIds);if(chars)chars.forEach(c=>{sellerMap[c.id]=c.name;});}
@@ -244,9 +215,7 @@ async function buyoutAuction(auctionId, buyoutPrice) {
     if (auction.source === 'player' && auction.seller_id && auction.seller_id !== state.character_id) {
       const { error: payError } = await dbClient.rpc('pay_auction_seller', { p_auction_id: auctionId });
       if (payError) console.error('Seller pay failed:', payError);
-      else {
-        await dbClient.from('auctions').update({ seller_collected: true }).eq('id', auctionId);
-      }
+      else await dbClient.from('auctions').update({ seller_collected: true }).eq('id', auctionId);
     } else {
       await dbClient.from('auctions').update({ seller_collected: true }).eq('id', auctionId);
     }
@@ -279,8 +248,8 @@ async function listItemForAuction(uid){
     const idx=state.inventory.findIndex(i=>i.uid===uid);state.inventory.splice(idx,1);
     const endsAt=new Date();endsAt.setHours(endsAt.getHours()+24);
     const{error}=await dbClient.from('auctions').insert({
-  seller_id:state.character_id,
-  user_id:state.user_id,item_name:item.name,item_description:JSON.stringify(item),rarity:item.rarity||'normal',start_price:startPrice,buyout_price:buyoutPrice||null,current_bid:0,current_bidder_id:null,ends_at:endsAt.toISOString(),status:'active',source:'player',seller_collected:false,winner_collected:false});
+      seller_id:state.character_id,
+      user_id:state.user_id,item_name:item.name,item_description:JSON.stringify(item),rarity:item.rarity||'normal',start_price:startPrice,buyout_price:buyoutPrice||null,current_bid:0,current_bidder_id:null,ends_at:endsAt.toISOString(),status:'active',source:'player',seller_collected:false,winner_collected:false});
     if(error)throw error;
     await savePlayerToSupabase();
     addLog(`🏛️ ${item.name} listed! Starts at ${formatNumber(startPrice)}g`,'gold');notify(`🏛️ Item listed for auction!`,'var(--gold)');renderInventory();updateUI();
