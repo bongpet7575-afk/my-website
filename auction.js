@@ -64,21 +64,13 @@ async function generateSystemAuctionItems() {
     .eq('source', 'system')
     .eq('status', 'active');
   if (existing && existing.length >= SYSTEM_ITEMS_PER_DAY) return;
-  // ... rest unchanged
-const today = new Date().toISOString().split('T')[0];
-  const { data: existing } = await dbClient.from('auctions').select('id')
-    .eq('source', 'system').gte('created_at', today + 'T00:00:00Z').eq('status', 'active');
-  if (existing && existing.length >= SYSTEM_ITEMS_PER_DAY) return;
   const slots = ['weapon', 'armor', 'helmet', 'boots', 'ring', 'amulet'];
   const rarities = ['rare', 'rare', 'epic', 'epic', 'legendary'];
-
-  // Stage ranges per rarity — auction house sells mid-to-high tier items
   const rarityStage = {
     rare:      [3, 5],
     epic:      [5, 8],
     legendary: [8, 10],
   };
-
   const endsAt = new Date();
   endsAt.setHours(endsAt.getHours() + 24);
   for (let i = 0; i < SYSTEM_ITEMS_PER_DAY; i++) {
