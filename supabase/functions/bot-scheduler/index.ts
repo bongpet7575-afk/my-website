@@ -112,7 +112,6 @@ async function botDungeonRun(bot: any) {
 
   console.log(`🤖 ${bot.name} completed stage ${stage.id} — +${xpGained}xp +${goldGained}g`);
 }
-
 // ── ACTION 2: BOT PLACE BID ──
 async function botPlaceBid(bot: any) {
   const { data: auctions, error } = await supabase
@@ -120,13 +119,13 @@ async function botPlaceBid(bot: any) {
     .select('*')
     .eq('status', 'active')
     .eq('source', 'player')
+    .in('rarity', ['rare', 'epic', 'legendary'])
     .gt('ends_at', new Date().toISOString())
     .neq('seller_id', bot.id)
-    .neq('current_bidder_id', bot.id)
+    .or(`current_bidder_id.is.null,current_bidder_id.neq.${bot.id}`)
     .limit(10);
 
   console.log(`🤖 ${bot.name} found ${auctions?.length ?? 0} auctions to bid on`, error);
-
   if (!auctions || !auctions.length) return;
 
   const toBid = auctions.sort(() => Math.random() - 0.5).slice(0, rand(1, 2));
@@ -134,12 +133,21 @@ async function botPlaceBid(bot: any) {
   for (const auction of toBid) {
     const currentBid = auction.current_bid || auction.start_price;
     const minBid = currentBid + Math.max(100, Math.floor(currentBid * 0.05));
-    const maxBotBid = Math.floor(bot.gold * 0.30);
-    console.log(`🤖 ${bot.name} considering ${auction.item_name} — minBid:${minBid} maxBotBid:${maxBotBid}`);
-    if (minBid > maxBotBid) { console.log(`🤖 ${bot.name} can't afford it`); continue; }
-    // ... rest unchanged
-  
-    // Bid between min and 20% above min
+    const maxBotBid = Math.floor(bot.gold * 0.15);
+
+    try {
+      const item = typeof auction.item_description === 'string'
+        ? JSON.parse(auction.item_description)
+        : auction.item_description;
+      const fairValue = (item?.sellPrice || 0) * 10;
+      if (auction.start_price > fairValue * 3) {
+        console.log(`🤖 ${bot.name} skipping overpriced item ${auction.item_name}`);
+        continue;
+      }
+    } catch (e) { continue; }
+
+    if (minBid > maxBotBid) continue;
+
     const bidAmount = rand(minBid, Math.min(maxBotBid, Math.floor(minBid * 1.2)));
 
     // Refund previous bidder if any
@@ -160,7 +168,7 @@ async function botPlaceBid(bot: any) {
     await supabase.from('characters')
       .update({ gold: bot.gold - bidAmount })
       .eq('id', bot.id);
-    bot.gold -= bidAmount; // update local copy
+    bot.gold -= bidAmount;
 
     // Place bid
     await supabase.from('auctions').update({
@@ -172,7 +180,6 @@ async function botPlaceBid(bot: any) {
     console.log(`🤖 ${bot.name} bid ${bidAmount}g on ${auction.item_name}`);
   }
 }
-
 // ── ACTION 3: BOT LIST ITEM ──
 async function botListItem(bot: any) {
   // 40% chance to list an item this run
