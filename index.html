@@ -271,7 +271,32 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 /* ═══════════════════════════════ COMBAT LAYOUT ════ */
 #arena{flex-shrink:0;}
 #story-content{flex-shrink:0;}
-#combat-controls{flex-shrink:0;max-height:50vh;overflow-y:auto;}
+#combat-controls{
+  flex-shrink:0;
+  display:flex;
+  flex-direction:column;
+  max-height:55vh;
+  overflow:hidden;
+}
+
+#log-box{
+  height:130px;
+  min-height:130px;
+  flex-shrink:0;
+  overflow-y:auto;
+  background:rgba(0,0,0,0.45);
+  border:1px solid #8b6914;
+  border-radius:6px;
+  padding:6px 10px;
+  font-size:0.78em;
+  line-height:1.7;
+  color:#e0c97f;
+  margin:6px 0 4px;
+}
+
+#log-box::-webkit-scrollbar{width:4px;}
+#log-box::-webkit-scrollbar-thumb{background:#8b6914;border-radius:2px;}
+#log-box::-webkit-scrollbar-track{background:transparent;}
 #main-content-area{flex:1;min-height:0;}
 #combat-log{flex:1;min-height:80px;}
 
