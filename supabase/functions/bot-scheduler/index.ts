@@ -237,12 +237,13 @@ async function botListItem(bot: any) {
 // ── ACTION 4: BOT ARENA REGISTRATION ──
 async function botArenaRegister(bot: any) {
   // Check for open tournaments bot qualifies for
-  const { data: tournaments } = await supabase
+  const { data: tournaments, error } = await supabase
     .from('arena_tournaments')
     .select('*')
     .eq('status', 'open')
     .lte('min_level', bot.level)
-    .gt('starts_at', new Date().toISOString());
+   // .gt('starts_at', new Date().toISOString());
+    console.log(`🤖 ${bot.name} found ${tournaments?.length ?? 0} tournaments`, error);
 
   if (!tournaments || !tournaments.length) return;
 
