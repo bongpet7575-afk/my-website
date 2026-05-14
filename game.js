@@ -7573,7 +7573,7 @@ function renderInventory() {
   // Empty slot boxes up to limit
   const emptySlots = hasLimit
     ? Array.from({length: Math.max(0, limit - used)}, () =>
-        `<div class="item-icon-box empty-slot"></div>`
+        `<div class="item-icon-box empty-slot"></div>`)
     : [];
 
   const allSlots = [...filledSlots, ...emptySlots];
