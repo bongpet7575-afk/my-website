@@ -749,16 +749,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <div id="char-portrait" style="width:64px;height:64px;flex-shrink:0;background:var(--bg3);border:2px solid var(--border-bright);border-radius:10px;overflow:hidden;">
         <img id="char-portrait-img" src="warrior.jpg" style="width:100%;height:100%;object-fit:cover;">
       </div>
-    </div>
-
-    <!-- Class -->
-    <div class="char-panel" style="padding:8px 12px;">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
-        <div id="char-class" style="font-size:.72em;color:var(--text-dim);">No Class</div>
-      </div>
-      
-      <div style="font-size:.65em;padding:4px 10px;">💰 <span id="gold-val">0</span></div>
-    </div>
+    </div>    
       <button class="top-btn" onclick="logoutUser()">LOG OUT</button>
     </div>
     <!-- HP/MP/XP/Rep bars -->
@@ -795,12 +786,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
     <!-- ───────────── CHARACTER SCENE ───────────── -->
     <div id="main-scene-char" class="main-scene">
+      <!-- Class -->
+    <div class="char-panel" style="padding:8px 12px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
+        <div id="char-class" style="font-size:.72em;color:var(--text-dim);">No Class</div>
+      </div>
       <div>
         <div id="top-btns" style="display:flex;align-items:center;gap:6px;flex-shrink:0;"></div>
         <button id="talent-btn" class="top-btn" style="display:none;" onclick="openTalents()">🌟 Talents</button>
         <button class="start-btn" onclick="respecClass()" style="font-size:.65em;padding:4px 10px;">🔄 Respec</button>
       </div>
-
+      <div style="font-size:.65em;padding:4px 10px;">💰 <span id="gold-val">0</span></div>
+    </div>
       <!-- Primary Stats -->
       <div class="char-panel">
         <div class="panel-title">Primary Stats</div>
