@@ -428,6 +428,20 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   border-radius:6px;display:flex;align-items:center;justify-content:center;
   cursor:pointer;transition:.15s;overflow:visible;
 }
+.item-icon-box.empty-slot{
+  background:rgba(200,168,75,0.04);
+  border:1px dashed rgba(200,168,75,0.25);
+  cursor:default;
+  opacity:1;
+}
+.item-icon-box.empty-slot::after{
+  content:'';
+  display:block;
+  width:30%;
+  height:30%;
+  border:1px solid rgba(200,168,75,0.2);
+  border-radius:3px;
+}
 .item-icon-box:hover{border-color:var(--gold);background:rgba(200,168,75,0.08);}
 .item-icon-box.legendary{border-color:var(--legendary)!important;}
 .item-icon-box.epic{border-color:var(--epic)!important;}
