@@ -7504,12 +7504,16 @@ function renderInventory() {
   const list  = document.getElementById('inventory-list');
   const items = state.inventory.filter(i => i.category === currentInvTab);
 
-  // Only show auto-sell for tabs that make sense
+  // Soul tab has no slot limit
+  const hasLimit = currentInvTab !== 'soul_weapon';
+  const limit  = hasLimit ? getInvSlotLimit(currentInvTab) : null;
+  const used   = hasLimit ? countInvSlots(currentInvTab) : null;
+
+  // ── Auto-sell bar HTML ──
   const sellableTabs = ['equipment', 'material'];
   const showAutoSell = sellableTabs.includes(currentInvTab);
   const tabSell = state.autoSell[currentInvTab] || {};
 
-  // ── Auto-sell bar HTML ──
   const autoSellBar = showAutoSell ? `
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;
       padding:8px 10px;margin-bottom:10px;
@@ -7549,26 +7553,51 @@ function renderInventory() {
       </button>
     </div>` : '';
 
-  // ── Item grid HTML ──
-  const gridHtml = !items.length
-    ? '<div class="inv-empty">No items here</div>'
-    : `<div class="item-grid">${items.map(item => {
-        const stackBadge   = item.stackable && item.qty > 1 ? `<div class="item-icon-stack">×${item.qty}</div>` : '';
-        const equippedBadge = item.equipped ? `<div class="item-icon-equipped">E</div>` : '';
-        const enh          = item.enhLevel || 0;
-        const enhBadge     = enh > 0 ? `<div class="item-icon-stack" style="top:2px;left:3px;right:auto;color:${enh >= 7 ? 'var(--legendary)' : 'var(--gold)'}">+${enh}</div>` : '';
-        const glowClass    = enh >= 15 ? 'enh-glow-15' : enh >= 7 ? 'enh-glow-7' : '';
-        const isLocked     = item.levelReq && item.levelReq > state.level;
-        const lockBadge    = isLocked ? `<div style="position:absolute;top:2px;left:3px;font-size:.6em;color:var(--red);">🔒${item.levelReq}</div>` : '';
-        return `<div class="item-icon-box ${item.rarity} ${glowClass}"
-          onclick="showItemPopup('inv',${item.uid})" title="${item.name}"
-          style="${isLocked ? 'opacity:0.5;' : ''}">
-          <div class="item-icon-emoji">${item.name.split(' ')[0]}</div>
-          ${stackBadge}${equippedBadge}${enhBadge}${lockBadge}
-        </div>`;
-      }).join('')}</div>`;
+  // ── Item grid with empty slots ──
+  const filledSlots = items.map(item => {
+    const stackBadge    = item.stackable && item.qty > 1 ? `<div class="item-icon-stack">×${item.qty}</div>` : '';
+    const equippedBadge = item.equipped ? `<div class="item-icon-equipped">E</div>` : '';
+    const enh           = item.enhLevel || 0;
+    const enhBadge      = enh > 0 ? `<div class="item-icon-stack" style="top:2px;left:3px;right:auto;color:${enh >= 7 ? 'var(--legendary)' : 'var(--gold)'}">+${enh}</div>` : '';
+    const glowClass     = enh >= 15 ? 'enh-glow-15' : enh >= 7 ? 'enh-glow-7' : '';
+    const isLocked      = item.levelReq && item.levelReq > state.level;
+    const lockBadge     = isLocked ? `<div style="position:absolute;top:2px;left:3px;font-size:.6em;color:var(--red);">🔒${item.levelReq}</div>` : '';
+    return `<div class="item-icon-box ${item.rarity} ${glowClass}"
+      onclick="showItemPopup('inv',${item.uid})" title="${item.name}"
+      style="${isLocked ? 'opacity:0.5;' : ''}">
+      <div class="item-icon-emoji">${item.name.split(' ')[0]}</div>
+      ${stackBadge}${equippedBadge}${enhBadge}${lockBadge}
+    </div>`;
+  });
 
-  list.innerHTML = autoSellBar + gridHtml;
+  // Empty slot boxes up to limit
+  const emptySlots = hasLimit
+    ? Array.from({length: Math.max(0, limit - used)}, () =>
+        `<div class="item-icon-box" style="opacity:0.18;cursor:default;border-style:dashed;"></div>`)
+    : [];
+
+  const allSlots = [...filledSlots, ...emptySlots];
+
+  const gridHtml = !hasLimit && !items.length
+    ? '<div class="inv-empty">No items here</div>'
+    : `<div class="item-grid">${allSlots.join('')}</div>`;
+
+  // ── Slot counter footer ──
+  const slotFooter = hasLimit ? `
+    <div style="display:flex;justify-content:space-between;align-items:center;
+      margin-top:10px;padding:6px 10px;
+      background:rgba(255,255,255,0.03);border:1px solid var(--border);
+      border-radius:var(--radius);">
+      <span style="font-family:var(--font-title);font-size:.65em;color:var(--text-dim);letter-spacing:1px;">
+        BAG SLOTS
+      </span>
+      <span style="font-family:var(--font-title);font-size:.78em;
+        color:${used >= limit ? 'var(--red)' : used >= limit * 0.8 ? 'var(--legendary)' : 'var(--gold)'};">
+        ${used} / ${limit}
+      </span>
+    </div>` : '';
+
+  list.innerHTML = autoSellBar + gridHtml + slotFooter;
 }
 
 // ── SAVE AUTO-SELL FOR A SPECIFIC TAB ──
