@@ -757,12 +757,19 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
         <div id="char-class" style="font-size:.72em;color:var(--text-dim);">No Class</div>
       </div>
       <div>
-        
+        <button class="start-btn" onclick="respecClass()" style="font-size:.65em;padding:4px 10px;">🔄 Respec</button>
       </div>
+      
+    <!-- Gold + Buttons -->
+    <div id="top-btns" style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
       <div style="font-size:.65em;padding:4px 10px;">💰 <span id="gold-val">0</span></div>
+      <button id="talent-btn" class="top-btn" style="display:none;" onclick="openTalents()">🌟 Talents</button>
     </div>
+    
       <button class="top-btn" onclick="logoutUser()">LOG OUT</button>
+
     </div>
+
     <!-- HP/MP/XP/Rep bars -->
     <div class="top-bars">
       <div class="bar-row">
@@ -802,9 +809,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <div class="char-panel">
         <div class="panel-title">Primary Stats</div>
         <div class="stats-grid">
-          <div id="top-btns" style="display:flex;align-items:center;gap:6px;flex-shrink:0;"></div>
-        <button id="talent-btn" class="top-btn" style="display:none;" onclick="openTalents()">🌟 Talents</button>
-        <button class="start-btn" onclick="respecClass()" style="font-size:.65em;padding:4px 10px;">🔄 Respec</button>
           <div class="stat-row"><span class="stat-label">⚔ STR</span><span class="stat-val" id="str-val">5</span></div>
           <div class="stat-row"><span class="stat-label">🏃 AGI</span><span class="stat-val" id="agi-val">5</span></div>
           <div class="stat-row"><span class="stat-label">🔮 INT</span><span class="stat-val" id="int-val">5</span></div>
