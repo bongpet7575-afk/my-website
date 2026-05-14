@@ -266,6 +266,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   display:none;flex-direction:column;overflow-y:auto;
   background:radial-gradient(ellipse at 50% 0%,rgba(50,30,0,0.4) 0%,transparent 60%),var(--bg);
   height:100%;
+  -webkit-overflow-scrolling:touch;
 }
 
 /* ═══════════════════════════════ COMBAT LAYOUT ════ */
@@ -657,6 +658,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 /* ═══════════════════════════════ MOBILE ADVENTURE FIXES ════ */
 @media(max-width:599px){
+  #main-scene-adv{
+  height:auto;
+  min-height:100%;
+  overflow-y:auto;
+}
+#combat-controls{
+  padding-bottom:12px;
+}
   #arena{flex-direction:row;padding:10px 10px 8px;gap:6px;}
   .arena-side{max-width:none;flex:1;}
   .arena-avatar{width:48px;height:48px;font-size:1.3em;}
