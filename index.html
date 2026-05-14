@@ -153,6 +153,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 /* ═══════════════════════════════ MAIN SCENES ════ */
 #scenes-wrap{flex:1;overflow:hidden;position:relative;}
+
+@media(max-width:599px){
+  #scenes-wrap{overflow-y:auto;}
+}
 .main-scene{display:none;height:100%;overflow:hidden;}
 
 /* ─── CHARACTER SCENE ─── */
