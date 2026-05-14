@@ -3956,11 +3956,34 @@ const ARENA_ITEMS = {
 };
 
 // Give a random arena item from a tier
-function getArenaRewardItem(tier) {
-  const keys = Object.keys(ARENA_ITEMS).filter(k => ARENA_ITEMS[k].rarity === tier);
-  const key = keys[Math.floor(Math.random() * keys.length)];
-  const template = ARENA_ITEMS[key];
-  return { ...template, uid: genUid(), category: 'equipment', equipped: false };
+function getArenaRewardItem(tier, slot = null) {
+  const arenaItems = GAME_CONFIG.arena_items || {};
+  const tierItems = arenaItems[tier] || {};
+  
+  // Pick random slot if not specified
+  const slots = ['weapon', 'armor', 'helmet', 'boots', 'ring', 'amulet'];
+  const chosenSlot = slot || slots[Math.floor(Math.random() * slots.length)];
+  const stats = tierItems[chosenSlot] || {};
+
+  const icons = { weapon:'⚔️', armor:'🛡️', helmet:'⛑️', boots:'👢', ring:'💍', amulet:'📿' };
+  const names = {
+    weapon:'Gladiator\'s Blade', armor:'Champion\'s Plate', helmet:'Warlord\'s Crown',
+    boots:'Phantom Stride', ring:'Ring of the Champion', amulet:'Amulet of Glory'
+  };
+  const rarityNames = { legendary:'Eternal', epic:'Heroic', rare:'Combatant\'s' };
+
+  return {
+    uid: genUid(),
+    name: `${icons[chosenSlot]} ${rarityNames[tier] || ''} ${names[chosenSlot]}`,
+    category: 'equipment',
+    slot: chosenSlot,
+    rarity: tier,
+    stats: { ...stats },
+    equipped: false,
+    levelReq: 0,
+    arenaExclusive: true,
+    sellPrice: tier === 'legendary' ? 500000 : tier === 'epic' ? 200000 : 50000,
+  };
 }
 
 
@@ -4022,23 +4045,17 @@ async function givePlacementReward(characterId, place, tierKey, rewardsExpireAt)
       tournamentItem.tournamentReward = true;
     }
 
-    // Build timed buff based on tier and place
-    let tournamentBuff = null;
-    if (place === 1) {
-      tournamentBuff = {
-        goldMult: tierKey === 'legend' ? 2.0 : tierKey === 'elite' ? 1.75 : tierKey === 'veteran' ? 1.5 : 1.25,
-        attackMult: 1.15,
-        label: reward.title,
-        expiresAt: rewardsExpireAt,
-      };
-    } else if (place === 2) {
-      tournamentBuff = {
-        goldMult: tierKey === 'legend' ? 1.5 : tierKey === 'elite' ? 1.35 : tierKey === 'veteran' ? 1.25 : 1.15,
-        attackMult: 1.10,
-        label: `${tierKey.charAt(0).toUpperCase() + tierKey.slice(1)} Finalist`,
-        expiresAt: rewardsExpireAt,
-      };
-    }
+    // Replace the hardcoded buff section with:
+const buffCfg = (GAME_CONFIG.tournament_buffs || {})[tierKey]?.[place];
+let tournamentBuff = null;
+if (buffCfg) {
+  tournamentBuff = {
+    goldMult: buffCfg.goldMult,
+    attackMult: buffCfg.attackMult,
+    label: reward.title,
+    expiresAt: rewardsExpireAt,
+  };
+}
 
     // Add timed item to inventory
     const inv = c.inventory || [];
