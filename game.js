@@ -7271,12 +7271,35 @@ function renderEquipSlots(){
 }
 
 // ── INVENTORY ──
+function getInvSlotLimit(category){
+  const limits=window.GAME_CONFIG?.inventory?.slot_limits;
+  if(limits&&limits[category]!==undefined)return limits[category];
+  const defaults={equipment:20,consumable:20,material:20};
+  return defaults[category]??60;
+}
+
+function countInvSlots(category){
+  return state.inventory.filter(i=>i.category===category&&!i.equipped).length;
+}
+
 function addToInventory(item){
   if(item.stackable){
     const existing=state.inventory.find(i=>i.name===item.name&&i.rarity===item.rarity&&i.stackable&&!i.equipped);
     if(existing){existing.qty=(existing.qty||1)+(item.qty||1);renderInventory();return;}
   }
-  state.inventory.push({...item,uid:item.uid||genUid()});renderInventory();
+  const cat=item.category||'equipment';
+  if(cat!=='soul_weapon'){
+    const limit=getInvSlotLimit(cat);
+    const current=countInvSlots(cat);
+    if(current>=limit){
+      const label=cat.charAt(0).toUpperCase()+cat.slice(1);
+      notify(`⚠️ ${label} bag full! (${limit}/${limit} slots)`,'var(--red)');
+      addLog(`⚠️ ${label} bag is full! Drop or sell items to make room.`,'bad');
+      return;
+    }
+  }
+  state.inventory.push({...item,uid:item.uid||genUid()});
+  renderInventory();
 }
 function switchInvTab(tab){
   currentInvTab=tab;state.invTab=tab;
