@@ -80,7 +80,7 @@ async function generateSystemAuctionItems() {
     const stageId = Math.floor(Math.random() * (maxStage - minStage + 1)) + minStage;
     const item = mkEquipDrop(slot, rarity, stageId);
     const basePrice = Math.floor(item.sellPrice * (2 + Math.random() * 2));
-    await dbClient.from('auctions').insert({
+    const { error } = await dbClient.from('auctions').insert({
       seller_id: null, item_name: item.name, item_description: JSON.stringify(item),
       rarity: item.rarity, start_price: basePrice, buyout_price: Math.floor(basePrice * 2.5),
       current_bid: 0, current_bidder_id: null, ends_at: endsAt.toISOString(),
