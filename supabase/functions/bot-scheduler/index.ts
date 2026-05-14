@@ -115,29 +115,30 @@ async function botDungeonRun(bot: any) {
 
 // ── ACTION 2: BOT PLACE BID ──
 async function botPlaceBid(bot: any) {
-  // Find active auctions bot hasn't bid on yet
-  const { data: auctions } = await supabase
-  .from('auctions')
-  .select('*')
-  .eq('status', 'active')
-  .eq('source', 'player')        // ← only bid on player listings
-  .gt('ends_at', new Date().toISOString())
-  .neq('seller_id', bot.id)
-  .neq('current_bidder_id', bot.id)
-  .limit(10);
+  const { data: auctions, error } = await supabase
+    .from('auctions')
+    .select('*')
+    .eq('status', 'active')
+    .eq('source', 'player')
+    .gt('ends_at', new Date().toISOString())
+    .neq('seller_id', bot.id)
+    .neq('current_bidder_id', bot.id)
+    .limit(10);
+
+  console.log(`🤖 ${bot.name} found ${auctions?.length ?? 0} auctions to bid on`, error);
+
   if (!auctions || !auctions.length) return;
 
-  // Pick 1-2 random auctions to bid on
   const toBid = auctions.sort(() => Math.random() - 0.5).slice(0, rand(1, 2));
 
   for (const auction of toBid) {
     const currentBid = auction.current_bid || auction.start_price;
     const minBid = currentBid + Math.max(100, Math.floor(currentBid * 0.05));
-
-    // Bot won't bid more than 30% of its gold
     const maxBotBid = Math.floor(bot.gold * 0.30);
-    if (minBid > maxBotBid) continue;
-
+    console.log(`🤖 ${bot.name} considering ${auction.item_name} — minBid:${minBid} maxBotBid:${maxBotBid}`);
+    if (minBid > maxBotBid) { console.log(`🤖 ${bot.name} can't afford it`); continue; }
+    // ... rest unchanged
+  
     // Bid between min and 20% above min
     const bidAmount = rand(minBid, Math.min(maxBotBid, Math.floor(minBid * 1.2)));
 

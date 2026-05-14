@@ -763,6 +763,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <div>
         <button class="start-btn" onclick="respecClass()" style="font-size:.65em;padding:4px 10px;">🔄 Respec</button>
       </div>
+      
+    <!-- Gold + Buttons -->
+    <div id="top-btns" style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+      <div style="font-family:var(--font-title);font-size:.8em;color:var(--deep-gold);">💰 <span id="gold-val">0</span></div>
+      <button id="talent-btn" class="top-btn" style="display:none;" onclick="openTalents()">🌟 Talents</button>
+      <button class="top-btn" onclick="logoutUser()">LOG OUT</button>
+    </div>
+
     </div>
 
     <!-- HP/MP/XP/Rep bars -->
@@ -790,13 +798,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
           <span id="rep-title" style="color:var(--purple);font-size:.8em;margin-left:3px;">→Baron</span>
         </span>
       </div>
-    </div>
-
-    <!-- Gold + Buttons -->
-    <div id="top-btns" style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-      <div style="font-family:var(--font-title);font-size:.8em;color:var(--deep-gold);">💰 <span id="gold-val">0</span></div>
-      <button id="talent-btn" class="top-btn" style="display:none;" onclick="openTalents()">🌟 Talents</button>
-      <button class="top-btn" onclick="logoutUser()">LOG OUT</button>
     </div>
 
   </div><!-- /top-bar -->
