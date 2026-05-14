@@ -7502,7 +7502,7 @@ function renderInventory() {
   migrateAutoSell();
 
   const list  = document.getElementById('inventory-list');
-  const items = state.inventory.filter(i => i.category === currentInvTab);
+  const items = state.inventory.filter(i => i.category === currentInvTab && !i.equipped);
 
   // Soul tab has no slot limit
   const hasLimit = currentInvTab !== 'soul_weapon';
