@@ -1045,6 +1045,10 @@ const state={
   reputationTitle: null,
 
   respecCount: 0,
+  soulCrystals: 0,
+  loginStreak: 0,
+  lastLoginDate: null,
+  totalLoginDays: 0,
 
   // Active debuffs (cleared after combat)
   activeDebuffs:{ maxHpReduction:0, webTrapped:0, rageTimer:0 },
