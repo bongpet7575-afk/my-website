@@ -6270,7 +6270,7 @@ function mkEquipDrop(slot, rarity, stageId = 1) {
     category: 'equipment',
     slot, rarity, stats, equipped: false,
     levelReq: (stageId - 1) * 10,
-    sellPrice: Math.round(s * 12 * mult * 500),
+    sellPrice: Math.round(stageId * 12 * mult * 500),
   };
 }
 function mkMat(name,rarity,sellPrice){return{uid:genUid(),name,category:'material',rarity,sellPrice,stackable:true,qty:1};}
