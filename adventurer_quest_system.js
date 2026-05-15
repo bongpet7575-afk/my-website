@@ -142,6 +142,295 @@ async function acceptQuest(questId) {
     console.error('Accept quest error:', e);
   }
 }
+async function renderAdventurerBoard() {
+  const container = document.getElementById('adventurer-board');
+  if (!container) return;
+  container.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:16px;">Loading quests...</div>';
+
+  try {
+    const [available, active] = await Promise.all([
+      loadAvailableQuests(),
+      loadActiveQuests(),
+    ]);
+
+    const incomplete  = active.filter(q => !q.claimed);
+    const acceptedIds = new Set(incomplete.map(q => q.quest_id));
+
+    const { data: claimedHistory } = await dbClient
+      .from('adventurer_quests')
+      .select('quest_id, updated_at')
+      .eq('character_id', state.character_id)
+      .eq('claimed', true)
+      .order('updated_at', { ascending: false });
+
+    const cooldownMap = {};
+    (claimedHistory || []).forEach(cq => {
+      if (!cooldownMap[cq.quest_id]) cooldownMap[cq.quest_id] = cq.updated_at;
+    });
+
+    const diffColors = {
+      easy:      '#22c55e',
+      normal:    '#3b82f6',
+      hard:      '#f97316',
+      epic:      '#a855f7',
+      legendary: '#ff9900',
+    };
+
+    const diffLabels = {
+      easy:      '🌱 Easy',
+      normal:    '⚔️ Normal',
+      hard:      '🔥 Hard',
+      epic:      '💀 Epic',
+      legendary: '👑 Legendary',
+    };
+
+    const currentTitle = getCurrentTitle();
+    const nextTitle    = getNextTitle();
+    const now          = new Date();
+
+    let html = '';
+
+    // ── Reputation status banner ──
+    html += `
+      <div style="padding:10px 12px;margin-bottom:12px;
+        background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);
+        border-radius:var(--radius);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <div style="font-family:var(--font-title);font-size:.78em;color:var(--purple);">
+            👑 ${currentTitle ? currentTitle.label : 'No Title'}
+          </div>
+          <div style="font-size:.68em;color:var(--text-dim);">
+            ${formatNumber(state.reputation)} REP
+          </div>
+        </div>
+        ${nextTitle ? `
+          <div style="height:4px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden;">
+            <div style="height:100%;background:var(--purple);border-radius:2px;
+              width:${Math.min(100,((state.reputation-(currentTitle?.req||0))/(nextTitle.req-(currentTitle?.req||0)))*100)}%;">
+            </div>
+          </div>
+          <div style="font-size:.62em;color:var(--text-dim);margin-top:3px;">
+            ${formatNumber(nextTitle.req - state.reputation)} REP until ${nextTitle.label}
+          </div>` : `
+          <div style="font-size:.68em;color:var(--legendary);">⭐ MAX TITLE REACHED</div>`}
+      </div>`;
+
+    // ── Active quests ──
+    if (incomplete.length) {
+      html += `
+        <div style="font-family:var(--font-title);font-size:.7em;color:var(--gold);
+          letter-spacing:2px;margin-bottom:8px;">
+          📋 ACTIVE QUESTS (${incomplete.length}/3)
+        </div>`;
+
+      incomplete.forEach(aq => {
+        const pct       = Math.min(100, Math.floor((aq.progress / aq.req_qty) * 100));
+        const color     = diffColors[aq.difficulty] || 'var(--gold)';
+        const isExpired = aq.expires_at && new Date(aq.expires_at) < now;
+        const timeLeft  = aq.expires_at ? Math.max(0, new Date(aq.expires_at) - now) : 0;
+        const hoursLeft = Math.floor(timeLeft / 3600000);
+        const minsLeft  = Math.floor((timeLeft % 3600000) / 60000);
+
+        // Mat submit check
+        const matName  = aq.req_target;
+        const matCount = aq.req_type === 'collect'
+          ? state.inventory
+              .filter(i => i.category === 'material' && i.name === matName)
+              .reduce((sum, i) => sum + (i.qty || 1), 0)
+          : 0;
+        const canSubmit  = aq.req_type === 'collect' && !aq.completed && !isExpired && matCount > 0;
+        const stillNeeds = aq.req_qty - aq.progress;
+
+        html += `
+          <div style="background:rgba(255,255,255,0.03);border:1px solid ${color}44;
+            border-radius:var(--radius);padding:10px;margin-bottom:8px;">
+
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+              <div style="font-family:var(--font-title);font-size:.78em;color:${color};">
+                ${aq.title}
+              </div>
+              <div style="font-size:.62em;color:${isExpired?'var(--red)':'var(--text-dim)'};">
+                ${isExpired ? '❌ Expired' : `⏱️ ${hoursLeft}h ${minsLeft}m`}
+              </div>
+            </div>
+
+            <div style="font-size:.72em;color:var(--text-dim);margin-bottom:6px;">
+              ${aq.description}
+            </div>
+
+            <div style="height:6px;background:rgba(255,255,255,0.07);
+              border-radius:3px;overflow:hidden;margin-bottom:4px;">
+              <div style="height:100%;width:${pct}%;background:${color};
+                border-radius:3px;transition:width .3s;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:.65em;
+              color:var(--text-dim);margin-bottom:8px;">
+              <span>${aq.progress} / ${aq.req_qty}</span>
+              <span>${pct}%</span>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-bottom:8px;">
+              <span style="font-size:.65em;color:var(--gold);
+                background:rgba(255,153,0,0.08);border-radius:4px;padding:2px 6px;">
+                💰 ${formatNumber(aq.gold_reward)}g
+              </span>
+              <span style="font-size:.65em;color:var(--purple);
+                background:rgba(168,85,247,0.08);border-radius:4px;padding:2px 6px;">
+                👑 +${aq.rep_reward} REP
+              </span>
+            </div>
+
+            <div style="display:flex;gap:6px;">
+              ${aq.completed ? `
+                <button class="start-btn" onclick="claimQuestReward('${aq.id}')"
+                  style="flex:2;padding:7px;font-size:.72em;
+                  background:linear-gradient(135deg,rgba(255,153,0,0.2),rgba(255,153,0,0.1));
+                  border-color:var(--gold);color:var(--gold);">
+                  ✅ Claim Reward
+                </button>`
+              : canSubmit ? `
+                <button class="start-btn" onclick="submitQuestMaterials('${aq.id}')"
+                  style="flex:2;padding:7px;font-size:.72em;
+                  background:linear-gradient(135deg,rgba(34,197,94,0.2),rgba(34,197,94,0.1));
+                  border-color:#22c55e;color:#22c55e;">
+                  📦 Submit ${Math.min(matCount, stillNeeds)}x ${matName}
+                </button>`
+              : aq.req_type === 'collect' ? `
+                <div style="flex:2;font-size:.68em;color:var(--text-dim);padding:7px;text-align:center;">
+                  ${isExpired ? '❌ Quest expired' : `🎒 Need ${matName} (${aq.progress}/${aq.req_qty})`}
+                </div>`
+              : `
+                <div style="flex:2;font-size:.68em;color:var(--text-dim);padding:7px;text-align:center;">
+                  ${isExpired ? '❌ Quest expired' : '⚔️ In progress...'}
+                </div>`}
+              <button class="start-btn red-btn" onclick="abandonQuest('${aq.id}')"
+                style="flex:1;padding:7px;font-size:.68em;">
+                🗑️ Drop
+              </button>
+            </div>
+          </div>`;
+      });
+    }
+
+    // ── Available quest board ──
+    const allowedDiffs = getAvailableQuestDifficulties();
+    const notAccepted  = available.filter(q => !acceptedIds.has(q.id));
+
+    html += `
+      <div style="font-family:var(--font-title);font-size:.7em;color:var(--text-dim);
+        letter-spacing:2px;margin:12px 0 8px;">
+        📌 QUEST BOARD
+      </div>`;
+
+    if (!notAccepted.length) {
+      html += `
+        <div style="text-align:center;color:var(--text-dim);
+          font-size:.78em;padding:16px;font-style:italic;">
+          All available quests accepted!
+        </div>`;
+    } else {
+      const grouped = {};
+      notAccepted.forEach(q => {
+        if (!grouped[q.difficulty]) grouped[q.difficulty] = [];
+        grouped[q.difficulty].push(q);
+      });
+
+      const diffOrder = ['easy', 'normal', 'hard', 'epic', 'legendary'];
+      diffOrder.forEach(diff => {
+        if (!grouped[diff]) return;
+        const color    = diffColors[diff] || 'var(--gold)';
+        const label    = diffLabels[diff] || diff;
+        const isLocked = !allowedDiffs.includes(diff);
+
+        html += `
+          <div style="font-size:.65em;color:${color};font-family:var(--font-title);
+            letter-spacing:1px;margin:8px 0 4px;opacity:${isLocked?'0.4':'1'};">
+            ${label} ${isLocked ? '🔒' : ''}
+          </div>`;
+
+        grouped[diff].forEach(q => {
+          const locked = isLocked || state.level < q.min_level;
+
+          const lastClaim    = cooldownMap[q.id];
+          const cooldownHrs  = q.repeat_cooldown_hours || 24;
+          const cooldownEnds = lastClaim
+            ? new Date(new Date(lastClaim).getTime() + cooldownHrs * 3600000)
+            : null;
+          const onCooldown  = cooldownEnds && now < cooldownEnds;
+          const cdHoursLeft = onCooldown
+            ? Math.ceil((cooldownEnds - now) / 3600000)
+            : 0;
+
+          // Show mat count hint for collect quests on the board
+          const boardMatCount = q.req_type === 'collect'
+            ? state.inventory
+                .filter(i => i.category === 'material' && i.name === q.req_target)
+                .reduce((sum, i) => sum + (i.qty || 1), 0)
+            : 0;
+
+          html += `
+            <div style="background:rgba(255,255,255,0.02);
+              border:1px solid ${locked||onCooldown?'rgba(255,255,255,0.06)':color+'33'};
+              border-radius:var(--radius);padding:8px;margin-bottom:6px;
+              opacity:${locked||onCooldown?'0.5':'1'};">
+
+              <div style="display:flex;align-items:center;
+                justify-content:space-between;margin-bottom:3px;">
+                <div style="font-family:var(--font-title);font-size:.75em;
+                  color:${locked||onCooldown?'var(--text-dim)':color};">
+                  ${q.title}
+                </div>
+                <div style="font-size:.60em;color:var(--text-dim);">
+                  Lv.${q.min_level}+
+                </div>
+              </div>
+
+              <div style="font-size:.68em;color:var(--text-dim);margin-bottom:6px;">
+                ${q.description}
+                ${q.req_type === 'collect' && boardMatCount > 0
+                  ? `<span style="color:#22c55e;margin-left:4px;">🎒 ${boardMatCount} in bag</span>`
+                  : `<span style="color:var(--text-dim);"> (0/${q.req_qty})</span>`}
+              </div>
+
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+                <div style="display:flex;gap:6px;">
+                  <span style="font-size:.62em;color:var(--gold);
+                    background:rgba(255,153,0,0.08);border-radius:4px;padding:2px 5px;">
+                    💰 ${formatNumber(q.gold_reward)}g
+                  </span>
+                  <span style="font-size:.62em;color:var(--purple);
+                    background:rgba(168,85,247,0.08);border-radius:4px;padding:2px 5px;">
+                    👑 +${q.rep_reward}
+                  </span>
+                </div>
+
+                ${locked ? `
+                  <div style="font-size:.62em;color:var(--text-dim);">
+                    ${isLocked ? `Need ${diff} rep title` : `Need Lv.${q.min_level}`}
+                  </div>
+                ` : onCooldown ? `
+                  <div style="font-size:.62em;color:var(--red);">
+                    ⏳ ${cdHoursLeft}h cooldown
+                  </div>
+                ` : `
+                  <button class="start-btn" onclick="acceptQuest('${q.id}')"
+                    style="padding:5px 12px;font-size:.65em;
+                    border-color:${color}88;color:${color};">
+                    + Accept
+                  </button>`}
+              </div>
+            </div>`;
+        });
+      });
+    }
+
+    container.innerHTML = html;
+
+  } catch(e) {
+    console.error('Render adventurer board error:', e);
+    container.innerHTML = '<div style="text-align:center;color:var(--red);padding:16px;">Failed to load quests.</div>';
+  }
+}
 
 // ── CLAIM QUEST REWARD ──
 async function claimQuestReward(adventurerQuestId) {
@@ -297,269 +586,68 @@ async function trackQuestAuction() {
 // RENDER ADVENTURER BOARD UI
 // ══════════════════════════════════════════
 
-async function renderAdventurerBoard() {
-  const container = document.getElementById('adventurer-board');
-  if (!container) return;
-  container.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:16px;">Loading quests...</div>';
-
+async function submitQuestMaterials(adventurerQuestId) {
   try {
-    const [available, active] = await Promise.all([
-      loadAvailableQuests(),
-      loadActiveQuests(),
-    ]);
-
-    const incomplete  = active.filter(q => !q.claimed);
-    const acceptedIds = new Set(incomplete.map(q => q.quest_id));
-
-    // ── BUG FIX: fetch cooldown data — last claimed time per quest ──
-    const { data: claimedHistory } = await dbClient
+    const { data: aq } = await dbClient
       .from('adventurer_quests')
-      .select('quest_id, updated_at')
+      .select('*')
+      .eq('id', adventurerQuestId)
       .eq('character_id', state.character_id)
-      .eq('claimed', true)
-      .order('updated_at', { ascending: false });
+      .single();
 
-    // Build cooldown map: quest_id → last claimed timestamp
-    const cooldownMap = {};
-    (claimedHistory || []).forEach(cq => {
-      if (!cooldownMap[cq.quest_id]) cooldownMap[cq.quest_id] = cq.updated_at;
-    });
+    if (!aq) { notify('Quest not found!', 'var(--red)'); return; }
+    if (aq.completed) { notify('Already completed!', 'var(--gold)'); return; }
 
-    const diffColors = {
-      easy:      '#22c55e',
-      normal:    '#3b82f6',
-      hard:      '#f97316',
-      epic:      '#a855f7',
-      legendary: '#ff9900',
-    };
+    // Count matching mats in inventory
+    const matName = aq.req_target;
+    const needed = aq.req_qty - aq.progress;
+    const mats = state.inventory.filter(i =>
+      i.category === 'material' && i.name === matName
+    );
+    const totalHave = mats.reduce((sum, i) => sum + (i.qty || 1), 0);
 
-    const diffLabels = {
-      easy:      '🌱 Easy',
-      normal:    '⚔️ Normal',
-      hard:      '🔥 Hard',
-      epic:      '💀 Epic',
-      legendary: '👑 Legendary',
-    };
-
-    const currentTitle = getCurrentTitle();
-    const nextTitle    = getNextTitle();
-    const now          = new Date();
-
-    let html = '';
-
-    // ── Reputation status banner ──
-    html += `
-      <div style="padding:10px 12px;margin-bottom:12px;
-        background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);
-        border-radius:var(--radius);">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-          <div style="font-family:var(--font-title);font-size:.78em;color:var(--purple);">
-            👑 ${currentTitle ? currentTitle.label : 'No Title'}
-          </div>
-          <div style="font-size:.68em;color:var(--text-dim);">
-            ${formatNumber(state.reputation)} REP
-          </div>
-        </div>
-        ${nextTitle ? `
-          <div style="height:4px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden;">
-            <div style="height:100%;background:var(--purple);border-radius:2px;
-              width:${Math.min(100,((state.reputation-(currentTitle?.req||0))/(nextTitle.req-(currentTitle?.req||0)))*100)}%;">
-            </div>
-          </div>
-          <div style="font-size:.62em;color:var(--text-dim);margin-top:3px;">
-            ${formatNumber(nextTitle.req - state.reputation)} REP until ${nextTitle.label}
-          </div>` : `
-          <div style="font-size:.68em;color:var(--legendary);">⭐ MAX TITLE REACHED</div>`}
-      </div>`;
-
-    // ── Active quests ──
-    if (incomplete.length) {
-      html += `
-        <div style="font-family:var(--font-title);font-size:.7em;color:var(--gold);
-          letter-spacing:2px;margin-bottom:8px;">
-          📋 ACTIVE QUESTS (${incomplete.length}/3)
-        </div>`;
-
-      incomplete.forEach(aq => {
-        const pct       = Math.min(100, Math.floor((aq.progress / aq.req_qty) * 100));
-        const color     = diffColors[aq.difficulty] || 'var(--gold)';
-        const isExpired = aq.expires_at && new Date(aq.expires_at) < now;
-        const timeLeft  = aq.expires_at ? Math.max(0, new Date(aq.expires_at) - now) : 0;
-        const hoursLeft = Math.floor(timeLeft / 3600000);
-        const minsLeft  = Math.floor((timeLeft % 3600000) / 60000);
-
-        html += `
-          <div style="background:rgba(255,255,255,0.03);border:1px solid ${color}44;
-            border-radius:var(--radius);padding:10px;margin-bottom:8px;">
-
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-              <div style="font-family:var(--font-title);font-size:.78em;color:${color};">
-                ${aq.title}
-              </div>
-              <div style="font-size:.62em;color:${isExpired?'var(--red)':'var(--text-dim)'};">
-                ${isExpired ? '❌ Expired' : `⏱️ ${hoursLeft}h ${minsLeft}m`}
-              </div>
-            </div>
-
-            <div style="font-size:.72em;color:var(--text-dim);margin-bottom:6px;">
-              ${aq.description}
-            </div>
-
-            <!-- Progress bar -->
-            <div style="height:6px;background:rgba(255,255,255,0.07);
-              border-radius:3px;overflow:hidden;margin-bottom:4px;">
-              <div style="height:100%;width:${pct}%;background:${color};
-                border-radius:3px;transition:width .3s;"></div>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:.65em;
-              color:var(--text-dim);margin-bottom:8px;">
-              <span>${aq.progress} / ${aq.req_qty}</span>
-              <span>${pct}%</span>
-            </div>
-
-            <!-- Rewards -->
-            <div style="display:flex;gap:8px;margin-bottom:8px;">
-              <span style="font-size:.65em;color:var(--gold);
-                background:rgba(255,153,0,0.08);border-radius:4px;padding:2px 6px;">
-                💰 ${formatNumber(aq.gold_reward)}g
-              </span>
-              <span style="font-size:.65em;color:var(--purple);
-                background:rgba(168,85,247,0.08);border-radius:4px;padding:2px 6px;">
-                👑 +${aq.rep_reward} REP
-              </span>
-            </div>
-
-            <!-- Action buttons -->
-            <div style="display:flex;gap:6px;">
-              ${aq.completed ? `
-                <button class="start-btn" onclick="claimQuestReward('${aq.id}')"
-                  style="flex:2;padding:7px;font-size:.72em;
-                  background:linear-gradient(135deg,rgba(255,153,0,0.2),rgba(255,153,0,0.1));
-                  border-color:var(--gold);color:var(--gold);">
-                  ✅ Claim Reward
-                </button>` : `
-                <div style="flex:2;font-size:.68em;color:var(--text-dim);
-                  padding:7px;text-align:center;">
-                  ${isExpired ? '❌ Quest expired' : '⚔️ In progress...'}
-                </div>`}
-              <button class="start-btn red-btn" onclick="abandonQuest('${aq.id}')"
-                style="flex:1;padding:7px;font-size:.68em;">
-                🗑️ Drop
-              </button>
-            </div>
-          </div>`;
-      });
+    if (totalHave <= 0) {
+      notify(`❌ No ${matName} in inventory!`, 'var(--red)');
+      return;
     }
 
-    // ── Available quest board ──
-    const allowedDiffs = getAvailableQuestDifficulties();
-    const notAccepted  = available.filter(q => !acceptedIds.has(q.id));
+    // Submit as many as we can up to needed
+    const toSubmit = Math.min(totalHave, needed);
+    let remaining = toSubmit;
 
-    html += `
-      <div style="font-family:var(--font-title);font-size:.7em;color:var(--text-dim);
-        letter-spacing:2px;margin:12px 0 8px;">
-        📌 QUEST BOARD
-      </div>`;
+    // Consume mats from inventory
+    state.inventory = state.inventory.map(i => {
+      if (i.category === 'material' && i.name === matName && remaining > 0) {
+        const take = Math.min(i.qty || 1, remaining);
+        remaining -= take;
+        const newQty = (i.qty || 1) - take;
+        return newQty <= 0 ? null : { ...i, qty: newQty };
+      }
+      return i;
+    }).filter(Boolean);
 
-    if (!notAccepted.length) {
-      html += `
-        <div style="text-align:center;color:var(--text-dim);
-          font-size:.78em;padding:16px;font-style:italic;">
-          All available quests accepted!
-        </div>`;
-    } else {
-      // Group by difficulty
-      const grouped = {};
-      notAccepted.forEach(q => {
-        if (!grouped[q.difficulty]) grouped[q.difficulty] = [];
-        grouped[q.difficulty].push(q);
-      });
+    const newProgress = aq.progress + toSubmit;
+    const completed = newProgress >= aq.req_qty;
 
-      const diffOrder = ['easy', 'normal', 'hard', 'epic', 'legendary'];
-      diffOrder.forEach(diff => {
-        if (!grouped[diff]) return;
-        const color    = diffColors[diff] || 'var(--gold)';
-        const label    = diffLabels[diff] || diff;
-        const isLocked = !allowedDiffs.includes(diff);
+    await dbClient
+      .from('adventurer_quests')
+      .update({ progress: Math.min(newProgress, aq.req_qty), completed })
+      .eq('id', aq.id);
 
-        html += `
-          <div style="font-size:.65em;color:${color};font-family:var(--font-title);
-            letter-spacing:1px;margin:8px 0 4px;opacity:${isLocked?'0.4':'1'};">
-            ${label} ${isLocked ? '🔒' : ''}
-          </div>`;
+    notify(`📦 Submitted ${toSubmit}x ${matName}!`, 'var(--gold)');
+    addLog(`📦 Submitted ${toSubmit}x ${matName} for ${aq.title}`, 'good');
 
-        grouped[diff].forEach(q => {
-          const locked = isLocked || state.level < q.min_level;
-
-          // ── Cooldown check ──
-          const lastClaim    = cooldownMap[q.id];
-          const cooldownHrs  = q.repeat_cooldown_hours || 24;
-          const cooldownEnds = lastClaim
-            ? new Date(new Date(lastClaim).getTime() + cooldownHrs * 3600000)
-            : null;
-          const onCooldown   = cooldownEnds && now < cooldownEnds;
-          const cdHoursLeft  = onCooldown
-            ? Math.ceil((cooldownEnds - now) / 3600000)
-            : 0;
-
-          html += `
-            <div style="background:rgba(255,255,255,0.02);
-              border:1px solid ${locked||onCooldown?'rgba(255,255,255,0.06)':color+'33'};
-              border-radius:var(--radius);padding:8px;margin-bottom:6px;
-              opacity:${locked||onCooldown?'0.5':'1'};">
-
-              <div style="display:flex;align-items:center;
-                justify-content:space-between;margin-bottom:3px;">
-                <div style="font-family:var(--font-title);font-size:.75em;
-                  color:${locked||onCooldown?'var(--text-dim)':color};">
-                  ${q.title}
-                </div>
-                <div style="font-size:.60em;color:var(--text-dim);">
-                  Lv.${q.min_level}+
-                </div>
-              </div>
-
-              <div style="font-size:.68em;color:var(--text-dim);margin-bottom:6px;">
-                ${q.description}
-                <span style="color:var(--text-dim);"> (0/${q.req_qty})</span>
-              </div>
-
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
-                <div style="display:flex;gap:6px;">
-                  <span style="font-size:.62em;color:var(--gold);
-                    background:rgba(255,153,0,0.08);border-radius:4px;padding:2px 5px;">
-                    💰 ${formatNumber(q.gold_reward)}g
-                  </span>
-                  <span style="font-size:.62em;color:var(--purple);
-                    background:rgba(168,85,247,0.08);border-radius:4px;padding:2px 5px;">
-                    👑 +${q.rep_reward}
-                  </span>
-                </div>
-
-                ${locked ? `
-                  <div style="font-size:.62em;color:var(--text-dim);">
-                    ${isLocked ? `Need ${diff} rep title` : `Need Lv.${q.min_level}`}
-                  </div>
-                ` : onCooldown ? `
-                  <div style="font-size:.62em;color:var(--red);">
-                    ⏳ ${cdHoursLeft}h cooldown
-                  </div>
-                ` : `
-                  <button class="start-btn" onclick="acceptQuest('${q.id}')"
-                    style="padding:5px 12px;font-size:.65em;
-                    border-color:${color}88;color:${color};">
-                    + Accept
-                  </button>`}
-              </div>
-            </div>`;
-        });
-      });
+    if (completed) {
+      addLog(`✅ Quest complete: ${aq.title}! Claim your reward!`, 'legendary');
+      notify(`✅ ${aq.title} complete!`, 'var(--gold)');
     }
 
-    container.innerHTML = html;
+    savePlayerToSupabase();
+    renderInventory();
+    renderAdventurerBoard();
 
   } catch(e) {
-    console.error('Render adventurer board error:', e);
-    container.innerHTML = '<div style="text-align:center;color:var(--red);padding:16px;">Failed to load quests.</div>';
+    notify('Submit failed: ' + e.message, 'var(--red)');
+    console.error('Submit quest materials error:', e);
   }
 }

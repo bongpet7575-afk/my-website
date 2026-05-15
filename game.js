@@ -7608,11 +7608,24 @@ function renderInventory() {
     const glowClass     = enh >= 15 ? 'enh-glow-15' : enh >= 7 ? 'enh-glow-7' : '';
     const isLocked      = item.levelReq && item.levelReq > state.level;
     const lockBadge     = isLocked ? `<div style="position:absolute;top:2px;left:3px;font-size:.6em;color:var(--red);">🔒${item.levelReq}</div>` : '';
+
+    // Reputation lock
+    const REP_REQ = { rare:'baron', epic:'chief', legendary:'mayor' };
+    const repNeeded = REP_REQ[item.rarity];
+    const repTiers = REPUTATION_TITLES.map(r => r.id);
+    const playerRepIndex = repTiers.indexOf(state.reputationTitle || '');
+    const reqRepIndex = repTiers.indexOf(repNeeded || '');
+    const isRepLocked = repNeeded && playerRepIndex < reqRepIndex;
+    const repLabel = isRepLocked ? REPUTATION_TITLES.find(r => r.id === repNeeded)?.label : null;
+    const repLockBadge = isRepLocked ? `<div style="position:absolute;bottom:2px;left:3px;font-size:.6em;color:var(--epic);">👑${repLabel}</div>` : '';
+
+    const isAnyLocked = isLocked || isRepLocked;
+
     return `<div class="item-icon-box ${item.rarity} ${glowClass}"
       onclick="showItemPopup('inv',${item.uid})" title="${item.name}"
-      style="${isLocked ? 'opacity:0.5;' : ''}">
+      style="${isAnyLocked ? 'opacity:0.5;' : ''}">
       <div class="item-icon-emoji">${item.name.split(' ')[0]}</div>
-      ${stackBadge}${equippedBadge}${enhBadge}${lockBadge}
+      ${stackBadge}${equippedBadge}${enhBadge}${lockBadge}${repLockBadge}
     </div>`;
   });
 

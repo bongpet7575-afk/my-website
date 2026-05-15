@@ -133,6 +133,31 @@ function renderAuctions(auctions, sellerMap = {}) {
     const currentBid = auction.current_bid || auction.start_price;
     const rColor = r_(auction.rarity).color;
     const sellerName = isSystem ? '🤖 Auction House' : `👤 ${sellerMap[auction.seller_id] || 'Unknown'}`;
+
+    // Parse item for lock checks
+    let parsedItem = null;
+    try { parsedItem = typeof auction.item_description === 'string' ? JSON.parse(auction.item_description) : auction.item_description; } catch(e) {}
+
+    // Level lock check
+    const levelReq = parsedItem?.levelReq || 0;
+    const isLevelLocked = levelReq > state.level;
+
+    // Reputation lock check
+    const REP_REQ = { rare:'baron', epic:'chief', legendary:'mayor' };
+    const repNeeded = REP_REQ[auction.rarity];
+    const repTiers = REPUTATION_TITLES.map(r => r.id);
+    const playerRepIndex = repTiers.indexOf(state.reputationTitle || '');
+    const reqRepIndex = repTiers.indexOf(repNeeded || '');
+    const isRepLocked = repNeeded && playerRepIndex < reqRepIndex;
+    const repLabel = isRepLocked ? REPUTATION_TITLES.find(r => r.id === repNeeded)?.label : null;
+
+    // Lock warning banner
+    const lockWarning = (isLevelLocked || isRepLocked) ? `
+      <div style="background:rgba(255,0,0,0.08);border:1px solid var(--red);border-radius:4px;padding:4px 8px;margin-bottom:6px;font-size:.7em;display:flex;gap:8px;flex-wrap:wrap;">
+        ${isLevelLocked ? `<span style="color:var(--red);">🔒 Requires Level ${levelReq}</span>` : ''}
+        ${isRepLocked ? `<span style="color:var(--epic);">👑 Requires ${repLabel} Reputation</span>` : ''}
+      </div>` : '';
+
     return `<div style="background:linear-gradient(135deg,rgba(255,255,255,0.03),rgba(8,8,40,0.7));border:1px solid ${rColor};border-radius:8px;padding:10px;margin-bottom:8px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
         <div style="font-size:1.6em;">${auction.item_name.split(' ')[0]}</div>
@@ -142,7 +167,8 @@ function renderAuctions(auctions, sellerMap = {}) {
         </div>
         <div style="font-size:.7em;color:${isExpired ? 'var(--red)' : '#888'};">${isExpired ? '❌ Expired' : `⏱️ ${hoursLeft}h ${minsLeft}m`}</div>
       </div>
-      ${auction.item_description ? `<div style="font-size:.72em;color:#888;margin-bottom:6px;padding:4px;background:rgba(0,0,0,0.2);border-radius:4px;">${(() => { try { const item = typeof auction.item_description === 'string' ? JSON.parse(auction.item_description) : auction.item_description; return Object.entries(item.stats || {}).map(([k, v]) => `<span style="margin-right:6px;">+${v < 1 ? v.toFixed(3) : v} ${k.toUpperCase()}</span>`).join(''); } catch (e) { return ''; } })()}</div>` : ''}
+      ${parsedItem ? `<div style="font-size:.72em;color:#888;margin-bottom:6px;padding:4px;background:rgba(0,0,0,0.2);border-radius:4px;">${Object.entries(parsedItem.stats || {}).map(([k,v]) => `<span style="margin-right:6px;">+${v < 1 ? v.toFixed(3) : v} ${k.toUpperCase()}</span>`).join('')}</div>` : ''}
+      ${lockWarning}
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
         <div>
           <div style="color:var(--gold);font-family:'Cinzel',serif;font-size:.9em;">💰 ${formatNumber(currentBid)}g${auction.current_bidder_id ? '<span style="font-size:.7em;color:#888;"> (highest)</span>' : '<span style="font-size:.7em;color:#888;"> (starting)</span>'}</div>
