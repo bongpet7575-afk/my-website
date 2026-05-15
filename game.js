@@ -6238,19 +6238,16 @@ const EQUIP_NAMES={weapon:['Blade','Sword','Axe','Spear','Dagger','Staff','Bow']
 const EQUIP_STATS={weapon:{str:[35,55],strMult:[0.1,0.5],lifeSteal:[0.01,0.09],crit:[2,5],hit:[80,120],hitMult:[0.1,0.5]},armor:{armor:[5000,10000],sta:[35,55],staMult:[0.1,0.5],maxHp:[2000,3000],maxHpMult:[0.1,0.5],hpRegen:[25,750],hpRegenMult:[0.1,0.5],dodge:[30,700],dodgeMult:[0.1,0.5]},helmet:{armor:[5000,10000],int:[35,55],intMult:[0.05,0.09]},boots:{armor:[5000,10000],agi:[35,55],agiMult:[0.1,0.5]},ring:{str:[35,55],int:[35,55],agi:[35,55],sta:[35,55]},amulet:{strMult:[0.05,0.09],agiMult:[0.05,0.09],intMult:[0.05,0.09],staMult:[0.05,0.09]}};
 
 function getEquipStats(slot, stageId) {
-  // Base scales exponentially with stage — calibrated so:
-  // Stage 1-2 treasure ≈ 60% of rare craft stats
-  // Stage 9-10 treasure average ≈ 60% of legendary craft, ceiling ≈ 120%
   const s = stageId || 1;
-  const base = Math.pow(s, 2.2) * 8; // stage 1=8, stage 5≈380, stage 10≈2400
+  const base = s * 12; // linear scaling — stage 1=12, stage 5=60, stage 10=120
 
   const statSets = {
-    weapon:  { str:[base*0.8,base*1.4], strMult:[0.05*s,0.12*s], lifeSteal:[0.01,0.04*s], crit:[s,s*2.5], hit:[base*0.3,base*0.6], hitMult:[0.05*s,0.12*s] },
-    armor:   { armor:[base*600,base*1200], sta:[base*0.8,base*1.4], staMult:[0.05*s,0.12*s], maxHp:[base*80,base*200], maxHpMult:[0.05*s,0.1*s], hpRegen:[base*5,base*20], dodgeMult:[0.05*s,0.1*s], dodge:[base*5,base*30] },
-    helmet:  { armor:[base*300,base*800], int:[base*0.8,base*1.4], intMult:[0.04*s,0.1*s], attackPower:[base*30,base*80] },
-    boots:   { armor:[base*300,base*800], agi:[base*0.8,base*1.4], agiMult:[0.05*s,0.12*s] },
-    ring:    { str:[base*0.6,base*1.2], int:[base*0.6,base*1.2], agi:[base*0.6,base*1.2], sta:[base*0.6,base*1.2] },
-    amulet:  { strMult:[0.04*s,0.1*s], agiMult:[0.04*s,0.1*s], intMult:[0.04*s,0.1*s], staMult:[0.04*s,0.1*s] },
+    weapon:  { str:[base*0.8,base*1.4], strMult:[0.01*s,0.03*s], lifeSteal:[0.01,0.02*s], crit:[s*0.5,s*1.5], hit:[base*0.3,base*0.6], hitMult:[0.01*s,0.03*s] },
+    armor:   { armor:[base*2,base*5], sta:[base*0.5,base*1.0], staMult:[0.01*s,0.03*s], maxHp:[base*3,base*8], maxHpMult:[0.01*s,0.03*s], hpRegen:[base*0.5,base*1.5], dodgeMult:[0.01*s,0.03*s], dodge:[base*0.5,base*2] },
+    helmet:  { armor:[base*1.5,base*3], int:[base*0.5,base*1.0], intMult:[0.01*s,0.03*s], attackPower:[base*1,base*3] },
+    boots:   { armor:[base*1.5,base*3], agi:[base*0.5,base*1.0], agiMult:[0.01*s,0.03*s] },
+    ring:    { str:[base*0.4,base*0.8], int:[base*0.4,base*0.8], agi:[base*0.4,base*0.8], sta:[base*0.4,base*0.8] },
+    amulet:  { strMult:[0.01*s,0.03*s], agiMult:[0.01*s,0.03*s], intMult:[0.01*s,0.03*s], staMult:[0.01*s,0.03*s] },
   };
   return statSets[slot];
 }
@@ -6273,7 +6270,7 @@ function mkEquipDrop(slot, rarity, stageId = 1) {
     category: 'equipment',
     slot, rarity, stats, equipped: false,
     levelReq: (stageId - 1) * 10,
-    sellPrice: Math.round(base * mult * 50),
+    sellPrice: Math.round(s * 12 * mult * 500),
   };
 }
 function mkMat(name,rarity,sellPrice){return{uid:genUid(),name,category:'material',rarity,sellPrice,stackable:true,qty:1};}
@@ -7267,23 +7264,39 @@ function unequipSlot(slot,silent=false){
 function renderEquipSlots(){
   ['weapon','armor','helmet','boots','ring','amulet'].forEach(slot=>{
     const slotEl=document.getElementById(`slot-${slot}`),nameEl=document.getElementById(`slot-${slot}-name`);
-    slotEl.className='equip-slot';const existing=slotEl.querySelector('.equip-tooltip');if(existing)existing.remove();
+    slotEl.className='equip-slot';
+    const existing=slotEl.querySelector('.equip-tooltip');
+    if(existing)existing.remove();
+    const enhLabelEl=slotEl.querySelector('.slot-enh-label');
+    if(enhLabelEl)enhLabelEl.remove();
+
     const uid=state.equipped[slot];
     if(uid){
       const item=state.inventory.find(i=>i.uid===uid);
       if(item){
-        nameEl.textContent=item.name.replace(/^[^\s]+ /,'').substring(0,12);
-        slotEl.classList.add('has-item',item.rarity);
-        // Add glow for enhanced items
         const enh=item.enhLevel||0;
+
+        nameEl.textContent=item.name.replace(/^[^\s]+ /,'').substring(0,12);
+
+        // Enh label under name
+        const enhEl=document.createElement('div');
+        enhEl.className='slot-enh-label';
+        enhEl.textContent=enh>0?`+${enh}`:'';
+        enhEl.style.color=enh>=15?'var(--legendary)':enh>=7?'var(--gold)':'#aaa';
+        slotEl.appendChild(enhEl);
+
+        slotEl.classList.add('has-item',item.rarity);
         if(enh>=15)slotEl.classList.add('enh-glow-15');
         else if(enh>=7)slotEl.classList.add('enh-glow-7');
+
         const statsHtml=Object.entries(item.stats||{}).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join('');
         const rarity=RARITY[item.rarity]||RARITY.normal;
         const enh_label=enh>0?`<div style="color:${enh>=7?'var(--legendary)':'var(--gold)'};font-size:0.75em;">+${enh} Enhanced</div>`:'';
         slotEl.insertAdjacentHTML('beforeend',`<div class="equip-tooltip" style="display:none;"><div style="color:${rarity.color};font-weight:600;">${item.name}</div><div style="color:${rarity.color};font-size:0.8em;margin:3px 0;">${rarity.label}</div>${enh_label}${statsHtml}<div style="color:#888;font-size:0.75em;margin-top:4px;">Sell: ${item.sellPrice}g</div></div>`);
       }
-    } else { nameEl.textContent='Empty'; }
+    } else {
+      nameEl.textContent='Empty';
+    }
   });
 }
 

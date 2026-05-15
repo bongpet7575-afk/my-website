@@ -245,7 +245,7 @@ async function botListItem(bot: any) {
   const itemName = genBotItemName(slot, rarity);
   const mult: Record<string, number> = { rare:2.5, epic:4, legendary:7 };
   const base = Math.pow(stageId, 2.2) * 8;
-  const sellPrice = Math.round(base * (mult[rarity] || 1) * 50);
+  const sellPrice = Math.round(base * (mult[rarity] || 1) * 500);
   const startPrice = Math.floor(sellPrice * (1.5 + Math.random()));
   const buyoutPrice = Math.floor(startPrice * (2 + Math.random()));
 
