@@ -235,7 +235,7 @@ async function renderAdventurerBoard() {
         const matName  = aq.req_target;
         const matCount = aq.req_type === 'collect'
           ? state.inventory
-              .filter(i => i.category === 'material' && i.name === matName)
+              .filter(i => i.category === 'material' && i.name.includes(matName))
               .reduce((sum, i) => sum + (i.qty || 1), 0)
           : 0;
         const canSubmit  = aq.req_type === 'collect' && !aq.completed && !isExpired && matCount > 0;
@@ -364,7 +364,7 @@ async function renderAdventurerBoard() {
           // Show mat count hint for collect quests on the board
           const boardMatCount = q.req_type === 'collect'
             ? state.inventory
-                .filter(i => i.category === 'material' && i.name === q.req_target)
+                .filter(i => i.category === 'material' && i.name.includes(q.req_target))
                 .reduce((sum, i) => sum + (i.qty || 1), 0)
             : 0;
 
@@ -598,11 +598,10 @@ async function submitQuestMaterials(adventurerQuestId) {
     if (!aq) { notify('Quest not found!', 'var(--red)'); return; }
     if (aq.completed) { notify('Already completed!', 'var(--gold)'); return; }
 
-    // Count matching mats in inventory
     const matName = aq.req_target;
     const needed = aq.req_qty - aq.progress;
     const mats = state.inventory.filter(i =>
-      i.category === 'material' && i.name === matName
+      i.category === 'material' && i.name.includes(matName)
     );
     const totalHave = mats.reduce((sum, i) => sum + (i.qty || 1), 0);
 
@@ -611,13 +610,11 @@ async function submitQuestMaterials(adventurerQuestId) {
       return;
     }
 
-    // Submit as many as we can up to needed
     const toSubmit = Math.min(totalHave, needed);
     let remaining = toSubmit;
 
-    // Consume mats from inventory
     state.inventory = state.inventory.map(i => {
-      if (i.category === 'material' && i.name === matName && remaining > 0) {
+      if (i.category === 'material' && i.name.includes(matName) && remaining > 0) {
         const take = Math.min(i.qty || 1, remaining);
         remaining -= take;
         const newQty = (i.qty || 1) - take;
