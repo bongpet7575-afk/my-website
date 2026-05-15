@@ -7237,19 +7237,35 @@ function equipItem(uid){
     if (new Date() > new Date(item.expiresAt)) {
       notify(`❌ This tournament item has expired!`, 'var(--red)');
       addLog(`❌ ${item.name} has expired and cannot be equipped!`, 'bad');
-      // Remove expired item from inventory
       state.inventory = state.inventory.filter(i => i.uid !== uid);
       renderInventory();
       return;
     }
   }
 
+  // Level check
   const req=item.levelReq||0;
   if(state.level<req){
     notify(`❌ Need Level ${req} to equip ${item.name}!`,'var(--red)');
     addLog(`❌ Need Level ${req} to equip ${item.name}!`,'bad');
     return;
   }
+
+  // Reputation check
+  const REP_REQ = { rare:'baron', epic:'chief', legendary:'mayor' };
+  const repNeeded = REP_REQ[item.rarity];
+  if(repNeeded){
+    const repTiers = REPUTATION_TITLES.map(r=>r.id);
+    const playerRepIndex = repTiers.indexOf(state.reputationTitle || '');
+    const reqRepIndex = repTiers.indexOf(repNeeded);
+    if(playerRepIndex < reqRepIndex){
+      const repLabel = REPUTATION_TITLES.find(r=>r.id===repNeeded)?.label;
+      notify(`❌ Need ${repLabel} reputation to equip ${item.name}!`,'var(--red)');
+      addLog(`❌ Need ${repLabel} reputation to equip ${item.name}!`,'bad');
+      return;
+    }
+  }
+
   if(state.equipped[item.slot])unequipSlot(item.slot,true);
   Object.entries(item.stats||{}).forEach(([k,v])=>{const ek='equip'+k.charAt(0).toUpperCase()+k.slice(1);state[ek]=(state[ek]||0)+v;});
   item.equipped=true;state.equipped[item.slot]=uid;state.quests.equip.done=true;
