@@ -55,19 +55,47 @@ function genBotItemName(slot: string, rarity: string): string {
 function genBotItemStats(slot: string, stageId: number, rarity: string): Record<string, number> {
   const mult: Record<string, number> = { normal:1, uncommon:1.5, rare:2.5, epic:4, legendary:7 };
   const m = mult[rarity] || 1;
-  const base = Math.pow(stageId, 2.2) * 8;
+  
+  // Fixed base — linear scaling instead of exponential
+  const base = stageId * 12;
+
   const statSets: Record<string, Record<string, [number,number]>> = {
-    weapon:  { str:[base*0.8,base*1.4], strMult:[0.05*stageId,0.12*stageId], crit:[stageId,stageId*2.5] },
-    armor:   { armor:[base*600,base*1200], sta:[base*0.8,base*1.4], maxHp:[base*80,base*200] },
-    helmet:  { armor:[base*300,base*800], int:[base*0.8,base*1.4] },
-    boots:   { armor:[base*300,base*800], agi:[base*0.8,base*1.4] },
-    ring:    { str:[base*0.6,base*1.2], int:[base*0.6,base*1.2], agi:[base*0.6,base*1.2], sta:[base*0.6,base*1.2] },
-    amulet:  { strMult:[0.04*stageId,0.1*stageId], agiMult:[0.04*stageId,0.1*stageId], intMult:[0.04*stageId,0.1*stageId] },
+    weapon:  { 
+      str:      [base*0.8,  base*1.4], 
+      strMult:  [0.01*stageId, 0.03*stageId], 
+      crit:     [stageId*0.5, stageId*1.5] 
+    },
+    armor:   { 
+      armor:    [base*2,    base*5], 
+      sta:      [base*0.5,  base*1.0], 
+      maxHp:    [base*3,    base*8] 
+    },
+    helmet:  { 
+      armor:    [base*1.5,  base*3], 
+      int:      [base*0.5,  base*1.0] 
+    },
+    boots:   { 
+      armor:    [base*1.5,  base*3], 
+      agi:      [base*0.5,  base*1.0] 
+    },
+    ring:    { 
+      str:      [base*0.4,  base*0.8], 
+      int:      [base*0.4,  base*0.8], 
+      agi:      [base*0.4,  base*0.8], 
+      sta:      [base*0.4,  base*0.8] 
+    },
+    amulet:  { 
+      strMult:  [0.01*stageId, 0.03*stageId], 
+      agiMult:  [0.01*stageId, 0.03*stageId], 
+      intMult:  [0.01*stageId, 0.03*stageId] 
+    },
   };
+
   const ranges = statSets[slot] || statSets.weapon;
   const stats: Record<string, number> = {};
   for (const [k, [mn, mx]] of Object.entries(ranges)) {
     const raw = (Math.random() * (mx - mn) + mn) * m;
+    // Mult stats (strMult etc) stay as decimals, others are integers
     stats[k] = mx < 1 ? Math.round(raw * 1000) / 1000 : Math.round(raw);
   }
   return stats;
@@ -132,23 +160,33 @@ async function botPlaceBid(bot: any) {
 
   for (const auction of toBid) {
     const currentBid = auction.current_bid || auction.start_price;
+    
+    // Must bid at least 5% higher than current
     const minBid = currentBid + Math.max(100, Math.floor(currentBid * 0.05));
-    const maxBotBid = Math.floor(bot.gold * 0.15);
+    
+    // Bot won't spend more than 10% of its gold on one item
+    const maxBotBid = Math.floor(bot.gold * 0.10);
 
+    // Skip if can't afford minimum bid
+    if (minBid > maxBotBid || minBid > bot.gold) {
+      console.log(`🤖 ${bot.name} can't afford ${auction.item_name} (min: ${minBid}, gold: ${bot.gold})`);
+      continue;
+    }
+
+    // Skip if auction price is already too inflated vs sellPrice
     try {
       const item = typeof auction.item_description === 'string'
         ? JSON.parse(auction.item_description)
         : auction.item_description;
-      const fairValue = (item?.sellPrice || 0) * 10;
-      if (auction.start_price > fairValue * 3) {
-        console.log(`🤖 ${bot.name} skipping overpriced item ${auction.item_name}`);
+      
+      const fairValue = (item?.sellPrice || 0) * 5; // reduced from 10
+      if (fairValue > 0 && currentBid > fairValue) {
+        console.log(`🤖 ${bot.name} skipping overpriced ${auction.item_name} (bid: ${currentBid} > fair: ${fairValue})`);
         continue;
       }
     } catch (e) { continue; }
 
-    if (minBid > maxBotBid) continue;
-
-    const bidAmount = rand(minBid, Math.min(maxBotBid, Math.floor(minBid * 1.2)));
+    const bidAmount = rand(minBid, Math.min(maxBotBid, Math.floor(minBid * 1.1)));
 
     // Refund previous bidder if any
     if (auction.current_bidder_id && auction.current_bid > 0) {
@@ -170,14 +208,23 @@ async function botPlaceBid(bot: any) {
       .eq('id', bot.id);
     bot.gold -= bidAmount;
 
-    // Place bid
-    await supabase.from('auctions').update({
-      current_bid: bidAmount,
-      current_bidder_id: bot.id,
-      updated_at: new Date().toISOString(),
-    }).eq('id', auction.id);
+    // Place bid via RPC to avoid the 400 loop
+    const { error: bidError } = await supabase.rpc('process_settle', {
+      p_auction_id: auction.id,
+      p_bidder_id: bot.id,
+      p_bid_amount: bidAmount,
+    });
 
-    console.log(`🤖 ${bot.name} bid ${bidAmount}g on ${auction.item_name}`);
+    if (bidError) {
+      console.log(`🤖 ${bot.name} bid failed on ${auction.item_name}: ${bidError.message}`);
+      // Refund bot since bid failed
+      await supabase.from('characters')
+        .update({ gold: bot.gold + bidAmount })
+        .eq('id', bot.id);
+      bot.gold += bidAmount;
+    } else {
+      console.log(`🤖 ${bot.name} bid ${bidAmount}g on ${auction.item_name}`);
+    }
   }
 }
 // ── ACTION 3: BOT LIST ITEM ──
