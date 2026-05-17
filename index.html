@@ -109,7 +109,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   display:flex;
   flex-direction:column;
   height:100vh;
-  overflow:hidden;
+  overflow:visible;
+  position:relative;
 }
 
 /* ═══════════════════════════════ TOP BAR ════ */
@@ -832,12 +833,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
         <button class="start-btn" onclick="respecClass()" style="font-size:.65em;padding:4px 10px;">🔄 Respec</button>
       </div>
       
-    <!-- Gold + Buttons -->
-    <div id="top-btns" style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-      <div style="font-size:.65em;padding:4px 10px;">💰 <span id="gold-val">0</span></div>
-      
-    </div>
-    
       <button class="top-btn" onclick="logoutUser()">LOG OUT</button>
 
     </div>
@@ -1091,12 +1086,35 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
         <!-- INVENTORY -->
         <div id="town-panel-inventory" class="town-panel active">
+          
           <div class="inv-tab-row">
+            
             <button class="inv-tab active" id="inv-tab-equipment"   onclick="switchInvTab('equipment')">Equipment</button>
             <button class="inv-tab"        id="inv-tab-consumable"  onclick="switchInvTab('consumable')">Consumable</button>
             <button class="inv-tab"        id="inv-tab-material"    onclick="switchInvTab('material')">Materials</button>
             <button class="inv-tab"        id="inv-tab-soul_weapon" onclick="switchInvTab('soul_weapon')">✨ Soul</button>
           </div>
+          
+    <!-- Gold + Buttons -->
+<div id="top-btns" style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+  <div style="font-size:.65em;padding:4px 10px;
+    background:rgba(255,153,0,0.08);border:1px solid rgba(255,153,0,0.25);
+    border-radius:20px;color:var(--gold);font-family:'Cinzel',serif;letter-spacing:1px;">
+    💰 <span id="gold-val">0</span>g
+  </div>
+  <div style="font-size:.65em;padding:4px 10px;
+    background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.25);
+    border-radius:20px;color:var(--purple);font-family:'Cinzel',serif;letter-spacing:1px;">
+    💠 <span id="soul-crystal-val">0</span>
+  </div>
+  <div style="font-size:.65em;padding:4px 10px;
+  background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.25);
+  border-radius:20px;color:var(--purple);font-family:'Cinzel',serif;letter-spacing:1px;">
+  💠 <span id="soul-crystal-val">0</span>
+  <span onclick="openRechargePanel()" style="margin-left:4px;color:rgba(168,85,247,0.6);cursor:pointer;font-size:0.9em;">+</span>
+</div>
+</div>
+    
           <div id="inventory-list"><div class="inv-empty">No items here</div></div>
            <div class="char-panel">
         <div class="panel-title">Equipment</div>
@@ -1267,11 +1285,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 <input type="hidden" id="name-input" value=""/>
 
 <!-- ═══════════════════════════════════════ SCRIPTS ═══ -->
+<script src="supabase-sync.js"></script>
 <script src="game.js"></script>
 <script src="chat-module.js"></script>
 <script src="adventurer_quest_system.js"></script>
 <script src="auction.js"></script>
-<script src="supabase-sync.js"></script>
+<script src="login-rewards.js"></script>
 
 <script>
 

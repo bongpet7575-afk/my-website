@@ -2271,7 +2271,6 @@ async function selectCharacterAndPlay(characterId){
   if(screen) screen.remove();
   
   try {
-    // ✅ Add proper error checking BEFORE using the data
     const{data:character, error}=await dbClient
       .from('characters')
       .select('*')
@@ -2289,26 +2288,24 @@ async function selectCharacterAndPlay(characterId){
       return;
     }
     
-    // ✅ Verify character data is valid before syncing
     if(!character.id || !character.name) {
       console.error('Invalid character data:', character);
       notify('❌ Character data is corrupted', 'var(--red)');
       return;
     }
     
-    // ✅ Now safely sync
-    // Replace with:
-if(typeof syncCharacterToState==='function') {
-  await syncCharacterToState(character);
-} else {
-  console.warn('syncCharacterToState not loaded yet');
-  notify('❌ Game initialization failed', 'var(--red)');
-  return;
-}
-    // BUG FIX: initChat AFTER sync so state.name is set correctly
+    if(typeof syncCharacterToState==='function') {
+      await syncCharacterToState(character);
+    } else {
+      console.warn('syncCharacterToState not loaded yet');
+      notify('❌ Game initialization failed', 'var(--red)');
+      return;
+    }
+
+    await checkLoginReward();
+
     if (typeof initChat === 'function') await initChat();
 
-    
     showGame();
     loadScene(state.currentScene || 'town');
     
@@ -2318,6 +2315,15 @@ if(typeof syncCharacterToState==='function') {
     
     checkAndSettleAuctions();
     addLog(`☁️ Welcome back ${state.name}! (Lv.${state.level})`, 'gold');
+
+    // Show login reward popup after scene is fully loaded
+    setTimeout(() => {
+      if (window._pendingLoginReward) {
+        const { reward, day, item, alreadyClaimed } = window._pendingLoginReward;
+        showLoginRewardPopup(reward, day, item, alreadyClaimed);
+        window._pendingLoginReward = null;
+      }
+    }, 500);
     
   } catch(e) {
     console.error('Character load error:', e);
@@ -8049,6 +8055,8 @@ function updateUI(){
   document.getElementById('xp-val').textContent=formatNumber(state.xp);
   document.getElementById('xp-next').textContent=formatNumber(state.xpNext);
   document.getElementById('gold-val').textContent=formatNumber(state.gold);
+  const crystalEl = document.getElementById('soul-crystal-val');
+  if (crystalEl) crystalEl.textContent = formatNumber(state.soulCrystals || 0);
   document.getElementById('str-val').textContent=formatNumber(state.str);
   document.getElementById('agi-val').textContent=formatNumber(state.agi);
   document.getElementById('int-val').textContent=formatNumber(state.int);

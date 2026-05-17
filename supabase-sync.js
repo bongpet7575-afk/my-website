@@ -25,11 +25,15 @@ async function loadPlayerFromSupabase(characterId) {
     if (!character) throw new Error('Character not found');
 
     await syncCharacterToState(character);
-    await checkTournamentRewardExpiry();
-    await createWeeklyTournamentsIfMissing();
-    await checkAndAutoStartTournaments();
-    await checkAndStartGrandFinals();
-    await paySupremeChampionWeeklyBonus();
+await checkLoginReward();        // overlay added here
+await checkTournamentRewardExpiry();  // does this rerender?
+await createWeeklyTournamentsIfMissing();
+await checkAndAutoStartTournaments();
+await checkAndStartGrandFinals();
+await paySupremeChampionWeeklyBonus();
+// then what happens after loadPlayerFromSupabase returns?
+// selectCharacterAndPlay probably calls showGame() or switchMainScene()
+// which rerenders everything and wipes the overlay 💀
     console.log('✅ Character loaded from Supabase');
 
     return state;

@@ -191,6 +191,7 @@ function renderAuctions(auctions, sellerMap = {}) {
   }).join('');
 }
 
+
 // ============================================
 // PLACE BID
 // ============================================
@@ -230,6 +231,7 @@ async function placeBid(auctionId, currentBid) {
     console.error('Bid error:', error);
   }
 }
+
 
 // ============================================
 // BUYOUT
