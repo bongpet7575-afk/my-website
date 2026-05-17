@@ -208,12 +208,16 @@ async function botPlaceBid(bot: any) {
       .eq('id', bot.id);
     bot.gold -= bidAmount;
 
-    // Place bid via RPC to avoid the 400 loop
-    const { error: bidError } = await supabase.rpc('process_settle', {
-      p_auction_id: auction.id,
-      p_bidder_id: bot.id,
-      p_bid_amount: bidAmount,
-    });
+  // Place bid directly on auction row
+    const { error: bidError } = await supabase
+      .from('auctions')
+      .update({
+        current_bid: bidAmount,
+        current_bidder_id: bot.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', auction.id)
+      .eq('status', 'active');
 
     if (bidError) {
       console.log(`🤖 ${bot.name} bid failed on ${auction.item_name}: ${bidError.message}`);
