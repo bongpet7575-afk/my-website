@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { code, character_id, name } = await req.json()
+    const { code, character_id, player_name } = await req.json()
 
     if (!code || !character_id) {
       return new Response(JSON.stringify({ error: 'Missing code or character_id' }), {
@@ -38,32 +38,32 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Mark code as used FIRST (atomic — prevents double redemption)
-    const { error: updateError } = await supabase
-      .from('gift_codes')
-      .update({
-        used: true,
-        used_by: character.name || String(character_id),
-        used_at: new Date().toISOString()
-      })
-      .eq('code', giftCode.code)
-      .eq('used', false) // double check still unused
+    // Fetch character FIRST before marking code as used
+    const { data: character, error: charError } = await supabase
+      .from('characters')
+      .select('gold, soul_crystals, name, premium_spins')
+      .eq('id', character_id)
+      .single()
 
-    if (updateError) {
-      return new Response(JSON.stringify({ error: 'Code already redeemed' }), {
+    if (charError || !character) {
+      return new Response(JSON.stringify({ error: 'Character not found' }), {
         status: 400, headers: corsHeaders
       })
     }
 
-    // Fetch current character stats
-    const { data: character, error: charError } = await supabase
-  .from('characters')
-  .select('gold, soulCrystals, premiumSpins, name')
-  .eq('id', character_id)
-  .single()
+    // Mark code as used (atomic — prevents double redemption)
+    const { error: updateError } = await supabase
+      .from('gift_codes')
+      .update({
+        used: true,
+        used_by: character.name || player_name || String(character_id),
+        used_at: new Date().toISOString()
+      })
+      .eq('code', giftCode.code)
+      .eq('used', false)
 
-    if (charError || !character) {
-      return new Response(JSON.stringify({ error: 'Character not found' }), {
+    if (updateError) {
+      return new Response(JSON.stringify({ error: 'Code already redeemed' }), {
         status: 400, headers: corsHeaders
       })
     }
@@ -73,8 +73,8 @@ Deno.serve(async (req) => {
       .from('characters')
       .update({
         gold: (character.gold || 0) + giftCode.gold,
-        soulCrystals: (character.soulCrystals || 0) + giftCode.diamonds,
-        premiumSpins: (character.premiumSpins || 0) + giftCode.spins,
+        soul_crystals: (character.soul_crystals || 0) + giftCode.diamonds,
+        premium_spins: (character.premium_spins || 0) + giftCode.spins,
       })
       .eq('id', character_id)
 

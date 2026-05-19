@@ -1017,12 +1017,29 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <div id="story-content">
         <div class="scene-title">🏘️ Town Square</div>
         <p>Your adventure begins here...</p>
+        
       </div>
 
       <!-- Main content area -->
       <div id="main-content-area" style="display:flex;flex-direction:column;flex:1;overflow:hidden;padding:0 10px 10px;min-height:0;">
         <div id="combat-log" style="flex:1;overflow-y:auto;font-size:.78em;line-height:1.7;padding:4px 0;min-height:0;display:none;"></div>
         <div id="choices-box" style="display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex:1;min-height:0;"></div>
+        <div onclick="openSpinWheel()" style="
+  background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.3);
+  border-radius:8px;padding:12px 16px;cursor:pointer;
+  display:flex;align-items:center;gap:10px;
+  transition:all 0.2s;margin-top:8px;
+" onmouseover="this.style.background='rgba(168,85,247,0.2)'"
+   onmouseout="this.style.background='rgba(168,85,247,0.1)'">
+  <span style="font-size:24px;">🎰</span>
+  <div>
+    <div style="font-family:'Cinzel',serif;font-size:13px;color:#a855f7;letter-spacing:2px;">FORTUNE WHEEL</div>
+    <div style="font-size:11px;color:#6a5a3a;margin-top:2px;">Spin for legendary prizes</div>
+  </div>
+  <div style="margin-left:auto;font-family:'Cinzel',serif;font-size:11px;color:#a855f7;">
+    🎰 <span id="town-spin-count">${state.premiumSpins || 0}</span>
+  </div>
+</div>
       </div>
 
       <!-- Bottom combat controls -->
@@ -1066,6 +1083,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
         </div>
         
       </div>
+      
 
     </div><!-- /main-scene-adv -->
 
@@ -1295,6 +1313,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 <script src="auction.js"></script>
 <script src="login-rewards.js"></script>
 <script src="recharge-panel.js"></script>
+<script src="spin-wheel.js"></script>
 
 <script>
 

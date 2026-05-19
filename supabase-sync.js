@@ -79,6 +79,7 @@ async function syncCharacterToState(character) {
   state.loginStreak     = character.login_streak    || 0;
   state.lastLoginDate   = character.last_login_date || null;
   state.totalLoginDays  = character.total_login_days || 0;
+  state.premiumSpins = character.premium_spins || 0;
 
   // ── Health / Mana ──
   // Maps to state.hp / state.mp used everywhere in game
@@ -326,6 +327,7 @@ async function savePlayerToSupabase() {
       p_respec_count:          state.respecCount,
       p_gold_mult_expiry:      state.goldMultExpiry,
       p_soul_crystals:         state.soulCrystals   || 0,
+      p_premium_spins: state.premiumSpins || 0,
       p_login_streak:          state.loginStreak    || 0,
       p_last_login_date:       state.lastLoginDate  || null,
       p_total_login_days:      state.totalLoginDays || 0,
