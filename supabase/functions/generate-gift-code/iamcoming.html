@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚔️ Admin Portal</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+
+  :root {
+    --gold: #c9a84c;
+    --gold-bright: #f0c040;
+    --gold-dark: #8a6a1a;
+    --bg: #0a0806;
+    --bg2: #110e08;
+    --bg3: #1a1508;
+    --border: #2a2010;
+    --red: #cc3333;
+    --green: #44aa44;
+    --text: #d4b896;
+    --text-dim: #6a5a3a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Crimson Text', serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: 
+      radial-gradient(ellipse at 20% 50%, rgba(180,120,20,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(150,80,10,0.03) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── LOGIN SCREEN ── */
+  #login-screen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    background: var(--bg);
+  }
+
+  .login-box {
+    width: 380px;
+    border: 1px solid var(--gold-dark);
+    background: var(--bg2);
+    padding: 48px 40px;
+    text-align: center;
+    position: relative;
+    box-shadow: 0 0 60px rgba(180,120,20,0.08), inset 0 1px 0 rgba(180,120,20,0.1);
+  }
+
+  .login-box::before, .login-box::after {
+    content: '✦';
+    position: absolute;
+    color: var(--gold-dark);
+    font-size: 12px;
+  }
+  .login-box::before { top: 12px; left: 16px; }
+  .login-box::after { bottom: 12px; right: 16px; }
+
+  .login-skull {
+    font-size: 48px;
+    margin-bottom: 8px;
+    display: block;
+    animation: pulse 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(0.95); }
+  }
+
+  .login-title {
+    font-family: 'Cinzel', serif;
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--gold);
+    letter-spacing: 4px;
+    margin-bottom: 4px;
+  }
+
+  .login-sub {
+    font-size: 13px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    margin-bottom: 32px;
+    font-style: italic;
+  }
+
+  .login-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-bottom-color: var(--gold-dark);
+    color: var(--gold-bright);
+    padding: 12px 16px;
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    letter-spacing: 3px;
+    text-align: center;
+    outline: none;
+    margin-bottom: 20px;
+    transition: border-color 0.3s;
+  }
+
+  .login-input:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 20px rgba(180,120,20,0.1);
+  }
+
+  .login-btn {
+    width: 100%;
+    background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+    border: none;
+    color: #0a0806;
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .login-btn:hover {
+    background: linear-gradient(135deg, var(--gold), var(--gold-bright));
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(180,120,20,0.3);
+  }
+
+  .login-error {
+    color: var(--red);
+    font-size: 13px;
+    margin-top: 12px;
+    letter-spacing: 1px;
+    min-height: 20px;
+  }
+
+  /* ── MAIN PANEL ── */
+  #main-panel {
+    display: none;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .panel-header {
+    text-align: center;
+    margin-bottom: 48px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .panel-title {
+    font-family: 'Cinzel', serif;
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--gold);
+    letter-spacing: 6px;
+    margin-bottom: 6px;
+  }
+
+  .panel-sub {
+    color: var(--text-dim);
+    font-style: italic;
+    letter-spacing: 2px;
+    font-size: 14px;
+  }
+
+  /* ── TIER CARDS ── */
+  .section-title {
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 4px;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+  }
+
+  .tiers-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+
+  .tier-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 24px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .tier-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    transition: opacity 0.2s;
+    opacity: 0.5;
+  }
+
+  .tier-card.adventurer::before { background: #aaaacc; }
+  .tier-card.warrior::before { background: var(--gold); }
+  .tier-card.champion::before { background: linear-gradient(90deg, #ff6644, #ffaa00, #44ffaa, #4488ff, #ff6644); background-size: 200%; animation: rainbow 3s linear infinite; }
+
+  @keyframes rainbow {
+    0% { background-position: 0% }
+    100% { background-position: 200% }
+  }
+
+  .tier-card:hover {
+    border-color: var(--gold-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  }
+
+  .tier-card:active { transform: translateY(0); }
+
+  .tier-icon { font-size: 32px; margin-bottom: 10px; display: block; }
+
+  .tier-name {
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+  }
+
+  .tier-card.adventurer .tier-name { color: #aaaacc; }
+  .tier-card.warrior .tier-name { color: var(--gold); }
+  .tier-card.champion .tier-name { color: var(--gold-bright); }
+
+  .tier-rewards { font-size: 13px; color: var(--text-dim); line-height: 1.8; }
+  .tier-rewards span { color: var(--text); }
+
+  .tier-price {
+    margin-top: 14px;
+    font-family: 'Cinzel', serif;
+    font-size: 18px;
+    font-weight: 900;
+  }
+
+  .tier-card.adventurer .tier-price { color: #aaaacc; }
+  .tier-card.warrior .tier-price { color: var(--gold); }
+  .tier-card.champion .tier-price { color: var(--gold-bright); }
+
+  .generate-btn {
+    margin-top: 16px;
+    width: 100%;
+    background: transparent;
+    border: 1px solid currentColor;
+    color: inherit;
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .tier-card.adventurer .generate-btn { color: #aaaacc; border-color: #aaaacc44; }
+  .tier-card.warrior .generate-btn { color: var(--gold); border-color: var(--gold-dark); }
+  .tier-card.champion .generate-btn { color: var(--gold-bright); border-color: var(--gold-dark); }
+
+  .generate-btn:hover { background: rgba(180,120,20,0.1); }
+
+  /* ── RESULT BOX ── */
+  #result-box {
+    display: none;
+    background: var(--bg2);
+    border: 1px solid var(--gold-dark);
+    padding: 24px 28px;
+    margin-bottom: 48px;
+    position: relative;
+    box-shadow: 0 0 40px rgba(180,120,20,0.08);
+  }
+
+  .result-label {
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+
+  .result-code {
+    font-family: 'Cinzel', serif;
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--gold-bright);
+    letter-spacing: 6px;
+    margin-bottom: 16px;
+    text-shadow: 0 0 20px rgba(240,192,64,0.3);
+  }
+
+  .copy-btn {
+    background: var(--gold-dark);
+    border: none;
+    color: #0a0806;
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding: 10px 24px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .copy-btn:hover { background: var(--gold); }
+
+  .result-tier {
+    position: absolute;
+    top: 16px; right: 20px;
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+  }
+
+  /* ── CODE TABLE ── */
+  .table-wrap {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .refresh-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: 2px;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .refresh-btn:hover { border-color: var(--gold-dark); color: var(--gold); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead th {
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+
+  tbody tr:hover { background: rgba(180,120,20,0.03); }
+  tbody tr:last-child { border-bottom: none; }
+
+  tbody td {
+    padding: 12px 16px;
+    color: var(--text);
+  }
+
+  .code-cell {
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    color: var(--gold);
+    letter-spacing: 2px;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    font-family: 'Cinzel', serif;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  .badge.used { background: rgba(180,40,40,0.2); color: var(--red); border: 1px solid rgba(180,40,40,0.3); }
+  .badge.unused { background: rgba(40,140,40,0.2); color: var(--green); border: 1px solid rgba(40,140,40,0.3); }
+  .badge.adventurer { background: rgba(150,150,200,0.15); color: #aaaacc; border: 1px solid rgba(150,150,200,0.2); }
+  .badge.warrior { background: rgba(180,120,20,0.15); color: var(--gold); border: 1px solid rgba(180,120,20,0.2); }
+  .badge.champion { background: rgba(240,192,64,0.15); color: var(--gold-bright); border: 1px solid rgba(240,192,64,0.2); }
+
+  .empty-row td {
+    text-align: center;
+    color: var(--text-dim);
+    padding: 32px;
+    font-style: italic;
+  }
+
+  .loading-row td {
+    text-align: center;
+    color: var(--text-dim);
+    padding: 32px;
+    font-style: italic;
+  }
+
+  /* ── LOGOUT ── */
+  .logout-btn {
+    position: fixed;
+    top: 20px; right: 20px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: 2px;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 10;
+    display: none;
+  }
+
+  .logout-btn:hover { border-color: var(--red); color: var(--red); }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed;
+    bottom: 30px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--bg2);
+    border: 1px solid var(--gold-dark);
+    color: var(--gold);
+    font-family: 'Cinzel', serif;
+    font-size: 12px;
+    letter-spacing: 2px;
+    padding: 12px 24px;
+    opacity: 0;
+    transition: all 0.3s;
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <span class="login-skull">💀</span>
+    <div class="login-title">ADMIN PORTAL</div>
+    <div class="login-sub">Authorized Personnel Only</div>
+    <input type="password" class="login-input" id="pw-input" placeholder="ENTER PASSWORD" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" onclick="doLogin()">ENTER THE PORTAL</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<button class="logout-btn" id="logout-btn" onclick="doLogout()">⚔ LOGOUT</button>
+
+<div id="main-panel">
+  <div class="panel-header">
+    <div class="panel-title">💀 GIFT CODE FORGE</div>
+    <div class="panel-sub">Generate codes for your worthy donors</div>
+  </div>
+
+  <div class="section-title">Select Donation Tier</div>
+
+  <div class="tiers-grid">
+    <div class="tier-card adventurer">
+      <span class="tier-icon">🥉</span>
+      <div class="tier-name">ADVENTURER</div>
+      <div class="tier-rewards">
+        💎 <span>100</span> Crystals<br>
+        🪙 <span>5,000</span> Gold<br>
+        🎰 <span>1</span> Premium Spin<br>
+        ⚔️ Starter Items
+      </div>
+      <div class="tier-price">$1</div>
+      <button class="generate-btn" onclick="generateCode('adventurer')">⚡ GENERATE CODE</button>
+    </div>
+
+    <div class="tier-card warrior">
+      <span class="tier-icon">🥈</span>
+      <div class="tier-name">WARRIOR</div>
+      <div class="tier-rewards">
+        💎 <span>350</span> Crystals<br>
+        🪙 <span>15,000</span> Gold<br>
+        🎰 <span>3</span> Premium Spins<br>
+        ⚔️ Rare Starter Set
+      </div>
+      <div class="tier-price">$3</div>
+      <button class="generate-btn" onclick="generateCode('warrior')">⚡ GENERATE CODE</button>
+    </div>
+
+    <div class="tier-card champion">
+      <span class="tier-icon">🥇</span>
+      <div class="tier-name">CHAMPION</div>
+      <div class="tier-rewards">
+        💎 <span>650</span> Crystals<br>
+        🪙 <span>30,000</span> Gold<br>
+        🎰 <span>5</span> Premium Spins<br>
+        ⚔️ Epic Starter Set
+      </div>
+      <div class="tier-price">$5</div>
+      <button class="generate-btn" onclick="generateCode('champion')">⚡ GENERATE CODE</button>
+    </div>
+  </div>
+
+  <!-- RESULT -->
+  <div id="result-box">
+    <div class="result-label">GENERATED CODE</div>
+    <div class="result-code" id="result-code">—</div>
+    <div class="result-tier" id="result-tier"></div>
+    <button class="copy-btn" onclick="copyCode()">📋 COPY CODE</button>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-wrap">
+    <div class="table-header">
+      <div class="section-title" style="margin:0">All Generated Codes</div>
+      <button class="refresh-btn" onclick="loadCodes()">↻ REFRESH</button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Tier</th>
+          <th>Diamonds</th>
+          <th>Gold</th>
+          <th>Spins</th>
+          <th>Status</th>
+          <th>Used By</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody id="codes-table">
+        <tr class="loading-row"><td colspan="8">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  // ── CONFIG ──
+  const SUPABASE_URL = 'https://xagwrqrgcuuitwgroiwh.supabase.co'
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhZ3dycXJnY3V1aXR3Z3JvaXdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MDI2NDMsImV4cCI6MjA5MTE3ODY0M30.TYvEIzTBF9FD1eetey0l_jZkNIxYh5a6yY2Cqdn_Pcc'
+  const EDGE_URL = `${SUPABASE_URL}/functions/v1/generate-gift-code`
+
+  let adminPassword = ''
+  let lastCode = ''
+
+  // ── LOGIN ──
+  function doLogin() {
+    const pw = document.getElementById('pw-input').value.trim()
+    if (!pw) return
+    adminPassword = pw
+    // Test by generating a dummy check — we validate on first real use
+    // For now just proceed to panel (Edge Function will reject wrong passwords)
+    document.getElementById('login-screen').style.display = 'none'
+    document.getElementById('main-panel').style.display = 'block'
+    document.getElementById('logout-btn').style.display = 'block'
+    loadCodes()
+  }
+
+  function doLogout() {
+    adminPassword = ''
+    document.getElementById('login-screen').style.display = 'flex'
+    document.getElementById('main-panel').style.display = 'none'
+    document.getElementById('logout-btn').style.display = 'none'
+    document.getElementById('pw-input').value = ''
+    document.getElementById('login-error').textContent = ''
+  }
+
+  // ── GENERATE CODE ──
+  async function generateCode(tier) {
+    const btn = event.target
+    btn.disabled = true
+    btn.innerHTML = '<span class="spinner"></span> FORGING...'
+
+    try {
+      const res = await fetch(EDGE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: adminPassword, tier })
+      })
+      const data = await res.json()
+
+      if (data.error) {
+        if (data.error === 'Unauthorized') {
+          showToast('❌ Wrong password!')
+          doLogout()
+        } else {
+          showToast('❌ Error: ' + data.error)
+        }
+        return
+      }
+
+      lastCode = data.code
+      document.getElementById('result-code').textContent = data.code
+      document.getElementById('result-tier').textContent = tier.toUpperCase()
+      document.getElementById('result-box').style.display = 'block'
+      showToast('✅ Code forged!')
+      loadCodes()
+
+    } catch (e) {
+      showToast('❌ Network error')
+    } finally {
+      btn.disabled = false
+      btn.innerHTML = '⚡ GENERATE CODE'
+    }
+  }
+
+  // ── COPY ──
+  function copyCode() {
+    if (!lastCode) return
+    navigator.clipboard.writeText(lastCode).then(() => showToast('📋 Copied to clipboard!'))
+  }
+
+  // ── LOAD CODES TABLE ──
+  async function loadCodes() {
+    const tbody = document.getElementById('codes-table')
+    tbody.innerHTML = '<tr class="loading-row"><td colspan="8"><span class="spinner"></span> Loading...</td></tr>'
+
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/gift_codes?order=created_at.desc`, {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+        }
+      })
+      const codes = await res.json()
+
+      if (!codes.length) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No codes generated yet</td></tr>'
+        return
+      }
+
+      tbody.innerHTML = codes.map(c => `
+        <tr>
+          <td class="code-cell">${c.code}</td>
+          <td><span class="badge ${c.tier}">${c.tier.toUpperCase()}</span></td>
+          <td>💎 ${c.diamonds.toLocaleString()}</td>
+          <td>🪙 ${c.gold.toLocaleString()}</td>
+          <td>🎰 ${c.spins}</td>
+          <td><span class="badge ${c.used ? 'used' : 'unused'}">${c.used ? 'USED' : 'ACTIVE'}</span></td>
+          <td style="color:var(--text-dim)">${c.used_by || '—'}</td>
+          <td style="color:var(--text-dim);font-size:12px">${new Date(c.created_at).toLocaleDateString()}</td>
+        </tr>
+      `).join('')
+
+    } catch (e) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="8">Failed to load codes</td></tr>'
+    }
+  }
+
+  // ── TOAST ──
+  function showToast(msg) {
+    const t = document.getElementById('toast')
+    t.textContent = msg
+    t.classList.add('show')
+    setTimeout(() => t.classList.remove('show'), 2500)
+  }
+</script>
+</body>
+</html>
