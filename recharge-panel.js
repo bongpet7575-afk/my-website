@@ -95,7 +95,7 @@ function openRechargePanel() {
             <div style="font-size:22px;margin-bottom:6px;">🥉</div>
             <div style="color:#aaaacc;font-size:11px;letter-spacing:2px;margin-bottom:8px;">ADVENTURER</div>
             <div style="color:#6a5a3a;font-size:11px;line-height:1.9;">
-              💎 100 Crystals<br>🪙 5,000 Gold<br>🎰 1 Spin<br>⚔️ Starter Items
+              💎 100 Crystals<br>🪙 5,000 Gold<br>1$🎰 1 Spin<br>⚔️ Starter Items
             </div>
             <div style="color:#aaaacc;font-size:18px;font-weight:900;margin-top:10px;"></div>
           </div>
@@ -104,7 +104,7 @@ function openRechargePanel() {
             <div style="font-size:22px;margin-bottom:6px;">🥈</div>
             <div style="color:#c9a84c;font-size:11px;letter-spacing:2px;margin-bottom:8px;">WARRIOR</div>
             <div style="color:#6a5a3a;font-size:11px;line-height:1.9;">
-              💎 350 Crystals<br>🪙 15,000 Gold<br>🎰 3 Spins<br>⚔️ Rare Set
+              💎 350 Crystals<br>🪙 15,000 Gold<br>3$🎰 3 Spins<br>⚔️ Rare Set
             </div>
             <div style="color:#c9a84c;font-size:18px;font-weight:900;margin-top:10px;"></div>
           </div>
@@ -113,7 +113,7 @@ function openRechargePanel() {
             <div style="font-size:22px;margin-bottom:6px;">🥇</div>
             <div style="color:#f0c040;font-size:11px;letter-spacing:2px;margin-bottom:8px;">CHAMPION</div>
             <div style="color:#6a5a3a;font-size:11px;line-height:1.9;">
-              💎 650 Crystals<br>🪙 30,000 Gold<br>🎰 5 Spins<br>⚔️ Epic Set
+              💎 650 Crystals<br>🪙 30,000 Gold<br>5$🎰 5 Spins<br>⚔️ Epic Set
             </div>
             <div style="color:#f0c040;font-size:18px;font-weight:900;margin-top:10px;"></div>
           </div>
