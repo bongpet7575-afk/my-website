@@ -163,7 +163,7 @@ async function redeemGiftCode() {
       body: JSON.stringify({
         code,
         character_id: state.character_id,
-        player_name: state.name
+        name: state.name
       })
     })
     const data = await res.json()
