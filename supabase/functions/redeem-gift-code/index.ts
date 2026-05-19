@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { code, character_id, player_name } = await req.json()
+    const { code, character_id, name } = await req.json()
 
     if (!code || !character_id) {
       return new Response(JSON.stringify({ error: 'Missing code or character_id' }), {
@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
       .from('gift_codes')
       .update({
         used: true,
-        used_by: player_name || character_id,
+        used_by: name || character_id,
         used_at: new Date().toISOString()
       })
       .eq('code', giftCode.code)
