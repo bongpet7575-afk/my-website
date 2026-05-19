@@ -92,28 +92,28 @@ function openRechargePanel() {
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;">
 
           <div style="background:#0a0806;border:1px solid #2a2010;border-top:2px solid #aaaacc;padding:14px 10px;text-align:center;">
-            <div style="font-size:22px;margin-bottom:6px;">🥉</div>
+            <div style="font-size:22px;margin-bottom:6px;">1$🥉</div>
             <div style="color:#aaaacc;font-size:11px;letter-spacing:2px;margin-bottom:8px;">ADVENTURER</div>
             <div style="color:#6a5a3a;font-size:11px;line-height:1.9;">
-              💎 100 Crystals<br>🪙 5,000 Gold<br>1$🎰 1 Spin<br>⚔️ Starter Items
+              💎 100 Crystals<br>🪙 5,000 Gold<br>🎰 1 Spin<br>⚔️ Starter Items
             </div>
             <div style="color:#aaaacc;font-size:18px;font-weight:900;margin-top:10px;"></div>
           </div>
 
           <div style="background:#0a0806;border:1px solid #3a2a0a;border-top:2px solid #c9a84c;padding:14px 10px;text-align:center;">
-            <div style="font-size:22px;margin-bottom:6px;">🥈</div>
+            <div style="font-size:22px;margin-bottom:6px;">3$🥈</div>
             <div style="color:#c9a84c;font-size:11px;letter-spacing:2px;margin-bottom:8px;">WARRIOR</div>
             <div style="color:#6a5a3a;font-size:11px;line-height:1.9;">
-              💎 350 Crystals<br>🪙 15,000 Gold<br>3$🎰 3 Spins<br>⚔️ Rare Set
+              💎 350 Crystals<br>🪙 15,000 Gold<br>🎰 3 Spins<br>⚔️ Rare Set
             </div>
             <div style="color:#c9a84c;font-size:18px;font-weight:900;margin-top:10px;"></div>
           </div>
 
           <div style="background:#0a0806;border:1px solid #3a2a0a;border-top:2px solid #f0c040;padding:14px 10px;text-align:center;">
-            <div style="font-size:22px;margin-bottom:6px;">🥇</div>
+            <div style="font-size:22px;margin-bottom:6px;">5$🥇</div>
             <div style="color:#f0c040;font-size:11px;letter-spacing:2px;margin-bottom:8px;">CHAMPION</div>
             <div style="color:#6a5a3a;font-size:11px;line-height:1.9;">
-              💎 650 Crystals<br>🪙 30,000 Gold<br>5$🎰 5 Spins<br>⚔️ Epic Set
+              💎 650 Crystals<br>🪙 30,000 Gold<br>🎰 5 Spins<br>⚔️ Epic Set
             </div>
             <div style="color:#f0c040;font-size:18px;font-weight:900;margin-top:10px;"></div>
           </div>
