@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
       .from('gift_codes')
       .update({
         used: true,
-        used_by: name || character_id,
+        used_by: character.name || String(character_id),
         used_at: new Date().toISOString()
       })
       .eq('code', giftCode.code)
@@ -57,10 +57,10 @@ Deno.serve(async (req) => {
 
     // Fetch current character stats
     const { data: character, error: charError } = await supabase
-      .from('characters')
-      .select('gold, soulCrystals, premiumSpins')
-      .eq('id', character_id)
-      .single()
+  .from('characters')
+  .select('gold, soulCrystals, premiumSpins, name')
+  .eq('id', character_id)
+  .single()
 
     if (charError || !character) {
       return new Response(JSON.stringify({ error: 'Character not found' }), {
