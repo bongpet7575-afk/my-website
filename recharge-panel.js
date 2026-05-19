@@ -148,17 +148,8 @@ async function redeemGiftCode() {
   const btn = document.getElementById('redeem-btn');
   const code = input.value.trim().toUpperCase();
 
-  if (!code) {
-    msg.style.color = '#cc4444';
-    msg.textContent = '❌ Please enter a code';
-    return;
-  }
-
-  if (!state.name) {
-    msg.style.color = '#cc4444';
-    msg.textContent = '❌ Please login first';
-    return;
-  }
+  if (!code) { msg.style.color='#cc4444'; msg.textContent='❌ Please enter a code'; return; }
+  if (!state.character_id) { msg.style.color='#cc4444'; msg.textContent='❌ Please login first'; return; }
 
   btn.disabled = true;
   btn.textContent = 'CHECKING...';
@@ -166,53 +157,41 @@ async function redeemGiftCode() {
   msg.textContent = '⏳ Verifying code...';
 
   try {
-    // Check if code exists and is unused
-    const res = await dbClient
-      .from('gift_codes')
-      .select('*')
-      .eq('code', code)
-      .eq('used', false)
-      .single();
+    const res = await fetch('https://xagwrqrgcuuitwgroiwh.supabase.co/functions/v1/redeem-gift-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code,
+        character_id: state.character_id,
+        player_name: state.name
+      })
+    })
+    const data = await res.json()
 
-    if (res.error || !res.data) {
+    if (data.error) {
       msg.style.color = '#cc4444';
-      msg.textContent = '❌ Invalid or already used code';
-      btn.disabled = false;
-      btn.textContent = '⚡ REDEEM';
+      msg.textContent = '❌ ' + data.error;
       return;
     }
 
-    const giftData = res.data;
+    // Sync state from server rewards
+    state.gold = (state.gold || 0) + data.rewards.gold;
+    state.soulCrystals = (state.soulCrystals || 0) + data.rewards.diamonds;
+    state.premiumSpins = (state.premiumSpins || 0) + data.rewards.spins;
 
-    // Mark code as used
-    await dbClient
-      .from('gift_codes')
-      .update({ used: true, used_by: state.name, used_at: new Date().toISOString() })
-      .eq('code', code);
-
-    // Give rewards
-    state.gold = (state.gold || 0) + giftData.gold;
-    state.soulCrystals = (state.soulCrystals || 0) + giftData.diamonds;
-    state.premiumSpins = (state.premiumSpins || 0) + giftData.spins;
-
-    // Update UI
     const goldEl = document.getElementById('gold-val');
     const crystalEl = document.getElementById('soul-crystal-val');
     if (goldEl) goldEl.textContent = state.gold.toLocaleString();
     if (crystalEl) crystalEl.textContent = state.soulCrystals.toLocaleString();
 
-    // Save to Supabase
-    await savePlayerToSupabase();
-
     msg.style.color = '#44aa44';
-    msg.textContent = `✅ Redeemed! +${giftData.diamonds} 💎 +${giftData.gold.toLocaleString()} 🪙 +${giftData.spins} 🎰`;
+    msg.textContent = `✅ Redeemed! +${data.rewards.diamonds} 💎 +${data.rewards.gold.toLocaleString()} 🪙 +${data.rewards.spins} 🎰`;
     input.value = '';
-
-    addCombatLog(`🎁 Gift code redeemed! Tier: ${giftData.tier.toUpperCase()}`, 'good');
+    addCombatLog(`🎁 Gift code redeemed! Tier: ${data.rewards.tier.toUpperCase()}`, 'good');
 
   } catch (err) {
     msg.style.color = '#cc4444';
-    msg.textContent = '❌ Error: ' + err.message;
+    msg.textContent = '❌ Network error';
   } finally {
     btn.disabled = false;
     btn.textContent = '⚡ REDEEM';
