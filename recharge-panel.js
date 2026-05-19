@@ -187,7 +187,7 @@ async function redeemGiftCode() {
     // Mark code as used
     await dbClient
       .from('gift_codes')
-      .update({ used: true, used_by: state.playerName, used_at: new Date().toISOString() })
+      .update({ used: true, used_by: state.name, used_at: new Date().toISOString() })
       .eq('code', code);
 
     // Give rewards
