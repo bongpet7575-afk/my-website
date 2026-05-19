@@ -154,7 +154,7 @@ async function redeemGiftCode() {
     return;
   }
 
-  if (!state.playerName) {
+  if (!state.character.name) {
     msg.style.color = '#cc4444';
     msg.textContent = '❌ Please login first';
     return;
