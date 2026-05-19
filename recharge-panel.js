@@ -162,7 +162,7 @@ async function redeemGiftCode() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         code,
-        character_id: state.user_id,
+        character_id: state.character_id,
         name: state.name
       })
     })
