@@ -160,24 +160,21 @@ async function redeemGiftCode() {
     return;
   }
 
-  // 1. Disable button immediately
   btn.disabled = true;
   btn.textContent = 'CHECKING...';
   msg.style.color = '#c9a84c';
   msg.textContent = '⏳ Verifying code...';
 
   try {
-    // 2. STEP A: Check if code exists and is unused
-    // We use .select() to ensure we get the data object
-    const { data: giftData, error: selectError } = await dbClient
+    // Check if code exists and is unused
+    const res = await dbClient
       .from('gift_codes')
       .select('*')
       .eq('code', code)
       .eq('used', false)
       .single();
 
-    if (selectError || !giftData) {
-      console.error("Select Error:", selectError);
+    if (res.error || !res.data) {
       msg.style.color = '#cc4444';
       msg.textContent = '❌ Invalid or already used code';
       btn.disabled = false;
@@ -185,32 +182,15 @@ async function redeemGiftCode() {
       return;
     }
 
-    // 3. STEP B: CRITICAL - Update the code to 'used' IMMEDIATELY
-    // We must ensure this happens BEFORE giving rewards to prevent race conditions
-    const { error: updateError } = await dbClient
+    const giftData = res.data;
+
+    // Mark code as used
+    await dbClient
       .from('gift_codes')
-      .update({ 
-        used: true, 
-        used_by: state.name, 
-        used_at: new Date().toISOString() 
-      })
-      .eq('code', code)
-      // Optional: Add a check to ensure we only update if it was still unused (optimistic locking)
-      // .eq('used', false) 
-      .single();
+      .update({ used: true, used_by: state.name, used_at: new Date().toISOString() })
+      .eq('code', code);
 
-    if (updateError) {
-      console.error("Update Error:", updateError);
-      // If update fails, we should NOT give rewards. 
-      // In a real scenario, you might want to rollback or retry.
-      msg.style.color = '#cc4444';
-      msg.textContent = '❌ Database error: Could not mark code as used. Please try again.';
-      btn.disabled = false;
-      btn.textContent = '⚡ REDEEM';
-      return;
-    }
-
-    // 4. STEP C: Give Rewards (Only if update succeeded)
+    // Give rewards
     state.gold = (state.gold || 0) + giftData.gold;
     state.soulCrystals = (state.soulCrystals || 0) + giftData.diamonds;
     state.premiumSpins = (state.premiumSpins || 0) + giftData.spins;
@@ -221,7 +201,7 @@ async function redeemGiftCode() {
     if (goldEl) goldEl.textContent = state.gold.toLocaleString();
     if (crystalEl) crystalEl.textContent = state.soulCrystals.toLocaleString();
 
-    // Save player state to Supabase
+    // Save to Supabase
     await savePlayerToSupabase();
 
     msg.style.color = '#44aa44';
@@ -231,9 +211,8 @@ async function redeemGiftCode() {
     addCombatLog(`🎁 Gift code redeemed! Tier: ${giftData.tier.toUpperCase()}`, 'good');
 
   } catch (err) {
-    console.error("Catch Block Error:", err);
     msg.style.color = '#cc4444';
-    msg.textContent = '❌ System Error: ' + err.message;
+    msg.textContent = '❌ Error: ' + err.message;
   } finally {
     btn.disabled = false;
     btn.textContent = '⚡ REDEEM';
