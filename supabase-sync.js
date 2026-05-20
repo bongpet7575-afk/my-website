@@ -25,15 +25,13 @@ async function loadPlayerFromSupabase(characterId) {
     if (!character) throw new Error('Character not found');
 
     await syncCharacterToState(character);
-await checkLoginReward();        // overlay added here
-await checkTournamentRewardExpiry();  // does this rerender?
-await createWeeklyTournamentsIfMissing();
-await checkAndAutoStartTournaments();
-await checkAndStartGrandFinals();
-await paySupremeChampionWeeklyBonus();
-// then what happens after loadPlayerFromSupabase returns?
-// selectCharacterAndPlay probably calls showGame() or switchMainScene()
-// which rerenders everything and wipes the overlay 💀
+    await checkLoginReward();
+    await checkTournamentRewardExpiry();
+    await createWeeklyTournamentsIfMissing();
+    await checkAndAutoStartTournaments();
+    await checkAndStartGrandFinals();
+    await paySupremeChampionWeeklyBonus();
+
     console.log('✅ Character loaded from Supabase');
 
     return state;
@@ -58,11 +56,11 @@ async function syncCharacterToState(character) {
   state.user_id       = character.user_id;
   state.name          = character.name;
   state.level         = character.level || 1;
-  state.xp            = character.exp || 0;   // 'exp' column — 'experience' was dropped
+  state.xp            = character.exp || 0;
   state.xpNext        = Math.floor((character.level || 1) * 100 * 20);
   state.gold          = character.gold || 0;
   state.reputation    = character.reputation || 0;
-  state.reputationTitle = character.reputation_title || null;
+  state.reputationTitle = character.reputation_rank || null; // ✅ FIX: was reputation_title (column doesn't exist)
   state.class         = character.class || null;
   state.currentScene  = character.current_scene || 'town';
 
@@ -74,15 +72,15 @@ async function syncCharacterToState(character) {
   state.legacySkills   = character.legacy_skills || {};
   state.respecCount    = character.respec_count || 0;
   state.goldMultExpiry = character.gold_mult_expiry || null;
+
   // ── Soul Crystals & Login ──
   state.soulCrystals    = character.soul_crystals   || 0;
   state.loginStreak     = character.login_streak    || 0;
   state.lastLoginDate   = character.last_login_date || null;
   state.totalLoginDays  = character.total_login_days || 0;
-  state.premiumSpins = character.premium_spins || 0;
+  state.premiumSpins    = character.premium_spins || 0;
 
   // ── Health / Mana ──
-  // Maps to state.hp / state.mp used everywhere in game
   state.hp    = character.health    || 100;
   state.maxHp = character.max_health || 100;
   state.mp    = character.mana      || 50;
@@ -159,7 +157,7 @@ async function syncCharacterToState(character) {
   state.equipAttackPower    = stats.equipAttackPower    || 0;
   state.equipAttackPowerMult = stats.equipAttackPowerMult || 0;
   state.equipHpRegen        = stats.equipHpRegen        || 0;
-  state.equipHpRegenMult    = stats.equipHpRegenMult    || 0;  // BUG FIX: was equipHpRenMult (typo)
+  state.equipHpRegenMult    = stats.equipHpRegenMult    || 0;
   state.equipMpRegen        = stats.equipMpRegen        || 0;
   state.equipMpRegenMult    = stats.equipMpRegenMult    || 0;
   state.equipHit            = stats.equipHit            || 0;
@@ -175,8 +173,7 @@ async function syncCharacterToState(character) {
   state.talentPoints        = character.talent_points        || 0;
   state.unlockedTalents     = character.unlocked_talents     || [];
   state.talentUnlockedFlags = character.talent_unlocked_flags || {};
-  // Skills are rebuilt from class + legacySkills — never trust saved skills array
-  state.skillCooldowns = character.skill_cooldowns || {};
+  state.skillCooldowns      = character.skill_cooldowns || {};
 
   // ── Quests ──
   state.quests = character.quests || {
@@ -214,7 +211,6 @@ async function syncCharacterToState(character) {
   state.tournamentRewardsExpireAt = character.tournament_rewards_expire_at || null;
 
   // ── Rebuild skills AFTER all state is loaded ──
-  // (class and legacySkills are now set, so rebuildSkills works correctly)
   await rebuildSkills();
 
   // ── Talent unlocks (needs class + level to be set first) ──
@@ -222,9 +218,7 @@ async function syncCharacterToState(character) {
     if (typeof checkTalentUnlocks === 'function') checkTalentUnlocks();
   }
 
-  // ── calcStats ONCE at the very end — all fields are populated now ──
-  // BUG FIX: was called at the TOP of this function before any fields
-  // were set, meaning it ran on stale defaults. Now runs correctly.
+  // ── calcStats ONCE at the very end ──
   if (typeof calcStats === 'function') calcStats();
 }
 
@@ -237,7 +231,6 @@ let realtimeChannel = null;
 function startRealtimeSync() {
   if (!state.character_id) return;
 
-  // Clean up any existing subscription first
   if (realtimeChannel) {
     dbClient.removeChannel(realtimeChannel);
     realtimeChannel = null;
@@ -253,8 +246,6 @@ function startRealtimeSync() {
     }, (payload) => {
       const newGold = payload.new.gold;
 
-      // Only sync gold UP (auction payout from another session)
-      // Never sync gold DOWN — that would revert spending
       if (newGold > state.gold) {
         const diff = newGold - state.gold;
         state.gold = newGold;
@@ -286,17 +277,11 @@ async function savePlayerToSupabase() {
     if (!user) throw new Error('Not authenticated');
     if (!state.character_id) throw new Error('No character ID');
 
-    // ── GOLD RECONCILIATION ──
-    // Take the higher of in-memory gold vs DB gold to avoid wiping
-    // gold that arrived from an auction settlement in another tab/session.
+    const safeGold = state.gold;
 
-    // ── GOLD: trust state.gold (already updated by all spend/earn events) ──
-      const safeGold = state.gold;    
-
-    // ── FULL SAFE UPDATE VIA RPC ──
     const { error } = await dbClient.rpc('update_character_safe', {
-      p_soul_weapon: state.soulWeapon || null,
-      p_crafted_soul_tiers: state.craftedSoulTiers || {},
+      p_soul_weapon:           state.soulWeapon || null,
+      p_crafted_soul_tiers:    state.craftedSoulTiers || {},
       p_character_id:          state.character_id,
       p_level:                 state.level,
       p_xp:                    state.xp,
@@ -304,6 +289,7 @@ async function savePlayerToSupabase() {
       p_hp:                    state.hp,
       p_mp:                    state.mp,
       p_reputation:            state.reputation    || 0,
+      p_reputation_rank:       state.reputationTitle || null, // ✅ FIX: now saves rank to DB
       p_name:                  state.name,
       p_class:                 state.class,
       p_max_health:            state.maxHp,
@@ -327,7 +313,7 @@ async function savePlayerToSupabase() {
       p_respec_count:          state.respecCount,
       p_gold_mult_expiry:      state.goldMultExpiry,
       p_soul_crystals:         state.soulCrystals   || 0,
-      p_premium_spins: state.premiumSpins || 0,
+      p_premium_spins:         state.premiumSpins   || 0,
       p_login_streak:          state.loginStreak    || 0,
       p_last_login_date:       state.lastLoginDate  || null,
       p_total_login_days:      state.totalLoginDays || 0,
@@ -416,7 +402,7 @@ function startAutoSave() {
     } catch (error) {
       console.warn('Auto-save failed:', error);
     }
-  }, 920000); // every 2 minutes
+  }, 120000); // every 2 minutes
 }
 
 function stopAutoSave() {
@@ -435,12 +421,12 @@ function setupAutoSaveOnUnload() {
 function initializeSupabaseSync() {
   startAutoSave();
   setupAutoSaveOnUnload();
-  startRealtimeSync(); // ← add this
+  startRealtimeSync();
   console.log('🔄 Supabase sync initialized');
 }
 
 function cleanupSupabaseSync() {
   stopAutoSave();
-  stopRealtimeSync(); // ← add this
+  stopRealtimeSync();
   console.log('🔄 Supabase sync stopped');
 }
