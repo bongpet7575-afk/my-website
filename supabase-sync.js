@@ -61,6 +61,12 @@ async function syncCharacterToState(character) {
   state.gold          = character.gold || 0;
   state.reputation    = character.reputation || 0;
   state.reputationTitle = character.reputation_rank || null; // ✅ FIX: was reputation_title (column doesn't exist)
+
+// ✅ FIX: recalculate rank on load in case DB value is stale
+const _loadedTitle = getCurrentTitle();
+if (_loadedTitle && _loadedTitle.id !== state.reputationTitle) {
+  state.reputationTitle = _loadedTitle.id;
+}
   state.class         = character.class || null;
   state.currentScene  = character.current_scene || 'town';
 
