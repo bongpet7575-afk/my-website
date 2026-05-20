@@ -984,7 +984,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <div class="char-panel">
         <div class="panel-title">ARCHIVEMENTS</div>
         <div id="quest-list"></div>
-        
+
       </div>
 
       <!-- Leaderboard -->
@@ -1179,7 +1179,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
         <div id="town-panel-auction" class="town-panel">
           <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;">
             <button id="market-tab-ah" class="shop-tab active" onclick="switchMarketTab('auction')">Active Auctions</button>
-            <button class="shop-tab" onclick="showMyAuctions()">My Listings</button>
+            <button class="shop-tab" onclick="showMyAuctions(this)">My Listings</button>
             <button class="start-btn" style="margin-left:auto;padding:6px 12px;" onclick="fetchAuctions()">↻ Refresh</button>
           </div>
           <div id="market-ah">
@@ -1407,19 +1407,7 @@ window.switchMainScene = async function(scene) {
   if (scene === 'char') renderStatPoints();
 };
 
-// ── MY AUCTIONS ──
-async function showMyAuctions() {
-  if (!state.character_id) { notify('Must be logged in!', 'var(--red)'); return; }
-  const { data } = await dbClient
-    .from('auctions').select('*')
-    .eq('seller_id', state.character_id).eq('status', 'active');
-  const container = document.getElementById('auction-list');
-  if (!data || !data.length) {
-    container.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:20px;font-style:italic;">No active listings.</div>';
-    return;
-  }
-  renderAuctions(data, {});
-}
+
 
 // BUG FIX #3: Removed the dangerous document.getElementById override.
 // It was globally patching the browser API which could break Supabase's

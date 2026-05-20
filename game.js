@@ -7369,7 +7369,7 @@ function formatNumber(num){if(num>=1000000)return(num/1000000).toFixed(1)+'M';if
 const ENHANCE_COST=[0,500,1000,2000,3500,5000,8000,12000,18000,25000,35000,50000,70000,100000,150000,200000];
 const ENHANCE_RATE=[0,100,95,85,75,65,55,45,35,25,25,25,25,25,25,25];
 function openEnhance(uid){const item=state.inventory.find(i=>i.uid===uid);if(!item||item.category!=='equipment')return;document.getElementById('enhance-screen').style.display='block';renderEnhanceScreen(uid);}
-function closeEnhance(){document.getElementById('enhance-screen').style.display='none';}
+function closeEnhance(){document.getElementById('enhance-screen').style.display='none';savePlayerToSupabase();}
 function renderEnhanceScreen(uid){
   const item=state.inventory.find(i=>i.uid===uid);if(!item)return;
   const r=RARITY[item.rarity]||RARITY.normal,enh=item.enhLevel||0,maxed=enh>=15,cost=ENHANCE_COST[enh+1]||0,rate=ENHANCE_RATE[enh+1]||0;
@@ -7388,6 +7388,7 @@ function renderEnhanceScreen(uid){
         <div class="enhance-cost-box">
           <div class="enhance-cost-title">Enhancement +${enh+1}</div>
           <div class="enhance-cost-row"><span>💰 Cost</span><span style="color:${state.gold>=cost?'var(--green)':'var(--red)'}">${cost.toLocaleString()}g</span></div>
+          <div class="enhance-cost-row"><span>👛 Your Gold</span><span style="color:var(--gold)">${state.gold.toLocaleString()}g</span></div>
           <div class="enhance-cost-row"><span>✅ Success Rate</span><span style="color:${rate>=80?'var(--green)':rate>=50?'var(--gold)':'var(--red)'}">${rate}%</span></div>
           <div class="enhance-cost-row"><span>❌ Fail Effect</span><span style="color:var(--red)">${enh>0?`Drop to +${enh-1}`:'Nothing'}</span></div>
         </div>
@@ -7435,7 +7436,7 @@ async function doEnhance(uid){
   }
 
   if(item.equipped){Object.entries(item.stats||{}).forEach(([k,v])=>{const ek='equip'+k.charAt(0).toUpperCase()+k.slice(1);state[ek]=(state[ek]||0)+v;});}
-  if(item.equipped)calcStats();updateUI();renderInventory();renderEnhanceScreen(uid);await savePlayerToSupabase();
+  if(item.equipped)calcStats();updateUI();renderInventory();renderEnhanceScreen(uid);
 }
 
 async function useItem(uid){
@@ -7556,7 +7557,7 @@ function renderInventory() {
   migrateAutoSell();
 
   const list  = document.getElementById('inventory-list');
-  const items = state.inventory.filter(i => i.category === currentInvTab && !i.equipped);
+  const items = state.inventory.filter(i => i.category === currentInvTab);
 
   // Soul tab has no slot limit
   const hasLimit = currentInvTab !== 'soul_weapon';

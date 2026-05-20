@@ -119,6 +119,28 @@ async function fetchAuctions() {
   }
 }
 
+async function showMyAuctions(btn) {
+  document.querySelectorAll('#town-panel-auction .shop-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+
+  if (!state.character_id) { notify('Must be logged in!', 'var(--red)'); return; }
+
+  const container = document.getElementById('auction-list');
+  container.innerHTML = `<div style="text-align:center;color:var(--text-dim);padding:20px;">Loading...</div>`;
+
+  const { data } = await dbClient
+    .from('auctions').select('*')
+    .eq('seller_id', state.character_id).eq('status', 'active')
+    .order('created_at', { ascending: false });
+
+  if (!data || !data.length) {
+    container.innerHTML = `<div style="text-align:center;color:var(--text-dim);padding:20px;font-style:italic;">No active listings.</div>`;
+    return;
+  }
+
+  renderAuctions(data, { [state.character_id]: state.name });
+}
+
 function renderAuctions(auctions, sellerMap = {}) {
   const container = document.getElementById('auction-list');
   if (!container) return;
@@ -362,7 +384,8 @@ async function cancelAuction(auctionId) {
 // ============================================
 
 function switchMarketTab(tab) {
-  document.getElementById('market-ah').style.display = tab === 'auction' ? 'block' : 'none';
-  document.getElementById('market-tab-ah').classList.toggle('active', tab === 'auction');
+  document.querySelectorAll('#town-panel-auction .shop-tab').forEach(t => t.classList.remove('active'));
+document.getElementById('market-tab-ah').classList.add('active');
+  document.getElementById('market-ah').style.display = 'block';
   if (tab === 'auction') fetchAuctions();
 }
