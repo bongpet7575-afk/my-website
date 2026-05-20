@@ -223,13 +223,14 @@ function openSkillComboPicker(tournament, tier, tierKey) {
       if (newGold < 0) { notify('Not enough gold!', 'var(--red)'); return; }
       state.gold = newGold;
 
+      calcStats(); // ensure stats are fresh before snapshot
       const snapshot = {
         character_id: state.character_id,
         name:         state.name,
         level:        state.level,
         class:        state.class,
         attackPower:  state.attackPower,
-        maxHp:        state.maxHp,
+        maxHp:        state.maxHp || 1000,
         armor:        state.armor,
         hit:          state.hit,
         dodge:        state.dodge,
@@ -2529,8 +2530,10 @@ async function openBattleReplay(battleId) {
 
   function renderReplay() {
     const turn = turns[currentTurn] || turns[turns.length - 1];
-    const p1Pct = getHpPercent(turn.p1HpAfter, turn.p1HpMax);
-    const p2Pct = getHpPercent(turn.p2HpAfter, turn.p2HpMax);
+    const p1Max = turn.p1HpMax || attacker.maxHp || 1;
+    const p2Max = turn.p2HpMax || defender.maxHp || 1;
+    const p1Pct = getHpPercent(turn.p1HpAfter, p1Max);
+    const p2Pct = getHpPercent(turn.p2HpAfter, p2Max);
     const p1HpColor = getHpColor(p1Pct);
     const p2HpColor = getHpColor(p2Pct);
     const isP1Acting = turn.actor === 'p1';
@@ -2807,6 +2810,591 @@ async function openBattleReplay(battleId) {
   // Initial render
   renderReplay();
 }
+
+
+// ── PRACTICE FIGHT SYSTEM ──
+function getPracticeFee(tierKey) {
+  const fees = GAME_CONFIG.practice_fees || {};
+  const defaults = { rookie: 5000, veteran: 10000, elite: 20000, legend: 50000 };
+  return fees[tierKey] ?? defaults[tierKey];
+}
+
+// BUG FIX #5: now fetches ALL brackets for this tier, not just the most recent one
+// BUG FIX #8: added limit(200) to win/loss query
+async function renderPracticeboard(tierKey, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:12px;">Loading fighters...</div>';
+
+  const TIER_MIN    = { rookie: 20, veteran: 41, elite: 61, legend: 81 };
+  const TIER_MAX    = { rookie: 40, veteran: 60, elite: 80, legend: 100 };
+  const TIER_COLORS = { rookie: '#22c55e', veteran: '#3b82f6', elite: '#a855f7', legend: '#ff9900' };
+  const fee      = getPracticeFee(tierKey);
+  const minLevel = TIER_MIN[tierKey];
+  const tierColor = TIER_COLORS[tierKey];
+
+  if (state.level < minLevel) {
+    container.innerHTML = `
+      <div style="text-align:center;font-size:.75em;color:var(--text-dim);
+        padding:10px;background:rgba(255,255,255,0.03);border-radius:6px;">
+        🔒 Reach Level ${minLevel} to access ${tierKey} practice fights
+      </div>`;
+    return;
+  }
+
+  try {
+    // BUG FIX #5: fetch ALL brackets for this tier (not just most recent)
+    const { data: tournaments } = await dbClient
+      .from('arena_tournaments')
+      .select('id, status, bracket_number')
+      .in('status', ['open', 'in_progress', 'completed'])
+      .eq('min_level', minLevel)
+      .order('bracket_number', { ascending: true });
+
+    if (!tournaments || !tournaments.length) {
+      container.innerHTML = `
+        <div style="text-align:center;font-size:.75em;color:var(--text-dim);
+          padding:10px;background:rgba(255,255,255,0.03);border-radius:6px;">
+          No registered fighters this week yet
+        </div>`;
+      return;
+    }
+
+    const tournamentIds = tournaments.map(t => t.id);
+
+    // Batch fetch all registrations across all brackets
+    const { data: regs } = await dbClient
+      .from('arena_registrations')
+      .select('character_id, character_snapshot, skill_combo, points, rank, tournament_id')
+      .in('tournament_id', tournamentIds)
+      .order('points', { ascending: false });
+
+    if (!regs || !regs.length) {
+      container.innerHTML = `
+        <div style="text-align:center;font-size:.75em;color:var(--text-dim);
+          padding:10px;background:rgba(255,255,255,0.03);border-radius:6px;">
+          No registered fighters this week yet
+        </div>`;
+      return;
+    }
+
+    // Filter out bots and self
+    const realPlayers = regs.filter(r =>
+      r.character_snapshot &&
+      !r.character_snapshot.isBot &&
+      r.character_id !== state.character_id
+    );
+
+    if (!realPlayers.length) {
+      container.innerHTML = `
+        <div style="text-align:center;font-size:.75em;color:var(--text-dim);
+          padding:10px;background:rgba(255,255,255,0.03);border-radius:6px;">
+          No other fighters registered yet — be the first!
+        </div>`;
+      return;
+    }
+
+    // BUG FIX #1/#4: guard empty array before win/loss query
+    const charIds = realPlayers.map(r => r.character_id).filter(Boolean);
+    let records = {};
+    charIds.forEach(id => { records[id] = { wins: 0, losses: 0 }; });
+
+    if (charIds.length > 0) {
+      // BUG FIX #8: added limit(200) — no unbounded query
+      // BUG FIX #1: safer query using .in() separately instead of raw .or() string
+      const { data: wonBattles } = await dbClient
+        .from('arena_battles')
+        .select('winner_id, attacker_id, defender_id')
+        .in('attacker_id', charIds)
+        .limit(200);
+
+      const { data: defBattles } = await dbClient
+        .from('arena_battles')
+        .select('winner_id, attacker_id, defender_id')
+        .in('defender_id', charIds)
+        .limit(200);
+
+      const allBattles = [...(wonBattles || []), ...(defBattles || [])];
+      // Deduplicate by using a Set of IDs we've already counted
+      const seen = new Set();
+      allBattles.forEach(b => {
+        const key = `${b.attacker_id}-${b.defender_id}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        if (b.winner_id && records[b.winner_id]) records[b.winner_id].wins++;
+        const loserId = b.winner_id === b.attacker_id ? b.defender_id : b.attacker_id;
+        if (loserId && records[loserId]) records[loserId].losses++;
+      });
+    }
+
+    const classIcons = {
+      Warrior:'⚔️', Mage:'🔮', Rogue:'🗡️', Hunter:'🏹',
+      Paladin:'✨', Necromancer:'💀', Shaman:'⚡', Berserker:'🐉',
+    };
+
+    // Build tournament lookup for bracket number display
+    const tMap = {};
+    tournaments.forEach(t => { tMap[t.id] = t; });
+
+    let html = `
+      <div style="font-family:var(--font-title);font-size:.68em;color:var(--text-dim);
+        letter-spacing:2px;margin-bottom:8px;">
+        ⚔️ REGISTERED FIGHTERS — Practice fee: ${formatNumber(fee)}g
+      </div>`;
+
+    realPlayers.forEach((reg, index) => {
+      const snap      = reg.character_snapshot;
+      const record    = records[reg.character_id] || { wins: 0, losses: 0 };
+      const classIcon = classIcons[snap.class] || '👤';
+      const combo     = reg.skill_combo || [];
+      const rankLabel = reg.rank === 1 ? '🏆' : reg.rank === 2 ? '🥈' : reg.rank === 3 ? '🥉' : `#${index + 1}`;
+      const winRate   = record.wins + record.losses > 0
+        ? Math.round((record.wins / (record.wins + record.losses)) * 100)
+        : 0;
+      const bracketNum = tMap[reg.tournament_id]?.bracket_number || '?';
+
+      html += `
+        <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);
+          border-radius:8px;padding:8px;margin-bottom:6px;">
+
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <div style="font-size:1.3em;">${classIcon}</div>
+            <div style="flex:1;">
+              <div style="font-family:var(--font-title);font-size:.82em;color:var(--text);">
+                ${rankLabel} ${snap.name}
+              </div>
+              <div style="font-size:.65em;color:var(--text-dim);">
+                Lv.${snap.level} ${snap.class || ''} · Bracket ${bracketNum}
+              </div>
+            </div>
+            <div style="text-align:right;font-size:.68em;">
+              <div style="color:var(--green);">W: ${record.wins}</div>
+              <div style="color:var(--red);">L: ${record.losses}</div>
+              <div style="color:var(--text-dim);">${winRate}% WR</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
+            <span style="font-size:.62em;color:var(--text-dim);
+              background:rgba(255,255,255,0.04);border-radius:4px;padding:2px 5px;">
+              ⚡ ATK ${formatNumber(snap.attackPower)}
+            </span>
+            <span style="font-size:.62em;color:var(--text-dim);
+              background:rgba(255,255,255,0.04);border-radius:4px;padding:2px 5px;">
+              ❤️ HP ${formatNumber(snap.maxHp)}
+            </span>
+            <span style="font-size:.62em;color:var(--text-dim);
+              background:rgba(255,255,255,0.04);border-radius:4px;padding:2px 5px;">
+              🛡️ ARM ${formatNumber(snap.armor)}
+            </span>
+            <span style="font-size:.62em;color:var(--text-dim);
+              background:rgba(255,255,255,0.04);border-radius:4px;padding:2px 5px;">
+              💥 CRIT ${snap.crit}%
+            </span>
+          </div>
+
+          ${combo.length ? `
+            <div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;">
+              <span style="font-size:.62em;color:var(--text-dim);">Combo:</span>
+              ${combo.map(sk => `
+                <span style="font-size:1.1em;" title="${SKILLS[sk]?.name || sk}">
+                  ${SKILLS[sk]?.icon || '⚔️'}
+                </span>`).join('<span style="font-size:.6em;color:var(--text-dim);">→</span>')}
+            </div>` : `
+            <div style="font-size:.62em;color:var(--text-dim);margin-bottom:8px;">
+              No skill combo set
+            </div>`}
+
+          <button class="start-btn"
+            onclick="initiatePracticeFight('${reg.character_id}', '${tierKey}', '${reg.tournament_id}')"
+            style="width:100%;padding:7px;font-size:.72em;
+            background:linear-gradient(135deg,${tierColor}22,${tierColor}11);
+            border-color:${tierColor}88;">
+            ⚔️ Challenge — ${formatNumber(fee)}g
+          </button>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+
+  } catch(e) {
+    console.error('Practiceboard error:', e);
+    container.innerHTML = '<div style="text-align:center;color:var(--red);padding:10px;">Failed to load fighters.</div>';
+  }
+}
+
+// ── INITIATE PRACTICE FIGHT ──
+// BUG FIX #6: now accepts tournamentId directly from the fighter card
+// so we always look up the right bracket (not just the most recent one)
+// BUG FIX #7: saves practice result to arena_battles so win/loss records update
+// BUG FIX #10: challenger snapshot capped to registration stats if registered,
+// preventing live overpowered stats vs a stale registration snapshot
+async function initiatePracticeFight(targetCharId, tierKey, tournamentId) {
+  const fee      = getPracticeFee(tierKey);
+  const TIER_MIN = { rookie: 20, veteran: 41, elite: 61, legend: 81 };
+  const minLevel = TIER_MIN[tierKey];
+
+  if (state.level < minLevel) {
+    notify(`❌ Need Level ${minLevel} to fight in ${tierKey} bracket!`, 'var(--red)');
+    return;
+  }
+  if (state.gold < fee) {
+    notify(`❌ Need ${formatNumber(fee)}g for this practice fight!`, 'var(--red)');
+    return;
+  }
+
+  try {
+    // BUG FIX #6: use the exact tournamentId from the fighter's bracket
+    const { data: targetReg } = await dbClient
+      .from('arena_registrations')
+      .select('character_snapshot, skill_combo')
+      .eq('tournament_id', tournamentId)
+      .eq('character_id', targetCharId)
+      .single();
+
+    if (!targetReg || !targetReg.character_snapshot) {
+      notify('Fighter not found!', 'var(--red)');
+      return;
+    }
+
+    // Build challenger snapshot
+    // BUG FIX #10: if challenger is registered, use their snapshot not live stats
+    // prevents using current gear vs an old snapshot
+    const { data: myReg } = await dbClient
+      .from('arena_registrations')
+      .select('character_snapshot, skill_combo')
+      .eq('tournament_id', tournamentId)
+      .eq('character_id', state.character_id)
+      .single();
+
+    const challengerSnapshot = myReg?.character_snapshot
+      ? { ...myReg.character_snapshot, skillCombo: myReg.skill_combo || [] }
+      : {
+          character_id: state.character_id,
+          name:         state.name,
+          level:        state.level,
+          class:        state.class,
+          attackPower:  state.attackPower,
+          maxHp:        state.maxHp,
+          armor:        state.armor,
+          hit:          state.hit,
+          dodge:        state.dodge,
+          crit:         state.crit,
+          lifeSteal:    state.lifeSteal,
+          skillCombo:   [],
+          isBot:        false,
+        };
+
+    const targetSnapshot = {
+      ...targetReg.character_snapshot,
+      skillCombo: targetReg.skill_combo || [],
+    };
+
+    // Deduct fee
+    state.gold -= fee;
+    await dbClient.from('characters')
+      .update({ gold: state.gold })
+      .eq('id', state.character_id);
+
+    // Pay 50% to target
+    const targetCut = Math.floor(fee * 0.5);
+    const { data: targetChar } = await dbClient
+      .from('characters')
+      .select('gold')
+      .eq('id', targetCharId)
+      .single();
+    if (targetChar) {
+      await dbClient.from('characters')
+        .update({ gold: targetChar.gold + targetCut })
+        .eq('id', targetCharId);
+      addLog(`💰 ${formatNumber(targetCut)}g sent to ${targetSnapshot.name} for the challenge!`, 'gold');
+    }
+
+    // Run simulation
+    notify(`⚔️ Fighting ${targetSnapshot.name}...`, 'var(--gold)');
+    const result = simulateBattle(challengerSnapshot, targetSnapshot);
+
+    // BUG FIX #7: save practice battle to arena_battles so records update
+    await dbClient.from('arena_battles').insert({
+      attacker_id:       state.character_id,
+      defender_id:       targetCharId,
+      winner_id:         result.winnerId,
+      attacker_snapshot: challengerSnapshot,
+      defender_snapshot: targetSnapshot,
+      battle_log:        result.log,
+      battle_turns:      result.turns,
+      points_change:     0, // practice fights don't award points
+    });
+
+    const won = result.winnerId === state.character_id;
+    updateUI();
+    addLog(
+      `⚔️ Practice fight vs ${targetSnapshot.name} — ${won ? '✅ YOU WON!' : '❌ You lost!'}`,
+      won ? 'legendary' : 'info'
+    );
+
+    // Show replay
+    openPracticeReplay(result, challengerSnapshot, targetSnapshot);
+
+  } catch(e) {
+    state.gold += fee; // refund on error
+    notify('❌ Practice fight failed: ' + e.message, 'var(--red)');
+    console.error('Practice fight error:', e);
+  }
+}
+
+// ── PRACTICE FIGHT REPLAY ──
+function openPracticeReplay(result, attacker, defender) {
+  const turns = result.turns || [];
+  if (!turns.length) { notify('No battle data!', 'var(--red)'); return; }
+
+  let currentTurn = 0;
+  let replayInterval = null;
+  let speed = 800;
+  let isPlaying = false;
+
+  const popup = document.getElementById('item-popup');
+
+  function getHpPercent(hp, max) { return Math.max(0, Math.min(100, Math.floor((hp / max) * 100))); }
+  function getHpColor(pct) {
+    if (pct > 60) return 'var(--green)';
+    if (pct > 30) return 'var(--gold)';
+    return 'var(--red)';
+  }
+  function getClassIcon(cls) {
+    const icons = { Warrior:'⚔️', Mage:'🔮', Rogue:'🗡️', Hunter:'🏹', Paladin:'✨', Necromancer:'💀', Shaman:'⚡', Berserker:'🐉' };
+    return icons[cls] || '👤';
+  }
+
+  function renderReplay() {
+    const turn = turns[currentTurn] || turns[turns.length - 1];
+    const p1Pct = getHpPercent(turn.p1HpAfter, turn.p1HpMax);
+    const p2Pct = getHpPercent(turn.p2HpAfter, turn.p2HpMax);
+    const isP1Acting = turn.actor === 'p1';
+    const isP2Acting = turn.actor === 'p2';
+    const isResult = turn.action === 'result';
+
+    let actionHtml = '';
+    if (isResult) {
+      const won = turn.winnerId === attacker.character_id;
+      actionHtml = `
+        <div style="text-align:center;padding:8px 0;">
+          <div style="font-family:var(--font-title);font-size:.95em;
+            color:${won ? 'var(--gold)' : 'var(--red)'};">
+            ${won ? '🏆 YOU WIN!' : '💀 YOU LOSE!'}
+          </div>
+        </div>`;
+    } else if (turn.action === 'buff') {
+      actionHtml = `<div style="text-align:center;padding:6px;background:rgba(168,85,247,0.1);border-radius:8px;">
+        <div style="font-size:1.3em;">${turn.skillIcon || '✨'}</div>
+        <div style="font-size:.68em;color:#a855f7;">${turn.skillName}</div></div>`;
+    } else if (turn.action === 'dodge') {
+      actionHtml = `<div style="text-align:center;padding:6px;background:rgba(59,130,246,0.1);border-radius:8px;">
+        <div style="font-size:1.3em;">💨</div>
+        <div style="font-size:.68em;color:#3b82f6;">Dodged!</div></div>`;
+    } else if (turn.action === 'skill') {
+      actionHtml = `<div style="text-align:center;padding:6px;background:rgba(255,153,0,0.1);border-radius:8px;">
+        <div style="font-size:1.3em;">${turn.skillIcon || '⚔️'}</div>
+        <div style="font-size:.65em;color:var(--gold);">${turn.skillName}</div>
+        <div style="font-size:.82em;color:var(--red);font-family:var(--font-title);">-${formatNumber(turn.damage)}</div></div>`;
+    } else if (turn.action === 'crit') {
+      actionHtml = `<div style="text-align:center;padding:6px;background:rgba(255,34,68,0.1);border-radius:8px;">
+        <div style="font-size:1.3em;">💥</div>
+        <div style="font-size:.65em;color:var(--red);">CRIT!</div>
+        <div style="font-size:.82em;color:var(--red);font-family:var(--font-title);">-${formatNumber(turn.damage)}</div></div>`;
+    } else {
+      actionHtml = `<div style="text-align:center;padding:6px;background:rgba(255,255,255,0.04);border-radius:8px;">
+        <div style="font-size:1.3em;">⚔️</div>
+        <div style="font-size:.65em;color:var(--text-dim);">Attack</div>
+        <div style="font-size:.82em;color:var(--red);font-family:var(--font-title);">-${formatNumber(turn.damage)}</div></div>`;
+    }
+
+    document.getElementById('item-popup-content').innerHTML = `
+      <div style="font-family:var(--font-title);color:var(--gold);
+        margin-bottom:8px;font-size:.88em;text-align:center;">
+        ⚔️ Practice Fight
+        <span style="font-size:.7em;color:var(--text-dim);margin-left:6px;">
+          Turn ${isResult ? turns.length - 1 : turn.turn}/${turns.length - 1}
+        </span>
+      </div>
+
+      <!-- Fighters -->
+      <div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:8px;">
+
+        <!-- Challenger (you) -->
+        <div style="flex:1;background:${isP1Acting && !isResult ? 'rgba(255,153,0,0.08)' : 'rgba(255,255,255,0.03)'};
+          border:1px solid ${isP1Acting && !isResult ? 'var(--gold)' : 'var(--border)'};
+          border-radius:8px;padding:7px;transition:all .2s;">
+          <div style="font-size:.62em;color:var(--green);margin-bottom:1px;">YOU</div>
+          <div style="font-family:var(--font-title);font-size:.75em;color:var(--text);
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${getClassIcon(attacker.class)} ${attacker.name}
+          </div>
+          <div style="font-size:.62em;color:var(--text-dim);margin-bottom:4px;">
+            Lv.${attacker.level}
+          </div>
+          <div style="height:5px;background:rgba(255,255,255,0.07);border-radius:3px;overflow:hidden;margin-bottom:2px;">
+            <div style="height:100%;width:${p1Pct}%;background:${getHpColor(p1Pct)};border-radius:3px;transition:width .3s;"></div>
+          </div>
+          <div style="font-size:.62em;color:${getHpColor(p1Pct)};">
+            ${formatNumber(turn.p1HpAfter)} HP
+          </div>
+          ${attacker.skillCombo?.length ? `
+            <div style="display:flex;gap:2px;margin-top:4px;flex-wrap:wrap;">
+              ${attacker.skillCombo.map(sk => `<span style="font-size:.9em;" title="${SKILLS[sk]?.name||sk}">${SKILLS[sk]?.icon||'⚔️'}</span>`).join('→')}
+            </div>` : ''}
+        </div>
+
+        <!-- Action -->
+        <div style="width:72px;flex-shrink:0;padding-top:14px;">
+          ${actionHtml}
+          ${!isResult ? `<div style="text-align:center;font-size:.65em;color:var(--text-dim);margin-top:3px;">
+            ${isP1Acting ? '→' : '←'}</div>` : ''}
+        </div>
+
+        <!-- Opponent -->
+        <div style="flex:1;background:${isP2Acting && !isResult ? 'rgba(255,153,0,0.08)' : 'rgba(255,255,255,0.03)'};
+          border:1px solid ${isP2Acting && !isResult ? 'var(--gold)' : 'var(--border)'};
+          border-radius:8px;padding:7px;transition:all .2s;">
+          <div style="font-size:.62em;color:var(--red);margin-bottom:1px;">OPPONENT</div>
+          <div style="font-family:var(--font-title);font-size:.75em;color:var(--text);
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${getClassIcon(defender.class)} ${defender.name}
+          </div>
+          <div style="font-size:.62em;color:var(--text-dim);margin-bottom:4px;">
+            Lv.${defender.level}
+          </div>
+          <div style="height:5px;background:rgba(255,255,255,0.07);border-radius:3px;overflow:hidden;margin-bottom:2px;">
+            <div style="height:100%;width:${p2Pct}%;background:${getHpColor(p2Pct)};border-radius:3px;transition:width .3s;"></div>
+          </div>
+          <div style="font-size:.62em;color:${getHpColor(p2Pct)};">
+            ${formatNumber(turn.p2HpAfter)} HP
+          </div>
+          ${defender.skillCombo?.length ? `
+            <div style="display:flex;gap:2px;margin-top:4px;flex-wrap:wrap;">
+              ${defender.skillCombo.map(sk => `<span style="font-size:.9em;" title="${SKILLS[sk]?.name||sk}">${SKILLS[sk]?.icon||'⚔️'}</span>`).join('→')}
+            </div>` : ''}
+        </div>
+      </div>
+
+      <!-- Turn log -->
+      <div style="font-size:.70em;color:var(--text-dim);text-align:center;
+        min-height:18px;margin-bottom:8px;padding:3px 6px;
+        background:rgba(255,255,255,0.03);border-radius:6px;line-height:1.5;">
+        ${turn.logText || ''}
+      </div>
+
+      <!-- Progress bar -->
+      <div style="height:3px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden;margin-bottom:8px;">
+        <div style="height:100%;width:${((currentTurn + 1) / turns.length) * 100}%;
+          background:var(--gold);border-radius:2px;transition:width .3s;"></div>
+      </div>
+
+      <!-- Controls -->
+      <div style="display:flex;gap:6px;margin-bottom:6px;">
+        <button onclick="practiceReplayStep(-1)"
+          style="flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--border);
+          border-radius:6px;color:var(--text);padding:7px;cursor:pointer;font-size:.78em;">
+          ⏮ Prev
+        </button>
+        <button id="practice-play-btn" onclick="practiceReplayToggle()"
+          style="flex:2;background:rgba(255,153,0,0.15);border:1px solid var(--gold);
+          border-radius:6px;color:var(--gold);padding:7px;cursor:pointer;
+          font-family:var(--font-title);font-size:.78em;">
+          ${isPlaying ? '⏸ Pause' : '▶ Play'}
+        </button>
+        <button onclick="practiceReplayStep(1)"
+          style="flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--border);
+          border-radius:6px;color:var(--text);padding:7px;cursor:pointer;font-size:.78em;">
+          Next ⏭
+        </button>
+      </div>
+
+      <!-- Speed + Close -->
+      <div style="display:flex;gap:6px;">
+        <button onclick="practiceSetSpeed(1200)"
+          style="flex:1;background:${speed===1200?'rgba(255,153,0,0.2)':'rgba(255,255,255,0.04)'};
+          border:1px solid ${speed===1200?'var(--gold)':'var(--border)'};
+          border-radius:6px;color:var(--text-dim);padding:5px;cursor:pointer;font-size:.68em;">
+          🐢 Slow
+        </button>
+        <button onclick="practiceSetSpeed(800)"
+          style="flex:1;background:${speed===800?'rgba(255,153,0,0.2)':'rgba(255,255,255,0.04)'};
+          border:1px solid ${speed===800?'var(--gold)':'var(--border)'};
+          border-radius:6px;color:var(--text-dim);padding:5px;cursor:pointer;font-size:.68em;">
+          ⚡ Normal
+        </button>
+        <button onclick="practiceSetSpeed(300)"
+          style="flex:1;background:${speed===300?'rgba(255,153,0,0.2)':'rgba(255,255,255,0.04)'};
+          border:1px solid ${speed===300?'var(--gold)':'var(--border)'};
+          border-radius:6px;color:var(--text-dim);padding:5px;cursor:pointer;font-size:.68em;">
+          🚀 Fast
+        </button>
+        <button onclick="practiceReplayClose()"
+          style="flex:1;background:rgba(255,255,255,0.04);border:1px solid var(--border);
+          border-radius:6px;color:var(--text-dim);padding:5px;cursor:pointer;font-size:.68em;">
+          ✖ Close
+        </button>
+      </div>`;
+
+    popup.style.display = 'flex';
+  }
+
+  // Controls
+  window.practiceReplayStep = function(dir) {
+    currentTurn = Math.max(0, Math.min(turns.length - 1, currentTurn + dir));
+    renderReplay();
+  };
+
+  window.practiceReplayToggle = function() {
+    isPlaying = !isPlaying;
+    if (isPlaying) {
+      replayInterval = setInterval(() => {
+        if (currentTurn >= turns.length - 1) {
+          isPlaying = false;
+          clearInterval(replayInterval);
+          renderReplay();
+          return;
+        }
+        currentTurn++;
+        renderReplay();
+      }, speed);
+    } else {
+      clearInterval(replayInterval);
+    }
+    renderReplay();
+  };
+
+  window.practiceSetSpeed = function(newSpeed) {
+    speed = newSpeed;
+    if (isPlaying) {
+      clearInterval(replayInterval);
+      replayInterval = setInterval(() => {
+        if (currentTurn >= turns.length - 1) {
+          isPlaying = false;
+          clearInterval(replayInterval);
+          renderReplay();
+          return;
+        }
+        currentTurn++;
+        renderReplay();
+      }, speed);
+    }
+    renderReplay();
+  };
+
+  window.practiceReplayClose = function() {
+    isPlaying = false;
+    clearInterval(replayInterval);
+    closeItemPopup();
+  };
+
+  // Auto play on open
+  currentTurn = 0;
+  renderReplay();
+  setTimeout(() => { isPlaying = true; practiceReplayToggle(); }, 500);
+}
+
 
 // ── VIEW BRACKET BY TIER AND BRACKET NUMBER ──
 async function viewBracketByTierAndNumber(tierKey, bracketNumber) {
