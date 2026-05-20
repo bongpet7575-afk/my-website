@@ -6824,15 +6824,15 @@ const TREASURE_TABLES={
   9:{rolls:5,tier:'legendary'},10:{rolls:5,tier:'legendary'}
 };
 
-function rollTreasureRarity(tier){
-  const r=Math.random();
-  switch(tier){
-    case'normal':   return r<0.25?'uncommon':'normal';
-    case'uncommon': return r<0.25?'rare':'uncommon';
-    case'rare':     return r<0.25?'epic':'rare';
-    case'epic':     return r<0.08?'legendary':'epic';
-    case'legendary':return r<0.15?'legendary':'epic';  // 15% legendary from Stage 9-10 boxes
-    default:        return'normal';
+function rollTreasureRarity(tier) {
+  const r = Math.random();
+  switch (tier) {
+    case 'normal':    return r < 0.25 ? 'uncommon' : 'normal';
+    case 'uncommon':  return r < 0.25 ? 'rare' : 'uncommon';
+    case 'rare':      return r < 0.20 ? 'rare' : 'uncommon';   // capped at rare, no epic
+    case 'epic':      return r < 0.08 ? 'legendary' : 'epic';
+    case 'legendary': return r < 0.15 ? 'legendary' : 'epic';
+    default:          return 'normal';
   }
 }
 function dropTreasureBox(stageId){

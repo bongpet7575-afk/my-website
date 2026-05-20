@@ -323,7 +323,6 @@ async function applySpinReward(prize) {
       break;
 
     case 'material':
-      // Add enhancement orb to inventory
       const orb = {
         id: 'enhance_orb_' + Date.now(),
         name: '⚗️ Enhancement Orb',
@@ -337,7 +336,6 @@ async function applySpinReward(prize) {
       break;
 
     case 'equipment':
-      // Generate random equipment using existing system
       if (typeof generateItem === 'function') {
         const item = generateItem(state.level || 1, 'rare');
         if (!state.inventory) state.inventory = [];
@@ -352,17 +350,9 @@ async function applySpinReward(prize) {
       break;
   }
 
-  // Save to Supabase
+  // Save via RPC (consistent with all other saves)
   try {
-    await dbClient
-      .from('characters')
-      .update({
-        gold: state.gold,
-        soul_crystals: state.soulCrystals,
-        premium_spins: state.premiumSpins,
-        inventory: state.inventory,
-      })
-      .eq('id', state.character_id);
+    await savePlayerToSupabase();
   } catch (err) {
     console.error('Failed to save spin reward:', err);
   }
