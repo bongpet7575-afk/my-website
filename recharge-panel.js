@@ -117,6 +117,27 @@ function openRechargePanel() {
             </div>
             <div style="color:#f0c040;font-size:18px;font-weight:900;margin-top:10px;"></div>
           </div>
+          <!-- STARTER PACK -->
+<div style="color:#c9a84c;font-size:11px;letter-spacing:3px;margin-bottom:12px;">🎁 STARTER PACK</div>
+<div style="background:#0a0806;border:2px solid #22c55e;padding:16px 18px;margin-bottom:20px;">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+    <span style="font-size:28px;">🎖️</span>
+    <div>
+      <div style="color:#22c55e;font-size:13px;font-weight:900;letter-spacing:3px;">$1 STARTER PACK</div>
+      <div style="color:#6a5a3a;font-size:10px;letter-spacing:2px;margin-top:2px;">ONE-TIME ONLY · ACCOUNT BOUND</div>
+    </div>
+    <div style="margin-left:auto;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);padding:4px 10px;font-size:10px;color:#22c55e;letter-spacing:2px;">$1</div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;font-size:12px;color:#8a7a5a;letter-spacing:1px;margin-bottom:10px;">
+    <div>💰 20,000 Gold</div>
+    <div>💎 100 Soul Crystals</div>
+    <div>🎰 3 Premium Spins</div>
+    <div>📦 6 Uncommon Items</div>
+    <div>🎖️ "Supporter" Title</div>
+    <div style="color:#22c55e;">💬 Green Chat Name</div>
+  </div>
+  <div style="font-size:10px;color:#4a3a2a;letter-spacing:1px;">⚠️ Can only be redeemed once per account</div>
+</div>
 
         </div>
 
@@ -176,8 +197,20 @@ async function redeemGiftCode() {
 
     // Sync state from server rewards
     state.gold = (state.gold || 0) + data.rewards.gold;
-    state.soulCrystals = (state.soulCrystals || 0) + data.rewards.diamonds;
-    state.premiumSpins = (state.premiumSpins || 0) + data.rewards.spins;
+state.soulCrystals = (state.soulCrystals || 0) + data.rewards.diamonds;
+state.premiumSpins = (state.premiumSpins || 0) + data.rewards.spins;
+
+if (data.rewards.starterItems) {
+  data.rewards.starterItems.forEach(item => addToInventory(item));
+  renderInventory();
+}
+if (data.rewards.supporterTitle) {
+  state.supporterTitle = data.rewards.supporterTitle;
+}
+if (data.rewards.chatColor) {
+  state.chatColor = data.rewards.chatColor;
+}
+await savePlayerToSupabase();
 
     const goldEl = document.getElementById('gold-val');
     const crystalEl = document.getElementById('soul-crystal-val');

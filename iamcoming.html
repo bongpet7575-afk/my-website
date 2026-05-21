@@ -419,6 +419,7 @@
   .badge.used { background: rgba(180,40,40,0.2); color: var(--red); border: 1px solid rgba(180,40,40,0.3); }
   .badge.unused { background: rgba(40,140,40,0.2); color: var(--green); border: 1px solid rgba(40,140,40,0.3); }
   .badge.adventurer { background: rgba(150,150,200,0.15); color: #aaaacc; border: 1px solid rgba(150,150,200,0.2); }
+  .badge.starter_pack { background: rgba(34,197,94,0.15); color: #22c55e; border: 1px solid rgba(34,197,94,0.2); }
   .badge.warrior { background: rgba(180,120,20,0.15); color: var(--gold); border: 1px solid rgba(180,120,20,0.2); }
   .badge.champion { background: rgba(240,192,64,0.15); color: var(--gold-bright); border: 1px solid rgba(240,192,64,0.2); }
 
@@ -556,6 +557,22 @@
       <div class="tier-price">$5</div>
       <button class="generate-btn" onclick="generateCode('champion')">⚡ GENERATE CODE</button>
     </div>
+    <!-- STARTER PACK -->
+<div class="section-title">⚡ One-Time Pack</div>
+<div class="tier-card" style="border-top:2px solid #22c55e;margin-bottom:20px;">
+  <span class="tier-icon">🎖️</span>
+  <div class="tier-name" style="color:#22c55e;">STARTER PACK</div>
+  <div class="tier-rewards">
+    💰 <span>20,000</span> Gold<br>
+    💎 <span>100</span> Crystals<br>
+    🎰 <span>3</span> Premium Spins<br>
+    📦 6 Uncommon Items<br>
+    🎖️ Supporter Title<br>
+    💬 <span style="color:#22c55e;">Green Chat Name</span>
+  </div>
+  <div class="tier-price" style="color:#22c55e;">$1 · ONE-TIME</div>
+  <button class="generate-btn" style="color:#22c55e;border-color:#22c55e44;" onclick="generateCode('starter_pack')">⚡ GENERATE CODE</button>
+</div>
   </div>
 
   <!-- RESULT -->

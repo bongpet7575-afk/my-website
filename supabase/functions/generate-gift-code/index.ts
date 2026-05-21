@@ -29,10 +29,11 @@ Deno.serve(async (req) => {
   }
 
   const tiers: Record<string, any> = {
-    adventurer: { diamonds: 100, gold: 5000, spins: 1 },
-    warrior:    { diamonds: 350, gold: 15000, spins: 3 },
-    champion:   { diamonds: 650, gold: 30000, spins: 5 },
-  }
+  adventurer:    { diamonds: 100, gold: 5000,  spins: 1 },
+  warrior:       { diamonds: 350, gold: 15000, spins: 3 },
+  champion:      { diamonds: 650, gold: 30000, spins: 5 },
+  starter_pack:  { diamonds: 100, gold: 20000, spins: 3 },
+}
 
   if (!tiers[tier]) {
     return new Response(JSON.stringify({ error: 'Invalid tier' }), { 

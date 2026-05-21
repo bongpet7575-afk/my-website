@@ -5,6 +5,42 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function genUid() {
+  return 'item_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+}
+
+function makeStarterItem(slot: string, level: number) {
+  const icons: Record<string, string> = {
+    weapon: '⚔️', armor: '🛡️', helmet: '⛑️',
+    boots: '👢', ring: '💍', amulet: '📿'
+  }
+  const names: Record<string, string> = {
+    weapon: 'Sword', armor: 'Plate', helmet: 'Helm',
+    boots: 'Boots', ring: 'Ring', amulet: 'Amulet'
+  }
+  const base = Math.max(1, Math.floor(level * 0.8))
+  const stats: Record<string, number> = {}
+  if (slot === 'weapon') { stats.str = base * 3; stats.attackPower = base * 8 }
+  else if (slot === 'armor') { stats.armor = base * 20; stats.sta = base * 2 }
+  else if (slot === 'helmet') { stats.armor = base * 15; stats.int = base * 2 }
+  else if (slot === 'boots') { stats.armor = base * 12; stats.agi = base * 2 }
+  else if (slot === 'ring') { stats.str = base; stats.agi = base; stats.int = base; stats.sta = base }
+  else if (slot === 'amulet') { stats.strMult = 0.1; stats.agiMult = 0.1; stats.intMult = 0.1 }
+
+  return {
+    uid: genUid(),
+    name: `${icons[slot]} Supporter's ${names[slot]}`,
+    category: 'equipment',
+    slot,
+    rarity: 'uncommon',
+    stats,
+    equipped: false,
+    levelReq: 1,
+    sellPrice: 500,
+    starterPackItem: true,
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -38,10 +74,10 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Fetch character FIRST before marking code as used
+    // Fetch character
     const { data: character, error: charError } = await supabase
       .from('characters')
-      .select('gold, soul_crystals, name, premium_spins')
+      .select('gold, soul_crystals, name, premium_spins, inventory, starter_pack_redeemed')
       .eq('id', character_id)
       .single()
 
@@ -51,7 +87,14 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Mark code as used (atomic — prevents double redemption)
+    // One-time check for starter_pack
+    if (giftCode.tier === 'starter_pack' && character.starter_pack_redeemed) {
+      return new Response(JSON.stringify({ error: 'Starter Pack already redeemed on this account' }), {
+        status: 400, headers: corsHeaders
+      })
+    }
+
+    // Mark code as used
     const { error: updateError } = await supabase
       .from('gift_codes')
       .update({
@@ -68,14 +111,31 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Update character rewards server-side
+    // Build update payload
+    const updatePayload: Record<string, any> = {
+      gold: (character.gold || 0) + giftCode.gold,
+      soul_crystals: (character.soul_crystals || 0) + giftCode.diamonds,
+      premium_spins: (character.premium_spins || 0) + giftCode.spins,
+    }
+
+    let starterItems: any[] = []
+
+    if (giftCode.tier === 'starter_pack') {
+      // Generate 6 uncommon starter items
+      const slots = ['weapon', 'armor', 'helmet', 'boots', 'ring', 'amulet']
+      const charLevel = character.level || 1
+      starterItems = slots.map(slot => makeStarterItem(slot, charLevel))
+
+      const currentInventory = character.inventory || []
+      updatePayload.inventory = [...currentInventory, ...starterItems]
+      updatePayload.starter_pack_redeemed = true
+      updatePayload.supporter_title = '🎖️ Supporter'
+      updatePayload.chat_color = '#22c55e'
+    }
+
     const { error: rewardError } = await supabase
       .from('characters')
-      .update({
-        gold: (character.gold || 0) + giftCode.gold,
-        soul_crystals: (character.soul_crystals || 0) + giftCode.diamonds,
-        premium_spins: (character.premium_spins || 0) + giftCode.spins,
-      })
+      .update(updatePayload)
       .eq('id', character_id)
 
     if (rewardError) {
@@ -84,14 +144,16 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Return rewards so frontend can sync state
     return new Response(JSON.stringify({
       success: true,
       rewards: {
         gold: giftCode.gold,
         diamonds: giftCode.diamonds,
         spins: giftCode.spins,
-        tier: giftCode.tier
+        tier: giftCode.tier,
+        starterItems: starterItems.length > 0 ? starterItems : undefined,
+        supporterTitle: giftCode.tier === 'starter_pack' ? '🎖️ Supporter' : undefined,
+        chatColor: giftCode.tier === 'starter_pack' ? '#22c55e' : undefined,
       }
     }), { status: 200, headers: corsHeaders })
 
