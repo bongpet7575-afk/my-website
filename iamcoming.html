@@ -529,7 +529,7 @@
         ⚔️ Starter Items
       </div>
       <div class="tier-price">$1</div>
-      <button class="generate-btn" onclick="generateCode('adventurer')">⚡ GENERATE CODE</button>
+      <button class="generate-btn" onclick="generateCode('adventurer', this)">⚡ GENERATE CODE</button>
     </div>
 
     <div class="tier-card warrior">
@@ -542,7 +542,7 @@
         ⚔️ Rare Starter Set
       </div>
       <div class="tier-price">$3</div>
-      <button class="generate-btn" onclick="generateCode('warrior')">⚡ GENERATE CODE</button>
+      <button class="generate-btn" onclick="generateCode('warrior', this)">⚡ GENERATE CODE</button>
     </div>
 
     <div class="tier-card champion">
@@ -555,8 +555,9 @@
         ⚔️ Epic Starter Set
       </div>
       <div class="tier-price">$5</div>
-      <button class="generate-btn" onclick="generateCode('champion')">⚡ GENERATE CODE</button>
+      <button class="generate-btn" onclick="generateCode('champion', this)">⚡ GENERATE CODE</button>
     </div>
+
     <!-- STARTER PACK -->
 <div class="section-title">⚡ One-Time Pack</div>
 <div class="tier-card" style="border-top:2px solid #22c55e;margin-bottom:20px;">
@@ -569,10 +570,11 @@
     📦 6 Uncommon Items<br>
     🎖️ Supporter Title<br>
     💬 <span style="color:#22c55e;">Green Chat Name</span>
-  </div>
+  </div>  
   <div class="tier-price" style="color:#22c55e;">$1 · ONE-TIME</div>
-  <button class="generate-btn" style="color:#22c55e;border-color:#22c55e44;" onclick="generateCode('starter_pack')">⚡ GENERATE CODE</button>
+  <button class="generate-btn" style="color:#22c55e;border-color:#22c55e44;" onclick="generateCode('starter_pack', this)">⚡ GENERATE CODE</button>
 </div>
+
   </div>
 
   <!-- RESULT -->
@@ -643,10 +645,9 @@
   }
 
   // ── GENERATE CODE ──
-  async function generateCode(tier) {
-    const btn = event.target
-    btn.disabled = true
-    btn.innerHTML = '<span class="spinner"></span> FORGING...'
+  async function generateCode(tier, btn) {
+  btn.disabled = true
+  btn.innerHTML = '<span class="spinner"></span> FORGING...'
 
     try {
       const res = await fetch(EDGE_URL, {
