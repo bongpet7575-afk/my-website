@@ -132,7 +132,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 #char-name{font-family:var(--font-title);font-size:.85em;color:var(--gold);letter-spacing:1px;}
 #char-level{font-family:var(--font-title);font-size:.72em;color:var(--deep-gold);}
 
-.top-bars{display:flex;flex-direction:column;gap:3px;flex:1;max-width:260px;margin:0 8px;}
+.top-bars{display:flex;flex-direction:column;gap:3px;flex:1;max-width:260px;margin:0 8px;
+padding:8px 16px;background:rgba(200,168,75,0.1);border:1px solid var(--border-bright);
+  border-radius:6px;color:var(--gold);font-family:var(--font-title);font-size:.72em;
+  letter-spacing:1px;cursor:pointer;transition:.15s;}
+
 .bar-row{display:flex;align-items:center;gap:6px;font-size:.82em;}
 .bar-label{width:16px;text-align:center;}
 .bar-wrap{flex:1;height:9px;background:rgba(255,255,255,0.07);border-radius:4px;overflow:hidden;}
@@ -144,9 +148,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 #top-btns{display:none;align-items:center;gap:6px;flex-shrink:0;}
 .top-btn{
-  padding:5px 10px;background:rgba(200,168,75,0.08);border:1px solid var(--border);
-  border-radius:5px;color:var(--text-dim);font-family:var(--font-title);font-size:.65em;
-  letter-spacing:1px;cursor:pointer;transition:.15s;white-space:nowrap;
+  padding:8px 16px;background:rgba(200,168,75,0.1);border:1px solid var(--border-bright);
+  border-radius:6px;color:var(--gold);font-family:var(--font-title);font-size:.72em;
+  letter-spacing:1px;cursor:pointer;transition:.15s;
 }
 .top-btn:hover{border-color:var(--gold);color:var(--gold);}
 .top-btn.glow{border-color:var(--purple);color:var(--purple);box-shadow:0 0 8px rgba(136,75,224,0.4);}
@@ -816,9 +820,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   <div id="top-bar">
 
     <!-- Class portrait -->
-    <div class="top-name-class">
-      <div id="char-name">Hero</div>
-      <div id="char-level">Level 1 / 100</div>
+    <div class="top-name-class" >
+      <div id="char-name" class="top-bars">Hero</div>
+      <div id="char-level" class="top-bars">Level 1 / 100</div>
       <div id="char-portrait" style="width:64px;height:64px;flex-shrink:0;background:var(--bg3);border:2px solid var(--border-bright);border-radius:10px;overflow:hidden;">
         <img id="char-portrait-img" src="warrior.jpg" style="width:100%;height:100%;object-fit:cover;">
       </div>
@@ -827,13 +831,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <!-- Class -->
     <div class="char-panel" style="padding:8px 12px;">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
-        <div id="char-class" style="font-size:.72em;color:var(--text-dim);">No Class</div>
+        <div id="char-class" class="top-bars">No Class</div>
       </div>
       <div>
-        <button class="start-btn" onclick="respecClass()" style="font-size:.65em;padding:4px 10px;">🔄 Respec</button>
+        <button class="start-btn" onclick="respecClass()">Respec</button>
       </div>
       
-      <button class="top-btn" onclick="logoutUser()">LOG OUT</button>
+      <button class="start-btn" onclick="logoutUser()">LOG OUT</button>
 
     </div>
 
