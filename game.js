@@ -3477,7 +3477,7 @@ function getSoulWeaponEquipKey(statKey) {
 }
 
 async function equipSoulWeapon(uid) {
-  const item = state.inventory.find(i => i.uid === uid);
+  const item = state.inventory.find(i => String(i.uid) === String(uid));
   if (!item || item.category !== 'soul_weapon') return;
 
   const classKey = state.class?.toLowerCase();
@@ -4322,7 +4322,8 @@ function assignSkillToAutoSlot(skillId) {
 
 // ── EQUIPMENT ──
 function equipItem(uid){
-  const item=state.inventory.find(i=>i.uid===uid);if(!item||item.category!=='equipment')return;
+  const item = state.inventory.find(i => String(i.uid) === String(uid));
+  if(!item || item.category !== 'equipment') return;
   
   // Check tournament item expiry
   if (item.tournamentReward && item.expiresAt) {
@@ -4365,7 +4366,7 @@ function equipItem(uid){
 }
 function unequipSlot(slot,silent=false){
   const uid=state.equipped[slot];if(!uid)return;
-  const item=state.inventory.find(i=>i.uid===uid);
+  const item=state.inventory.find(i=>String(i.uid)===String(uid));
   if(item){Object.entries(item.stats||{}).forEach(([k,v])=>{const ek='equip'+k.charAt(0).toUpperCase()+k.slice(1);state[ek]=Math.max(0,(state[ek]||0)-v);});item.equipped=false;if(!silent)addLog(`Unequipped ${item.name}!`,'info');}
   state.equipped[slot]=null;calcStats();renderInventory();renderEquipSlots();updateUI();
 }
@@ -4551,7 +4552,7 @@ function showItemPopup(source,id){
     btns=`<button class="start-btn" onclick="buyShopItem('${item.id}');closeItemPopup()">💰 Buy (${item.price}g)</button>`;
 
   } else {
-    item=state.inventory.find(i=>i.uid===id);if(!item)return;
+    item=state.inventory.find(i=>String(i.uid)===String(id));if(!item)return;
     statsHtml=item.stats
       ?Object.entries(item.stats).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join('')
       :item.effect?`<div class="tooltip-stat">Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}</div>`:'';
@@ -4560,11 +4561,11 @@ function showItemPopup(source,id){
     if(item.category==='equipment'){
       btns=item.equipped
         ?`<button class="start-btn red-btn" onclick="unequipSlot('${item.slot}');closeItemPopup()">Unequip</button>`
-        :`<button class="start-btn blue-btn" onclick="equipItem(${item.uid});closeItemPopup()">Equip</button>`;
-      btns+=`<button class="start-btn purple-btn" onclick="closeItemPopup();openEnhance(${item.uid})">⚒️ Enhance</button>`;
-      if(!item.equipped)btns+=`<button class="start-btn" onclick="closeItemPopup();listItemForAuction(${item.uid})" style="background:linear-gradient(135deg,#005580,#0088cc);">🏛️ Auction</button>`;
+        :`<button class="start-btn blue-btn" onclick="equipItem('${item.uid}');closeItemPopup()">Equip</button>`;
+btns+=`<button class="start-btn purple-btn" onclick="closeItemPopup();openEnhance('${item.uid}')">⚒️ Enhance</button>`;
+if(!item.equipped)btns+=`<button class="start-btn" onclick="closeItemPopup();listItemForAuction('${item.uid}')" style="background:linear-gradient(135deg,#005580,#0088cc);">🏛️ Auction</button>`;
     }
-    if(item.category==='consumable')btns+=`<button class="start-btn" onclick="useItem(${item.uid});closeItemPopup()">Use</button>`;
+    if(item.category==='consumable')btns+=`<button class="start-btn" onclick="useItem('${item.uid}');closeItemPopup()">Use</button>`;
     if(item.category==='soul_weapon'){
   const sw=SOUL_WEAPONS[item.slot==='soul'?state.class?.toLowerCase():''];
   const alreadyHas=state.soulWeapon&&state.soulWeapon.tier>=item.soulTier;
@@ -4577,10 +4578,10 @@ function showItemPopup(source,id){
   } else if(alreadyHas){
     btns=`<button class="start-btn" disabled style="opacity:.4;">✅ Already Bound</button>`;
   } else {
-    btns=`<button class="start-btn" style="border-color:var(--legendary);color:var(--legendary);" onclick="equipSoulWeapon(${item.uid});closeItemPopup()">✨ Bind to Soul</button>`;
+    btns=`<button class="start-btn" style="border-color:var(--legendary);color:var(--legendary);" onclick="equipSoulWeapon('${item.uid}');closeItemPopup()">✨ Bind to Soul</button>`;
   }
 }
-    if(!item.equipped)btns+=`<button class="start-btn red-btn" onclick="sellItem(${item.uid});closeItemPopup()">Sell ${item.stackable&&item.qty>1?'All':''} (${(item.sellPrice||0)*(item.stackable?item.qty:1)}g)</button>`;
+    if(!item.equipped)btns+=`<button class="start-btn red-btn" onclick="sellItem('${item.uid}');closeItemPopup()">Sell ${item.stackable&&item.qty>1?'All':''} (${(item.sellPrice||0)*(item.stackable?item.qty:1)}g)</button>`;
   }
 
   showPopup(item, reqLine+statsHtml, btns);
@@ -4715,7 +4716,7 @@ function renderInventory() {
     const isAnyLocked = isLocked || isRepLocked;
 
     return `<div class="item-icon-box ${item.rarity} ${glowClass}"
-      onclick="showItemPopup('inv',${item.uid})" title="${item.name}"
+      onclick="showItemPopup('inv','${item.uid}')" title="${item.name}"
       style="${isAnyLocked ? 'opacity:0.5;' : ''}">
       <div class="item-icon-emoji">${item.name.split(' ')[0]}</div>
       ${stackBadge}${equippedBadge}${enhBadge}${lockBadge}${repLockBadge}

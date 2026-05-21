@@ -170,7 +170,9 @@ if (_loadedTitle && _loadedTitle.id !== state.reputationTitle) {
   state.equipHitMult        = stats.equipHitMult        || 0;
 
   // ── Inventory & Equipment ──
-  state.inventory = character.inventory || [];
+  state.inventory = (character.inventory || []).map(item =>
+  typeof item === 'string' ? JSON.parse(item) : item
+).map(item => ({ ...item, uid: String(item.uid) })); // ✅ normalize uid type
   state.equipped  = character.equipped  || {
     weapon:null, armor:null, helmet:null, boots:null, ring:null, amulet:null,
   };

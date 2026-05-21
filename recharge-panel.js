@@ -178,16 +178,22 @@ async function redeemGiftCode() {
   msg.textContent = '⏳ Verifying code...';
 
   try {
+    const { data: { session } } = await dbClient.auth.getSession();
+
     const res = await fetch('https://xagwrqrgcuuitwgroiwh.supabase.co/functions/v1/redeem-gift-code', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhZ3dycXJnY3V1aXR3Z3JvaXdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU5MzI3NTMsImV4cCI6MjA2MTUwODc1M30.3RnkFS-aRJMBMEVTMWOV-HolOvGn4Y4pF7tPAKMhjRM',
+        'Authorization': `Bearer ${session?.access_token}`
+      },
       body: JSON.stringify({
         code,
         character_id: state.character_id,
         name: state.name
       })
-    })
-    const data = await res.json()
+    });
+    const data = await res.json();
 
     if (data.error) {
       msg.style.color = '#cc4444';
@@ -195,22 +201,18 @@ async function redeemGiftCode() {
       return;
     }
 
-    // Sync state from server rewards
     state.gold = (state.gold || 0) + data.rewards.gold;
-state.soulCrystals = (state.soulCrystals || 0) + data.rewards.diamonds;
-state.premiumSpins = (state.premiumSpins || 0) + data.rewards.spins;
+    state.soulCrystals = (state.soulCrystals || 0) + data.rewards.diamonds;
+    state.premiumSpins = (state.premiumSpins || 0) + data.rewards.spins;
 
-if (data.rewards.starterItems) {
-  data.rewards.starterItems.forEach(item => addToInventory(item));
-  renderInventory();
-}
-if (data.rewards.supporterTitle) {
-  state.supporterTitle = data.rewards.supporterTitle;
-}
-if (data.rewards.chatColor) {
-  state.chatColor = data.rewards.chatColor;
-}
-await savePlayerToSupabase();
+    if (data.rewards.starterItems) {
+      data.rewards.starterItems.forEach(item => addToInventory(item));
+      renderInventory();
+    }
+    if (data.rewards.supporterTitle) state.supporterTitle = data.rewards.supporterTitle;
+    if (data.rewards.chatColor) state.chatColor = data.rewards.chatColor;
+
+    await savePlayerToSupabase();
 
     const goldEl = document.getElementById('gold-val');
     const crystalEl = document.getElementById('soul-crystal-val');

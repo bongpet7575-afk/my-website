@@ -18,14 +18,42 @@ function makeStarterItem(slot: string, level: number) {
     weapon: 'Sword', armor: 'Plate', helmet: 'Helm',
     boots: 'Boots', ring: 'Ring', amulet: 'Amulet'
   }
-  const base = Math.max(1, Math.floor(level * 0.8))
-  const stats: Record<string, number> = {}
-  if (slot === 'weapon') { stats.str = base * 3; stats.attackPower = base * 8 }
-  else if (slot === 'armor') { stats.armor = base * 20; stats.sta = base * 2 }
-  else if (slot === 'helmet') { stats.armor = base * 15; stats.int = base * 2 }
-  else if (slot === 'boots') { stats.armor = base * 12; stats.agi = base * 2 }
-  else if (slot === 'ring') { stats.str = base; stats.agi = base; stats.int = base; stats.sta = base }
-  else if (slot === 'amulet') { stats.strMult = 0.1; stats.agiMult = 0.1; stats.intMult = 0.1 }
+
+  const stats: Record<string, any> = {}
+  if (slot === 'weapon') {
+    stats.str = 40
+    stats.strMult = 0.25
+    stats.hit = 100
+    stats.hitMult = 0.25
+    stats.crit = 3
+    stats.lifeSteal = 0.04
+  } else if (slot === 'armor') {
+    stats.armor = 7000
+    stats.sta = 40
+    stats.staMult = 0.25
+    stats.maxHp = 2500
+    stats.maxHpMult = 0.25
+    stats.hpRegen = 300
+    stats.dodge = 400
+  } else if (slot === 'helmet') {
+    stats.armor = 7000
+    stats.int = 40
+    stats.intMult = 0.07
+  } else if (slot === 'boots') {
+    stats.armor = 7000
+    stats.agi = 40
+    stats.agiMult = 0.25
+  } else if (slot === 'ring') {
+    stats.str = 40
+    stats.int = 40
+    stats.agi = 40
+    stats.sta = 40
+  } else if (slot === 'amulet') {
+    stats.strMult = 0.07
+    stats.agiMult = 0.07
+    stats.intMult = 0.07
+    stats.staMult = 0.07
+  }
 
   return {
     uid: genUid(),
@@ -33,10 +61,11 @@ function makeStarterItem(slot: string, level: number) {
     category: 'equipment',
     slot,
     rarity: 'uncommon',
+    enhancement: 0,
     stats,
     equipped: false,
     levelReq: 1,
-    sellPrice: 500,
+    sellPrice: 5000,
     starterPackItem: true,
   }
 }
@@ -126,7 +155,9 @@ Deno.serve(async (req) => {
       const charLevel = character.level || 1
       starterItems = slots.map(slot => makeStarterItem(slot, charLevel))
 
-      const currentInventory = character.inventory || []
+      const currentInventory = (character.inventory || []).map((item: any) =>
+  typeof item === 'string' ? JSON.parse(item) : item
+)
       updatePayload.inventory = [...currentInventory, ...starterItems]
       updatePayload.starter_pack_redeemed = true
       updatePayload.supporter_title = '🎖️ Supporter'
