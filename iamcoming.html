@@ -646,15 +646,19 @@
 
   // ── GENERATE CODE ──
   async function generateCode(tier, btn) {
+  console.log('generating with password:', adminPassword, 'tier:', tier)
   btn.disabled = true
   btn.innerHTML = '<span class="spinner"></span> FORGING...'
 
     try {
       const res = await fetch(EDGE_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: adminPassword, tier })
-      })
+  method: 'POST',
+  headers: { 
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+  },
+  body: JSON.stringify({ password: adminPassword, tier })
+})
       const data = await res.json()
 
       if (data.error) {
