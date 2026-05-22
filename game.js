@@ -46,10 +46,20 @@ function applyGameConfig() {
     ENHANCE_COST.splice(0, ENHANCE_COST.length, ...GAME_CONFIG.enhance_costs);
   }
 
+
   // ── Apply enhance rates ──
   if (GAME_CONFIG.enhance_rates) {
     ENHANCE_RATE.splice(0, ENHANCE_RATE.length, ...GAME_CONFIG.enhance_rates);
   }
+
+  // Spin config
+if (GAME_CONFIG.spin) {
+  window.SPIN_CONFIG = cfg.spin;
+  window.WHEEL_PRIZES         = cfg.spin.normal_prizes  || WHEEL_PRIZES;
+  window.PREMIUM_WHEEL_PRIZES = cfg.spin.premium_prizes || PREMIUM_WHEEL_PRIZES;
+  window.NORMAL_SPIN_COST     = cfg.spin.normal_cost_gold       || 500000;
+  window.PREMIUM_SPIN_COST    = cfg.spin.premium_cost_crystals  || 200;
+}
 
   // ── Apply shop equipment prices ──
   if (GAME_CONFIG.shop_equip_prices) {

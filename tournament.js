@@ -430,205 +430,361 @@ function renderTournamentRewards() {
 }
 
 // ── SIMULATE BATTLE WITH FULL TURN RECORDING ──
+// ── SIMULATE BATTLE WITH FULL TURN RECORDING ──
 function simulateBattle(attacker, defender) {
   const log = [];
-  const turns = []; // structured turn data for replay
-  let aHp = attacker.maxHp;
-  let dHp = defender.maxHp;
+  const turns = [];
   let turn = 0;
   const MAX_TURNS = 60;
 
-  let aSkillIndex = 0;
-  let dSkillIndex = 0;
-  const aCombo = attacker.skillCombo || [];
-  const dCombo = defender.skillCombo || [];
+  // ── Fighter state (mutable during simulation) ──
+  const fighters = {
+    p1: {
+      ...attacker,
+      hp: attacker.maxHp,
+      skillIndex: 0,
+      combo: attacker.skillCombo || [],
+      cooldowns: {},       // skillKey → turns remaining
+      dots: [],            // { name, dmgPerTurn, turnsLeft, source }
+      buffs: {},           // buffKey → { turnsLeft, value }
+      shieldHp: 0,         // mana shield / divine shield absorbed
+      id: 'p1',
+    },
+    p2: {
+      ...defender,
+      hp: defender.maxHp,
+      skillIndex: 0,
+      combo: defender.skillCombo || [],
+      cooldowns: {},
+      dots: [],
+      buffs: {},
+      shieldHp: 0,
+      id: 'p2',
+    },
+  };
 
-  const BUFF_SKILLS = ['battle_cry','last_stand','mana_shield','divine_shield','earth_totem','blood_rage'];
+  const SKILL_COOLDOWNS = {
+    power_strike: 2, fireball: 3, ice_lance: 2, backstab: 2,
+    poison_blade: 4, shadow_step: 3, precise_shot: 2, bleed_arrow: 3,
+    shadow_trap: 3, holy_strike: 2, consecration: 3, death_bolt: 3,
+    soul_drain: 3, plague_nova: 5, lightning_bolt: 3, wind_burst: 3,
+    reckless_strike: 2, death_wish: 6,
+    battle_cry: 5, last_stand: 8, mana_shield: 6,
+    divine_shield: 7, earth_totem: 6, blood_rage: 7,
+  };
 
-  function estimateSkillDmg(snapshot, skillKey) {
-    switch(skillKey) {
-      case 'power_strike':    return Math.floor(snapshot.attackPower * 2.2);
-      case 'fireball':        return Math.floor(snapshot.attackPower * 1.8 + Math.random() * snapshot.attackPower * 0.5);
-      case 'ice_lance':       return Math.floor(snapshot.attackPower * 1.5);
-      case 'backstab':        return Math.floor(snapshot.attackPower * 1.5);
-      case 'poison_blade':    return Math.floor(snapshot.attackPower * 1.3 * 5);
-      case 'shadow_step':     return Math.floor(snapshot.attackPower * 2.0);
-      case 'precise_shot':    return Math.floor(snapshot.attackPower * 2.0);
-      case 'bleed_arrow':     return Math.floor(snapshot.attackPower * 1.0 * 4);
-      case 'shadow_trap':     return Math.floor(snapshot.attackPower * 1.5);
-      case 'holy_strike':     return Math.floor(snapshot.attackPower * 2.0);
-      case 'consecration':    return Math.floor(snapshot.attackPower * 1.8);
-      case 'death_bolt':      return Math.floor(snapshot.attackPower * 2.0);
-      case 'soul_drain':      return Math.floor(snapshot.attackPower * 1.6);
-      case 'plague_nova':     return Math.floor(snapshot.attackPower * 1.5 * 6);
-      case 'lightning_bolt':  return Math.floor(snapshot.attackPower * 2.0);
-      case 'wind_burst':      return Math.floor(snapshot.attackPower * 1.8);
-      case 'reckless_strike': return Math.floor(snapshot.attackPower * 2.5);
-      case 'death_wish':      return Math.floor(snapshot.attackPower * 4.0);
-      default:                return Math.floor(snapshot.attackPower * 1.5);
+  function getOther(fid) { return fid === 'p1' ? fighters.p2 : fighters.p1; }
+  function getAttackerRef(fid) { return fighters[fid]; }
+
+  function armorReduction(armor) {
+    return Math.min(0.85, armor / (armor + 80000));
+  }
+
+  // Tick all DOTs for a fighter, return total damage dealt
+  function tickDots(f, enemy) {
+    let total = 0;
+    f.dots = f.dots.filter(dot => dot.turnsLeft > 0);
+    for (const dot of f.dots) {
+      const dmg = Math.max(1, dot.dmgPerTurn);
+      enemy.hp -= dmg;
+      total += dmg;
+      dot.turnsLeft--;
+    }
+    return total;
+  }
+
+  // Tick buff durations
+  function tickBuffs(f) {
+    for (const key of Object.keys(f.buffs)) {
+      f.buffs[key].turnsLeft--;
+      if (f.buffs[key].turnsLeft <= 0) delete f.buffs[key];
+    }
+    // Tick cooldowns
+    for (const key of Object.keys(f.cooldowns)) {
+      f.cooldowns[key]--;
+      if (f.cooldowns[key] <= 0) delete f.cooldowns[key];
     }
   }
 
-  function getBuffDescription(skillKey, snapshot) {
-    switch(skillKey) {
-      case 'battle_cry':    return `${snapshot.name} activates Battle Cry! +STR +ATK POWER!`;
-      case 'last_stand':    return `${snapshot.name} uses Last Stand! Restores HP!`;
-      case 'mana_shield':   return `${snapshot.name} raises Mana Shield! Damage absorbed!`;
-      case 'divine_shield': return `${snapshot.name} uses Divine Shield! +HP + absorb!`;
-      case 'earth_totem':   return `${snapshot.name} plants Earth Totem! +HP +ARMOR!`;
-      case 'blood_rage':    return `${snapshot.name} enters Blood Rage! MASSIVE ATK boost!`;
-      default:              return `${snapshot.name} uses ${skillKey}!`;
+  function applyBuff(f, enemy, skillKey, skillName, skillIcon) {
+    const ap = f.attackPower;
+    const mhp = f.maxHp;
+    let buffDesc = '';
+
+    switch (skillKey) {
+      case 'battle_cry':
+        f.buffs.battle_cry = { turnsLeft: 4, atkBoost: Math.floor(ap * 0.4) };
+        f.attackPower += f.buffs.battle_cry.atkBoost;
+        buffDesc = `${f.name} roars! ATK +${formatNumber(f.buffs.battle_cry.atkBoost)} for 4 turns!`;
+        break;
+      case 'blood_rage':
+        f.buffs.blood_rage = { turnsLeft: 3, atkBoost: Math.floor(ap * 0.8) };
+        f.attackPower += f.buffs.blood_rage.atkBoost;
+        buffDesc = `${f.name} enters Blood Rage! ATK +${formatNumber(f.buffs.blood_rage.atkBoost)} for 3 turns!`;
+        break;
+      case 'last_stand': {
+        const healAmt = Math.floor(mhp * 0.35);
+        f.hp = Math.min(mhp, f.hp + healAmt);
+        buffDesc = `${f.name} uses Last Stand! Heals ${formatNumber(healAmt)} HP!`;
+        break;
+      }
+      case 'mana_shield': {
+        const absorb = Math.floor(mhp * 0.25);
+        f.shieldHp += absorb;
+        buffDesc = `${f.name} raises Mana Shield! Absorbs ${formatNumber(absorb)} damage!`;
+        break;
+      }
+      case 'divine_shield': {
+        const healAmt2 = Math.floor(mhp * 0.2);
+        const absorb2 = Math.floor(mhp * 0.2);
+        f.hp = Math.min(mhp, f.hp + healAmt2);
+        f.shieldHp += absorb2;
+        buffDesc = `${f.name} uses Divine Shield! +${formatNumber(healAmt2)} HP + ${formatNumber(absorb2)} absorb!`;
+        break;
+      }
+      case 'earth_totem': {
+        const armorGain = Math.floor(f.armor * 0.5) + 10000;
+        f.buffs.earth_totem = { turnsLeft: 4, armorGain };
+        f.armor += armorGain;
+        buffDesc = `${f.name} plants Earth Totem! ARMOR +${formatNumber(armorGain)} for 4 turns!`;
+        break;
+      }
+      default:
+        buffDesc = `${f.name} uses ${skillName}!`;
+    }
+
+    recordTurn(f.id, 'buff', { skillKey, skillName, skillIcon, isBuff: true, buffDesc, logText: buffDesc });
+    log.push(`Turn ${turn}: ${buffDesc}`);
+  }
+
+  function expireBuffs(f) {
+    // Remove expired buffs and reverse their stat changes
+    for (const [key, buff] of Object.entries(f.buffs)) {
+      if (buff.turnsLeft <= 0) {
+        if (key === 'battle_cry' || key === 'blood_rage') f.attackPower -= buff.atkBoost;
+        if (key === 'earth_totem') f.armor -= buff.armorGain;
+        delete f.buffs[key];
+      }
     }
   }
 
-  // Record a turn into structured data
+  function doSkillAttack(actor, target, skillKey) {
+    const skill = SKILLS[skillKey];
+    const skillName = skill?.name || skillKey;
+    const skillIcon = skill?.icon || '⚔️';
+    const ap = actor.attackPower;
+    const reduction = armorReduction(target.armor || 0);
+
+    let dmg = 0, dotDmg = 0, dotTurns = 0, dotName = '';
+    let healAmt = 0;
+
+    switch (skillKey) {
+      case 'power_strike':    dmg = Math.floor(ap * 2.2); break;
+      case 'fireball':        dmg = Math.floor(ap * (1.8 + Math.random() * 0.5)); break;
+      case 'ice_lance':       dmg = Math.floor(ap * 1.5); break;
+      case 'backstab':        dmg = Math.floor(ap * 2.2); break; // crit guaranteed
+      case 'poison_blade':    dmg = Math.floor(ap * 0.8); dotDmg = Math.floor(ap * 0.4); dotTurns = 4; dotName = '☠️ Poison'; break;
+      case 'shadow_step':     dmg = Math.floor(ap * 2.0); break;
+      case 'precise_shot':    dmg = Math.floor(ap * 2.0); break;
+      case 'bleed_arrow':     dmg = Math.floor(ap * 0.7); dotDmg = Math.floor(ap * 0.35); dotTurns = 4; dotName = '🩸 Bleed'; break;
+      case 'shadow_trap':     dmg = Math.floor(ap * 1.5); break;
+      case 'holy_strike':     dmg = Math.floor(ap * 2.0); healAmt = Math.floor(ap * 0.3); break;
+      case 'consecration':    dmg = Math.floor(ap * 1.8); break;
+      case 'death_bolt':      dmg = Math.floor(ap * 2.0); break;
+      case 'soul_drain':      dmg = Math.floor(ap * 1.6); healAmt = Math.floor(ap * 0.4); break;
+      case 'plague_nova':     dmg = Math.floor(ap * 0.6); dotDmg = Math.floor(ap * 0.5); dotTurns = 5; dotName = '🦠 Plague'; break;
+      case 'lightning_bolt':  dmg = Math.floor(ap * 2.0); break;
+      case 'wind_burst':      dmg = Math.floor(ap * 1.8); break;
+      case 'reckless_strike': dmg = Math.floor(ap * 2.5); break;
+      case 'death_wish':      dmg = Math.floor(ap * 4.0); actor.hp -= Math.floor(actor.maxHp * 0.15); break; // costs own HP
+      default:                dmg = Math.floor(ap * 1.5);
+    }
+
+    // Backstab always crits
+    if (skillKey === 'backstab') dmg = Math.floor(dmg * 1.5);
+
+    const finalDmg = Math.max(1, Math.floor(dmg * (1 - reduction)));
+
+    // Apply shield first
+    let actualDmg = finalDmg;
+    if (target.shieldHp > 0) {
+      const absorbed = Math.min(target.shieldHp, actualDmg);
+      target.shieldHp -= absorbed;
+      actualDmg -= absorbed;
+    }
+    target.hp -= actualDmg;
+
+    // Lifesteal
+    if (actor.lifeSteal > 0) {
+      const ls = Math.floor(actualDmg * actor.lifeSteal);
+      actor.hp = Math.min(actor.maxHp, actor.hp + ls);
+    }
+
+    // Holy strike / soul drain self-heal
+    if (healAmt > 0) actor.hp = Math.min(actor.maxHp, actor.hp + healAmt);
+
+    // Apply DOT
+    if (dotTurns > 0 && dotDmg > 0) {
+      target.dots.push({ name: dotName, dmgPerTurn: dotDmg, turnsLeft: dotTurns });
+    }
+
+    let txt = `Turn ${turn}: ${actor.name} uses ${skillName} on ${target.name} for ${formatNumber(actualDmg)} dmg!`;
+    if (dotTurns > 0) txt += ` (${dotName} applied!)`;
+    if (healAmt > 0)  txt += ` (Healed ${formatNumber(healAmt)})`;
+    if (skillKey === 'death_wish') txt += ` (Self-hurt for ${formatNumber(Math.floor(actor.maxHp * 0.15))})`;
+
+    log.push(txt);
+    recordTurn(actor.id, 'skill', { skillKey, skillName, skillIcon, damage: actualDmg, healAmount: healAmt, logText: txt });
+  }
+
+  function doNormalAttack(actor, target) {
+    const dodgeChance = Math.max(0, (target.dodge || 0) - (actor.hit || 0)) / 100;
+    if (Math.random() < dodgeChance) {
+      const txt = `Turn ${turn}: ${actor.name} attacks but ${target.name} dodges!`;
+      log.push(txt);
+      recordTurn(actor.id, 'dodge', { isDodge: true, logText: txt });
+      return;
+    }
+    const reduction = armorReduction(target.armor || 0);
+    let dmg = Math.max(1, Math.floor(actor.attackPower * (0.9 + Math.random() * 0.2) * (1 - reduction)));
+    const isCrit = Math.random() < (actor.crit || 0) / 100;
+    if (isCrit) dmg = Math.floor(dmg * 2);
+
+    // Apply shield
+    let actualDmg = dmg;
+    if (target.shieldHp > 0) {
+      const absorbed = Math.min(target.shieldHp, actualDmg);
+      target.shieldHp -= absorbed;
+      actualDmg -= absorbed;
+    }
+    target.hp -= actualDmg;
+
+    if (actor.lifeSteal > 0) actor.hp = Math.min(actor.maxHp, actor.hp + Math.floor(actualDmg * actor.lifeSteal));
+
+    const txt = isCrit
+      ? `Turn ${turn}: ${actor.name} CRITS ${target.name} for ${formatNumber(actualDmg)}! 💥`
+      : `Turn ${turn}: ${actor.name} hits ${target.name} for ${formatNumber(actualDmg)}.`;
+    log.push(txt);
+    recordTurn(actor.id, isCrit ? 'crit' : 'attack', { damage: actualDmg, isCrit, logText: txt });
+  }
+
+  function takeTurn(fid) {
+    const f = fighters[fid];
+    const enemy = getOther(fid);
+
+    // Tick DOTs on the enemy at start of actor's turn
+    const dotDmg = tickDots(f, enemy);
+    if (dotDmg > 0) {
+      const dotLog = `Turn ${turn}: ${enemy.name} suffers ${formatNumber(dotDmg)} from damage over time!`;
+      log.push(dotLog);
+      recordTurn(fid, 'dot', { damage: dotDmg, logText: dotLog });
+    }
+
+    if (enemy.hp <= 0) return;
+
+    // Tick and expire buffs
+    tickBuffs(f);
+    expireBuffs(f);
+
+    // Decide action: use next skill from combo if not on cooldown
+    let usedSkill = false;
+    if (f.combo.length > 0) {
+      for (let attempt = 0; attempt < f.combo.length; attempt++) {
+        const candidate = f.combo[(f.skillIndex + attempt) % f.combo.length];
+        if (!f.cooldowns[candidate]) {
+          f.skillIndex = (f.skillIndex + attempt + 1) % f.combo.length;
+          f.cooldowns[candidate] = SKILL_COOLDOWNS[candidate] || 3;
+          const BUFF_SKILLS = ['battle_cry','last_stand','mana_shield','divine_shield','earth_totem','blood_rage'];
+          if (BUFF_SKILLS.includes(candidate)) {
+            const skill = SKILLS[candidate];
+            applyBuff(f, enemy, candidate, skill?.name || candidate, skill?.icon || '✨');
+          } else {
+            doSkillAttack(f, enemy, candidate);
+          }
+          usedSkill = true;
+          break;
+        }
+      }
+    }
+
+    if (!usedSkill) doNormalAttack(f, enemy);
+  }
+
   function recordTurn(actor, actionType, opts = {}) {
     turns.push({
       turn,
-      actor,          // 'p1' or 'p2'
-      action: actionType, // 'attack', 'skill', 'buff', 'dodge', 'crit'
-      skillKey:    opts.skillKey    || null,
-      skillName:   opts.skillName   || null,
-      skillIcon:   opts.skillIcon   || null,
-      damage:      opts.damage      || 0,
-      healAmount:  opts.healAmount  || 0,
-      isCrit:      opts.isCrit      || false,
-      isDodge:     opts.isDodge     || false,
-      isBuff:      opts.isBuff      || false,
-      buffDesc:    opts.buffDesc    || null,
-      p1HpAfter:   Math.max(0, aHp),
-      p2HpAfter:   Math.max(0, dHp),
-      p1HpMax:     attacker.maxHp,
-      p2HpMax:     defender.maxHp,
-      logText:     opts.logText     || '',
+      actor,
+      action: actionType,
+      skillKey:   opts.skillKey   || null,
+      skillName:  opts.skillName  || null,
+      skillIcon:  opts.skillIcon  || null,
+      damage:     opts.damage     || 0,
+      healAmount: opts.healAmount || 0,
+      isCrit:     opts.isCrit     || false,
+      isDodge:    opts.isDodge    || false,
+      isBuff:     opts.isBuff     || false,
+      buffDesc:   opts.buffDesc   || null,
+      p1HpAfter:  Math.max(0, fighters.p1.hp),
+      p2HpAfter:  Math.max(0, fighters.p2.hp),
+      p1HpMax:    attacker.maxHp,
+      p2HpMax:    defender.maxHp,
+      p1ShieldHp: fighters.p1.shieldHp,
+      p2ShieldHp: fighters.p2.shieldHp,
+      logText:    opts.logText    || '',
     });
   }
 
-  while (aHp > 0 && dHp > 0 && turn < MAX_TURNS) {
+  // ── MAIN LOOP ──
+  while (fighters.p1.hp > 0 && fighters.p2.hp > 0 && turn < MAX_TURNS) {
     turn++;
-
-    // ── ATTACKER'S TURN ──
-    const aSkill = aCombo.length > 0 ? aCombo[aSkillIndex % aCombo.length] : null;
-    if (aSkill) {
-      aSkillIndex++;
-      const skill = SKILLS[aSkill];
-      const skillName = skill?.name || aSkill;
-      const skillIcon = skill?.icon || '⚔️';
-
-      if (BUFF_SKILLS.includes(aSkill)) {
-        const buffDesc = getBuffDescription(aSkill, attacker);
-        log.push(`Turn ${turn}: ${buffDesc}`);
-        recordTurn('p1', 'buff', { skillKey: aSkill, skillName, skillIcon, isBuff: true, buffDesc, logText: buffDesc });
-      } else {
-        const skillDmg = estimateSkillDmg(attacker, aSkill);
-        const reduction = Math.min(0.85, (defender.armor || 0) / ((defender.armor || 0) + 80000));
-        const finalDmg = Math.max(1, Math.floor(skillDmg * (1 - reduction)));
-        dHp -= finalDmg;
-        if (attacker.lifeSteal > 0) aHp = Math.min(attacker.maxHp, aHp + Math.floor(finalDmg * attacker.lifeSteal));
-        const txt = `Turn ${turn}: ${attacker.name} uses ${skillName} on ${defender.name} for ${formatNumber(finalDmg)} dmg!`;
-        log.push(txt);
-        recordTurn('p1', 'skill', { skillKey: aSkill, skillName, skillIcon, damage: finalDmg, logText: txt });
-      }
-    } else {
-      // Normal attack
-      const aDodge = Math.max(0, (defender.dodge || 0) - (attacker.hit || 0)) / 100;
-      if (Math.random() < aDodge) {
-        const txt = `Turn ${turn}: ${attacker.name} missed! ${defender.name} dodged.`;
-        log.push(txt);
-        recordTurn('p1', 'dodge', { isDodge: true, logText: txt });
-      } else {
-        const aReduction = Math.min(0.85, (defender.armor || 0) / ((defender.armor || 0) + 80000));
-        let aDmg = Math.max(1, Math.floor((attacker.attackPower * (0.95 + Math.random() * 0.1)) * (1 - aReduction)));
-        const isCrit = Math.random() < (attacker.crit || 0) / 100;
-        if (isCrit) aDmg = Math.floor(aDmg * 2);
-        dHp -= aDmg;
-        if (attacker.lifeSteal > 0) aHp = Math.min(attacker.maxHp, aHp + Math.floor(aDmg * attacker.lifeSteal));
-        const txt = isCrit
-          ? `Turn ${turn}: ${attacker.name} CRITS ${defender.name} for ${formatNumber(aDmg)}!`
-          : `Turn ${turn}: ${attacker.name} hits ${defender.name} for ${formatNumber(aDmg)}.`;
-        log.push(txt);
-        recordTurn('p1', isCrit ? 'crit' : 'attack', { damage: aDmg, isCrit, logText: txt });
-      }
-    }
-    if (dHp <= 0) { recordTurn('p1', 'end', { logText: '' }); break; }
-
-    // ── DEFENDER'S TURN ──
-    const dSkill = dCombo.length > 0 ? dCombo[dSkillIndex % dCombo.length] : null;
-    if (dSkill) {
-      dSkillIndex++;
-      const skill = SKILLS[dSkill];
-      const skillName = skill?.name || dSkill;
-      const skillIcon = skill?.icon || '⚔️';
-
-      if (BUFF_SKILLS.includes(dSkill)) {
-        const buffDesc = getBuffDescription(dSkill, defender);
-        log.push(`Turn ${turn}: ${buffDesc}`);
-        recordTurn('p2', 'buff', { skillKey: dSkill, skillName, skillIcon, isBuff: true, buffDesc, logText: buffDesc });
-      } else {
-        const skillDmg = estimateSkillDmg(defender, dSkill);
-        const reduction = Math.min(0.85, (attacker.armor || 0) / ((attacker.armor || 0) + 80000));
-        const finalDmg = Math.max(1, Math.floor(skillDmg * (1 - reduction)));
-        aHp -= finalDmg;
-        if (defender.lifeSteal > 0) dHp = Math.min(defender.maxHp, dHp + Math.floor(finalDmg * defender.lifeSteal));
-        const txt = `Turn ${turn}: ${defender.name} uses ${skillName} on ${attacker.name} for ${formatNumber(finalDmg)} dmg!`;
-        log.push(txt);
-        recordTurn('p2', 'skill', { skillKey: dSkill, skillName, skillIcon, damage: finalDmg, logText: txt });
-      }
-    } else {
-      const dDodge = Math.max(0, (attacker.dodge || 0) - (defender.hit || 0)) / 100;
-      if (Math.random() < dDodge) {
-        const txt = `Turn ${turn}: ${defender.name} missed! ${attacker.name} dodged.`;
-        log.push(txt);
-        recordTurn('p2', 'dodge', { isDodge: true, logText: txt });
-      } else {
-        const dReduction = Math.min(0.85, (attacker.armor || 0) / ((attacker.armor || 0) + 80000));
-        let dDmg = Math.max(1, Math.floor((defender.attackPower * (0.95 + Math.random() * 0.1)) * (1 - dReduction)));
-        const isCrit = Math.random() < (defender.crit || 0) / 100;
-        if (isCrit) dDmg = Math.floor(dDmg * 2);
-        aHp -= dDmg;
-        if (defender.lifeSteal > 0) dHp = Math.min(defender.maxHp, dHp + Math.floor(dDmg * defender.lifeSteal));
-        const txt = isCrit
-          ? `Turn ${turn}: ${defender.name} CRITS ${attacker.name} for ${formatNumber(dDmg)}!`
-          : `Turn ${turn}: ${defender.name} hits ${attacker.name} for ${formatNumber(dDmg)}.`;
-        log.push(txt);
-        recordTurn('p2', isCrit ? 'crit' : 'attack', { damage: dDmg, isCrit, logText: txt });
-      }
-    }
+    takeTurn('p1');
+    if (fighters.p2.hp <= 0) break;
+    takeTurn('p2');
   }
 
-  // Determine winner
+  // ── RESULT ──
+  const p1alive = fighters.p1.hp > 0;
+  const p2alive = fighters.p2.hp > 0;
   let winnerId, reason;
-  if (aHp >= dHp) {
+
+  if (p1alive && !p2alive) {
     winnerId = attacker.character_id;
-    reason = turn >= MAX_TURNS
-      ? `${attacker.name} wins by HP advantage!`
-      : `${attacker.name} defeats ${defender.name}!`;
-  } else {
+    reason = `${attacker.name} defeats ${defender.name}!`;
+  } else if (p2alive && !p1alive) {
     winnerId = defender.character_id;
-    reason = turn >= MAX_TURNS
-      ? `${defender.name} wins by HP advantage!`
-      : `${defender.name} defeats ${attacker.name}!`;
+    reason = `${defender.name} defeats ${attacker.name}!`;
+  } else {
+    // Both alive — tiebreak by HP %
+    const p1pct = fighters.p1.hp / attacker.maxHp;
+    const p2pct = fighters.p2.hp / defender.maxHp;
+    winnerId = p1pct >= p2pct ? attacker.character_id : defender.character_id;
+    reason = winnerId === attacker.character_id
+      ? `${attacker.name} wins by HP advantage!`
+      : `${defender.name} wins by HP advantage!`;
   }
+
   log.push(`⚔️ RESULT: ${reason}`);
   turns.push({
     turn: turn + 1,
     actor: 'system',
     action: 'result',
     logText: `⚔️ RESULT: ${reason}`,
-    p1HpAfter: Math.max(0, aHp),
-    p2HpAfter: Math.max(0, dHp),
+    p1HpAfter: Math.max(0, fighters.p1.hp),
+    p2HpAfter: Math.max(0, fighters.p2.hp),
     p1HpMax: attacker.maxHp,
     p2HpMax: defender.maxHp,
+    p1ShieldHp: 0,
+    p2ShieldHp: 0,
     winnerId,
   });
 
   return {
     winnerId,
     log,
-    turns,  // ← structured replay data
+    turns,
     totalTurns: turn,
-    attackerHpLeft: Math.max(0, aHp),
-    defenderHpLeft: Math.max(0, dHp),
+    attackerHpLeft: Math.max(0, fighters.p1.hp),
+    defenderHpLeft: Math.max(0, fighters.p2.hp),
   };
 }
 
@@ -2564,6 +2720,38 @@ async function openBattleReplay(battleId) {
           <div style="font-size:1.4em;">💨</div>
           <div style="font-size:.75em;color:#3b82f6;margin-top:2px;">Dodged!</div>
         </div>`;
+    if (isResult) {
+      actionHtml = `
+        <div style="text-align:center;padding:10px 0;">
+          <div style="font-family:var(--font-title);font-size:1.1em;color:var(--gold);
+            animation:glow-pulse 1s infinite;">
+            🏆 ${turn.logText}
+          </div>
+        </div>`;
+    } else if (turn.action === 'buff') {
+      actionHtml = `
+        <div style="text-align:center;padding:8px;
+          background:rgba(168,85,247,0.1);border-radius:8px;">
+          <div style="font-size:1.4em;">${turn.skillIcon || '✨'}</div>
+          <div style="font-size:.72em;color:#a855f7;margin-top:2px;">${turn.buffDesc || turn.skillName}</div>
+        </div>`;
+    } else if (turn.action === 'dodge') {
+      actionHtml = `
+        <div style="text-align:center;padding:8px;
+          background:rgba(59,130,246,0.1);border-radius:8px;">
+          <div style="font-size:1.4em;">💨</div>
+          <div style="font-size:.75em;color:#3b82f6;margin-top:2px;">Dodged!</div>
+        </div>`;
+    } else if (turn.action === 'dot') {
+      actionHtml = `
+        <div style="text-align:center;padding:8px;
+          background:rgba(139,92,246,0.1);border-radius:8px;">
+          <div style="font-size:1.4em;">🩸</div>
+          <div style="font-size:.72em;color:#8b5cf6;margin-top:2px;">DoT Tick</div>
+          <div style="font-size:.85em;color:var(--red);font-family:var(--font-title);margin-top:2px;">
+            -${formatNumber(turn.damage)}
+          </div>
+        </div>`;
     } else if (turn.action === 'skill') {
       actionHtml = `
         <div style="text-align:center;padding:8px;
@@ -2573,8 +2761,29 @@ async function openBattleReplay(battleId) {
           <div style="font-size:.85em;color:var(--red);font-family:var(--font-title);margin-top:2px;">
             -${formatNumber(turn.damage)}
           </div>
+          ${turn.healAmount > 0 ? `<div style="font-size:.65em;color:var(--green);">+${formatNumber(turn.healAmount)} heal</div>` : ''}
         </div>`;
     } else if (turn.action === 'crit') {
+      actionHtml = `
+        <div style="text-align:center;padding:8px;
+          background:rgba(255,34,68,0.15);border-radius:8px;">
+          <div style="font-size:1.5em;">💥</div>
+          <div style="font-size:.72em;color:var(--red);margin-top:2px;">CRITICAL HIT!</div>
+          <div style="font-size:.9em;color:var(--red);font-family:var(--font-title);margin-top:2px;">
+            -${formatNumber(turn.damage)}
+          </div>
+        </div>`;
+    } else {
+      actionHtml = `
+        <div style="text-align:center;padding:8px;
+          background:rgba(255,255,255,0.04);border-radius:8px;">
+          <div style="font-size:1.4em;">⚔️</div>
+          <div style="font-size:.72em;color:var(--text-dim);margin-top:2px;">Attack</div>
+          <div style="font-size:.85em;color:var(--red);font-family:var(--font-title);margin-top:2px;">
+            -${formatNumber(turn.damage)}
+          </div>
+        </div>`;
+    }
       actionHtml = `
         <div style="text-align:center;padding:8px;
           background:rgba(255,34,68,0.1);border-radius:8px;">
@@ -2904,27 +3113,28 @@ async function renderPracticeboard(tierKey, containerId) {
       // BUG FIX #1: safer query using .in() separately instead of raw .or() string
       const { data: wonBattles } = await dbClient
         .from('arena_battles')
-        .select('winner_id, attacker_id, defender_id')
+        .select('id, winner_id, attacker_id, defender_id')
         .in('attacker_id', charIds)
         .limit(200);
 
-      const { data: defBattles } = await dbClient
+     const { data: defBattles } = await dbClient
         .from('arena_battles')
-        .select('winner_id, attacker_id, defender_id')
+        .select('id, winner_id, attacker_id, defender_id')
         .in('defender_id', charIds)
         .limit(200);
 
       const allBattles = [...(wonBattles || []), ...(defBattles || [])];
-      // Deduplicate by using a Set of IDs we've already counted
       const seen = new Set();
-      allBattles.forEach(b => {
-        const key = `${b.attacker_id}-${b.defender_id}`;
-        if (seen.has(key)) return;
-        seen.add(key);
-        if (b.winner_id && records[b.winner_id]) records[b.winner_id].wins++;
-        const loserId = b.winner_id === b.attacker_id ? b.defender_id : b.attacker_id;
+        allBattles.forEach(b => {
+        if (seen.has(b.id)) return; // need battle id to dedupe properly
+        seen.add(b.id);
+
+      const winnerId = b.winner_id;
+      const loserId = winnerId === b.attacker_id ? b.defender_id : b.attacker_id;
+
+        if (winnerId && records[winnerId]) records[winnerId].wins++;
         if (loserId && records[loserId]) records[loserId].losses++;
-      });
+        });
     }
 
     const classIcons = {
@@ -2976,21 +3186,34 @@ async function renderPracticeboard(tierKey, containerId) {
 
           <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
             <span style="font-size:.62em;color:var(--text-dim);
-              background:rgba(255,255,255,0.04);border-radius:4px;padding:2px 5px;">
-              ⚡ ATK ${formatNumber(snap.attackPower)}
-            </span>
-            <span style="font-size:.62em;color:var(--text-dim);
-              background:rgba(255,255,255,0.04);border-radius:4px;padding:2px 5px;">
-              ❤️ HP ${formatNumber(snap.maxHp)}
-            </span>
-            <span style="font-size:.62em;color:var(--text-dim);
-              background:rgba(255,255,255,0.04);border-radius:4px;padding:2px 5px;">
-              🛡️ ARM ${formatNumber(snap.armor)}
-            </span>
-            <span style="font-size:.62em;color:var(--text-dim);
-              background:rgba(255,255,255,0.04);border-radius:4px;padding:2px 5px;">
-              💥 CRIT ${snap.crit}%
-            </span>
+  background:rgba(255,255,255,0.04);border-radius:4px;padding:2px 5px;">
+  ⚡ ATK ${formatNumber(snap.attackPower)}
+</span>
+<span style="font-size:.62em;color:var(--text-dim);
+  background:rgba(255,255,255,0.04);border-radius:4px;padding:2px 5px;">
+  ❤️ HP ${formatNumber(snap.maxHp)}
+</span>
+<span style="font-size:.62em;color:var(--text-dim);
+  background:rgba(255,255,255,0.04);border-radius:4px;padding:2px 5px;">
+  🛡️ ARM ${formatNumber(snap.armor)}
+</span>
+<span style="font-size:.62em;color:var(--text-dim);
+  background:rgba(255,255,255,0.04);border-radius:4px;padding:2px 5px;">
+  💥 CRIT ${snap.crit}%
+</span>
+<span style="font-size:.62em;color:var(--text-dim);
+  background:rgba(255,255,255,0.04);border-radius:4px;padding:2px 5px;">
+  👟 DODGE ${formatNumber(snap.dodge)}
+</span>
+<span style="font-size:.62em;color:var(--text-dim);
+  background:rgba(255,255,255,0.04);border-radius:4px;padding:2px 5px;">
+  🎯 HIT ${formatNumber(snap.hit)}
+</span>
+${snap.lifeSteal > 0 ? `
+<span style="font-size:.62em;color:var(--text-dim);
+  background:rgba(255,255,255,0.04);border-radius:4px;padding:2px 5px;">
+  🩸 LS ${Math.round(snap.lifeSteal * 100)}%
+</span>` : ''}
           </div>
 
           ${combo.length ? `
@@ -3096,19 +3319,17 @@ async function initiatePracticeFight(targetCharId, tierKey, tournamentId) {
       .update({ gold: state.gold })
       .eq('id', state.character_id);
 
-    // Pay 50% to target
-    const targetCut = Math.floor(fee * 0.5);
-    const { data: targetChar } = await dbClient
-      .from('characters')
-      .select('gold')
-      .eq('id', targetCharId)
-      .single();
-    if (targetChar) {
-      await dbClient.from('characters')
-        .update({ gold: targetChar.gold + targetCut })
-        .eq('id', targetCharId);
-      addLog(`💰 ${formatNumber(targetCut)}g sent to ${targetSnapshot.name} for the challenge!`, 'gold');
-    }
+    // Pay 50% to target atomically via RPC
+const targetCut = Math.floor(fee * 0.5);
+const { error: payError } = await dbClient.rpc('add_gold_to_character', {
+  target_id: targetCharId,
+  amount: targetCut,
+});
+if (payError) {
+  console.error('Target payment failed:', payError);
+} else {
+  addLog(`💰 ${formatNumber(targetCut)}g sent to ${targetSnapshot.name} for the challenge!`, 'gold');
+}
 
     // Run simulation
     notify(`⚔️ Fighting ${targetSnapshot.name}...`, 'var(--gold)');
@@ -3144,6 +3365,7 @@ async function initiatePracticeFight(targetCharId, tierKey, tournamentId) {
 }
 
 // ── PRACTICE FIGHT REPLAY ──
+// ── PRACTICE FIGHT REPLAY (updated for new simulateBattle) ──
 function openPracticeReplay(result, attacker, defender) {
   const turns = result.turns || [];
   if (!turns.length) { notify('No battle data!', 'var(--red)'); return; }
@@ -3152,7 +3374,6 @@ function openPracticeReplay(result, attacker, defender) {
   let replayInterval = null;
   let speed = 800;
   let isPlaying = false;
-
   const popup = document.getElementById('item-popup');
 
   function getHpPercent(hp, max) { return Math.max(0, Math.min(100, Math.floor((hp / max) * 100))); }
@@ -3166,127 +3387,141 @@ function openPracticeReplay(result, attacker, defender) {
     return icons[cls] || '👤';
   }
 
+  function buildActionHtml(turn, isResult, attacker) {
+    if (isResult) {
+      const won = turn.winnerId === attacker.character_id;
+      return `<div style="text-align:center;padding:8px 0;">
+        <div style="font-family:var(--font-title);font-size:.95em;color:${won?'var(--gold)':'var(--red)'};">
+          ${won ? '🏆 YOU WIN!' : '💀 YOU LOSE!'}
+        </div></div>`;
+    }
+    switch (turn.action) {
+      case 'buff':
+        return `<div style="text-align:center;padding:6px;background:rgba(168,85,247,0.1);border-radius:8px;">
+          <div style="font-size:1.3em;">${turn.skillIcon||'✨'}</div>
+          <div style="font-size:.65em;color:#a855f7;">${turn.skillName||'Buff'}</div>
+          <div style="font-size:.6em;color:var(--text-dim);margin-top:2px;">${turn.buffDesc||''}</div>
+        </div>`;
+      case 'dodge':
+        return `<div style="text-align:center;padding:6px;background:rgba(59,130,246,0.1);border-radius:8px;">
+          <div style="font-size:1.3em;">💨</div>
+          <div style="font-size:.65em;color:#3b82f6;">Dodged!</div>
+        </div>`;
+      case 'dot':
+        return `<div style="text-align:center;padding:6px;background:rgba(139,92,246,0.1);border-radius:8px;">
+          <div style="font-size:1.3em;">🩸</div>
+          <div style="font-size:.65em;color:#8b5cf6;">DoT Tick</div>
+          <div style="font-size:.82em;color:var(--red);font-family:var(--font-title);">-${formatNumber(turn.damage)}</div>
+        </div>`;
+      case 'skill':
+        return `<div style="text-align:center;padding:6px;background:rgba(255,153,0,0.1);border-radius:8px;">
+          <div style="font-size:1.3em;">${turn.skillIcon||'⚔️'}</div>
+          <div style="font-size:.65em;color:var(--gold);">${turn.skillName}</div>
+          <div style="font-size:.82em;color:var(--red);font-family:var(--font-title);">-${formatNumber(turn.damage)}</div>
+          ${turn.healAmount > 0 ? `<div style="font-size:.65em;color:var(--green);">+${formatNumber(turn.healAmount)} heal</div>` : ''}
+        </div>`;
+      case 'crit':
+        return `<div style="text-align:center;padding:6px;background:rgba(255,34,68,0.15);border-radius:8px;
+          animation:flash-red .3s ease;">
+          <div style="font-size:1.5em;">💥</div>
+          <div style="font-size:.65em;color:var(--red);">CRITICAL!</div>
+          <div style="font-size:.9em;color:var(--red);font-family:var(--font-title);">-${formatNumber(turn.damage)}</div>
+        </div>`;
+      default:
+        return `<div style="text-align:center;padding:6px;background:rgba(255,255,255,0.04);border-radius:8px;">
+          <div style="font-size:1.3em;">⚔️</div>
+          <div style="font-size:.65em;color:var(--text-dim);">Attack</div>
+          <div style="font-size:.82em;color:var(--red);font-family:var(--font-title);">-${formatNumber(turn.damage)}</div>
+        </div>`;
+    }
+  }
+
+  function buildFighterHtml(name, cls, level, hpAfter, hpMax, shieldHp, isActing, isResult, skillCombo, label, labelColor) {
+    const pct = getHpPercent(hpAfter, hpMax);
+    const hpColor = getHpColor(pct);
+    const shieldPct = hpMax > 0 ? Math.min(100, Math.floor(((shieldHp||0) / hpMax) * 100)) : 0;
+    return `
+      <div style="flex:1;background:${isActing&&!isResult?'rgba(255,153,0,0.08)':'rgba(255,255,255,0.03)'};
+        border:1px solid ${isActing&&!isResult?'var(--gold)':'var(--border)'};
+        border-radius:8px;padding:7px;transition:all .2s;">
+        <div style="font-size:.6em;color:${labelColor};margin-bottom:1px;">${label}</div>
+        <div style="font-family:var(--font-title);font-size:.75em;color:var(--text);
+          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          ${getClassIcon(cls)} ${name}
+        </div>
+        <div style="font-size:.6em;color:var(--text-dim);margin-bottom:4px;">Lv.${level} ${cls||''}</div>
+
+        <!-- HP Bar -->
+        <div style="position:relative;height:6px;background:rgba(255,255,255,0.07);
+          border-radius:3px;overflow:hidden;margin-bottom:1px;">
+          <div style="position:absolute;height:100%;width:${pct}%;
+            background:${hpColor};border-radius:3px;transition:width .3s;"></div>
+          ${shieldPct > 0 ? `<div style="position:absolute;height:100%;width:${shieldPct}%;
+            background:rgba(59,130,246,0.6);border-radius:3px;transition:width .3s;
+            border-left:1px solid #3b82f6;" title="Shield"></div>` : ''}
+        </div>
+        <div style="font-size:.6em;color:${hpColor};">${formatNumber(hpAfter)} HP
+          ${shieldHp > 0 ? `<span style="color:#3b82f6;margin-left:4px;">🛡️${formatNumber(shieldHp)}</span>` : ''}
+        </div>
+
+        <!-- Skill Combo -->
+        ${skillCombo?.length ? `
+          <div style="display:flex;gap:2px;margin-top:4px;flex-wrap:wrap;align-items:center;">
+            ${skillCombo.map((sk,i) => `
+              <span style="font-size:.9em;" title="${SKILLS[sk]?.name||sk}">${SKILLS[sk]?.icon||'⚔️'}</span>
+              ${i < skillCombo.length-1 ? '<span style="font-size:.5em;color:var(--text-dim);">→</span>' : ''}
+            `).join('')}
+          </div>` : ''}
+      </div>`;
+  }
+
   function renderReplay() {
     const turn = turns[currentTurn] || turns[turns.length - 1];
-    const p1Pct = getHpPercent(turn.p1HpAfter, turn.p1HpMax);
-    const p2Pct = getHpPercent(turn.p2HpAfter, turn.p2HpMax);
     const isP1Acting = turn.actor === 'p1';
     const isP2Acting = turn.actor === 'p2';
     const isResult = turn.action === 'result';
-
-    let actionHtml = '';
-    if (isResult) {
-      const won = turn.winnerId === attacker.character_id;
-      actionHtml = `
-        <div style="text-align:center;padding:8px 0;">
-          <div style="font-family:var(--font-title);font-size:.95em;
-            color:${won ? 'var(--gold)' : 'var(--red)'};">
-            ${won ? '🏆 YOU WIN!' : '💀 YOU LOSE!'}
-          </div>
-        </div>`;
-    } else if (turn.action === 'buff') {
-      actionHtml = `<div style="text-align:center;padding:6px;background:rgba(168,85,247,0.1);border-radius:8px;">
-        <div style="font-size:1.3em;">${turn.skillIcon || '✨'}</div>
-        <div style="font-size:.68em;color:#a855f7;">${turn.skillName}</div></div>`;
-    } else if (turn.action === 'dodge') {
-      actionHtml = `<div style="text-align:center;padding:6px;background:rgba(59,130,246,0.1);border-radius:8px;">
-        <div style="font-size:1.3em;">💨</div>
-        <div style="font-size:.68em;color:#3b82f6;">Dodged!</div></div>`;
-    } else if (turn.action === 'skill') {
-      actionHtml = `<div style="text-align:center;padding:6px;background:rgba(255,153,0,0.1);border-radius:8px;">
-        <div style="font-size:1.3em;">${turn.skillIcon || '⚔️'}</div>
-        <div style="font-size:.65em;color:var(--gold);">${turn.skillName}</div>
-        <div style="font-size:.82em;color:var(--red);font-family:var(--font-title);">-${formatNumber(turn.damage)}</div></div>`;
-    } else if (turn.action === 'crit') {
-      actionHtml = `<div style="text-align:center;padding:6px;background:rgba(255,34,68,0.1);border-radius:8px;">
-        <div style="font-size:1.3em;">💥</div>
-        <div style="font-size:.65em;color:var(--red);">CRIT!</div>
-        <div style="font-size:.82em;color:var(--red);font-family:var(--font-title);">-${formatNumber(turn.damage)}</div></div>`;
-    } else {
-      actionHtml = `<div style="text-align:center;padding:6px;background:rgba(255,255,255,0.04);border-radius:8px;">
-        <div style="font-size:1.3em;">⚔️</div>
-        <div style="font-size:.65em;color:var(--text-dim);">Attack</div>
-        <div style="font-size:.82em;color:var(--red);font-family:var(--font-title);">-${formatNumber(turn.damage)}</div></div>`;
-    }
 
     document.getElementById('item-popup-content').innerHTML = `
       <div style="font-family:var(--font-title);color:var(--gold);
         margin-bottom:8px;font-size:.88em;text-align:center;">
         ⚔️ Practice Fight
         <span style="font-size:.7em;color:var(--text-dim);margin-left:6px;">
-          Turn ${isResult ? turns.length - 1 : turn.turn}/${turns.length - 1}
+          Turn ${isResult ? turns.length-1 : turn.turn}/${turns.length-1}
         </span>
       </div>
 
-      <!-- Fighters -->
+      <!-- Fighters Row -->
       <div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:8px;">
+        ${buildFighterHtml(
+          attacker.name, attacker.class, attacker.level,
+          turn.p1HpAfter, turn.p1HpMax, turn.p1ShieldHp||0,
+          isP1Acting, isResult, attacker.skillCombo, 'YOU', 'var(--green)'
+        )}
 
-        <!-- Challenger (you) -->
-        <div style="flex:1;background:${isP1Acting && !isResult ? 'rgba(255,153,0,0.08)' : 'rgba(255,255,255,0.03)'};
-          border:1px solid ${isP1Acting && !isResult ? 'var(--gold)' : 'var(--border)'};
-          border-radius:8px;padding:7px;transition:all .2s;">
-          <div style="font-size:.62em;color:var(--green);margin-bottom:1px;">YOU</div>
-          <div style="font-family:var(--font-title);font-size:.75em;color:var(--text);
-            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-            ${getClassIcon(attacker.class)} ${attacker.name}
-          </div>
-          <div style="font-size:.62em;color:var(--text-dim);margin-bottom:4px;">
-            Lv.${attacker.level}
-          </div>
-          <div style="height:5px;background:rgba(255,255,255,0.07);border-radius:3px;overflow:hidden;margin-bottom:2px;">
-            <div style="height:100%;width:${p1Pct}%;background:${getHpColor(p1Pct)};border-radius:3px;transition:width .3s;"></div>
-          </div>
-          <div style="font-size:.62em;color:${getHpColor(p1Pct)};">
-            ${formatNumber(turn.p1HpAfter)} HP
-          </div>
-          ${attacker.skillCombo?.length ? `
-            <div style="display:flex;gap:2px;margin-top:4px;flex-wrap:wrap;">
-              ${attacker.skillCombo.map(sk => `<span style="font-size:.9em;" title="${SKILLS[sk]?.name||sk}">${SKILLS[sk]?.icon||'⚔️'}</span>`).join('→')}
-            </div>` : ''}
-        </div>
-
-        <!-- Action -->
+        <!-- Action Center -->
         <div style="width:72px;flex-shrink:0;padding-top:14px;">
-          ${actionHtml}
+          ${buildActionHtml(turn, isResult, attacker)}
           ${!isResult ? `<div style="text-align:center;font-size:.65em;color:var(--text-dim);margin-top:3px;">
-            ${isP1Acting ? '→' : '←'}</div>` : ''}
+            ${isP1Acting ? '→' : isP2Acting ? '←' : ''}</div>` : ''}
         </div>
 
-        <!-- Opponent -->
-        <div style="flex:1;background:${isP2Acting && !isResult ? 'rgba(255,153,0,0.08)' : 'rgba(255,255,255,0.03)'};
-          border:1px solid ${isP2Acting && !isResult ? 'var(--gold)' : 'var(--border)'};
-          border-radius:8px;padding:7px;transition:all .2s;">
-          <div style="font-size:.62em;color:var(--red);margin-bottom:1px;">OPPONENT</div>
-          <div style="font-family:var(--font-title);font-size:.75em;color:var(--text);
-            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-            ${getClassIcon(defender.class)} ${defender.name}
-          </div>
-          <div style="font-size:.62em;color:var(--text-dim);margin-bottom:4px;">
-            Lv.${defender.level}
-          </div>
-          <div style="height:5px;background:rgba(255,255,255,0.07);border-radius:3px;overflow:hidden;margin-bottom:2px;">
-            <div style="height:100%;width:${p2Pct}%;background:${getHpColor(p2Pct)};border-radius:3px;transition:width .3s;"></div>
-          </div>
-          <div style="font-size:.62em;color:${getHpColor(p2Pct)};">
-            ${formatNumber(turn.p2HpAfter)} HP
-          </div>
-          ${defender.skillCombo?.length ? `
-            <div style="display:flex;gap:2px;margin-top:4px;flex-wrap:wrap;">
-              ${defender.skillCombo.map(sk => `<span style="font-size:.9em;" title="${SKILLS[sk]?.name||sk}">${SKILLS[sk]?.icon||'⚔️'}</span>`).join('→')}
-            </div>` : ''}
-        </div>
+        ${buildFighterHtml(
+          defender.name, defender.class, defender.level,
+          turn.p2HpAfter, turn.p2HpMax, turn.p2ShieldHp||0,
+          isP2Acting, isResult, defender.skillCombo, 'OPPONENT', 'var(--red)'
+        )}
       </div>
 
-      <!-- Turn log -->
+      <!-- Turn Log -->
       <div style="font-size:.70em;color:var(--text-dim);text-align:center;
-        min-height:18px;margin-bottom:8px;padding:3px 6px;
+        min-height:18px;margin-bottom:8px;padding:3px 8px;
         background:rgba(255,255,255,0.03);border-radius:6px;line-height:1.5;">
-        ${turn.logText || ''}
+        ${turn.logText || '&nbsp;'}
       </div>
 
-      <!-- Progress bar -->
+      <!-- Progress Bar -->
       <div style="height:3px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden;margin-bottom:8px;">
-        <div style="height:100%;width:${((currentTurn + 1) / turns.length) * 100}%;
+        <div style="height:100%;width:${((currentTurn+1)/turns.length)*100}%;
           background:var(--gold);border-radius:2px;transition:width .3s;"></div>
       </div>
 
@@ -3294,68 +3529,42 @@ function openPracticeReplay(result, attacker, defender) {
       <div style="display:flex;gap:6px;margin-bottom:6px;">
         <button onclick="practiceReplayStep(-1)"
           style="flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--border);
-          border-radius:6px;color:var(--text);padding:7px;cursor:pointer;font-size:.78em;">
-          ⏮ Prev
-        </button>
-        <button id="practice-play-btn" onclick="practiceReplayToggle()"
+          border-radius:6px;color:var(--text);padding:7px;cursor:pointer;font-size:.78em;">⏮ Prev</button>
+        <button onclick="practiceReplayToggle()"
           style="flex:2;background:rgba(255,153,0,0.15);border:1px solid var(--gold);
           border-radius:6px;color:var(--gold);padding:7px;cursor:pointer;
           font-family:var(--font-title);font-size:.78em;">
-          ${isPlaying ? '⏸ Pause' : '▶ Play'}
-        </button>
+          ${isPlaying ? '⏸ Pause' : '▶ Play'}</button>
         <button onclick="practiceReplayStep(1)"
           style="flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--border);
-          border-radius:6px;color:var(--text);padding:7px;cursor:pointer;font-size:.78em;">
-          Next ⏭
-        </button>
+          border-radius:6px;color:var(--text);padding:7px;cursor:pointer;font-size:.78em;">Next ⏭</button>
       </div>
 
       <!-- Speed + Close -->
       <div style="display:flex;gap:6px;">
-        <button onclick="practiceSetSpeed(1200)"
-          style="flex:1;background:${speed===1200?'rgba(255,153,0,0.2)':'rgba(255,255,255,0.04)'};
-          border:1px solid ${speed===1200?'var(--gold)':'var(--border)'};
-          border-radius:6px;color:var(--text-dim);padding:5px;cursor:pointer;font-size:.68em;">
-          🐢 Slow
-        </button>
-        <button onclick="practiceSetSpeed(800)"
-          style="flex:1;background:${speed===800?'rgba(255,153,0,0.2)':'rgba(255,255,255,0.04)'};
-          border:1px solid ${speed===800?'var(--gold)':'var(--border)'};
-          border-radius:6px;color:var(--text-dim);padding:5px;cursor:pointer;font-size:.68em;">
-          ⚡ Normal
-        </button>
-        <button onclick="practiceSetSpeed(300)"
-          style="flex:1;background:${speed===300?'rgba(255,153,0,0.2)':'rgba(255,255,255,0.04)'};
-          border:1px solid ${speed===300?'var(--gold)':'var(--border)'};
-          border-radius:6px;color:var(--text-dim);padding:5px;cursor:pointer;font-size:.68em;">
-          🚀 Fast
-        </button>
+        ${[['🐢 Slow',1200],['⚡ Normal',800],['🚀 Fast',300]].map(([label,s]) => `
+          <button onclick="practiceSetSpeed(${s})"
+            style="flex:1;background:${speed===s?'rgba(255,153,0,0.2)':'rgba(255,255,255,0.04)'};
+            border:1px solid ${speed===s?'var(--gold)':'var(--border)'};
+            border-radius:6px;color:var(--text-dim);padding:5px;cursor:pointer;font-size:.68em;">
+            ${label}</button>`).join('')}
         <button onclick="practiceReplayClose()"
           style="flex:1;background:rgba(255,255,255,0.04);border:1px solid var(--border);
-          border-radius:6px;color:var(--text-dim);padding:5px;cursor:pointer;font-size:.68em;">
-          ✖ Close
-        </button>
+          border-radius:6px;color:var(--text-dim);padding:5px;cursor:pointer;font-size:.68em;">✖ Close</button>
       </div>`;
 
     popup.style.display = 'flex';
   }
 
-  // Controls
   window.practiceReplayStep = function(dir) {
-    currentTurn = Math.max(0, Math.min(turns.length - 1, currentTurn + dir));
+    currentTurn = Math.max(0, Math.min(turns.length-1, currentTurn+dir));
     renderReplay();
   };
-
   window.practiceReplayToggle = function() {
     isPlaying = !isPlaying;
     if (isPlaying) {
       replayInterval = setInterval(() => {
-        if (currentTurn >= turns.length - 1) {
-          isPlaying = false;
-          clearInterval(replayInterval);
-          renderReplay();
-          return;
-        }
+        if (currentTurn >= turns.length-1) { isPlaying=false; clearInterval(replayInterval); renderReplay(); return; }
         currentTurn++;
         renderReplay();
       }, speed);
@@ -3364,32 +3573,24 @@ function openPracticeReplay(result, attacker, defender) {
     }
     renderReplay();
   };
-
   window.practiceSetSpeed = function(newSpeed) {
     speed = newSpeed;
     if (isPlaying) {
       clearInterval(replayInterval);
       replayInterval = setInterval(() => {
-        if (currentTurn >= turns.length - 1) {
-          isPlaying = false;
-          clearInterval(replayInterval);
-          renderReplay();
-          return;
-        }
+        if (currentTurn >= turns.length-1) { isPlaying=false; clearInterval(replayInterval); renderReplay(); return; }
         currentTurn++;
         renderReplay();
       }, speed);
     }
     renderReplay();
   };
-
   window.practiceReplayClose = function() {
     isPlaying = false;
     clearInterval(replayInterval);
     closeItemPopup();
   };
 
-  // Auto play on open
   currentTurn = 0;
   renderReplay();
   setTimeout(() => { isPlaying = true; practiceReplayToggle(); }, 500);
