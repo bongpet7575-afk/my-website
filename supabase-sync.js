@@ -77,7 +77,8 @@ if (_loadedTitle && _loadedTitle.id !== state.reputationTitle) {
   state.legacyPoints   = character.legacy_points || 0;
   state.legacySkills   = character.legacy_skills || {};
   state.respecCount    = character.respec_count || 0;
-  state.goldMultExpiry = character.gold_mult_expiry || null;
+  state.goldMult       = character.gold_mult         || 1;
+state.goldMultExpiry = character.gold_mult_expiry   || null;
 
   // ── Soul Crystals & Login ──
   state.soulCrystals    = character.soul_crystals   || 0;
@@ -319,7 +320,8 @@ async function savePlayerToSupabase() {
       p_auto_sell:             state.autoSell,
       p_active_debuffs:        state.activeDebuffs,
       p_respec_count:          state.respecCount,
-      p_gold_mult_expiry:      state.goldMultExpiry,
+      p_gold_mult:             state.goldMult        || 1,
+      p_gold_mult_expiry:      state.goldMultExpiry   || null,
       p_soul_crystals:         state.soulCrystals   || 0,
       p_premium_spins:         state.premiumSpins   || 0,
       p_login_streak:          state.loginStreak    || 0,

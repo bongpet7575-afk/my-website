@@ -1,25 +1,27 @@
 // ── SPINNING WHEEL SYSTEM ──
 
 const WHEEL_PRIZES = [
-  { id: 'gold_small',    label: '💰 1,000g',          type: 'gold',      value: 1000,  weight: 30, color: '#f0c040' },
-  { id: 'gold_medium',   label: '💰 5,000g',          type: 'gold',      value: 5000,  weight: 20, color: '#f0c040' },
-  { id: 'gold_large',    label: '💰 15,000g',         type: 'gold',      value: 15000, weight: 10, color: '#f0c040' },  
-  { id: 'enhance_mat',   label: '⚗️ Enhance Orb',     type: 'material',  value: 1,     weight: 7,  color: '#22c55e' },
-  { id: 'mystery_box',   label: '📦 Mystery Gear',    type: 'equipment', value: 1,     weight: 4,  color: '#3b82f6' },
-  { id: 'title',         label: '👑 Lucky Title',     type: 'title',     value: 1,     weight: 1,  color: '#ff6644' },
+  { id: 'normal_gold_small',  label: '💰 50,000g',        type: 'gold',      value: 50000,  weight: 30, color: '#f0c040' },
+  { id: 'normal_gold_medium', label: '💰 150,000g',       type: 'gold',      value: 150000, weight: 15, color: '#f0c040' },
+  { id: 'normal_gold_large',  label: '💰 300,000g',       type: 'gold',      value: 300000, weight: 5,  color: '#f0c040' },
+  { id: 'normal_enhance_1',   label: '⚗️ Enhance Orb',    type: 'material',  value: 1,      weight: 25, color: '#22c55e' },
+  { id: 'normal_enhance_3',   label: '⚗️ 3 Enhance Orbs', type: 'material',  value: 3,      weight: 10, color: '#22c55e' },
+  { id: 'normal_rare_gear',   label: '📦 Rare Gear',      type: 'equipment', value: 'rare', weight: 10, color: '#3b82f6' },
+  { id: 'normal_epic_gear',   label: '⚔️ Epic Gear',      type: 'equipment', value: 'epic', weight: 4,  color: '#a855f7' },
+  { id: 'normal_title',       label: '👑 Lucky Title',    type: 'title',     value: 1,      weight: 1,  color: '#ff6644' },
 ];
 
 const PREMIUM_WHEEL_PRIZES = [
-  { id: 'gold_huge',       label: '💰 100,000g',        type: 'gold',       value: 100000, weight: 20, color: '#f0c040' },
-  { id: 'gold_mega',       label: '💰 500,000g',        type: 'gold',       value: 500000, weight: 8,  color: '#f0c040' },
-  { id: 'crystal_big',     label: '💎 300 Crystals',    type: 'crystals',   value: 300,    weight: 18, color: '#a855f7' },
-  { id: 'crystal_huge',    label: '💎 800 Crystals',    type: 'crystals',   value: 800,    weight: 8,  color: '#a855f7' },
-  { id: 'enhance_orb_3',   label: '⚗️ 3 Enhance Orbs', type: 'material',   value: 3,      weight: 15, color: '#22c55e' },
-  { id: 'epic_gear',       label: '⚔️ Epic Gear',       type: 'equipment',  value: 'epic', weight: 12, color: '#a855f7' },
-  { id: 'legendary_gear',  label: '🌟 Legendary Gear', type: 'equipment',  value: 'legendary', weight: 3, color: '#ff9900' },
-  { id: 'gold_mult',       label: '⚡ 2x Gold 24h',     type: 'gold_mult',  value: 2,      weight: 10, color: '#ff9900' },
-  { id: 'premium_title',   label: '👑 Rare Title',      type: 'title',      value: 'premium', weight: 4, color: '#ff6644' },
-  { id: 'soul_crystal_orb',label: '🔮 Soul Orb',        type: 'soul_orb',   value: 1,      weight: 2,  color: '#ec4899' },
+  { id: 'premium_gold_large',  label: '💰 1,000,000g',     type: 'gold',      value: 1000000,   weight: 15, color: '#f0c040' },
+  { id: 'premium_gold_mega',   label: '💰 3,000,000g',     type: 'gold',      value: 3000000,   weight: 5,  color: '#f0c040' },
+  { id: 'premium_crystal_50',  label: '💎 50 Crystals',    type: 'crystals',  value: 50,        weight: 20, color: '#a855f7' },
+  { id: 'premium_crystal_100', label: '💎 100 Crystals',   type: 'crystals',  value: 100,       weight: 8,  color: '#a855f7' },
+  { id: 'premium_enhance_3',   label: '⚗️ 3 Enhance Orbs', type: 'material',  value: 3,         weight: 15, color: '#22c55e' },
+  { id: 'premium_epic_gear',   label: '⚔️ Epic Gear',      type: 'equipment', value: 'epic',    weight: 15, color: '#a855f7' },
+  { id: 'premium_legend_gear', label: '🌟 Legendary Gear', type: 'equipment', value: 'legendary',weight: 3, color: '#ff9900' },
+  { id: 'premium_gold_mult',   label: '⚡ 2x Gold 24h',    type: 'gold_mult', value: 2,         weight: 12, color: '#ff9900' },
+  { id: 'premium_title',       label: '👑 Rare Title',     type: 'title',     value: 'premium', weight: 5,  color: '#ff6644' },
+  { id: 'premium_soul_orb',    label: '🔮 Soul Orb',       type: 'soul_orb',  value: 150,       weight: 2,  color: '#ec4899' },
 ];
 
 const NORMAL_SPIN_COST  = window.NORMAL_SPIN_COST  || 500000;

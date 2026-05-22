@@ -3948,11 +3948,23 @@ function openTreasureBox(box){
   const items=[];
   // Equipment rolls
   for(let i=0;i<table.rolls;i++){
-    let rarity=rollTreasureRarity(table.tier);
-    const slot=slots[Math.floor(Math.random()*slots.length)];
-    const item=mkEquipDrop(slot,rarity,stageId); addToInventory(item); items.push(item);
+  let rarity=rollTreasureRarity(table.tier);
+  const slot=slots[Math.floor(Math.random()*slots.length)];
+  const item=mkEquipDrop(slot,rarity,stageId);
+  const before=state.inventory.length;
+  addToInventory(item);
+  const added=state.inventory.length>before||
+    (item.stackable&&state.inventory.find(i=>i.name===item.name));
+  if(added){
+    items.push(item);
     if(item.rarity==='legendary') state.quests.legendary.done=true;
   }
+}
+if(items.length < table.rolls){
+  const lost = table.rolls - items.length;
+  notify(`⚠️ ${lost} item(s) lost — bag full! Sell items before opening chests.`, 'var(--red)');
+  addLog(`⚠️ ${lost} chest item(s) discarded due to full bag.`, 'bad');
+}
   // Bonus mat drops from chest (2-3 mats matching stage)
   const matCount = 2 + Math.floor(Math.random()*2);
   for(let i=0;i<matCount;i++) rollMatDrop(stageId, false);
@@ -4441,11 +4453,53 @@ function addToInventory(item){
     const limit=getInvSlotLimit(cat);
     const current=countInvSlots(cat);
     if(current>=limit){
-      const label=cat.charAt(0).toUpperCase()+cat.slice(1);
-      notify(`⚠️ ${label} bag full! (${limit}/${limit} slots)`,'var(--red)');
-      addLog(`⚠️ ${label} bag is full! Drop or sell items to make room.`,'bad');
-      return;
-    }
+  const label = cat.charAt(0).toUpperCase()+cat.slice(1);
+  const sellPrice = item.sellPrice || 0;
+  if(sellPrice > 0){
+    state.gold += sellPrice;
+    addLog(`⚠️ ${label} bag full! ${item.name} auto-sold for ${formatNumber(sellPrice)}g.`, 'bad');
+    notify(`⚠️ Bag full! ${item.name} sold for ${formatNumber(sellPrice)}g`, 'var(--red)');
+  } else {
+    addLog(`⚠️ ${label} bag full! ${item.name} discarded.`, 'bad');
+    notify(`⚠️ Bag full! ${item.name} discarded.`, 'var(--red)');
+  }
+  // Show one-time popup warning if not already showing
+  if(!document.getElementById('bag-full-popup')){
+    const popup = document.createElement('div');
+    popup.id = 'bag-full-popup';
+    popup.style.cssText = `
+      position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+      background:#1a0a0a;border:1px solid var(--red);
+      padding:20px 24px;z-index:99999;text-align:center;
+      font-family:var(--font-title);max-width:280px;width:90%;
+      box-shadow:0 0 40px rgba(255,34,68,0.3);
+    `;
+    popup.innerHTML = `
+      <div style="font-size:1.4em;margin-bottom:8px;">⚠️</div>
+      <div style="color:var(--red);font-size:.85em;letter-spacing:2px;margin-bottom:8px;">
+        BAG FULL
+      </div>
+      <div style="font-size:.72em;color:var(--text-dim);line-height:1.6;margin-bottom:14px;">
+        Your ${label} bag is full.<br>
+        Additional drops will be <span style="color:var(--gold)">auto-sold</span> for gold.<br>
+        Sell or drop items to make room.
+      </div>
+      <button onclick="document.getElementById('bag-full-popup').remove()"
+        style="background:rgba(255,34,68,0.15);border:1px solid var(--red);
+        color:var(--red);font-family:var(--font-title);font-size:.75em;
+        letter-spacing:2px;padding:8px 20px;cursor:pointer;width:100%;">
+        ✖ GOT IT
+      </button>
+    `;
+    document.body.appendChild(popup);
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+      const el = document.getElementById('bag-full-popup');
+      if(el) el.remove();
+    }, 5000);
+  }
+  return;
+}
   }
   state.inventory.push({...item,uid:item.uid||genUid()});
   renderInventory();
@@ -4466,6 +4520,27 @@ const ENHANCE_RATE=[0,100,95,85,75,65,55,45,35,25,25,25,25,25,25,25];
 function openEnhance(uid){const item=state.inventory.find(i=>i.uid===uid);if(!item||item.category!=='equipment')return;document.getElementById('enhance-screen').style.display='block';renderEnhanceScreen(uid);}
 function closeEnhance(){document.getElementById('enhance-screen').style.display='none';savePlayerToSupabase();}
 function renderEnhanceScreen(uid){
+  const orbCount = state.inventory.filter(i =>
+  i.name === '⚗️ Enhancement Orb' && i.category === 'material'
+).reduce((sum, i) => sum + (i.quantity || 1), 0);
+
+const orbHtml = `
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;
+    padding:8px;background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.2);
+    border-radius:6px;" onclick="event.stopPropagation()">
+    <input type="checkbox" id="enhance-orb-toggle"
+     onclick="event.stopPropagation()"
+     onchange="updateEnhanceRateDisplay()"
+    ${orbCount === 0 ? 'disabled' : ''}
+    style="width:16px;height:16px;cursor:pointer;accent-color:#22c55e;">
+    <div style="flex:1;">
+      <div style="font-size:.75em;color:var(--green);">⚗️ Use Enhancement Orb</div>
+      <div style="font-size:.65em;color:var(--text-dim);">+20% success rate this attempt</div>
+    </div>
+    <div style="font-size:.72em;color:${orbCount > 0 ? 'var(--green)' : 'var(--text-dim)'};">
+      ${orbCount > 0 ? `${orbCount} owned` : 'None owned'}
+    </div>
+  </div>`;
   const item=state.inventory.find(i=>i.uid===uid);if(!item)return;
   const r=RARITY[item.rarity]||RARITY.normal,enh=item.enhLevel||0,maxed=enh>=15,cost=ENHANCE_COST[enh+1]||0,rate=ENHANCE_RATE[enh+1]||0;
   const pips=Array.from({length:15},(_,i)=>`<div class="enhance-pip ${i<enh?enh>=11?'pip-high':'pip-filled':'pip-empty'}"></div>`).join('');
@@ -4484,65 +4559,130 @@ function renderEnhanceScreen(uid){
           <div class="enhance-cost-title">Enhancement +${enh+1}</div>
           <div class="enhance-cost-row"><span>💰 Cost</span><span style="color:${state.gold>=cost?'var(--green)':'var(--red)'}">${cost.toLocaleString()}g</span></div>
           <div class="enhance-cost-row"><span>👛 Your Gold</span><span style="color:var(--gold)">${state.gold.toLocaleString()}g</span></div>
-          <div class="enhance-cost-row"><span>✅ Success Rate</span><span style="color:${rate>=80?'var(--green)':rate>=50?'var(--gold)':'var(--red)'}">${rate}%</span></div>
+          <div class="enhance-cost-row"><span>✅ Success Rate</span><span id="enhance-rate-display" data-enh="${enh}" style="color:${rate>=80?'var(--green)':rate>=50?'var(--gold)':'var(--red)'}">${rate}%</span></div>
           <div class="enhance-cost-row"><span>❌ Fail Effect</span><span style="color:var(--red)">${enh>0?`Drop to +${enh-1}`:'Nothing'}</span></div>
         </div>
-        <div style="text-align:center;margin-top:12px;"><button class="enhance-btn ${state.gold<cost?'enhance-btn-disabled':''}" onclick="doEnhance(${uid})" ${state.gold<cost?'disabled':''}>⚒️ Enhance +${enh+1}</button></div>`:'<div style="text-align:center;color:var(--legendary);font-family:Cinzel,serif;margin:12px 0;">✨ MAX ENHANCED!</div>'}
+        ${orbHtml}
+        <div style="text-align:center;margin-top:12px;"><button class="enhance-btn ${state.gold<cost?'enhance-btn-disabled':''}" onclick="doEnhance('${uid}')" ${state.gold<cost?'disabled':''}>⚒️ Enhance +${enh+1}</button></div>`:'<div style="text-align:center;color:var(--legendary);font-family:Cinzel,serif;margin:12px 0;">✨ MAX ENHANCED!</div>'
+      }
       </div>
       <div style="text-align:center;margin-top:12px;"><button class="start-btn" onclick="closeEnhance()">✅ Close</button></div>
     </div>`;
 }
-async function doEnhance(uid){
-  const item=state.inventory.find(i=>i.uid===uid);if(!item)return;
-  const enh=item.enhLevel||0;if(enh>=15){notify('Already max enhanced!','var(--gold)');return;}
-  const cost=ENHANCE_COST[enh+1],rate=ENHANCE_RATE[enh+1];
-  if(state.gold<cost){notify('Not enough gold!','var(--red)');return;}
-  state.gold-=cost;
+function updateEnhanceRateDisplay() {
+  const toggle = document.getElementById('enhance-orb-toggle');
+  const rateEl = document.getElementById('enhance-rate-display');
+  if (!toggle || !rateEl) return;
 
-  // ── Only these flat stats get enhanced. Mults, lifeSteal, special abilities are never touched.
-  const FLAT_STATS=new Set(['str','agi','int','sta','armor','maxHp','maxMp']);
+  const enh = parseInt(rateEl.dataset.enh);
+  let rate = ENHANCE_RATE[enh + 1] || 0;
+  if (toggle.checked) rate = Math.min(95, rate + 20);
 
-  if(item.equipped){Object.entries(item.stats||{}).forEach(([k,v])=>{const ek='equip'+k.charAt(0).toUpperCase()+k.slice(1);state[ek]=Math.max(0,(state[ek]||0)-v);});}
+  rateEl.textContent = rate + '%';
+  rateEl.style.color = rate >= 80 ? 'var(--green)' : rate >= 50 ? 'var(--gold)' : 'var(--red)';
+}
+async function doEnhance(uid) {
+  const item = state.inventory.find(i => i.uid === uid);
+  if (!item) return;
+  const enh = item.enhLevel || 0;
+  if (enh >= 15) { notify('Already max enhanced!', 'var(--gold)'); return; }
 
-  const success=Math.random()*100<rate;
-  if(success){
-    Object.keys(item.stats||{}).forEach(k=>{
-      if(!FLAT_STATS.has(k))return; // skip mults and specials
-      item.stats[k]=Math.floor(item.stats[k]*1.05);
+  const cost = ENHANCE_COST[enh + 1];
+  let rate = ENHANCE_RATE[enh + 1];
+
+  if (state.gold < cost) { notify('Not enough gold!', 'var(--red)'); return; }
+
+  // Check if player wants to use an orb
+  const useOrb = document.getElementById('enhance-orb-toggle')?.checked;
+  const orbIdx = state.inventory.findIndex(i =>
+    i.name === '⚗️ Enhancement Orb' && i.category === 'material'
+  );
+  const hasOrb = orbIdx !== -1;
+
+  if (useOrb && !hasOrb) {
+    notify('No Enhancement Orbs in inventory!', 'var(--red)');
+    return;
+  }
+
+  state.gold -= cost;
+
+  // Consume orb and boost rate
+  if (useOrb && hasOrb) {
+    rate = Math.min(95, rate + 20); // cap at 95% — never guaranteed
+    const orb = state.inventory[orbIdx];
+    if (orb.stackable && orb.quantity > 1) {
+      orb.quantity--;
+    } else {
+      state.inventory.splice(orbIdx, 1);
+    }
+    addLog(`⚗️ Enhancement Orb used! Success rate boosted to ${rate.toFixed(1)}%`, 'gold');
+  }
+
+  const FLAT_STATS = new Set(['str','agi','int','sta','armor','maxHp','maxMp']);
+
+  if (item.equipped) {
+    Object.entries(item.stats || {}).forEach(([k, v]) => {
+      const ek = 'equip' + k.charAt(0).toUpperCase() + k.slice(1);
+      state[ek] = Math.max(0, (state[ek] || 0) - v);
     });
-    item.enhLevel=enh+1;
-    addLog(`⚒️ SUCCESS! ${item.name} is now +${item.enhLevel}!`,'gold');
-    notify(`✨ SUCCESS! +${item.enhLevel}!`,'var(--gold)');
+  }
+
+  const success = Math.random() * 100 < rate;
+  if (success) {
+    Object.keys(item.stats || {}).forEach(k => {
+      if (!FLAT_STATS.has(k)) return;
+      item.stats[k] = Math.floor(item.stats[k] * 1.05);
+    });
+    item.enhLevel = enh + 1;
+    addLog(`⚒️ SUCCESS! ${item.name} is now +${item.enhLevel}!`, 'gold');
+    notify(`✨ SUCCESS! +${item.enhLevel}!`, 'var(--gold)');
     playSound('snd-levelup');
   } else {
-    if(enh>0){
-      Object.keys(item.stats||{}).forEach(k=>{
-        if(!FLAT_STATS.has(k))return; // skip mults and specials
-        item.stats[k]=Math.max(1,Math.floor(item.stats[k]/1.05));
+    if (enh > 0) {
+      Object.keys(item.stats || {}).forEach(k => {
+        if (!FLAT_STATS.has(k)) return;
+        item.stats[k] = Math.max(1, Math.floor(item.stats[k] / 1.05));
       });
-      item.enhLevel=enh-1;
-      addLog(`💔 FAILED! Dropped to +${item.enhLevel}!`,'bad');
-      notify(`💔 FAILED! Dropped to +${item.enhLevel}!`,'var(--red)');
+      item.enhLevel = enh - 1;
+      addLog(`💔 FAILED! Dropped to +${item.enhLevel}!`, 'bad');
+      notify(`💔 FAILED! Dropped to +${item.enhLevel}!`, 'var(--red)');
     } else {
-      addLog(`💔 FAILED! Nothing happened.`,'bad');
-      notify('💔 FAILED!','var(--red)');
+      addLog(`💔 FAILED! Nothing happened.`, 'bad');
+      notify('💔 FAILED!', 'var(--red)');
     }
     playSound('snd-death');
   }
 
-  if(item.equipped){Object.entries(item.stats||{}).forEach(([k,v])=>{const ek='equip'+k.charAt(0).toUpperCase()+k.slice(1);state[ek]=(state[ek]||0)+v;});}
-  if(item.equipped)calcStats();updateUI();renderInventory();renderEnhanceScreen(uid);
+  if (item.equipped) {
+    Object.entries(item.stats || {}).forEach(([k, v]) => {
+      const ek = 'equip' + k.charAt(0).toUpperCase() + k.slice(1);
+      state[ek] = (state[ek] || 0) + v;
+    });
+  }
+  if (item.equipped) calcStats();
+  updateUI();
+  renderInventory();
+  renderEnhanceScreen(uid);
 }
 
 async function useItem(uid){
-  const idx=state.inventory.findIndex(i=>i.uid===uid);if(idx===-1)return;
-  const item=state.inventory[idx];
-  if(item.effect==='treasure'){openTreasureBox(item);state.inventory.splice(idx,1);renderInventory();updateUI();return;}
-  if(item.category==='consumable'){
+  const idx = state.inventory.findIndex(i => String(i.uid) === String(uid));
+  if(idx === -1) return;
+  const item = state.inventory[idx];
+  if(item.effect === 'treasure'){
+    openTreasureBox(item);
+    state.inventory.splice(idx, 1);
+    renderInventory();
+    updateUI();
+    await savePlayerToSupabase();
+    return;
+  }
+  if(item.category === 'consumable'){
     if(item.effect==='hp'||item.effect==='both'){state.hp=Math.min(state.maxHp,state.hp+(item.val||40));addLog(`Used ${item.name}: +${item.val} HP`,'good');playSound('snd-heal');spawnDmgFloat(`+${item.val}HP`,false,'heal-float');}
     if(item.effect==='mp'||item.effect==='both'){state.mp=Math.min(state.maxMp,state.mp+(item.val||30));addLog(`Used ${item.name}: +${item.val} MP`,'info');spawnDmgFloat(`+${item.val}MP`,false,'mp-float');}
     if(item.stackable&&item.qty>1)item.qty--;else state.inventory.splice(idx,1);
-    renderInventory();updateUI();
+    renderInventory();
+    updateUI();
     await savePlayerToSupabase();
   }
 }
