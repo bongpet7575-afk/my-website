@@ -76,29 +76,84 @@ function showChatStatus(msg, color = '#ff4444') {
   el._timeout = setTimeout(() => { el.textContent = ''; }, 3000);
 }
 
-function appendChatMessage({ player_name, message, created_at, isSystem }) {
+function appendChatMessage({ player_name, message, created_at, isSystem,
+  player_level, player_class, reputation_title, tournament_title, is_supreme }) {
   const box = getChatBox();
   if (!box) return;
 
   const line = document.createElement('div');
   line.className = 'chat-line' + (isSystem ? ' chat-system' : '');
 
-  const time = new Date(created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-  // BUG FIX #1: use state.name, not state.playerName (which doesn't exist)
+  const time = new Date(created_at).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
   const isMe = player_name === ((typeof state !== 'undefined' && state?.name) ? state.name : '');
 
   if (isSystem) {
-    line.innerHTML = `<span class="chat-ts">[${time}]</span> <span class="chat-system-text">*** ${escHtml(message)}</span>`;
+    line.innerHTML = `
+      <span class="chat-ts">[${time}]</span>
+      <span class="chat-system-text">*** ${escHtml(message)}</span>`;
   } else {
-    line.innerHTML = `<span class="chat-ts">[${time}]</span> <span class="chat-nick ${isMe ? 'chat-nick-me' : ''}">&lt;${escHtml(player_name)}&gt;</span> <span class="chat-text">${escHtml(message)}</span>`;
+    // Build badge string
+    const CLASS_ICONS = {
+      warrior:'⚔️', mage:'🔮', rogue:'🗡️', hunter:'🏹',
+      paladin:'✨', necromancer:'💀', shaman:'⚡', berserker:'🐉',
+    };
+
+    const REP_COLORS = {
+      baron:'#cd7f32', viscount:'#a0a0a0', earl:'#ffd700',
+      marquess:'#00bfff', duke:'#ff6600', archduke:'#ff2244',
+    };
+
+    let badges = '';
+
+    // Supreme champion — highest priority badge
+    if (is_supreme) {
+      badges += `<span style="
+        background:linear-gradient(135deg,#ff9900,#ffcc00);
+        color:#000;font-size:.58em;padding:1px 5px;border-radius:3px;
+        font-family:var(--font-title);letter-spacing:1px;margin-right:3px;
+        animation:glow-pulse 2s infinite;">
+        👑 SUPREME
+      </span>`;
+    }
+
+    // Tournament title
+    if (tournament_title) {
+      badges += `<span style="
+        background:rgba(255,153,0,0.15);border:1px solid rgba(255,153,0,0.4);
+        color:#ff9900;font-size:.58em;padding:1px 5px;border-radius:3px;
+        font-family:var(--font-title);letter-spacing:1px;margin-right:3px;">
+        ${escHtml(tournament_title)}
+      </span>`;
+    }
+
+    // Reputation title
+    if (reputation_title && REP_COLORS[reputation_title]) {
+      badges += `<span style="
+        color:${REP_COLORS[reputation_title]};font-size:.62em;
+        margin-right:3px;" title="Reputation Title">
+        [${escHtml(reputation_title)}]
+      </span>`;
+    }
+
+    // Class icon
+    const classIcon = player_class ? (CLASS_ICONS[player_class.toLowerCase()] || '👤') : '👤';
+
+    // Level tag
+    const levelTag = player_level
+      ? `<span style="color:var(--text-dim);font-size:.6em;margin-right:3px;">Lv.${player_level}</span>`
+      : '';
+
+    line.innerHTML = `
+      <span class="chat-ts">[${time}]</span>
+      ${badges}
+      <span class="chat-nick ${isMe ? 'chat-nick-me' : ''}">
+        ${classIcon} ${levelTag}<b>${escHtml(player_name)}</b>:
+      </span>
+      <span class="chat-text">${escHtml(message)}</span>`;
   }
 
   box.appendChild(line);
-
-  // Keep only last 100 lines in DOM
   while (box.children.length > 100) box.removeChild(box.firstChild);
-
   box.scrollTop = box.scrollHeight;
 }
 
@@ -148,10 +203,16 @@ async function sendChatMessage() {
   
 
   const { error } = await dbClient
-  
     .from('chat_messages')
-    
-    .insert({ player_name: playerName, message: result.text });
+    .insert({
+      player_name:       playerName,
+      message:           result.text,
+      player_level:      state.level || 1,
+      player_class:      state.class || null,
+      reputation_title:  state.reputationTitle || null,
+      tournament_title:  state.tournamentTitle || null,
+      is_supreme:        !!state.supremeTitle,
+    });
 
   if (error) {
     showChatStatus('❌ Failed to send. Try again.');
