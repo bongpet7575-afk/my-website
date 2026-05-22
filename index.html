@@ -823,23 +823,11 @@ padding:8px 16px;background:rgba(200,168,75,0.1);border:1px solid var(--border-b
     <div class="top-name-class" >
       <div id="char-name" class="top-bars">Hero</div>
       <div id="char-level" class="top-bars">Level 1 / 100</div>
-      <div id="char-portrait" style="width:64px;height:64px;flex-shrink:0;background:var(--bg3);border:2px solid var(--border-bright);border-radius:10px;overflow:hidden;">
-        <img id="char-portrait-img" src="warrior.jpg" style="width:100%;height:100%;object-fit:cover;">
-      </div>
-    </div>
-
-    <!-- Class -->
-    <div class="char-panel" style="padding:8px 12px;">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
-        <div id="char-class" class="top-bars">No Class</div>
-      </div>
-      <div>
-        <button class="start-btn" onclick="respecClass()">Respec</button>
-      </div>
       
-      <button class="start-btn" onclick="logoutUser()">LOG OUT</button>
-
     </div>
+
+    <button class="start-btn" onclick="logoutUser()">LOG OUT</button>
+    
 
     <!-- HP/MP/XP/Rep bars -->
     <div class="top-bars">
@@ -876,6 +864,22 @@ padding:8px 16px;background:rgba(200,168,75,0.1);border:1px solid var(--border-b
     <!-- ───────────── CHARACTER SCENE ───────────── -->
     <div id="main-scene-char" class="main-scene">
       
+      <div class="char-panel" style="padding:8px 12px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
+        <div id="char-class" >No Class  </div>
+      </div>
+      
+      <div>
+        
+        <div id="char-portrait" style="width:64px;height:64px;flex-shrink:0;background:var(--bg3);border:2px solid var(--border-bright);border-radius:10px;overflow:hidden;">
+        <img id="char-portrait-img" src="warrior.jpg" style="width:100%;height:100%;object-fit:cover;">
+      </div>
+      <button class="start-btn" onclick="respecClass()">Respec</button>
+      </div>
+      
+      
+
+    </div>
       <!-- Primary Stats -->
       <div class="char-panel">
         <div class="panel-title">Primary Stats</div>
