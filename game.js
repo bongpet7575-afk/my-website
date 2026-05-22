@@ -52,13 +52,13 @@ function applyGameConfig() {
     ENHANCE_RATE.splice(0, ENHANCE_RATE.length, ...GAME_CONFIG.enhance_rates);
   }
 
-  // Spin config
-if (GAME_CONFIG.spin) {
-  window.SPIN_CONFIG = cfg.spin;
-  window.WHEEL_PRIZES         = cfg.spin.normal_prizes  || WHEEL_PRIZES;
-  window.PREMIUM_WHEEL_PRIZES = cfg.spin.premium_prizes || PREMIUM_WHEEL_PRIZES;
-  window.NORMAL_SPIN_COST     = cfg.spin.normal_cost_gold       || 500000;
-  window.PREMIUM_SPIN_COST    = cfg.spin.premium_cost_crystals  || 200;
+// Spin config
+if (GAME_CONFIG.spin_config) {
+  const spinCfg = GAME_CONFIG.spin_config;
+  window.WHEEL_PRIZES         = spinCfg.normal_prizes         || WHEEL_PRIZES;
+  window.PREMIUM_WHEEL_PRIZES = spinCfg.premium_prizes        || PREMIUM_WHEEL_PRIZES;
+  window.NORMAL_SPIN_COST     = spinCfg.normal_cost_gold      || 500000;
+  window.PREMIUM_SPIN_COST    = spinCfg.premium_cost_crystals || 200;
 }
 
   // ── Apply shop equipment prices ──

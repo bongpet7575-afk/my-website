@@ -3,9 +3,7 @@
 const WHEEL_PRIZES = [
   { id: 'gold_small',    label: '💰 1,000g',          type: 'gold',      value: 1000,  weight: 30, color: '#f0c040' },
   { id: 'gold_medium',   label: '💰 5,000g',          type: 'gold',      value: 5000,  weight: 20, color: '#f0c040' },
-  { id: 'gold_large',    label: '💰 15,000g',         type: 'gold',      value: 15000, weight: 10, color: '#f0c040' },
-  { id: 'crystal_small', label: '💎 30 Crystals',     type: 'crystals',  value: 30,    weight: 20, color: '#a855f7' },
-  { id: 'crystal_med',   label: '💎 80 Crystals',     type: 'crystals',  value: 80,    weight: 8,  color: '#a855f7' },
+  { id: 'gold_large',    label: '💰 15,000g',         type: 'gold',      value: 15000, weight: 10, color: '#f0c040' },  
   { id: 'enhance_mat',   label: '⚗️ Enhance Orb',     type: 'material',  value: 1,     weight: 7,  color: '#22c55e' },
   { id: 'mystery_box',   label: '📦 Mystery Gear',    type: 'equipment', value: 1,     weight: 4,  color: '#3b82f6' },
   { id: 'title',         label: '👑 Lucky Title',     type: 'title',     value: 1,     weight: 1,  color: '#ff6644' },
@@ -373,10 +371,20 @@ async function doSpin() {
   const valEl = document.getElementById('spin-currency-val');
   if (valEl) valEl.textContent = isPremium ? formatNumber(state.soulCrystals) : formatNumber(state.gold);
 
-  // Find prize object by id returned from server
-  const prizes = isPremium ? PREMIUM_WHEEL_PRIZES : WHEEL_PRIZES;
-  const prize = prizes.find(p => p.id === data.prize_id) || prizes[0];
-  const prizeIndex = prizes.indexOf(prize);
+  // Build prize from server response — client array only used for animation position
+  const prizes = isPremium
+    ? (window.PREMIUM_WHEEL_PRIZES || PREMIUM_WHEEL_PRIZES)
+    : (window.WHEEL_PRIZES || WHEEL_PRIZES);
+
+  const prize = {
+    id:    data.prize_id,
+    type:  data.prize_type,
+    value: data.prize_value,
+    label: data.prize_label || data.prize_id,
+    color: data.prize_color || '#f0c040',
+  };
+
+  const prizeIndex = Math.max(0, prizes.findIndex(p => p.id === data.prize_id));
   const sliceAngle = (2 * Math.PI) / prizes.length;
 
   // Animate wheel to land on server-determined prize
@@ -448,36 +456,10 @@ function showSpinResult(prize, isPremium) {
 }
 
 async function applySpinReward(prize, isPremium) {
+  // Gold, crystals, gold_mult, soul_orb, material already applied server-side in RPC
+  // Client only handles equipment (needs generateItem) and title (state only)
+
   switch (prize.type) {
-    case 'gold':
-      state.gold = (state.gold || 0) + prize.value;
-      addLog(`🎰 Fortune Wheel: Won ${formatNumber(prize.value)} gold!`, 'gold');
-      break;
-
-    case 'crystals':
-      state.soulCrystals = (state.soulCrystals || 0) + prize.value;
-      addLog(`🎰 Fortune Wheel: Won ${prize.value} soul crystals!`, 'gold');
-      break;
-
-    case 'material': {
-      const count = prize.value || 1;
-      for (let i = 0; i < count; i++) {
-        const orb = {
-          uid: 'orb_' + Date.now() + '_' + i,
-          name: '⚗️ Enhancement Orb',
-          category: 'material',
-          type: 'material',
-          rarity: 'uncommon',
-          stackable: true,
-          quantity: 1,
-          description: 'Increases enhancement success rate by 20%',
-        };
-        addToInventory(orb);
-      }
-      addLog(`🎰 Fortune Wheel: Won ${count} Enhancement Orb${count > 1 ? 's' : ''}!`, 'gold');
-      break;
-    }
-
     case 'equipment': {
       const rarity = prize.value || 'rare';
       if (typeof generateItem === 'function') {
@@ -488,31 +470,43 @@ async function applySpinReward(prize, isPremium) {
       break;
     }
 
-    case 'gold_mult': {
-      const mult = prize.value || 2;
-      const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-      state.goldMult = mult;
-      state.goldMultExpiry = expiry;
-      addLog(`🎰 Fortune Wheel: ${mult}x Gold multiplier active for 24 hours!`, 'legendary');
-      notify(`⚡ ${mult}x Gold Boost active for 24h!`, 'var(--gold)');
-      break;
-    }
-
     case 'title':
       if (prize.value === 'premium') {
         state.luckyTitle = '🌟 Fortune\'s Legend';
-        addLog(`🎰 Fortune Wheel: Won the rare title "Fortune's Legend"!`, 'legendary');
+        addLog(`🎰 Fortune Wheel: Won the rare title "Fortune\'s Legend"!`, 'legendary');
       } else {
         state.luckyTitle = '🍀 Fortune\'s Chosen';
-        addLog(`🎰 Fortune Wheel: Won the title "Fortune's Chosen"!`, 'gold');
+        addLog(`🎰 Fortune Wheel: Won the title "Fortune\'s Chosen"!`, 'gold');
       }
       break;
 
+    case 'gold':
+      // Already applied server-side — just sync state from server value
+      state.gold = (state.gold || 0) + parseInt(prize.value);
+      addLog(`🎰 Fortune Wheel: Won ${formatNumber(parseInt(prize.value))} gold!`, 'gold');
+      break;
+
+    case 'crystals':
+      state.soulCrystals = (state.soulCrystals || 0) + parseInt(prize.value);
+      addLog(`🎰 Fortune Wheel: Won ${prize.value} soul crystals!`, 'gold');
+      break;
+
+    case 'gold_mult':
+      state.goldMult = parseInt(prize.value);
+      state.goldMultExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      addLog(`🎰 Fortune Wheel: ${prize.value}x Gold multiplier active for 24 hours!`, 'legendary');
+      notify(`⚡ ${prize.value}x Gold Boost active for 24h!`, 'var(--gold)');
+      break;
+
     case 'soul_orb':
-      // Rare premium-only prize — boosts soul weapon crafting
-      state.soulCrystals = (state.soulCrystals || 0) + 500;
-      addLog(`🎰 Fortune Wheel: Won a Soul Orb! +500 Soul Crystals!`, 'legendary');
-      notify(`🔮 Soul Orb claimed! +500 Soul Crystals!`, 'var(--gold)');
+      state.soulCrystals = (state.soulCrystals || 0) + parseInt(prize.value);
+      addLog(`🎰 Fortune Wheel: Won a Soul Orb! +${prize.value} Soul Crystals!`, 'legendary');
+      notify(`🔮 Soul Orb claimed! +${prize.value} Soul Crystals!`, 'var(--gold)');
+      break;
+
+    case 'material':
+      // Already added to DB inventory by RPC — just sync state
+      addLog(`🎰 Fortune Wheel: Won ${prize.value} Enhancement Orb(s)!`, 'gold');
       break;
   }
 
