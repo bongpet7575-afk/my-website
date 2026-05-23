@@ -4901,7 +4901,11 @@ if(!item.equipped)btns+=`<button class="start-btn" onclick="closeItemPopup();lis
     btns=`<button class="start-btn" style="border-color:var(--legendary);color:var(--legendary);" onclick="equipSoulWeapon('${item.uid}');closeItemPopup()">✨ Bind to Soul</button>`;
   }
 }
-    if(!item.equipped)btns+=`<button class="start-btn red-btn" onclick="sellItem('${item.uid}');closeItemPopup()">Sell ${item.stackable&&item.qty>1?'All':''} (${(item.sellPrice||0)*(item.stackable?item.qty:1)}g)</button>`;
+   if(!item.equipped){
+  const _qty = item.qty || item.quantity || 1;
+  const _total = (item.sellPrice||0) * (item.stackable ? _qty : 1);
+  btns+=`<button class="start-btn red-btn" onclick="sellItem('${item.uid}');closeItemPopup()">Sell ${item.stackable&&_qty>1?'All':''} (${formatNumber(_total)}g)</button>`;
+}
   }
 
   showPopup(item, reqLine+statsHtml, btns);
@@ -4910,7 +4914,7 @@ function showPopup(item,statsHtml,btns){
   const r=RARITY[item.rarity]||RARITY.normal;
   document.getElementById('item-popup-content').innerHTML=`
     <div style="text-align:center;margin-bottom:10px;"><div style="font-size:2.5em;">${item.name.split(' ')[0]}</div><div style="color:${r.color};font-family:'Cinzel',serif;font-size:1em;font-weight:600;">${item.name}</div><div style="color:${r.color};font-size:.78em;">${r.label}</div></div>
-    <div style="margin:10px 0;">${statsHtml}</div><div style="color:#888;font-size:.75em;margin-bottom:12px;">Sell: ${item.sellPrice||0}g</div>
+    <div style="margin:10px 0;">${statsHtml}</div><div style="color:#888;font-size:.75em;margin-bottom:12px;">Sell: ${formatNumber(item.sellPrice||0)}g</div>
     <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">${btns}</div>
     <div style="margin-top:8px;text-align:center;"><button class="start-btn" style="background:rgba(255,255,255,.1);color:#aaa;" onclick="closeItemPopup()">✖ Close</button></div>`;
   document.getElementById('item-popup').style.display='flex';
@@ -4918,11 +4922,19 @@ function showPopup(item,statsHtml,btns){
 function closeItemPopup(){document.getElementById('item-popup').style.display='none';}
 
 function sellItem(uid){
-  const idx=state.inventory.findIndex(i=>i.uid===uid);if(idx===-1)return;
-  const item=state.inventory[idx];if(item.equipped)return;
-  const total=(item.sellPrice||0)*(item.stackable?item.qty:1);
-  state.gold+=total;addLog(`Sold ${item.name} for ${total}g`,'gold');state.inventory.splice(idx,1);
-  renderInventory();updateUI();if(state.gold>=50)state.quests.gold50.done=true;renderQuests();
+  const idx = state.inventory.findIndex(i => String(i.uid) === String(uid));
+  if(idx === -1) return;
+  const item = state.inventory[idx];
+  if(item.equipped) return;
+  const qty = item.qty || item.quantity || 1;
+  const total = (item.sellPrice || 0) * (item.stackable ? qty : 1);
+  state.gold += total;
+  addLog(`Sold ${item.name} for ${formatNumber(total)}g`, 'gold');
+  state.inventory.splice(idx, 1);
+  renderInventory();
+  updateUI();
+  if(state.gold >= 50) state.quests.gold50.done = true;
+  renderQuests();
 }
 
 // ══════════════════════════════════════════
