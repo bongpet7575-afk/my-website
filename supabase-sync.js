@@ -62,6 +62,8 @@ async function syncCharacterToState(character) {
   state.reputation    = character.reputation || 0;
   state.reputationTitle = character.reputation_rank || null; // ✅ FIX: was reputation_title (column doesn't exist)
   state.luckyTitle = character.lucky_title || null;
+  state.supporterTitle = character.supporter_title || null;
+  state.chatColor      = character.chat_color      || null;
 
 // ✅ FIX: recalculate rank on load in case DB value is stale
 const _loadedTitle = getCurrentTitle();
@@ -298,6 +300,8 @@ async function savePlayerToSupabase() {
       p_gold:                  safeGold,
       p_hp:                    state.hp,
       p_mp:                    state.mp,
+      p_supporter_title: state.supporterTitle || null,
+      p_chat_color:      state.chatColor      || null,
       p_lucky_title: state.luckyTitle || null,
       p_reputation:            state.reputation    || 0,
       p_reputation_rank:       state.reputationTitle || null, // ✅ FIX: now saves rank to DB

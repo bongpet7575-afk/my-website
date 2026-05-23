@@ -77,7 +77,8 @@ function showChatStatus(msg, color = '#ff4444') {
 }
 
 function appendChatMessage({ player_name, message, created_at, isSystem,
-  player_level, player_class, reputation_title, tournament_title, is_supreme }) {
+  player_level, player_class, reputation_title, tournament_title, is_supreme, 
+  lucky_title, chat_color, supporter_title }) {
   const box = getChatBox();
   if (!box) return;
 
@@ -92,20 +93,21 @@ function appendChatMessage({ player_name, message, created_at, isSystem,
       <span class="chat-ts">[${time}]</span>
       <span class="chat-system-text">*** ${escHtml(message)}</span>`;
   } else {
-    // Build badge string
     const CLASS_ICONS = {
       warrior:'⚔️', mage:'🔮', rogue:'🗡️', hunter:'🏹',
       paladin:'✨', necromancer:'💀', shaman:'⚡', berserker:'🐉',
     };
 
     const REP_COLORS = {
-      baron:'#cd7f32', viscount:'#a0a0a0', earl:'#ffd700',
-      marquess:'#00bfff', duke:'#ff6600', archduke:'#ff2244',
-    };
+  baron:   '#ff9944',  // bright orange — easy to see
+  chief:   '#ffdd00',  // bright yellow
+  mayor:   '#44ff88',  // bright green
+  viscount:'#44ddff',  // bright cyan
+  count:   '#ff4466',  // bright red/pink
+};
 
     let badges = '';
 
-    // Supreme champion — highest priority badge
     if (is_supreme) {
       badges += `<span style="
         background:linear-gradient(135deg,#ff9900,#ffcc00);
@@ -116,7 +118,6 @@ function appendChatMessage({ player_name, message, created_at, isSystem,
       </span>`;
     }
 
-    // Tournament title
     if (tournament_title) {
       badges += `<span style="
         background:rgba(255,153,0,0.15);border:1px solid rgba(255,153,0,0.4);
@@ -125,8 +126,15 @@ function appendChatMessage({ player_name, message, created_at, isSystem,
         ${escHtml(tournament_title)}
       </span>`;
     }
+    if (supporter_title) {
+      badges += `<span style="
+        background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);
+        color:#22c55e;font-size:.58em;padding:1px 5px;border-radius:3px;
+        font-family:var(--font-title);letter-spacing:1px;margin-right:3px;">
+        ${escHtml(supporter_title)}
+      </span>`;
+    }
 
-    // Reputation title
     if (reputation_title && REP_COLORS[reputation_title]) {
       badges += `<span style="
         color:${REP_COLORS[reputation_title]};font-size:.62em;
@@ -135,11 +143,28 @@ function appendChatMessage({ player_name, message, created_at, isSystem,
       </span>`;
     }
 
-    // Class icon
-    const classIcon = player_class ? (CLASS_ICONS[player_class.toLowerCase()] || '👤') : '👤';
+    const nameColor = is_supreme ? '#ffcc00'
+      : tournament_title ? '#ff9900'
+      : (reputation_title && REP_COLORS[reputation_title]) ? REP_COLORS[reputation_title]
+      : chat_color ? chat_color
+      : lucky_title ? '#44ff88'
+      : isMe ? 'var(--gold)'
+      : '#cccccc';
 
-    // Level tag
-    const levelTag = player_level
+   const msgStyle = is_supreme
+      ? 'color:#ffe680;text-shadow:0 0 8px rgba(255,204,0,0.5);font-weight:500;'
+      : tournament_title ? 'color:#ffcc44;font-weight:500;'
+      : reputation_title === 'count'    ? 'color:#ff8899;'
+      : reputation_title === 'viscount' ? 'color:#88eeff;'
+      : reputation_title === 'mayor'    ? 'color:#88ffbb;'
+      : reputation_title === 'chief'    ? 'color:#ffee88;'
+      : reputation_title === 'baron'    ? 'color:#ffbb77;'
+      : chat_color ? `color:${chat_color};opacity:0.85;`
+      : lucky_title ? 'color:#aaffcc;'
+      : 'color:#cccccc;';
+
+    const classIcon = player_class ? (CLASS_ICONS[player_class.toLowerCase()] || '👤') : '👤';
+    const levelTag  = player_level
       ? `<span style="color:var(--text-dim);font-size:.6em;margin-right:3px;">Lv.${player_level}</span>`
       : '';
 
@@ -147,9 +172,9 @@ function appendChatMessage({ player_name, message, created_at, isSystem,
       <span class="chat-ts">[${time}]</span>
       ${badges}
       <span class="chat-nick ${isMe ? 'chat-nick-me' : ''}">
-        ${classIcon} ${levelTag}<b>${escHtml(player_name)}</b>:
+        ${classIcon} ${levelTag}<b style="color:${nameColor} !important;">${escHtml(player_name)}</b>:
       </span>
-      <span class="chat-text">${escHtml(message)}</span>`;
+      <span class="chat-text" style="${msgStyle}">${escHtml(message)}</span>`;
   }
 
   box.appendChild(line);
@@ -212,6 +237,9 @@ async function sendChatMessage() {
       reputation_title:  state.reputationTitle || null,
       tournament_title:  state.tournamentTitle || null,
       is_supreme:        !!state.supremeTitle,
+      lucky_title:       state.luckyTitle      || null,
+      supporter_title:   state.supporterTitle  || null,
+      chat_color:        state.chatColor       || null,
     });
 
   if (error) {
