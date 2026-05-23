@@ -53,12 +53,11 @@ function applyGameConfig() {
   }
 
 // Spin config
+// Spin config — prizes loaded from spin_rewards table, only costs here
 if (GAME_CONFIG.spin_config) {
   const spinCfg = GAME_CONFIG.spin_config;
-  window.WHEEL_PRIZES         = spinCfg.normal_prizes         || WHEEL_PRIZES;
-  window.PREMIUM_WHEEL_PRIZES = spinCfg.premium_prizes        || PREMIUM_WHEEL_PRIZES;
-  window.NORMAL_SPIN_COST     = spinCfg.normal_cost_gold      || 500000;
-  window.PREMIUM_SPIN_COST    = spinCfg.premium_cost_crystals || 200;
+  window.NORMAL_SPIN_COST  = spinCfg.normal_cost_gold      || 500000;
+  window.PREMIUM_SPIN_COST = spinCfg.premium_cost_crystals || 200;
 }
 
   // ── Apply shop equipment prices ──
@@ -3377,7 +3376,9 @@ function mkEquipDrop(slot, rarity, stageId = 1) {
 }
 function mkMat(name,rarity,sellPrice){return{uid:genUid(),name,category:'material',rarity,sellPrice,stackable:true,qty:1};}
 function mkCons(name,rarity,sellPrice,hpVal){return{uid:genUid(),name,category:'consumable',rarity,sellPrice,stackable:true,qty:1,effect:'hp',val:hpVal};}
-function genUid(){return Date.now()+Math.random();}
+function genUid() {
+  return 'item_' + Date.now() + '_' + Math.floor(Math.random() * 1000000);
+}
 function applyRarityBonus(rarity){
   const order=['normal','uncommon','rare','epic','legendary'];
   const bonus=(DIFFICULTY[state.difficulty||'normal'].rarityBonus)||0;
@@ -4501,7 +4502,7 @@ function addToInventory(item){
   return;
 }
   }
-  state.inventory.push({...item,uid:item.uid||genUid()});
+  state.inventory.push({...item, uid: String(item.uid || genUid())});
   renderInventory();
 }
 function switchInvTab(tab){

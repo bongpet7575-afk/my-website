@@ -1,31 +1,10 @@
 // ── SPINNING WHEEL SYSTEM ──
 
 const WHEEL_PRIZES = [
-  { id: 'normal_gold_small',  label: '💰 50,000g',        type: 'gold',      value: 50000,  weight: 30, color: '#f0c040' },
-  { id: 'normal_gold_medium', label: '💰 150,000g',       type: 'gold',      value: 150000, weight: 15, color: '#f0c040' },
-  { id: 'normal_gold_large',  label: '💰 300,000g',       type: 'gold',      value: 300000, weight: 5,  color: '#f0c040' },
-  { id: 'normal_enhance_1',   label: '⚗️ Enhance Orb',    type: 'material',  value: 1,      weight: 25, color: '#22c55e' },
-  { id: 'normal_enhance_3',   label: '⚗️ 3 Enhance Orbs', type: 'material',  value: 3,      weight: 10, color: '#22c55e' },
-  { id: 'normal_rare_gear',   label: '📦 Rare Gear',      type: 'equipment', value: 'rare', weight: 10, color: '#3b82f6' },
-  { id: 'normal_epic_gear',   label: '⚔️ Epic Gear',      type: 'equipment', value: 'epic', weight: 4,  color: '#a855f7' },
-  { id: 'normal_title',       label: '👑 Lucky Title',    type: 'title',     value: 1,      weight: 1,  color: '#ff6644' },
 ];
 
 const PREMIUM_WHEEL_PRIZES = [
-  { id: 'premium_gold_large',  label: '💰 1,000,000g',     type: 'gold',      value: 1000000,   weight: 15, color: '#f0c040' },
-  { id: 'premium_gold_mega',   label: '💰 3,000,000g',     type: 'gold',      value: 3000000,   weight: 5,  color: '#f0c040' },
-  { id: 'premium_crystal_50',  label: '💎 50 Crystals',    type: 'crystals',  value: 50,        weight: 20, color: '#a855f7' },
-  { id: 'premium_crystal_100', label: '💎 100 Crystals',   type: 'crystals',  value: 100,       weight: 8,  color: '#a855f7' },
-  { id: 'premium_enhance_3',   label: '⚗️ 3 Enhance Orbs', type: 'material',  value: 3,         weight: 15, color: '#22c55e' },
-  { id: 'premium_epic_gear',   label: '⚔️ Epic Gear',      type: 'equipment', value: 'epic',    weight: 15, color: '#a855f7' },
-  { id: 'premium_legend_gear', label: '🌟 Legendary Gear', type: 'equipment', value: 'legendary',weight: 3, color: '#ff9900' },
-  { id: 'premium_gold_mult',   label: '⚡ 2x Gold 24h',    type: 'gold_mult', value: 2,         weight: 12, color: '#ff9900' },
-  { id: 'premium_title',       label: '👑 Rare Title',     type: 'title',     value: 'premium', weight: 5,  color: '#ff6644' },
-  { id: 'premium_soul_orb',    label: '🔮 Soul Orb',       type: 'soul_orb',  value: 150,       weight: 2,  color: '#ec4899' },
 ];
-
-const NORMAL_SPIN_COST  = window.NORMAL_SPIN_COST  || 500000;
-const PREMIUM_SPIN_COST = window.PREMIUM_SPIN_COST || 200;
 
 function getWeightedPrize(prizes) {
   const totalWeight = prizes.reduce((sum, p) => sum + p.weight, 0);
@@ -40,9 +19,64 @@ function getWeightedPrize(prizes) {
 // Active wheel mode — 'normal' or 'premium'
 let spinMode = 'normal';
 
-function openSpinWheel() {
+
+// Load prizes from spin_rewards table — single source of truth
+async function loadSpinPrizes() {
+  const { data, error } = await dbClient
+    .from('spin_rewards')
+    .select('prize_id, type, value, label, color, weight, mode')
+    .eq('active', true)
+    .order('mode')
+    .order('weight', { ascending: false });
+
+  if (error || !data) {
+    console.error('Failed to load spin prizes:', error);
+    return;
+  }
+
+  window.WHEEL_PRIZES = data
+    .filter(p => p.mode === 'normal')
+    .map(p => ({
+      id:     p.prize_id,
+      type:   p.type,
+      value:  p.value,
+      label:  p.label,
+      color:  p.color,
+      weight: p.weight,
+    }));
+
+  window.PREMIUM_WHEEL_PRIZES = data
+    .filter(p => p.mode === 'premium')
+    .map(p => ({
+      id:     p.prize_id,
+      type:   p.type,
+      value:  p.value,
+      label:  p.label,
+      color:  p.color,
+      weight: p.weight,
+    }));
+
+  console.log(`✅ Spin prizes loaded: ${window.WHEEL_PRIZES.length} normal, ${window.PREMIUM_WHEEL_PRIZES.length} premium`);
+}
+
+async function openSpinWheel() {
   if (document.getElementById('spin-overlay')) return;
   spinMode = 'normal';
+
+  // Stop autosave while wheel is open to prevent race conditions
+  if (typeof stopAutoSave === 'function') stopAutoSave();
+
+  // Load prizes from DB before opening
+  await loadSpinPrizes();
+
+  // Use loaded prizes or empty fallback
+  const normalPrizes = window.WHEEL_PRIZES || [];
+  const premiumPrizes = window.PREMIUM_WHEEL_PRIZES || [];
+
+  if (!normalPrizes.length) {
+    notify('❌ Failed to load spin prizes. Try again.', 'var(--red)');
+    return;
+  }
 
   const overlay = document.createElement('div');
   overlay.id = 'spin-overlay';
@@ -147,7 +181,7 @@ function openSpinWheel() {
 
         <!-- Prize list -->
         <div id="prize-list" style="margin-top:14px;text-align:left;">
-          ${buildPrizeList(WHEEL_PRIZES)}
+          ${buildPrizeList(window.WHEEL_PRIZES || [])}
         </div>
 
       </div>
@@ -156,8 +190,9 @@ function openSpinWheel() {
 
   document.body.appendChild(overlay);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeSpinWheel(); });
-  drawWheel(0, WHEEL_PRIZES);
+  drawWheel(0, window.WHEEL_PRIZES || []);
 }
+
 
 function buildPrizeList(prizes) {
   const sorted = [...prizes].sort((a, b) => a.weight - b.weight);
@@ -178,8 +213,8 @@ window.switchSpinMode = function(mode) {
   spinMode = mode;
   const isPremium = mode === 'premium';
   const cost = isPremium
-  ? (window.PREMIUM_SPIN_COST || 200)
-  : (window.NORMAL_SPIN_COST  || 500000);
+  ? (window.PREMIUM_SPIN_COST || 0)
+  : (window.NORMAL_SPIN_COST  || 0);
 
 const prizes = isPremium
   ? (window.PREMIUM_WHEEL_PRIZES || PREMIUM_WHEEL_PRIZES)
@@ -329,6 +364,9 @@ let isSpinning = false;
 
 async function doSpin() {
   if (isSpinning) return;
+  
+  // Pause autosave during spin to prevent race condition
+  if (typeof stopAutoSave === 'function') stopAutoSave();
 
   const isPremium = spinMode === 'premium';
   const cost = isPremium ? PREMIUM_SPIN_COST : NORMAL_SPIN_COST;
@@ -347,7 +385,6 @@ async function doSpin() {
   const btn = document.getElementById('spin-btn');
   btn.disabled = true;
   btn.textContent = '⏳ SPINNING...';
-
   // Call RPC — server deducts cost AND rolls the prize
   const { data, error } = await dbClient.rpc('process_spin', {
     character_id: state.character_id,
@@ -404,9 +441,12 @@ async function doSpin() {
     if (progress < 1) {
       requestAnimationFrame(animate);
     } else {
-      isSpinning = false;
+      // Can't await here — call async function without await
       showSpinResult(prize, isPremium);
-      applySpinReward(prize, isPremium);
+      applySpinReward(prize, isPremium).finally(() => {
+        isSpinning = false;
+        if (typeof startAutoSave === 'function') startAutoSave();
+      });
     }
   }
 
@@ -458,67 +498,102 @@ function showSpinResult(prize, isPremium) {
 }
 
 async function applySpinReward(prize, isPremium) {
-  // Gold, crystals, gold_mult, soul_orb, material already applied server-side in RPC
-  // Client only handles equipment (needs generateItem) and title (state only)
+  console.log('applySpinReward called:', JSON.stringify(prize));
 
   switch (prize.type) {
-    case 'equipment': {
-      const rarity = prize.value || 'rare';
-      if (typeof generateItem === 'function') {
-        const item = generateItem(state.level || 1, rarity);
-        addToInventory(item);
-        addLog(`🎰 Fortune Wheel: Won ${item.name}!`, rarity === 'legendary' ? 'legendary' : 'gold');
+
+  case 'equipment': {
+  const rarity = typeof prize.value === 'string' ? prize.value : 'rare';
+  const slots = ['weapon','armor','helmet','boots','ring','amulet'];
+  const slot = slots[Math.floor(Math.random() * slots.length)];
+  // Convert player level to stage (1-10) for mkEquipDrop
+  const stageId = Math.max(1, Math.min(10, Math.ceil((state.level || 1) / 10)));
+  const item = mkEquipDrop(slot, rarity, stageId);
+  addToInventory(item);
+  addLog(`🎰 Fortune Wheel: Won ${item.name}!`, rarity === 'legendary' ? 'legendary' : 'gold');
+  notify(`🎰 Won ${item.name}!`, 'var(--gold)');
+  if (rarity === 'legendary') {
+    try {
+      await dbClient.from('chat_messages').insert({
+        player_name:      state.name,
+        message:          `🌟 Just pulled a LEGENDARY ${item.name} from the Fortune Wheel! 🎰`,
+        player_level:     state.level || 1,
+        player_class:     state.class || null,
+        reputation_title: state.reputationTitle || null,
+        tournament_title: state.tournamentTitle || null,
+        is_supreme:       !!state.supremeTitle,
+      });
+    } catch(e) { console.error('Chat announce failed:', e); }
+  }
+  await savePlayerToSupabase();
+  break;
+}
+
+    case 'title':
+      if (isPremium || prize.value === 'premium') {
+        state.luckyTitle = '🌟 Fortune\'s Legend';
+        addLog(`🎰 Fortune Wheel: Won the rare title "Fortune's Legend"!`, 'legendary');
+      } else {
+        state.luckyTitle = '🍀 Fortune\'s Chosen';
+        addLog(`🎰 Fortune Wheel: Won the title "Fortune's Chosen"!`, 'gold');
+      }
+      await savePlayerToSupabase();
+      break;
+
+    // All server-side prizes — reload from DB instead of saving
+    case 'gold':
+    case 'crystals':
+    case 'gold_mult':
+    case 'soul_orb':
+    case 'material': {
+      try {
+        const { data: char } = await dbClient
+          .from('characters')
+          .select('gold, soul_crystals, gold_mult, gold_mult_expiry, inventory')
+          .eq('id', state.character_id)
+          .single();
+
+        if (char) {
+          const oldGold     = state.gold;
+          const oldCrystals = state.soulCrystals;
+
+          state.gold           = char.gold;
+          state.soulCrystals   = char.soul_crystals;
+          state.goldMult       = char.gold_mult || 1;
+          state.goldMultExpiry = char.gold_mult_expiry || null;
+          state.inventory      = (char.inventory || [])
+            .map(i => typeof i === 'string' ? JSON.parse(i) : i)
+            .map(i => ({ ...i, uid: String(i.uid) }));
+
+          if (prize.type === 'gold') {
+            const gained = char.gold - oldGold + (isPremium ? window.PREMIUM_SPIN_COST : window.NORMAL_SPIN_COST);
+            addLog(`🎰 Fortune Wheel: Won ${formatNumber(gained)} gold!`, 'gold');
+            notify(`🎰 Won ${formatNumber(gained)}g!`, 'var(--gold)');
+          } else if (prize.type === 'crystals') {
+            const gained = char.soul_crystals - oldCrystals;
+            addLog(`🎰 Fortune Wheel: Won ${gained} soul crystals!`, 'gold');
+            notify(`🎰 Won ${gained} crystals!`, 'var(--gold)');
+          } else if (prize.type === 'gold_mult') {
+            addLog(`🎰 Fortune Wheel: 2x Gold multiplier active for 24 hours!`, 'legendary');
+            notify(`⚡ 2x Gold Boost active for 24h!`, 'var(--gold)');
+          } else if (prize.type === 'soul_orb') {
+            addLog(`🎰 Fortune Wheel: Won a Soul Orb! +${prize.value} Soul Crystals!`, 'legendary');
+            notify(`🔮 Soul Orb claimed!`, 'var(--gold)');
+          } else if (prize.type === 'material') {
+            addLog(`🎰 Fortune Wheel: Won ${prize.value} Enhancement Orb(s)!`, 'gold');
+            notify(`🎰 Won Enhancement Orb(s)!`, 'var(--gold)');
+          }
+
+          renderInventory();
+        }
+      } catch(e) {
+        console.error('Failed to sync after spin:', e);
       }
       break;
     }
-
-    case 'title':
-      if (prize.value === 'premium') {
-        state.luckyTitle = '🌟 Fortune\'s Legend';
-        addLog(`🎰 Fortune Wheel: Won the rare title "Fortune\'s Legend"!`, 'legendary');
-      } else {
-        state.luckyTitle = '🍀 Fortune\'s Chosen';
-        addLog(`🎰 Fortune Wheel: Won the title "Fortune\'s Chosen"!`, 'gold');
-      }
-      break;
-
-    case 'gold':
-      // Already applied server-side — just sync state from server value
-      state.gold = (state.gold || 0) + parseInt(prize.value);
-      addLog(`🎰 Fortune Wheel: Won ${formatNumber(parseInt(prize.value))} gold!`, 'gold');
-      break;
-
-    case 'crystals':
-      state.soulCrystals = (state.soulCrystals || 0) + parseInt(prize.value);
-      addLog(`🎰 Fortune Wheel: Won ${prize.value} soul crystals!`, 'gold');
-      break;
-
-    case 'gold_mult':
-      state.goldMult = parseInt(prize.value);
-      state.goldMultExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-      addLog(`🎰 Fortune Wheel: ${prize.value}x Gold multiplier active for 24 hours!`, 'legendary');
-      notify(`⚡ ${prize.value}x Gold Boost active for 24h!`, 'var(--gold)');
-      break;
-
-    case 'soul_orb':
-      state.soulCrystals = (state.soulCrystals || 0) + parseInt(prize.value);
-      addLog(`🎰 Fortune Wheel: Won a Soul Orb! +${prize.value} Soul Crystals!`, 'legendary');
-      notify(`🔮 Soul Orb claimed! +${prize.value} Soul Crystals!`, 'var(--gold)');
-      break;
-
-    case 'material':
-      // Already added to DB inventory by RPC — just sync state
-      addLog(`🎰 Fortune Wheel: Won ${prize.value} Enhancement Orb(s)!`, 'gold');
-      break;
   }
 
   updateUI();
-
-  try {
-    await savePlayerToSupabase();
-  } catch(err) {
-    console.error('Failed to save spin reward:', err);
-  }
 }
 
 function closeSpinWheel() {

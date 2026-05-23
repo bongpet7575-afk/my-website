@@ -414,7 +414,7 @@ function startAutoSave() {
     } catch (error) {
       console.warn('Auto-save failed:', error);
     }
-  }, 120000); // every 2 minutes
+  }, 60000); // every 1 minute
 }
 
 function stopAutoSave() {
