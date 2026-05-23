@@ -2706,9 +2706,22 @@ async function endCombat(won){
     if(defeatedId&&!wasBoss) autoFightEnemyId=defeatedId;
 
     const baseGold=currentEnemy.gold&&Array.isArray(currentEnemy.gold)?currentEnemy.gold:[50,150];
-    const goldMult=Number(currentEnemy._goldMult)||1;
-    const xpMult=Number(currentEnemy._xpMult)||1;
-    const g=Math.floor((Math.random()*(baseGold[1]-baseGold[0])+baseGold[0])*goldMult);
+    const goldMult = Number(currentEnemy._goldMult) || 1;
+const xpMult   = Number(currentEnemy._xpMult)   || 1;
+
+// Apply spin wheel gold multiplier if active and not expired
+let spinGoldMult = 1;
+if (state.goldMult && state.goldMult > 1 && state.goldMultExpiry) {
+  if (new Date() < new Date(state.goldMultExpiry)) {
+    spinGoldMult = state.goldMult;
+  } else {
+    // Expired — reset
+    state.goldMult = 1;
+    state.goldMultExpiry = null;
+  }
+}
+
+const g = Math.floor((Math.random()*(baseGold[1]-baseGold[0])+baseGold[0]) * goldMult * spinGoldMult);
     const xp=Math.floor(currentEnemy.xp*xpMult);
     state.gold+=g;state.xp+=xp;
     addLog(`Defeated ${currentEnemy.name}! +${xp} XP, +${g} Gold`,'good');
@@ -2758,6 +2771,162 @@ currentEnemy=null;
   }
 
   updateUI();renderSkillBar();updateAutoFightBtn();await savePlayerToSupabase();
+}
+
+function renderBuffsAndTitles() {
+  const panel = document.getElementById('buffs-titles-panel');
+  const content = document.getElementById('buffs-titles-content');
+  if (!panel || !content) return;
+
+  const rows = [];
+
+  // ── Gold Multiplier Buff ──
+  if (state.goldMult && state.goldMult > 1 && state.goldMultExpiry) {
+    const expiry = new Date(state.goldMultExpiry);
+    const now = new Date();
+    if (now < expiry) {
+      const msLeft = expiry - now;
+      const hours  = Math.floor(msLeft / 3600000);
+      const mins   = Math.floor((msLeft % 3600000) / 60000);
+      const timeStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+      rows.push(`
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 8px;
+          background:rgba(255,153,0,0.08);border:1px solid rgba(255,153,0,0.2);
+          border-radius:6px;margin-bottom:6px;">
+          <div style="font-size:1.3em;">💰</div>
+          <div style="flex:1;">
+            <div style="font-family:var(--font-title);font-size:.78em;color:var(--gold);">
+              ${state.goldMult}x Gold Boost
+            </div>
+            <div style="font-size:.65em;color:var(--text-dim);">
+              From Fortune Wheel — expires in ${timeStr}
+            </div>
+          </div>
+          <div style="font-size:.68em;color:var(--gold);font-family:var(--font-title);">
+            ⏰ ${timeStr}
+          </div>
+        </div>`);
+    } else {
+      // Expired — reset
+      state.goldMult = 1;
+      state.goldMultExpiry = null;
+    }
+  }
+
+  // ── Tournament Buff ──
+  if (state.tournamentBuff) {
+    const expiry = state.tournamentRewardsExpireAt ? new Date(state.tournamentRewardsExpireAt) : null;
+    const expired = expiry && new Date() > expiry;
+    if (!expired) {
+      if (state.tournamentBuff.goldMult && state.tournamentBuff.goldMult > 1) {
+        rows.push(`
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 8px;
+            background:rgba(255,153,0,0.08);border:1px solid rgba(255,153,0,0.2);
+            border-radius:6px;margin-bottom:6px;">
+            <div style="font-size:1.3em;">🏆</div>
+            <div style="flex:1;">
+              <div style="font-family:var(--font-title);font-size:.78em;color:var(--gold);">
+                +${Math.round((state.tournamentBuff.goldMult - 1) * 100)}% Tournament Gold Bonus
+              </div>
+              <div style="font-size:.65em;color:var(--text-dim);">From Tournament placement</div>
+            </div>
+          </div>`);
+      }
+      if (state.tournamentBuff.attackMult && state.tournamentBuff.attackMult > 1) {
+        rows.push(`
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 8px;
+            background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);
+            border-radius:6px;margin-bottom:6px;">
+            <div style="font-size:1.3em;">⚔️</div>
+            <div style="flex:1;">
+              <div style="font-family:var(--font-title);font-size:.78em;color:var(--red);">
+                +${Math.round((state.tournamentBuff.attackMult - 1) * 100)}% Tournament ATK Bonus
+              </div>
+              <div style="font-size:.65em;color:var(--text-dim);">From Tournament placement</div>
+            </div>
+          </div>`);
+      }
+    }
+  }
+
+  // ── Titles Section ──
+  const titles = [];
+
+  if (state.supremeTitle) {
+    titles.push(`
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 8px;
+        background:linear-gradient(135deg,rgba(255,153,0,0.15),rgba(255,204,0,0.08));
+        border:1px solid rgba(255,153,0,0.4);border-radius:6px;margin-bottom:6px;
+        animation:glow-pulse 2s infinite;">
+        <div style="font-size:1.3em;">👑</div>
+        <div>
+          <div style="font-family:var(--font-title);font-size:.78em;color:var(--gold);">
+            ${state.supremeTitle}
+          </div>
+          <div style="font-size:.65em;color:var(--text-dim);">Supreme Champion Title</div>
+        </div>
+      </div>`);
+  }
+
+  if (state.tournamentTitle) {
+    titles.push(`
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 8px;
+        background:rgba(255,153,0,0.08);border:1px solid rgba(255,153,0,0.2);
+        border-radius:6px;margin-bottom:6px;">
+        <div style="font-size:1.3em;">🏆</div>
+        <div>
+          <div style="font-family:var(--font-title);font-size:.78em;color:var(--gold);">
+            ${state.tournamentTitle}
+          </div>
+          <div style="font-size:.65em;color:var(--text-dim);">Tournament Title</div>
+        </div>
+      </div>`);
+  }
+
+  if (state.luckyTitle) {
+    titles.push(`
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 8px;
+        background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);
+        border-radius:6px;margin-bottom:6px;">
+        <div style="font-size:1.3em;">🍀</div>
+        <div>
+          <div style="font-family:var(--font-title);font-size:.78em;color:#a855f7;">
+            ${state.luckyTitle}
+          </div>
+          <div style="font-size:.65em;color:var(--text-dim);">Fortune Wheel Title</div>
+        </div>
+      </div>`);
+  }
+
+  if (state.reputationTitle) {
+    const REP_COLORS = {
+      baron:'#cd7f32', viscount:'#a0a0a0', earl:'#ffd700',
+      marquess:'#00bfff', duke:'#ff6600', archduke:'#ff2244',
+    };
+    const color = REP_COLORS[state.reputationTitle] || 'var(--text-dim)';
+    titles.push(`
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 8px;
+        background:rgba(255,255,255,0.03);border:1px solid ${color}44;
+        border-radius:6px;margin-bottom:6px;">
+        <div style="font-size:1.3em;">🎖️</div>
+        <div>
+          <div style="font-family:var(--font-title);font-size:.78em;color:${color};">
+            ${state.reputationTitle.charAt(0).toUpperCase() + state.reputationTitle.slice(1)}
+          </div>
+          <div style="font-size:.65em;color:var(--text-dim);">Reputation Title</div>
+        </div>
+      </div>`);
+  }
+
+  const allRows = [...rows, ...titles];
+
+  if (allRows.length === 0) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  panel.style.display = 'block';
+  content.innerHTML = allRows.join('');
 }
 
 // ── AUTO SKILL SLOTS ──
@@ -5348,6 +5517,7 @@ if (charClassEl) {
   renderSoulWeaponSlot();
   renderTournamentRewards();
   updateTutorialStatus();
+  renderBuffsAndTitles();
 }
 
 // ── LEADERBOARD ──
