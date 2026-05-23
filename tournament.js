@@ -807,32 +807,55 @@ function getPlayerSnapshot() {
 }
 
 // ── BOT NAME POOLS ──
-const BOT_NAMES = [
-  'Shadowfang','Ironclad','Doomhammer','Voidwalker','Stormrage',
-  'Bloodthorn','Darkblade','Emberclaw','Frostmourne','Nightstalker',
-  'Ashbringer','Grimstone','Thunderfist','Venomfang','Soulreaper',
-  'Wolfsbane','Dreadlord','Bonecrusher','Skullsplitter','Wraithbane',
+const BOT_NAME_PREFIXES = [
+  'Shadow','Iron','Doom','Void','Storm','Blood','Dark','Ember',
+  'Frost','Night','Ash','Grim','Thunder','Venom','Soul',
+  'Wolf','Dread','Bone','Skull','Wraith','Blaze','Cinder',
+  'Plague','Rune','Hex','Fury','Tide','Grave','Scar','Vex',
 ];
+const BOT_NAME_SUFFIXES = [
+  'fang','clad','hammer','walker','rage','thorn','blade','claw',
+  'mourne','stalker','bringer','stone','fist','bane','reaper',
+  'crusher','splitter','brand','strike','born','forged','kin',
+  'sworn','pact','mark','pierce','drift','fall','mantle','wrath',
+];
+
+function generateBotName() {
+  const pre = BOT_NAME_PREFIXES[Math.floor(Math.random() * BOT_NAME_PREFIXES.length)];
+  const suf = BOT_NAME_SUFFIXES[Math.floor(Math.random() * BOT_NAME_SUFFIXES.length)];
+  return pre + suf;
+}
+
+// ── CLASS SKILL POOLS FOR BOTS ──
+const BOT_CLASS_SKILLS = {
+  Warrior:     ['power_strike','battle_cry','reckless_strike','last_stand'],
+  Mage:        ['fireball','ice_lance','lightning_bolt','wind_burst'],
+  Rogue:       ['backstab','poison_blade','shadow_step','shadow_trap'],
+  Hunter:      ['precise_shot','bleed_arrow','shadow_trap'],
+  Paladin:     ['holy_strike','consecration','divine_shield','last_stand'],
+  Necromancer: ['death_bolt','soul_drain','plague_nova','death_wish'],
+  Shaman:      ['lightning_bolt','earth_totem','wind_burst'],
+  Berserker:   ['reckless_strike','blood_rage','death_wish','power_strike'],
+};
 
 // ── GENERATE BOT CHARACTER FOR A TIER ──
 function generateBot(tierKey) {
   const TIER_CONFIG = {
-    rookie:  { minLv: 20, maxLv: 40,  statMult: 1.0,  label: '🌱 Rookie'  },
-    veteran: { minLv: 41, maxLv: 60,  statMult: 2.0,  label: '⚔️ Veteran' },
-    elite:   { minLv: 61, maxLv: 80,  statMult: 3.5,  label: '💀 Elite'   },
-    legend:  { minLv: 81, maxLv: 100, statMult: 5.5,  label: '👑 Legend'  },
+    rookie:  { minLv: 20, maxLv: 40,  statMult: 1.0  },
+    veteran: { minLv: 41, maxLv: 60,  statMult: 2.0  },
+    elite:   { minLv: 61, maxLv: 80,  statMult: 3.5  },
+    legend:  { minLv: 81, maxLv: 100, statMult: 5.5  },
   };
 
-  const config = TIER_CONFIG[tierKey];
+  const config = TIER_CONFIG[tierKey] || TIER_CONFIG.rookie;
   const level = Math.floor(Math.random() * (config.maxLv - config.minLv + 1)) + config.minLv;
   const m = config.statMult;
 
-  // Pick random name and class
-  const name = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)] + '_Bot';
+  const name = generateBotName();
   const classes = ['Warrior','Mage','Rogue','Hunter','Paladin','Necromancer','Shaman','Berserker'];
   const botClass = classes[Math.floor(Math.random() * classes.length)];
 
-  // Scale stats based on tier multiplier and level
+  // Stats scale with level + tier multiplier
   const baseStr = Math.floor(5 + level * 2);
   const baseAgi = Math.floor(5 + level * 2);
   const baseInt = Math.floor(5 + level * 2);
@@ -841,16 +864,15 @@ function generateBot(tierKey) {
   const attackPower = Math.floor((baseStr * 4 + baseInt * 3 + level * 15) * m);
   const maxHp       = Math.floor((100 + baseStr * 20 + baseSta * 30 + level * 80) * m);
   const armor       = Math.floor((baseAgi * 8 + level * 10) * m);
-  const crit        = Math.floor(baseAgi * 0.0005 + 5); // crit doesn't need m
+  const crit        = Math.min(60, Math.floor(5 + level * 0.3 + m * 2));   // fixed: uses m, capped at 60
   const dodge       = Math.floor(baseAgi * 1.9 * m);
   const hit         = Math.floor(baseAgi * 5.3 * m);
-  const lifeSteal   = 0.02 * m; // also reduced — 0.05 * 5.5 = 27.5% lifesteal is too high
+  const lifeSteal   = Math.min(0.08, 0.01 * m);  // fixed: capped at 8%
 
-  // Bot skill combo — pick 3 random skills from any pool
-  const allSkillKeys = Object.keys(SKILLS);
+  // Pick 3 skills from class-appropriate pool
+  const pool = [...(BOT_CLASS_SKILLS[botClass] || BOT_CLASS_SKILLS.Warrior)];
   const skillCombo = [];
-  const pool = [...allSkillKeys];
-  for (let i = 0; i < 3 && pool.length > 0; i++) {
+  while (skillCombo.length < 3 && pool.length > 0) {
     const idx = Math.floor(Math.random() * pool.length);
     skillCombo.push(pool.splice(idx, 1)[0]);
   }
@@ -871,7 +893,6 @@ function generateBot(tierKey) {
     skillCombo,
   };
 }
-
 // ── REGISTER FOR TOURNAMENT ──
 async function registerForTournament(tierKey) {
   if (!state.character_id) { notify('Must be logged in!', 'var(--red)'); return; }
@@ -2638,7 +2659,329 @@ async function viewBattleLog(battleId) {
   popup.style.display = 'flex';
 }
 
-// ── BATTLE REPLAY VIEWER ──
+// ─────────────────────────────────────────────
+//  SHARED BATTLE REPLAY ENGINE
+//  Used by both openPracticeReplay and openBattleReplay
+// ─────────────────────────────────────────────
+function _openBattleReplayUI(turns, p1data, p2data, headerTitle, winnerId) {
+  if (!turns || !turns.length) { notify('No battle data!', 'var(--red)'); return; }
+
+  let cur = 0, speed = 800, playing = false, iv = null;
+
+  // Remove any existing replay overlay
+  const existing = document.getElementById('br-replay-overlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'br-replay-overlay';
+  overlay.style.cssText = `
+    position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.88);
+    display:flex;align-items:center;justify-content:center;padding:12px;
+  `;
+
+  overlay.innerHTML = `
+    <div style="width:100%;max-width:440px;background:#0d0d14;border:1px solid rgba(255,153,0,0.3);
+      border-radius:14px;padding:14px;font-family:var(--font-body,sans-serif);
+      color:var(--text,#e0d9c8);position:relative;max-height:95vh;overflow-y:auto;">
+
+      <div style="font-family:var(--font-title);color:var(--gold,#ff9900);
+        text-align:center;font-size:.9em;margin-bottom:10px;letter-spacing:.5px;">
+        ⚔️ ${headerTitle}
+        <span id="br-turn-info" style="font-size:.68em;color:#666;font-weight:400;margin-left:6px;"></span>
+      </div>
+
+      <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;">
+
+        <div id="br-p1" style="flex:1;background:rgba(255,255,255,0.03);border:1px solid rgba(255,153,0,0.15);
+          border-radius:10px;padding:10px;transition:border-color .2s,background .2s;text-align:center;position:relative;overflow:hidden;">
+          <div id="br-p1-label" style="font-size:.55em;color:#44ff88;margin-bottom:2px;">YOU</div>
+          <div id="br-p1-avatar" style="font-size:2.8em;line-height:1;margin-bottom:4px;display:block;">⚔️</div>
+          <div id="br-p1-name" style="font-size:.72em;font-weight:600;color:#f5e6c0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+          <div id="br-p1-sub" style="font-size:.58em;color:#888;margin-bottom:6px;"></div>
+          <div style="height:7px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden;margin-bottom:2px;">
+            <div id="br-p1-hp" style="height:100%;width:100%;border-radius:4px;background:#44cc66;transition:width .4s ease;"></div>
+          </div>
+          <div id="br-p1-hptxt" style="font-size:.58em;color:#44cc66;margin-bottom:3px;"></div>
+          <div style="height:4px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;margin-bottom:5px;">
+            <div id="br-p1-mp" style="height:100%;width:100%;border-radius:3px;background:#4488ff;transition:width .4s;"></div>
+          </div>
+          <div id="br-p1-skills" style="display:flex;gap:3px;justify-content:center;flex-wrap:wrap;"></div>
+        </div>
+
+        <div style="width:76px;flex-shrink:0;padding-top:10px;display:flex;flex-direction:column;align-items:center;gap:5px;">
+          <div id="br-action-box" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);
+            border-radius:8px;padding:8px 4px;text-align:center;min-height:72px;
+            display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;">
+            <div id="br-action-icon" style="font-size:1.6em;line-height:1;">⚔️</div>
+            <div id="br-action-name" style="font-size:.6em;color:#aaa;"></div>
+            <div id="br-action-dmg" style="font-size:.85em;font-weight:700;color:#ff4455;"></div>
+            <div id="br-action-heal" style="font-size:.6em;color:#44ff88;display:none;"></div>
+          </div>
+          <div id="br-arrow" style="font-size:.9em;color:#888;">→</div>
+        </div>
+
+        <div id="br-p2" style="flex:1;background:rgba(255,255,255,0.03);border:1px solid rgba(255,153,0,0.15);
+          border-radius:10px;padding:10px;transition:border-color .2s,background .2s;text-align:center;position:relative;overflow:hidden;">
+          <div id="br-p2-label" style="font-size:.55em;color:#ff4455;margin-bottom:2px;">OPPONENT</div>
+          <div id="br-p2-avatar" style="font-size:2.8em;line-height:1;margin-bottom:4px;display:block;">👾</div>
+          <div id="br-p2-name" style="font-size:.72em;font-weight:600;color:#f5e6c0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+          <div id="br-p2-sub" style="font-size:.58em;color:#888;margin-bottom:6px;"></div>
+          <div style="height:7px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden;margin-bottom:2px;">
+            <div id="br-p2-hp" style="height:100%;width:100%;border-radius:4px;background:#44cc66;transition:width .4s ease;"></div>
+          </div>
+          <div id="br-p2-hptxt" style="font-size:.58em;color:#44cc66;margin-bottom:3px;"></div>
+          <div style="height:4px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;margin-bottom:5px;">
+            <div id="br-p2-mp" style="height:100%;width:100%;border-radius:3px;background:#4488ff;transition:width .4s;"></div>
+          </div>
+          <div id="br-p2-skills" style="display:flex;gap:3px;justify-content:center;flex-wrap:wrap;"></div>
+        </div>
+
+      </div>
+
+      <div id="br-log" style="font-size:.68em;color:#999;text-align:center;padding:5px 8px;
+        background:rgba(255,255,255,0.03);border-radius:6px;min-height:22px;
+        line-height:1.5;margin-bottom:8px;">&nbsp;</div>
+
+      <div style="height:3px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden;margin-bottom:10px;">
+        <div id="br-prog" style="height:100%;width:0%;background:var(--gold,#ff9900);border-radius:2px;transition:width .3s;"></div>
+      </div>
+
+      <div style="display:flex;gap:6px;margin-bottom:6px;">
+        <button onclick="brStep(-1)" style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);
+          border-radius:7px;color:#ccc;padding:8px 4px;cursor:pointer;font-size:.72em;">⏮ Prev</button>
+        <button id="br-playbtn" onclick="brToggle()" style="flex:2;background:rgba(255,153,0,0.15);
+          border:1px solid var(--gold,#ff9900);border-radius:7px;color:var(--gold,#ff9900);
+          padding:8px 4px;cursor:pointer;font-family:var(--font-title);font-size:.78em;font-weight:600;">▶ Play</button>
+        <button onclick="brStep(1)" style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);
+          border-radius:7px;color:#ccc;padding:8px 4px;cursor:pointer;font-size:.72em;">Next ⏭</button>
+      </div>
+
+      <div style="display:flex;gap:5px;">
+        <button id="br-spd-slow" onclick="brSpeed(1200)" style="flex:1;background:rgba(255,255,255,0.04);
+          border:1px solid rgba(255,255,255,0.08);border-radius:6px;color:#888;
+          padding:5px 2px;cursor:pointer;font-size:.65em;">🐢 Slow</button>
+        <button id="br-spd-norm" onclick="brSpeed(800)" style="flex:1;background:rgba(255,153,0,0.2);
+          border:1px solid var(--gold,#ff9900);border-radius:6px;color:var(--gold,#ff9900);
+          padding:5px 2px;cursor:pointer;font-size:.65em;">⚡ Normal</button>
+        <button id="br-spd-fast" onclick="brSpeed(300)" style="flex:1;background:rgba(255,255,255,0.04);
+          border:1px solid rgba(255,255,255,0.08);border-radius:6px;color:#888;
+          padding:5px 2px;cursor:pointer;font-size:.65em;">🚀 Fast</button>
+        <button onclick="brClose()" style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);
+          border-radius:6px;color:#ff5555;padding:5px 2px;cursor:pointer;font-size:.65em;">✖ Close</button>
+      </div>
+
+    </div>
+
+    <style>
+      @keyframes br-shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)} 60%{transform:translateX(5px)} 80%{transform:translateX(-3px)} }
+      @keyframes br-lunge { 0%{transform:translateX(0) scale(1)} 40%{transform:translateX(10px) scale(1.1)} 100%{transform:translateX(0) scale(1)} }
+      @keyframes br-lunge-left { 0%{transform:translateX(0) scale(1)} 40%{transform:translateX(-10px) scale(1.1)} 100%{transform:translateX(0) scale(1)} }
+      @keyframes br-float { 0%{opacity:1;transform:translateX(-50%) translateY(0)} 100%{opacity:0;transform:translateX(-50%) translateY(-42px)} }
+      .br-acting { border-color:rgba(255,153,0,0.8) !important; background:rgba(255,153,0,0.07) !important; }
+      .br-hit { animation:br-shake .25s ease !important; }
+      .br-lunge-r { animation:br-lunge .3s ease !important; }
+      .br-lunge-l { animation:br-lunge-left .3s ease !important; }
+      .br-dmg-float { position:absolute;pointer-events:none;font-weight:700;font-size:1.1em;
+        animation:br-float .9s ease forwards;z-index:10;left:50%;transform:translateX(-50%);top:28%; }
+      .br-dmg-float.crit { color:#ff2244;font-size:1.4em; }
+      .br-dmg-float.heal { color:#44ff88; }
+      .br-dmg-float.dot  { color:#bb77ff; }
+    </style>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const CLASS_ICONS = { Warrior:'⚔️', Mage:'🔮', Rogue:'🗡️', Hunter:'🏹', Paladin:'✨', Necromancer:'💀', Shaman:'⚡', Berserker:'🐉' };
+
+  function fmt(n) { return (n || 0).toLocaleString(); }
+  function hpPct(hp, max) { return Math.max(0, Math.min(100, Math.round((hp / max) * 100))); }
+  function hpColor(pct) {
+    if (pct > 60) return '#44cc66';
+    if (pct > 30) return '#ffaa00';
+    return '#ff4455';
+  }
+  function getActionDisplay(turn) {
+    switch (turn.action) {
+      case 'result': return { icon:'🏆', name:'Battle Over!', color:'#ff9900', dmg:'' };
+      case 'buff':   return { icon:turn.skillIcon||'✨', name:turn.skillName||'Buff', color:'#a855f7', dmg:'' };
+      case 'dodge':  return { icon:'💨', name:'Dodge!', color:'#3b82f6', dmg:'' };
+      case 'dot':    return { icon:'🩸', name:'DoT Tick', color:'#8b5cf6', dmg:`-${fmt(turn.damage)}` };
+      case 'skill':  return { icon:turn.skillIcon||'⚔️', name:turn.skillName||'Skill', color:'#ff9900', dmg:`-${fmt(turn.damage)}` };
+      case 'crit':   return { icon:'💥', name:'CRITICAL!', color:'#ff2244', dmg:`-${fmt(turn.damage)}` };
+      default:       return { icon:'⚔️', name:'Attack', color:'#aaa', dmg:`-${fmt(turn.damage)}` };
+    }
+  }
+  function comboHtml(combo) {
+    return (combo || []).map(sk => {
+      const skill = typeof SKILLS !== 'undefined' ? (SKILLS[sk] || {}) : {};
+      return `<span style="font-size:.95em;" title="${skill.name || sk}">${skill.icon || '⚔️'}</span>`;
+    }).join('');
+  }
+  function spawnFloat(sideEl, text, cls) {
+    const d = document.createElement('div');
+    d.className = 'br-dmg-float ' + (cls || '');
+    d.textContent = text;
+    sideEl.appendChild(d);
+    setTimeout(() => d.remove(), 950);
+  }
+
+  function render() {
+    const turn = turns[cur] || turns[turns.length - 1];
+    const isResult = turn.action === 'result';
+    const isP1 = turn.actor === 'p1';
+    const isP2 = turn.actor === 'p2';
+    const p1max = turn.p1HpMax || 1;
+    const p2max = turn.p2HpMax || 1;
+    const p1pct = hpPct(turn.p1HpAfter, p1max);
+    const p2pct = hpPct(turn.p2HpAfter, p2max);
+    const act = getActionDisplay(turn);
+
+    // Avatars & names
+    document.getElementById('br-p1-avatar').textContent = CLASS_ICONS[p1data.class] || '⚔️';
+    document.getElementById('br-p2-avatar').textContent = CLASS_ICONS[p2data.class] || '👾';
+    document.getElementById('br-p1-name').textContent = p1data.name || 'P1';
+    document.getElementById('br-p2-name').textContent = p2data.name || 'P2';
+    document.getElementById('br-p1-sub').textContent = `Lv.${p1data.level || '?'} ${p1data.class || ''}`;
+    document.getElementById('br-p2-sub').textContent = `Lv.${p2data.level || '?'} ${p2data.class || ''}`;
+
+    // Winner labels
+    if (isResult && winnerId) {
+      const p1won = winnerId === (p1data.character_id || p1data.id);
+      document.getElementById('br-p1-label').textContent = p1won ? '🏆 WINNER' : '💀 DEFEATED';
+      document.getElementById('br-p1-label').style.color = p1won ? '#ff9900' : '#ff4455';
+      document.getElementById('br-p2-label').textContent = p1won ? '💀 DEFEATED' : '🏆 WINNER';
+      document.getElementById('br-p2-label').style.color = p1won ? '#ff4455' : '#ff9900';
+    }
+
+    // HP bars
+    const p1hp = document.getElementById('br-p1-hp');
+    const p2hp = document.getElementById('br-p2-hp');
+    p1hp.style.width = p1pct + '%';
+    p1hp.style.background = hpColor(p1pct);
+    p2hp.style.width = p2pct + '%';
+    p2hp.style.background = hpColor(p2pct);
+    document.getElementById('br-p1-hptxt').textContent = `${fmt(turn.p1HpAfter)} / ${fmt(p1max)} HP`;
+    document.getElementById('br-p1-hptxt').style.color = hpColor(p1pct);
+    document.getElementById('br-p2-hptxt').textContent = `${fmt(turn.p2HpAfter)} / ${fmt(p2max)} HP`;
+    document.getElementById('br-p2-hptxt').style.color = hpColor(p2pct);
+
+    // Active highlight
+    const p1side = document.getElementById('br-p1');
+    const p2side = document.getElementById('br-p2');
+    p1side.classList.toggle('br-acting', isP1 && !isResult);
+    p2side.classList.toggle('br-acting', isP2 && !isResult);
+
+    // Action box
+    document.getElementById('br-action-icon').textContent = act.icon;
+    document.getElementById('br-action-name').textContent = act.name;
+    document.getElementById('br-action-name').style.color = act.color;
+    document.getElementById('br-action-dmg').textContent = act.dmg;
+    const healEl = document.getElementById('br-action-heal');
+    if (turn.healAmount > 0) {
+      healEl.style.display = '';
+      healEl.textContent = `+${fmt(turn.healAmount)} heal`;
+    } else {
+      healEl.style.display = 'none';
+    }
+    document.getElementById('br-arrow').textContent = isP1 ? '→' : isP2 ? '←' : '';
+
+    // Log & progress
+    document.getElementById('br-log').textContent = turn.logText || '\u00a0';
+    document.getElementById('br-turn-info').textContent = isResult ? '' : `Turn ${turn.turn}/${turns.length - 1}`;
+    document.getElementById('br-prog').style.width = (((cur + 1) / turns.length) * 100) + '%';
+    document.getElementById('br-playbtn').textContent = playing ? '⏸ Pause' : '▶ Play';
+
+    // Skill combos
+    document.getElementById('br-p1-skills').innerHTML = comboHtml(p1data.skillCombo);
+    document.getElementById('br-p2-skills').innerHTML = comboHtml(p2data.skillCombo);
+  }
+
+  function triggerAnims(turn) {
+    const isP1 = turn.actor === 'p1';
+    const attSide = isP1 ? document.getElementById('br-p1') : document.getElementById('br-p2');
+    const defSide = isP1 ? document.getElementById('br-p2') : document.getElementById('br-p1');
+    const attAvatar = attSide.querySelector('[id$="-avatar"]') || attSide.children[1];
+
+    const isAttack = ['attack', 'skill', 'crit'].includes(turn.action) && turn.damage > 0;
+    if (isAttack) {
+      attAvatar.classList.remove('br-lunge-r', 'br-lunge-l');
+      void attAvatar.offsetWidth; // force reflow
+      attAvatar.classList.add(isP1 ? 'br-lunge-r' : 'br-lunge-l');
+      setTimeout(() => {
+        defSide.classList.add('br-hit');
+        spawnFloat(defSide, `-${(turn.damage || 0).toLocaleString()}`, turn.action === 'crit' ? 'crit' : '');
+        setTimeout(() => defSide.classList.remove('br-hit'), 300);
+      }, 180);
+    }
+    if (turn.action === 'dot') {
+      const targetSide = isP1 ? document.getElementById('br-p2') : document.getElementById('br-p1');
+      spawnFloat(targetSide, `-${(turn.damage || 0).toLocaleString()}`, 'dot');
+    }
+    if (turn.healAmount > 0) {
+      setTimeout(() => spawnFloat(attSide, `+${(turn.healAmount || 0).toLocaleString()}`, 'heal'), 200);
+    }
+  }
+
+  window.brStep = function(dir) {
+    cur = Math.max(0, Math.min(turns.length - 1, cur + dir));
+    render();
+  };
+  window.brToggle = function() {
+    playing = !playing;
+    if (playing) {
+      iv = setInterval(() => {
+        if (cur >= turns.length - 1) { playing = false; clearInterval(iv); render(); return; }
+        triggerAnims(turns[cur]);
+        cur++;
+        render();
+      }, speed);
+    } else {
+      clearInterval(iv);
+    }
+    render();
+  };
+  window.brSpeed = function(s) {
+    speed = s;
+    ['slow','norm','fast'].forEach(k => {
+      const btn = document.getElementById(`br-spd-${k}`);
+      if (!btn) return;
+      const match = {slow:1200, norm:800, fast:300}[k] === s;
+      btn.style.background = match ? 'rgba(255,153,0,0.2)' : 'rgba(255,255,255,0.04)';
+      btn.style.borderColor = match ? 'var(--gold,#ff9900)' : 'rgba(255,255,255,0.08)';
+      btn.style.color = match ? 'var(--gold,#ff9900)' : '#888';
+    });
+    if (playing) { clearInterval(iv); window.brToggle(); window.brToggle(); }
+  };
+  window.brClose = function() {
+    playing = false;
+    clearInterval(iv);
+    const el = document.getElementById('br-replay-overlay');
+    if (el) el.remove();
+  };
+
+  render();
+  setTimeout(() => { brToggle(); }, 600);
+}
+
+
+// ─────────────────────────────────────────────
+//  openPracticeReplay  (replaces old version)
+// ─────────────────────────────────────────────
+function openPracticeReplay(result, attacker, defender) {
+  const turns = result.turns || [];
+  _openBattleReplayUI(
+    turns,
+    attacker,
+    defender,
+    'Practice Fight',
+    turns.find(t => t.action === 'result')?.winnerId || null
+  );
+}
+
+
+// ─────────────────────────────────────────────
+//  openBattleReplay  (replaces old version)
+// ─────────────────────────────────────────────
 async function openBattleReplay(battleId) {
   const { data: battle } = await dbClient
     .from('arena_battles')
@@ -2649,375 +2992,18 @@ async function openBattleReplay(battleId) {
   if (!battle) { notify('Battle not found!', 'var(--red)'); return; }
 
   const turns = battle.battle_turns || [];
+  if (!turns.length) { viewBattleLog(battleId); return; }
+
   const p1 = battle.attacker_snapshot || {};
   const p2 = battle.defender_snapshot || {};
 
-  if (!turns.length) {
-    // Fallback to text log if no structured turns
-    viewBattleLog(battleId);
-    return;
-  }
-
-  let currentTurn = 0;
-  let replayInterval = null;
-  let speed = 800; // ms per turn
-  let isPlaying = false;
-
-  const popup = document.getElementById('item-popup');
-
-  function getHpPercent(hp, max) {
-    return Math.max(0, Math.min(100, Math.floor((hp / max) * 100)));
-  }
-
-  function getHpColor(pct) {
-    if (pct > 60) return 'var(--green)';
-    if (pct > 30) return 'var(--gold)';
-    return 'var(--red)';
-  }
-
-  function getClassIcon(cls) {
-    const icons = {
-      Warrior: '⚔️', Mage: '🔮', Rogue: '🗡️',
-      Hunter: '🏹', Paladin: '✨', Necromancer: '💀',
-      Shaman: '⚡', Berserker: '🐉',
-    };
-    return icons[cls] || '👤';
-  }
-
-  function renderReplay() {
-    const turn = turns[currentTurn] || turns[turns.length - 1];
-    const p1Max = turn.p1HpMax || attacker.maxHp || 1;
-    const p2Max = turn.p2HpMax || defender.maxHp || 1;
-    const p1Pct = getHpPercent(turn.p1HpAfter, p1Max);
-    const p2Pct = getHpPercent(turn.p2HpAfter, p2Max);
-    const p1HpColor = getHpColor(p1Pct);
-    const p2HpColor = getHpColor(p2Pct);
-    const isP1Acting = turn.actor === 'p1';
-    const isP2Acting = turn.actor === 'p2';
-    const isResult = turn.action === 'result';
-
-    // Action display
-    let actionHtml = '';
-    if (isResult) {
-      actionHtml = `
-        <div style="text-align:center;padding:10px 0;">
-          <div style="font-family:var(--font-title);font-size:1.1em;color:var(--gold);
-            animation:glow-pulse 1s infinite;">
-            🏆 ${turn.logText}
-          </div>
-        </div>`;
-    } else if (turn.action === 'buff') {
-      actionHtml = `
-        <div style="text-align:center;padding:8px;
-          background:rgba(168,85,247,0.1);border-radius:8px;">
-          <div style="font-size:1.4em;">${turn.skillIcon || '✨'}</div>
-          <div style="font-size:.75em;color:#a855f7;margin-top:2px;">${turn.buffDesc || turn.skillName}</div>
-        </div>`;
-    } else if (turn.action === 'dodge') {
-      actionHtml = `
-        <div style="text-align:center;padding:8px;
-          background:rgba(59,130,246,0.1);border-radius:8px;">
-          <div style="font-size:1.4em;">💨</div>
-          <div style="font-size:.75em;color:#3b82f6;margin-top:2px;">Dodged!</div>
-        </div>`;
-    if (isResult) {
-      actionHtml = `
-        <div style="text-align:center;padding:10px 0;">
-          <div style="font-family:var(--font-title);font-size:1.1em;color:var(--gold);
-            animation:glow-pulse 1s infinite;">
-            🏆 ${turn.logText}
-          </div>
-        </div>`;
-    } else if (turn.action === 'buff') {
-      actionHtml = `
-        <div style="text-align:center;padding:8px;
-          background:rgba(168,85,247,0.1);border-radius:8px;">
-          <div style="font-size:1.4em;">${turn.skillIcon || '✨'}</div>
-          <div style="font-size:.72em;color:#a855f7;margin-top:2px;">${turn.buffDesc || turn.skillName}</div>
-        </div>`;
-    } else if (turn.action === 'dodge') {
-      actionHtml = `
-        <div style="text-align:center;padding:8px;
-          background:rgba(59,130,246,0.1);border-radius:8px;">
-          <div style="font-size:1.4em;">💨</div>
-          <div style="font-size:.75em;color:#3b82f6;margin-top:2px;">Dodged!</div>
-        </div>`;
-    } else if (turn.action === 'dot') {
-      actionHtml = `
-        <div style="text-align:center;padding:8px;
-          background:rgba(139,92,246,0.1);border-radius:8px;">
-          <div style="font-size:1.4em;">🩸</div>
-          <div style="font-size:.72em;color:#8b5cf6;margin-top:2px;">DoT Tick</div>
-          <div style="font-size:.85em;color:var(--red);font-family:var(--font-title);margin-top:2px;">
-            -${formatNumber(turn.damage)}
-          </div>
-        </div>`;
-    } else if (turn.action === 'skill') {
-      actionHtml = `
-        <div style="text-align:center;padding:8px;
-          background:rgba(255,153,0,0.1);border-radius:8px;">
-          <div style="font-size:1.4em;">${turn.skillIcon || '⚔️'}</div>
-          <div style="font-size:.72em;color:var(--gold);margin-top:2px;">${turn.skillName}</div>
-          <div style="font-size:.85em;color:var(--red);font-family:var(--font-title);margin-top:2px;">
-            -${formatNumber(turn.damage)}
-          </div>
-          ${turn.healAmount > 0 ? `<div style="font-size:.65em;color:var(--green);">+${formatNumber(turn.healAmount)} heal</div>` : ''}
-        </div>`;
-    } else if (turn.action === 'crit') {
-      actionHtml = `
-        <div style="text-align:center;padding:8px;
-          background:rgba(255,34,68,0.15);border-radius:8px;">
-          <div style="font-size:1.5em;">💥</div>
-          <div style="font-size:.72em;color:var(--red);margin-top:2px;">CRITICAL HIT!</div>
-          <div style="font-size:.9em;color:var(--red);font-family:var(--font-title);margin-top:2px;">
-            -${formatNumber(turn.damage)}
-          </div>
-        </div>`;
-    } else {
-      actionHtml = `
-        <div style="text-align:center;padding:8px;
-          background:rgba(255,255,255,0.04);border-radius:8px;">
-          <div style="font-size:1.4em;">⚔️</div>
-          <div style="font-size:.72em;color:var(--text-dim);margin-top:2px;">Attack</div>
-          <div style="font-size:.85em;color:var(--red);font-family:var(--font-title);margin-top:2px;">
-            -${formatNumber(turn.damage)}
-          </div>
-        </div>`;
-    }
-      actionHtml = `
-        <div style="text-align:center;padding:8px;
-          background:rgba(255,34,68,0.1);border-radius:8px;">
-          <div style="font-size:1.4em;">💥</div>
-          <div style="font-size:.72em;color:var(--red);margin-top:2px;">CRITICAL HIT!</div>
-          <div style="font-size:.9em;color:var(--red);font-family:var(--font-title);margin-top:2px;">
-            -${formatNumber(turn.damage)}
-          </div>
-        </div>`;
-    } else {
-      actionHtml = `
-        <div style="text-align:center;padding:8px;
-          background:rgba(255,255,255,0.04);border-radius:8px;">
-          <div style="font-size:1.4em;">⚔️</div>
-          <div style="font-size:.72em;color:var(--text-dim);margin-top:2px;">Attack</div>
-          <div style="font-size:.85em;color:var(--red);font-family:var(--font-title);margin-top:2px;">
-            -${formatNumber(turn.damage)}
-          </div>
-        </div>`;
-    }
-
-    document.getElementById('item-popup-content').innerHTML = `
-      <!-- Header -->
-      <div style="font-family:var(--font-title);color:var(--gold);
-        margin-bottom:10px;font-size:.88em;text-align:center;">
-        ⚔️ Battle Replay
-        <span style="font-size:.7em;color:var(--text-dim);margin-left:8px;">
-          Turn ${isResult ? turns.length - 1 : turn.turn}/${turns.length - 1}
-        </span>
-      </div>
-
-      <!-- Fighters Row -->
-      <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;">
-
-        <!-- Player 1 -->
-        <div style="flex:1;background:${isP1Acting && !isResult ? 'rgba(255,153,0,0.08)' : 'rgba(255,255,255,0.03)'};
-          border:1px solid ${isP1Acting && !isResult ? 'var(--gold)' : 'var(--border)'};
-          border-radius:8px;padding:8px;transition:all .2s;">
-          <div style="font-size:.68em;color:var(--text-dim);margin-bottom:2px;">
-            ${p1.isBot ? '🤖' : '👤'} ${getClassIcon(p1.class)}
-          </div>
-          <div style="font-family:var(--font-title);font-size:.78em;
-            color:${battle.winner_id === p1.character_id ? 'var(--gold)' : 'var(--text)'};
-            margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-            ${p1.name || 'Player 1'}
-            ${battle.winner_id === p1.character_id ? ' 🏆' : ''}
-          </div>
-          <div style="font-size:.65em;color:var(--text-dim);margin-bottom:4px;">
-            Lv.${p1.level || '?'} ${p1.class || ''}
-          </div>
-          <!-- HP Bar -->
-          <div style="height:6px;background:rgba(255,255,255,0.07);
-            border-radius:3px;overflow:hidden;margin-bottom:2px;">
-            <div style="height:100%;width:${p1Pct}%;
-              background:${p1HpColor};border-radius:3px;transition:width .3s;">
-            </div>
-          </div>
-          <div style="font-size:.65em;color:${p1HpColor};">
-            ${formatNumber(turn.p1HpAfter)} / ${formatNumber(turn.p1HpMax)} HP
-          </div>
-          <!-- Skill Combo -->
-          ${p1.skillCombo?.length ? `
-            <div style="display:flex;gap:3px;margin-top:5px;flex-wrap:wrap;">
-              ${p1.skillCombo.map(sk => `
-                <span style="font-size:1em;" title="${SKILLS[sk]?.name || sk}">
-                  ${SKILLS[sk]?.icon || '⚔️'}
-                </span>`).join('')}
-            </div>` : ''}
-        </div>
-
-        <!-- Action Center -->
-        <div style="width:80px;flex-shrink:0;padding-top:16px;">
-          ${actionHtml}
-          <!-- Arrow indicator -->
-          ${!isResult ? `
-            <div style="text-align:center;font-size:.7em;color:var(--text-dim);margin-top:4px;">
-              ${isP1Acting ? '→' : '←'}
-            </div>` : ''}
-        </div>
-
-        <!-- Player 2 -->
-        <div style="flex:1;background:${isP2Acting && !isResult ? 'rgba(255,153,0,0.08)' : 'rgba(255,255,255,0.03)'};
-          border:1px solid ${isP2Acting && !isResult ? 'var(--gold)' : 'var(--border)'};
-          border-radius:8px;padding:8px;transition:all .2s;">
-          <div style="font-size:.68em;color:var(--text-dim);margin-bottom:2px;">
-            ${p2.isBot ? '🤖' : '👤'} ${getClassIcon(p2.class)}
-          </div>
-          <div style="font-family:var(--font-title);font-size:.78em;
-            color:${battle.winner_id === p2.character_id ? 'var(--gold)' : 'var(--text)'};
-            margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-            ${p2.name || 'Player 2'}
-            ${battle.winner_id === p2.character_id ? ' 🏆' : ''}
-          </div>
-          <div style="font-size:.65em;color:var(--text-dim);margin-bottom:4px;">
-            Lv.${p2.level || '?'} ${p2.class || ''}
-          </div>
-          <!-- HP Bar -->
-          <div style="height:6px;background:rgba(255,255,255,0.07);
-            border-radius:3px;overflow:hidden;margin-bottom:2px;">
-            <div style="height:100%;width:${p2Pct}%;
-              background:${p2HpColor};border-radius:3px;transition:width .3s;">
-            </div>
-          </div>
-          <div style="font-size:.65em;color:${p2HpColor};">
-            ${formatNumber(turn.p2HpAfter)} / ${formatNumber(turn.p2HpMax)} HP
-          </div>
-          <!-- Skill Combo -->
-          ${p2.skillCombo?.length ? `
-            <div style="display:flex;gap:3px;margin-top:5px;flex-wrap:wrap;">
-              ${p2.skillCombo.map(sk => `
-                <span style="font-size:1em;" title="${SKILLS[sk]?.name || sk}">
-                  ${SKILLS[sk]?.icon || '⚔️'}
-                </span>`).join('')}
-            </div>` : ''}
-        </div>
-      </div>
-
-      <!-- Turn Log Text -->
-      <div style="font-size:.72em;color:var(--text-dim);text-align:center;
-        min-height:20px;margin-bottom:10px;padding:4px 8px;
-        background:rgba(255,255,255,0.03);border-radius:6px;line-height:1.5;">
-        ${turn.logText || ''}
-      </div>
-
-      <!-- Progress Bar -->
-      <div style="height:3px;background:rgba(255,255,255,0.07);
-        border-radius:2px;overflow:hidden;margin-bottom:10px;">
-        <div style="height:100%;
-          width:${((currentTurn + 1) / turns.length) * 100}%;
-          background:var(--gold);border-radius:2px;transition:width .3s;">
-        </div>
-      </div>
-
-      <!-- Controls -->
-      <div style="display:flex;gap:6px;margin-bottom:8px;">
-        <button onclick="replayStep(-1)"
-          style="flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--border);
-          border-radius:6px;color:var(--text);padding:8px;cursor:pointer;font-size:.8em;">
-          ⏮ Prev
-        </button>
-        <button id="replay-play-btn" onclick="replayTogglePlay()"
-          style="flex:2;background:rgba(255,153,0,0.15);border:1px solid var(--gold);
-          border-radius:6px;color:var(--gold);padding:8px;cursor:pointer;
-          font-family:var(--font-title);font-size:.8em;">
-          ${isPlaying ? '⏸ Pause' : '▶ Play'}
-        </button>
-        <button onclick="replayStep(1)"
-          style="flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--border);
-          border-radius:6px;color:var(--text);padding:8px;cursor:pointer;font-size:.8em;">
-          Next ⏭
-        </button>
-      </div>
-
-      <!-- Speed + Close -->
-      <div style="display:flex;gap:6px;">
-        <button onclick="replaySetSpeed(1200)"
-          style="flex:1;background:${speed===1200?'rgba(255,153,0,0.2)':'rgba(255,255,255,0.04)'};
-          border:1px solid ${speed===1200?'var(--gold)':'var(--border)'};
-          border-radius:6px;color:var(--text-dim);padding:6px;cursor:pointer;font-size:.7em;">
-          🐢 Slow
-        </button>
-        <button onclick="replaySetSpeed(800)"
-          style="flex:1;background:${speed===800?'rgba(255,153,0,0.2)':'rgba(255,255,255,0.04)'};
-          border:1px solid ${speed===800?'var(--gold)':'var(--border)'};
-          border-radius:6px;color:var(--text-dim);padding:6px;cursor:pointer;font-size:.7em;">
-          ⚡ Normal
-        </button>
-        <button onclick="replaySetSpeed(300)"
-          style="flex:1;background:${speed===300?'rgba(255,153,0,0.2)':'rgba(255,255,255,0.04)'};
-          border:1px solid ${speed===300?'var(--gold)':'var(--border)'};
-          border-radius:6px;color:var(--text-dim);padding:6px;cursor:pointer;font-size:.7em;">
-          🚀 Fast
-        </button>
-        <button onclick="replayClose()"
-          style="flex:1;background:rgba(255,255,255,0.04);border:1px solid var(--border);
-          border-radius:6px;color:var(--text-dim);padding:6px;cursor:pointer;font-size:.7em;">
-          ✖ Close
-        </button>
-      </div>`;
-
-    popup.style.display = 'flex';
-  }
-
-  // Expose controls to window
-  window.replayStep = function(dir) {
-    currentTurn = Math.max(0, Math.min(turns.length - 1, currentTurn + dir));
-    renderReplay();
-  };
-
-  window.replayTogglePlay = function() {
-    isPlaying = !isPlaying;
-    if (isPlaying) {
-      replayInterval = setInterval(() => {
-        if (currentTurn >= turns.length - 1) {
-          isPlaying = false;
-          clearInterval(replayInterval);
-          renderReplay();
-          return;
-        }
-        currentTurn++;
-        renderReplay();
-      }, speed);
-    } else {
-      clearInterval(replayInterval);
-    }
-    renderReplay();
-  };
-
-  window.replaySetSpeed = function(newSpeed) {
-    speed = newSpeed;
-    if (isPlaying) {
-      clearInterval(replayInterval);
-      replayInterval = setInterval(() => {
-        if (currentTurn >= turns.length - 1) {
-          isPlaying = false;
-          clearInterval(replayInterval);
-          renderReplay();
-          return;
-        }
-        currentTurn++;
-        renderReplay();
-      }, speed);
-    }
-    renderReplay();
-  };
-
-  window.replayClose = function() {
-    isPlaying = false;
-    clearInterval(replayInterval);
-    closeItemPopup();
-  };
-
-  // Initial render
-  renderReplay();
+  _openBattleReplayUI(
+    turns,
+    p1,
+    p2,
+    'Battle Replay',
+    battle.winner_id
+  );
 }
 
 
@@ -3362,238 +3348,6 @@ if (payError) {
     notify('❌ Practice fight failed: ' + e.message, 'var(--red)');
     console.error('Practice fight error:', e);
   }
-}
-
-// ── PRACTICE FIGHT REPLAY ──
-// ── PRACTICE FIGHT REPLAY (updated for new simulateBattle) ──
-function openPracticeReplay(result, attacker, defender) {
-  const turns = result.turns || [];
-  if (!turns.length) { notify('No battle data!', 'var(--red)'); return; }
-
-  let currentTurn = 0;
-  let replayInterval = null;
-  let speed = 800;
-  let isPlaying = false;
-  const popup = document.getElementById('item-popup');
-
-  function getHpPercent(hp, max) { return Math.max(0, Math.min(100, Math.floor((hp / max) * 100))); }
-  function getHpColor(pct) {
-    if (pct > 60) return 'var(--green)';
-    if (pct > 30) return 'var(--gold)';
-    return 'var(--red)';
-  }
-  function getClassIcon(cls) {
-    const icons = { Warrior:'⚔️', Mage:'🔮', Rogue:'🗡️', Hunter:'🏹', Paladin:'✨', Necromancer:'💀', Shaman:'⚡', Berserker:'🐉' };
-    return icons[cls] || '👤';
-  }
-
-  function buildActionHtml(turn, isResult, attacker) {
-    if (isResult) {
-      const won = turn.winnerId === attacker.character_id;
-      return `<div style="text-align:center;padding:8px 0;">
-        <div style="font-family:var(--font-title);font-size:.95em;color:${won?'var(--gold)':'var(--red)'};">
-          ${won ? '🏆 YOU WIN!' : '💀 YOU LOSE!'}
-        </div></div>`;
-    }
-    switch (turn.action) {
-      case 'buff':
-        return `<div style="text-align:center;padding:6px;background:rgba(168,85,247,0.1);border-radius:8px;">
-          <div style="font-size:1.3em;">${turn.skillIcon||'✨'}</div>
-          <div style="font-size:.65em;color:#a855f7;">${turn.skillName||'Buff'}</div>
-          <div style="font-size:.6em;color:var(--text-dim);margin-top:2px;">${turn.buffDesc||''}</div>
-        </div>`;
-      case 'dodge':
-        return `<div style="text-align:center;padding:6px;background:rgba(59,130,246,0.1);border-radius:8px;">
-          <div style="font-size:1.3em;">💨</div>
-          <div style="font-size:.65em;color:#3b82f6;">Dodged!</div>
-        </div>`;
-      case 'dot':
-        return `<div style="text-align:center;padding:6px;background:rgba(139,92,246,0.1);border-radius:8px;">
-          <div style="font-size:1.3em;">🩸</div>
-          <div style="font-size:.65em;color:#8b5cf6;">DoT Tick</div>
-          <div style="font-size:.82em;color:var(--red);font-family:var(--font-title);">-${formatNumber(turn.damage)}</div>
-        </div>`;
-      case 'skill':
-        return `<div style="text-align:center;padding:6px;background:rgba(255,153,0,0.1);border-radius:8px;">
-          <div style="font-size:1.3em;">${turn.skillIcon||'⚔️'}</div>
-          <div style="font-size:.65em;color:var(--gold);">${turn.skillName}</div>
-          <div style="font-size:.82em;color:var(--red);font-family:var(--font-title);">-${formatNumber(turn.damage)}</div>
-          ${turn.healAmount > 0 ? `<div style="font-size:.65em;color:var(--green);">+${formatNumber(turn.healAmount)} heal</div>` : ''}
-        </div>`;
-      case 'crit':
-        return `<div style="text-align:center;padding:6px;background:rgba(255,34,68,0.15);border-radius:8px;
-          animation:flash-red .3s ease;">
-          <div style="font-size:1.5em;">💥</div>
-          <div style="font-size:.65em;color:var(--red);">CRITICAL!</div>
-          <div style="font-size:.9em;color:var(--red);font-family:var(--font-title);">-${formatNumber(turn.damage)}</div>
-        </div>`;
-      default:
-        return `<div style="text-align:center;padding:6px;background:rgba(255,255,255,0.04);border-radius:8px;">
-          <div style="font-size:1.3em;">⚔️</div>
-          <div style="font-size:.65em;color:var(--text-dim);">Attack</div>
-          <div style="font-size:.82em;color:var(--red);font-family:var(--font-title);">-${formatNumber(turn.damage)}</div>
-        </div>`;
-    }
-  }
-
-  function buildFighterHtml(name, cls, level, hpAfter, hpMax, shieldHp, isActing, isResult, skillCombo, label, labelColor) {
-    const pct = getHpPercent(hpAfter, hpMax);
-    const hpColor = getHpColor(pct);
-    const shieldPct = hpMax > 0 ? Math.min(100, Math.floor(((shieldHp||0) / hpMax) * 100)) : 0;
-    return `
-      <div style="flex:1;background:${isActing&&!isResult?'rgba(255,153,0,0.08)':'rgba(255,255,255,0.03)'};
-        border:1px solid ${isActing&&!isResult?'var(--gold)':'var(--border)'};
-        border-radius:8px;padding:7px;transition:all .2s;">
-        <div style="font-size:.6em;color:${labelColor};margin-bottom:1px;">${label}</div>
-        <div style="font-family:var(--font-title);font-size:.75em;color:var(--text);
-          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-          ${getClassIcon(cls)} ${name}
-        </div>
-        <div style="font-size:.6em;color:var(--text-dim);margin-bottom:4px;">Lv.${level} ${cls||''}</div>
-
-        <!-- HP Bar -->
-        <div style="position:relative;height:6px;background:rgba(255,255,255,0.07);
-          border-radius:3px;overflow:hidden;margin-bottom:1px;">
-          <div style="position:absolute;height:100%;width:${pct}%;
-            background:${hpColor};border-radius:3px;transition:width .3s;"></div>
-          ${shieldPct > 0 ? `<div style="position:absolute;height:100%;width:${shieldPct}%;
-            background:rgba(59,130,246,0.6);border-radius:3px;transition:width .3s;
-            border-left:1px solid #3b82f6;" title="Shield"></div>` : ''}
-        </div>
-        <div style="font-size:.6em;color:${hpColor};">${formatNumber(hpAfter)} HP
-          ${shieldHp > 0 ? `<span style="color:#3b82f6;margin-left:4px;">🛡️${formatNumber(shieldHp)}</span>` : ''}
-        </div>
-
-        <!-- Skill Combo -->
-        ${skillCombo?.length ? `
-          <div style="display:flex;gap:2px;margin-top:4px;flex-wrap:wrap;align-items:center;">
-            ${skillCombo.map((sk,i) => `
-              <span style="font-size:.9em;" title="${SKILLS[sk]?.name||sk}">${SKILLS[sk]?.icon||'⚔️'}</span>
-              ${i < skillCombo.length-1 ? '<span style="font-size:.5em;color:var(--text-dim);">→</span>' : ''}
-            `).join('')}
-          </div>` : ''}
-      </div>`;
-  }
-
-  function renderReplay() {
-    const turn = turns[currentTurn] || turns[turns.length - 1];
-    const isP1Acting = turn.actor === 'p1';
-    const isP2Acting = turn.actor === 'p2';
-    const isResult = turn.action === 'result';
-
-    document.getElementById('item-popup-content').innerHTML = `
-      <div style="font-family:var(--font-title);color:var(--gold);
-        margin-bottom:8px;font-size:.88em;text-align:center;">
-        ⚔️ Practice Fight
-        <span style="font-size:.7em;color:var(--text-dim);margin-left:6px;">
-          Turn ${isResult ? turns.length-1 : turn.turn}/${turns.length-1}
-        </span>
-      </div>
-
-      <!-- Fighters Row -->
-      <div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:8px;">
-        ${buildFighterHtml(
-          attacker.name, attacker.class, attacker.level,
-          turn.p1HpAfter, turn.p1HpMax, turn.p1ShieldHp||0,
-          isP1Acting, isResult, attacker.skillCombo, 'YOU', 'var(--green)'
-        )}
-
-        <!-- Action Center -->
-        <div style="width:72px;flex-shrink:0;padding-top:14px;">
-          ${buildActionHtml(turn, isResult, attacker)}
-          ${!isResult ? `<div style="text-align:center;font-size:.65em;color:var(--text-dim);margin-top:3px;">
-            ${isP1Acting ? '→' : isP2Acting ? '←' : ''}</div>` : ''}
-        </div>
-
-        ${buildFighterHtml(
-          defender.name, defender.class, defender.level,
-          turn.p2HpAfter, turn.p2HpMax, turn.p2ShieldHp||0,
-          isP2Acting, isResult, defender.skillCombo, 'OPPONENT', 'var(--red)'
-        )}
-      </div>
-
-      <!-- Turn Log -->
-      <div style="font-size:.70em;color:var(--text-dim);text-align:center;
-        min-height:18px;margin-bottom:8px;padding:3px 8px;
-        background:rgba(255,255,255,0.03);border-radius:6px;line-height:1.5;">
-        ${turn.logText || '&nbsp;'}
-      </div>
-
-      <!-- Progress Bar -->
-      <div style="height:3px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden;margin-bottom:8px;">
-        <div style="height:100%;width:${((currentTurn+1)/turns.length)*100}%;
-          background:var(--gold);border-radius:2px;transition:width .3s;"></div>
-      </div>
-
-      <!-- Controls -->
-      <div style="display:flex;gap:6px;margin-bottom:6px;">
-        <button onclick="practiceReplayStep(-1)"
-          style="flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--border);
-          border-radius:6px;color:var(--text);padding:7px;cursor:pointer;font-size:.78em;">⏮ Prev</button>
-        <button onclick="practiceReplayToggle()"
-          style="flex:2;background:rgba(255,153,0,0.15);border:1px solid var(--gold);
-          border-radius:6px;color:var(--gold);padding:7px;cursor:pointer;
-          font-family:var(--font-title);font-size:.78em;">
-          ${isPlaying ? '⏸ Pause' : '▶ Play'}</button>
-        <button onclick="practiceReplayStep(1)"
-          style="flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--border);
-          border-radius:6px;color:var(--text);padding:7px;cursor:pointer;font-size:.78em;">Next ⏭</button>
-      </div>
-
-      <!-- Speed + Close -->
-      <div style="display:flex;gap:6px;">
-        ${[['🐢 Slow',1200],['⚡ Normal',800],['🚀 Fast',300]].map(([label,s]) => `
-          <button onclick="practiceSetSpeed(${s})"
-            style="flex:1;background:${speed===s?'rgba(255,153,0,0.2)':'rgba(255,255,255,0.04)'};
-            border:1px solid ${speed===s?'var(--gold)':'var(--border)'};
-            border-radius:6px;color:var(--text-dim);padding:5px;cursor:pointer;font-size:.68em;">
-            ${label}</button>`).join('')}
-        <button onclick="practiceReplayClose()"
-          style="flex:1;background:rgba(255,255,255,0.04);border:1px solid var(--border);
-          border-radius:6px;color:var(--text-dim);padding:5px;cursor:pointer;font-size:.68em;">✖ Close</button>
-      </div>`;
-
-    popup.style.display = 'flex';
-  }
-
-  window.practiceReplayStep = function(dir) {
-    currentTurn = Math.max(0, Math.min(turns.length-1, currentTurn+dir));
-    renderReplay();
-  };
-  window.practiceReplayToggle = function() {
-    isPlaying = !isPlaying;
-    if (isPlaying) {
-      replayInterval = setInterval(() => {
-        if (currentTurn >= turns.length-1) { isPlaying=false; clearInterval(replayInterval); renderReplay(); return; }
-        currentTurn++;
-        renderReplay();
-      }, speed);
-    } else {
-      clearInterval(replayInterval);
-    }
-    renderReplay();
-  };
-  window.practiceSetSpeed = function(newSpeed) {
-    speed = newSpeed;
-    if (isPlaying) {
-      clearInterval(replayInterval);
-      replayInterval = setInterval(() => {
-        if (currentTurn >= turns.length-1) { isPlaying=false; clearInterval(replayInterval); renderReplay(); return; }
-        currentTurn++;
-        renderReplay();
-      }, speed);
-    }
-    renderReplay();
-  };
-  window.practiceReplayClose = function() {
-    isPlaying = false;
-    clearInterval(replayInterval);
-    closeItemPopup();
-  };
-
-  currentTurn = 0;
-  renderReplay();
-  setTimeout(() => { isPlaying = true; practiceReplayToggle(); }, 500);
 }
 
 

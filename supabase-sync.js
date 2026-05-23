@@ -325,7 +325,9 @@ async function savePlayerToSupabase() {
       p_soul_crystals:         state.soulCrystals   || 0,
       p_premium_spins:         state.premiumSpins   || 0,
       p_login_streak:          state.loginStreak    || 0,
-      p_last_login_date:       state.lastLoginDate  || null,
+      p_last_login_date: state.lastLoginDate 
+      ? new Date(state.lastLoginDate).toISOString().split('T')[0] 
+      : null,
       p_total_login_days:      state.totalLoginDays || 0,
       p_stats: {
         // ── Base stats ──
