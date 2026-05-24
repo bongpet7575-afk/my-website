@@ -1351,16 +1351,16 @@ function calcStats(){
   const baseSta=Math.max(0,Number(state.baseSta)||1);
 
   // ── Aggregate multipliers ──
-  const strMult     = (state.strMult||1)     + (state.classBonuses.strMult||0)         + (state.talentBonuses.strMult||0)         + (state.equipStrMult||0);
+  const strMult  = (state.strMult||1)  + (state.classBonuses.strMult||0)  + (state.talentBonuses.strMult||0)  + (state.equipStrMult||0)  + (state.combatBuffStr||0);
   const agiMult     = (state.agiMult||1)     + (state.classBonuses.agiMult||0)         + (state.talentBonuses.agiMult||0)         + (state.equipAgiMult||0);
   const intMult     = (state.intMult||1)     + (state.classBonuses.intMult||0)         + (state.talentBonuses.intMult||0)         + (state.equipIntMult||0);
   const staMult     = (state.staMult||1)     + (state.classBonuses.staMult||0)         + (state.talentBonuses.staMult||0)         + (state.equipStaMult||0);
-  const atkpMult    = (state.attackPowerMult||1) + (state.classBonuses.attackPowerMult||0) + (state.talentBonuses.attackPowerMult||0) + (state.equipAttackPowerMult||0);
-  const armorMult   = (state.armorMult||1)   + (state.classBonuses.armorMult||0)       + (state.talentBonuses.armorMult||0)       + (state.equipArmorMult||0);
+  const atkpMult = (state.attackPowerMult||1) + (state.classBonuses.attackPowerMult||0) + (state.talentBonuses.attackPowerMult||0) + (state.equipAttackPowerMult||0) + (state.combatBuffAtkp||0);
+  const armorMult = (state.armorMult||1) + (state.classBonuses.armorMult||0) + (state.talentBonuses.armorMult||0) + (state.equipArmorMult||0) + (state.combatBuffArmor||0);
   const maxHpMult   = (state.maxHpMult||1)   + (state.classBonuses.maxHpMult||0)       + (state.talentBonuses.maxHpMult||0)       + (state.equipMaxHpMult||0);
   const critMult    = (state.critMult||1)    + (state.classBonuses.critMult||0)        + (state.talentBonuses.critMult||0);
   const dodgeMult   = (state.dodgeMult||1)   + (state.classBonuses.dodgeMult||0)       + (state.talentBonuses.dodgeMult||0)       + (state.equipDodgeMult||0);
-  const hitMult     = (state.hitMult||1)     + (state.classBonuses.hitMult||0)         + (state.talentBonuses.hitMult||0)         + (state.equipHitMult||0);
+  const hitMult  = (state.hitMult||1)  + (state.classBonuses.hitMult||0)  + (state.talentBonuses.hitMult||0)  + (state.equipHitMult||0)  + (state.combatBuffHit||0);
   const mpMult      = (state.mpMult||1)      + (state.classBonuses.mpMult||0)          + (state.talentBonuses.mpMult||0)          + (state.equipMpMult||0);
   const hpRegenMult = (state.hpRegenMult||1) + (state.classBonuses.hpRegenMult||0)     + (state.talentBonuses.hpRegenMult||0)     + (state.equipHpRegenMult||0);
   const mpRegenMult = (state.mpRegenMult||1) + (state.classBonuses.mpRegenMult||0)     + (state.talentBonuses.mpRegenMult||0)     + (state.equipMpRegenMult||0);
@@ -1636,9 +1636,13 @@ const SKILLS={
   power_strike:{name:'Power Strike',icon:'💥',mp:()=>Math.floor(state.maxMp*0.10),cd:4,use:(e)=>{
     const d=Math.floor(state.attackPower*2.2);e.hp-=d;addCombatLog(`💥 Power Strike! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
   battle_cry:{name:'Battle Cry',icon:'📯',mp:()=>Math.floor(state.maxMp*0.15),cd:10,use:(e)=>{
-    if(state.battleCryActive){addCombatLog(`📯 Battle Cry already active!`,'info');return 0;}
-    state.battleCryActive=true;state.strMult*=2.5;state.attackPowerMult*=2.4;state.hitMult*=1.5;
-    addCombatLog(`📯 Battle Cry! +25% STR, +25% ATTACK POWER!`,'good');playSound('snd-magic');calcStats();return 0;}},
+  if(state.battleCryActive){addCombatLog(`📯 Battle Cry already active!`,'info');return 0;}
+  state.battleCryActive=true;
+  state.combatBuffStr=(state.combatBuffStr||0)+1.5;      // +150% STR
+  state.combatBuffAtkp=(state.combatBuffAtkp||0)+1.4;    // +140% ATK
+  state.combatBuffHit=(state.combatBuffHit||0)+0.5;      // +50% HIT
+  addCombatLog(`📯 Battle Cry! +150% STR, +140% ATK POWER!`,'good');
+  playSound('snd-magic');calcStats();return 0;}},
   last_stand:{name:'Last Stand',icon:'🛡️',mp:()=>Math.floor(state.maxMp*0.20),cd:6,use:(e)=>{
     const h=Math.floor(state.maxHp*0.15);state.hp=Math.min(state.maxHp,state.hp+h);
     addCombatLog(`🛡️ Last Stand! +${h} HP!`,'good');playSound('snd-heal');spawnDmgFloat(`+${h}HP`,false,'heal-float');calcStats();return 0;}},
@@ -1718,9 +1722,16 @@ lightning_bolt:{name:'Lightning Bolt',icon:'⚡',mp:()=>Math.floor(state.maxMp*0
   playSound('snd-magic');animateAttack(true,d,false);return d;}},
 
 earth_totem:{name:'Earth Totem',icon:'🪨',mp:()=>Math.floor(state.maxMp*0.15),cd:6,use:(e)=>{
-  const healAmt=Math.floor(state.maxHp*0.20);state.hp=Math.min(state.maxHp,state.hp+healAmt);
-  state.armorMult*=1.2;
-  addCombatLog(`🪨 Earth Totem! +${healAmt} HP, +20% ARMOR!`,'good');
+  if(state.earthTotemTurns>0){
+    addCombatLog(`🪨 Earth Totem already active! (${state.earthTotemTurns} turns left)`,'info');
+    return 0;
+  }
+  const healAmt=Math.floor(state.maxHp*0.20);
+  state.hp=Math.min(state.maxHp,state.hp+healAmt);
+  state.earthTotemTurns=3;
+  state.earthTotemReduction=0.20;
+  state.combatBuffArmor=0.2; // flat addition to armorMult in calcStats
+  addCombatLog(`🪨 Earth Totem! +${healAmt} HP, +20% ARMOR for 3 turns!`,'good');
   playSound('snd-heal');calcStats();return 0;}},
 
 wind_burst:{name:'Wind Burst',icon:'🌪️',mp:()=>Math.floor(state.maxMp*0.18),cd:10,use:(e)=>{
@@ -1738,7 +1749,9 @@ reckless_strike:{name:'Reckless Strike',icon:'🐉',mp:()=>Math.floor(state.maxM
 
 blood_rage:{name:'Blood Rage',icon:'🩸',mp:()=>Math.floor(state.maxMp*0.15),cd:6,use:(e)=>{
   if(state.battleCryActive){addCombatLog(`🩸 Blood Rage already active!`,'info');return 0;}
-  state.battleCryActive=true;state.strMult*=3.0;state.attackPowerMult*=2.5;
+  state.battleCryActive=true;
+  state.combatBuffStr=(state.combatBuffStr||0)+2.0;      // +200% STR
+  state.combatBuffAtkp=(state.combatBuffAtkp||0)+1.5;    // +150% ATK
   addCombatLog(`🩸 BLOOD RAGE! +200% STR, +150% ATK POWER!`,'legendary');
   playSound('snd-magic');calcStats();return 0;}},
 

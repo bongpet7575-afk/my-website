@@ -335,17 +335,12 @@ function handleEnemyTurn() {
   }
 
   // ── SHAMAN: Earth Totem damage reduction ──
-  if (state.earthTotemTurns > 0) {
-    const reduction = state.earthTotemReduction || 0;
-    const reduced = Math.floor(enemyDamage * reduction);
-    enemyDamage = Math.max(1, enemyDamage - reduced);
-    state.earthTotemTurns--;
-    addCombatLog(`🪨 Earth Totem reduced damage by ${formatNumber(reduced)}! (${state.earthTotemTurns} turns left)`, 'info');
-    if (state.earthTotemTurns === 0) {
-      state.earthTotemReduction = 0;
-      addCombatLog(`🪨 Earth Totem fades!`, 'info');
-    }
-  }
+  if(state.earthTotemTurns===0){
+  state.earthTotemReduction=0;
+  state.combatBuffArmor=0; // remove armor buff
+  calcStats();
+  addCombatLog(`🪨 Earth Totem fades!`,'info');
+}
 
   // ── Soul Barrier absorption ──
 if (state.soulBarrierAbsorb > 0 && enemyDamage > 0) {
@@ -515,6 +510,10 @@ async function endCombat(won){
   state.strMult=1.0;state.agiMult=1.0;state.intMult=1.0;state.staMult=1.0;
   state.armorMult=1.0;state.critMult=1.0;state.dodgeMult=1.0;state.hpRegenMult=1.0;
   state.mpRegenMult=1.0;state.hitMult=1.0;state.mpMult=1.0;state.attackPowerMult=1.0;state.lifeStealMult=1.0;state.maxHpMult=1.0;
+  state.combatBuffStr=0;
+  state.combatBuffAtkp=0;
+  state.combatBuffHit=0;
+  state.combatBuffArmor=0;
 
   if(state.class){
     const c=CLASSES[state.class];
