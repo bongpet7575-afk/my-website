@@ -2766,8 +2766,23 @@ trackQuestKill(
   defeatedId,
   wasBoss,
   currentStage?.id || null,
-  g  // gold earned this fight
+  g
 );
+
+// Record kill + drops to Supabase
+if(defeatedId && state.character_id){
+  const drops = (currentEnemy?.loot ? currentEnemy.loot() : [])
+    .map(item => ({ name: item.name, rarity: item.rarity }));
+
+  dbClient.rpc('record_monster_kill', {
+    p_monster_id:   defeatedId,
+    p_character_id: state.character_id,
+    p_stage_id:     currentStage?.id || 1,
+    p_drops:        drops
+  }).then(({ error }) => {
+    if(error) console.warn('record_monster_kill failed:', error.message);
+  });
+}
 
 // Clear enemy AFTER rewards
 currentEnemy=null;
