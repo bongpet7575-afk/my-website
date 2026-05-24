@@ -546,7 +546,8 @@ async function endCombat(won){
 
     const g=Math.floor((Math.random()*(baseGold[1]-baseGold[0])+baseGold[0])*goldMult*spinGoldMult);
     const xp=Math.floor(currentEnemy.xp*xpMult);
-    state.gold+=g;state.xp+=xp;
+    addGold(g); // ✅ sanitized
+    state.xp+=xp;
     addLog(`Defeated ${currentEnemy.name}! +${xp} XP, +${g} Gold`,'good');
 
     if(currentEnemy.loot){

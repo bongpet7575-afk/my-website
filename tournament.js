@@ -219,9 +219,9 @@ function openSkillComboPicker(tournament, tier, tierKey) {
 
   window.confirmTournamentRegistration = async function() {
     try {
-      const newGold = state.gold - tier.fee;
-      if (newGold < 0) { notify('Not enough gold!', 'var(--red)'); return; }
-      state.gold = newGold;
+      if(state.gold < tier.fee){notify('Not enough gold!','var(--red)');return;}
+addGold(-tier.fee); // ✅ sanitized
+const newGold = state.gold; // use sanitized value for DB update
 
       calcStats(); // ensure stats are fresh before snapshot
       const snapshot = {
@@ -259,7 +259,7 @@ function openSkillComboPicker(tournament, tier, tierKey) {
       renderTournament();
 
     } catch(e) {
-      state.gold += tier.fee; // refund on failure
+      addGold(tier.fee); // ✅ sanitized refund on failure
       notify('Registration failed: ' + e.message, 'var(--red)');
       console.error(e);
     }
@@ -2195,12 +2195,12 @@ async function paySupremeChampionWeeklyBonus() {
       }).eq('id', champ.id);
 
       // Notify if current player
-      if (champ.id === state.character_id) {
-        state.gold += weeklyBonus;
-        addLog(`👑 Supreme Champion weekly bonus: +${formatNumber(weeklyBonus)}g!`, 'legendary');
-        notify(`👑 +${formatNumber(weeklyBonus)}g Supreme Champion bonus!`, 'var(--gold)');
-        updateUI();
-      }
+      if(champ.id===state.character_id){
+  addGold(weeklyBonus); // ✅ sanitized
+  addLog(`👑 Supreme Champion weekly bonus: +${formatNumber(weeklyBonus)}g!`,'legendary');
+  notify(`👑 +${formatNumber(weeklyBonus)}g Supreme Champion bonus!`,'var(--gold)');
+  updateUI();
+}
     }
   } catch(e) { console.error('Supreme weekly bonus error:', e); }
 }
@@ -3299,11 +3299,11 @@ async function initiatePracticeFight(targetCharId, tierKey, tournamentId) {
       skillCombo: targetReg.skill_combo || [],
     };
 
-    // Deduct fee
-    state.gold -= fee;
-    await dbClient.from('characters')
-      .update({ gold: state.gold })
-      .eq('id', state.character_id);
+   // Deduct fee
+addGold(-fee); // ✅ sanitized
+await dbClient.from('characters')
+  .update({gold:state.gold})
+  .eq('id',state.character_id);
 
     // Pay 50% to target atomically via RPC
 const targetCut = Math.floor(fee * 0.5);
@@ -3344,7 +3344,7 @@ if (payError) {
     openPracticeReplay(result, challengerSnapshot, targetSnapshot);
 
   } catch(e) {
-    state.gold += fee; // refund on error
+    addGold(fee); // ✅ sanitized refund on error // refund on error
     notify('❌ Practice fight failed: ' + e.message, 'var(--red)');
     console.error('Practice fight error:', e);
   }

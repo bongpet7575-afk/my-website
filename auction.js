@@ -240,8 +240,9 @@ async function placeBid(auctionId, currentBid) {
     if (error) throw error;
 
     // Sync state.gold to match what DB just did
-    if (wasOurBid) state.gold += prevBid; // our previous bid was refunded
-    state.gold -= bidAmount;              // new bid deducted
+    // If we were also the bidder, refund state.gold
+  if(wasOurBid&&bidToRefund>0) addGold(bidToRefund); // ✅ sanitized
+    addGold(-bidAmount); // ✅ sanitized              // new bid deducted
 
     await savePlayerToSupabase();
     addLog(`⬆️ Bid: ${formatNumber(bidAmount)}g on ${auction.item_name}!`, 'gold');
@@ -270,7 +271,7 @@ async function buyoutAuction(auctionId, buyoutPrice) {
     if (error) throw error;
 
     // Sync state.gold to match what DB just did
-    state.gold -= buyoutPrice;
+    addGold(-buyoutPrice); // ✅ sanitized
 
     // Fetch auction to get item (now completed)
     const { data: auction } = await dbClient.from('auctions').select('*').eq('id', auctionId).single();
@@ -340,42 +341,38 @@ async function listItemForAuction(uid) {
 // CANCEL AUCTION
 // ============================================
 
-async function cancelAuction(auctionId) {
-  if (!confirm('Cancel this auction? Item will be returned.')) return;
-  try {
-    const { data: auction } = await dbClient.from('auctions').select('*').eq('id', auctionId).single();
-    if (!auction) { notify('❌ Auction not found!', 'var(--red)'); return; }
-    if (auction.seller_id !== state.character_id) { notify('❌ Not your auction!', 'var(--red)'); return; }
+async function cancelAuction(auctionId){
+  if(!confirm('Cancel this auction? Item will be returned.'))return;
+  try{
+    const{data:auction}=await dbClient.from('auctions').select('*').eq('id',auctionId).single();
+    if(!auction){notify('❌ Auction not found!','var(--red)');return;}
+    if(auction.seller_id!==state.character_id){notify('❌ Not your auction!','var(--red)');return;}
 
-    const wasOurBid = auction.current_bidder_id === state.character_id;
-    const bidToRefund = auction.current_bid || 0;
+    const wasOurBid=auction.current_bidder_id===state.character_id;
+    const bidToRefund=auction.current_bid||0;
 
-    const { error } = await dbClient.rpc('process_cancel', {
-      p_auction_id: auctionId,
-      p_seller_character_id: state.character_id,
+    const{error}=await dbClient.rpc('process_cancel',{
+      p_auction_id:auctionId,
+      p_seller_character_id:state.character_id,
     });
-    if (error) throw error;
+    if(error)throw error;
 
-    // If we were also the bidder, refund state.gold
-    if (wasOurBid && bidToRefund > 0) state.gold += bidToRefund;
+    if(wasOurBid&&bidToRefund>0)addGold(bidToRefund); // ✅ sanitized
 
-    // Return item to local inventory
-    const item = auction.item_description
-      ? (typeof auction.item_description === 'string' ? JSON.parse(auction.item_description) : auction.item_description)
-      : { name: auction.item_name, rarity: auction.rarity, category: 'equipment', equipped: false };
-    item.uid = genUid();
+    const item=auction.item_description
+      ?(typeof auction.item_description==='string'?JSON.parse(auction.item_description):auction.item_description)
+      :{name:auction.item_name,rarity:auction.rarity,category:'equipment',equipped:false};
+    item.uid=genUid();
     addToInventory(item);
 
     await savePlayerToSupabase();
-    notify('✅ Auction cancelled!', 'var(--gold)');
-    addLog(`❌ Cancelled auction for ${auction.item_name}`, 'info');
-    renderInventory();
-    updateUI();
-    fetchAuctions();
+    notify('✅ Auction cancelled!','var(--gold)');
+    addLog(`❌ Cancelled auction for ${auction.item_name}`,'info');
+    renderInventory();updateUI();fetchAuctions();
 
-  } catch (error) {
-    notify('❌ Cancel failed: ' + error.message, 'var(--red)');
-    console.error('Cancel error:', error);
+  }catch(error){
+    notify('❌ Cancel failed: '+error.message,'var(--red)');
+    console.error('Cancel error:',error);
   }
 }
 

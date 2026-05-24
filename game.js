@@ -209,6 +209,15 @@ function buildTalentEffect(talentId, className, cfg) {
   };
 }
 
+function addGold(amount){
+  const safe = Math.floor(Number(amount));
+  if(isNaN(safe)||safe===undefined){
+    console.warn('addGold received NaN:', amount);
+    return;
+  }
+  state.gold = Math.max(0, (state.gold||0) + safe);
+}
+
 // ── BUILD SKILL USE FROM CONFIG ──
 function buildSkillUse(skillId, m) {
   switch(skillId) {
@@ -1329,105 +1338,110 @@ function setDifficulty(diff){
 //        GAME_CONFIG.combat_speed values are now actually used
 // #12 — lifeSteal operator precedence fixed
 // #15 — maxHpMult and equipMaxHpMult are now applied in the maxHp formula
-function calcStats() {
-
-  // ── Check gold multiplier expiry ──
-  if (state.goldMultExpiry && new Date() > new Date(state.goldMultExpiry)) {
-    state.goldMult    = 1.0;
-    state.goldMultExpiry = null;
+function calcStats(){
+  // ── Gold multiplier expiry check ──
+  if(state.goldMultExpiry&&new Date()>new Date(state.goldMultExpiry)){
+    state.goldMult=1.0;state.goldMultExpiry=null;
   }
 
-  // ── Aggregate multipliers (base + class bonus + talent bonus + equip bonus) ──
-  const strMult      = state.strMult         + (state.classBonuses.strMult          || 0) + (state.talentBonuses.strMult          || 0) + (state.equipStrMult          || 0);
-  const agiMult      = state.agiMult         + (state.classBonuses.agiMult          || 0) + (state.talentBonuses.agiMult          || 0) + (state.equipAgiMult          || 0);
-  const intMult      = state.intMult         + (state.classBonuses.intMult          || 0) + (state.talentBonuses.intMult          || 0) + (state.equipIntMult          || 0);
-  const staMult      = state.staMult         + (state.classBonuses.staMult          || 0) + (state.talentBonuses.staMult          || 0) + (state.equipStaMult          || 0);
-  const atkpMult     = state.attackPowerMult + (state.classBonuses.attackPowerMult  || 0) + (state.talentBonuses.attackPowerMult  || 0) + (state.equipAttackPowerMult  || 0);
-  const armorMult    = state.armorMult       + (state.classBonuses.armorMult        || 0) + (state.talentBonuses.armorMult        || 0) + (state.equipArmorMult        || 0);
-  const maxHpMult    = state.maxHpMult       + (state.classBonuses.maxHpMult        || 0) + (state.talentBonuses.maxHpMult        || 0) + (state.equipMaxHpMult        || 0); // BUG FIX #15: was calculated but never used below
-  const critMult     = state.critMult        + (state.classBonuses.critMult         || 0) + (state.talentBonuses.critMult         || 0);
-  const dodgeMult    = state.dodgeMult       + (state.classBonuses.dodgeMult        || 0) + (state.talentBonuses.dodgeMult        || 0) + (state.equipDodgeMult        || 0);
-  const hitMult      = state.hitMult         + (state.classBonuses.hitMult          || 0) + (state.talentBonuses.hitMult          || 0) + (state.equipHitMult          || 0);
-  const mpMult       = state.mpMult          + (state.classBonuses.mpMult           || 0) + (state.talentBonuses.mpMult           || 0) + (state.equipMpMult           || 0);
-  const hpRegenMult  = state.hpRegenMult     + (state.classBonuses.hpRegenMult      || 0) + (state.talentBonuses.hpRegenMult      || 0) + (state.equipHpRegenMult      || 0); // BUG FIX #6 (sync): correct key name
-  const mpRegenMult  = state.mpRegenMult     + (state.classBonuses.mpRegenMult      || 0) + (state.talentBonuses.mpRegenMult      || 0) + (state.equipMpRegenMult      || 0);
+  // ── Sanitize base stats ──
+  const baseStr=Math.max(0,Number(state.baseStr)||1);
+  const baseAgi=Math.max(0,Number(state.baseAgi)||1);
+  const baseInt=Math.max(0,Number(state.baseInt)||1);
+  const baseSta=Math.max(0,Number(state.baseSta)||1);
 
-  // ── Primary stats ──
-  state.str = Math.floor(state.baseStr * strMult) + (state.equipStr || 0) + (state.talentBonuses.baseStr || 0);
-  state.agi = Math.floor(state.baseAgi * agiMult) + (state.equipAgi || 0) + (state.talentBonuses.baseAgi || 0);
-  state.int = Math.floor(state.baseInt * intMult) + (state.equipInt || 0) + (state.talentBonuses.baseInt || 0);
-  state.sta = Math.floor(state.baseSta * staMult) + (state.equipSta || 0) + (state.talentBonuses.baseSta || 0);
+  // ── Aggregate multipliers ──
+  const strMult     = (state.strMult||1)     + (state.classBonuses.strMult||0)         + (state.talentBonuses.strMult||0)         + (state.equipStrMult||0);
+  const agiMult     = (state.agiMult||1)     + (state.classBonuses.agiMult||0)         + (state.talentBonuses.agiMult||0)         + (state.equipAgiMult||0);
+  const intMult     = (state.intMult||1)     + (state.classBonuses.intMult||0)         + (state.talentBonuses.intMult||0)         + (state.equipIntMult||0);
+  const staMult     = (state.staMult||1)     + (state.classBonuses.staMult||0)         + (state.talentBonuses.staMult||0)         + (state.equipStaMult||0);
+  const atkpMult    = (state.attackPowerMult||1) + (state.classBonuses.attackPowerMult||0) + (state.talentBonuses.attackPowerMult||0) + (state.equipAttackPowerMult||0);
+  const armorMult   = (state.armorMult||1)   + (state.classBonuses.armorMult||0)       + (state.talentBonuses.armorMult||0)       + (state.equipArmorMult||0);
+  const maxHpMult   = (state.maxHpMult||1)   + (state.classBonuses.maxHpMult||0)       + (state.talentBonuses.maxHpMult||0)       + (state.equipMaxHpMult||0);
+  const critMult    = (state.critMult||1)    + (state.classBonuses.critMult||0)        + (state.talentBonuses.critMult||0);
+  const dodgeMult   = (state.dodgeMult||1)   + (state.classBonuses.dodgeMult||0)       + (state.talentBonuses.dodgeMult||0)       + (state.equipDodgeMult||0);
+  const hitMult     = (state.hitMult||1)     + (state.classBonuses.hitMult||0)         + (state.talentBonuses.hitMult||0)         + (state.equipHitMult||0);
+  const mpMult      = (state.mpMult||1)      + (state.classBonuses.mpMult||0)          + (state.talentBonuses.mpMult||0)          + (state.equipMpMult||0);
+  const hpRegenMult = (state.hpRegenMult||1) + (state.classBonuses.hpRegenMult||0)     + (state.talentBonuses.hpRegenMult||0)     + (state.equipHpRegenMult||0);
+  const mpRegenMult = (state.mpRegenMult||1) + (state.classBonuses.mpRegenMult||0)     + (state.talentBonuses.mpRegenMult||0)     + (state.equipMpRegenMult||0);
 
-  // ── Attack power ──
-  state.attackPower = Math.floor(
-    (state.str * 4 + state.int * 3 + state.level * 15) * atkpMult
-  ) + (state.equipAttackPower || 0) + (state.talentBonuses.baseAttackPower || 0);
+  // ── Primary stats (local variables — no state mutation yet) ──
+  const str = Math.floor(baseStr*strMult) + (state.equipStr||0) + (state.talentBonuses.baseStr||0);
+  const agi = Math.floor(baseAgi*agiMult) + (state.equipAgi||0) + (state.talentBonuses.baseAgi||0);
+  const int_ = Math.floor(baseInt*intMult) + (state.equipInt||0) + (state.talentBonuses.baseInt||0);
+  const sta = Math.floor(baseSta*staMult) + (state.equipSta||0) + (state.talentBonuses.baseSta||0);
 
-  // ── Max HP — BUG FIX #15: maxHpMult is now actually applied ──
-  state.maxHp = Math.floor(
-    (100 + (state.str * 20) + (state.sta * 30) + (state.level * 80)) * maxHpMult
-  ) + (state.equipMaxHp || 0);
+  // ── Derived stats (all local) ──
+  const attackPower = Math.floor(
+    (str*4 + int_*3 + state.level*15) * atkpMult
+  ) + (state.equipAttackPower||0) + (state.talentBonuses.baseAttackPower||0);
 
-  // ── Armor ──
-  state.armor = Math.floor(
-    (state.agi * 8 + (state.baseArmor || 0) + state.level * 10 + (state.talentBonuses.baseArmor || 0)) * armorMult
-  ) + (state.equipArmor || 0);
+  const maxHp = Math.floor(
+    (100 + str*20 + sta*30 + state.level*80) * maxHpMult
+  ) + (state.equipMaxHp||0);
 
-  // ── Secondary stats ──
-  state.crit      = Math.floor(((state.agi * 0.0005 + state.baseCrit) * critMult)  + (state.equipCrit  || 0) + (state.talentBonuses.baseCrit  || 0));
-  state.dodge     = Math.floor(((state.agi * 1.9    + state.baseDodge) * dodgeMult) + (state.equipDodge || 0) + (state.talentBonuses.baseDodge || 0));
-  state.hit       = Math.floor(((state.agi * 5.3    + state.baseHit)   * hitMult)   + (state.equipHit   || 0) + (state.talentBonuses.baseHit   || 0));
-  state.maxMp     = Math.floor((50 + state.int * 3) * mpMult) + (state.equipMaxMp || 0);
-  state.manaRegen = Math.floor((0.5 + state.int * 1.5) * mpRegenMult) + (state.equipMpRegen || 0);
-  state.hpRegen   = Math.floor((state.sta * 0.5 + (state.baseHpRegen || 0) + (state.talentBonuses.baseHpRegen || 0)) * hpRegenMult) + (state.equipHpRegen || 0);
+  const armor = Math.floor(
+    (agi*8 + (state.baseArmor||0) + state.level*10 + (state.talentBonuses.baseArmor||0)) * armorMult
+  ) + (state.equipArmor||0);
 
-  // ── Lifesteal — BUG FIX #12: operator precedence fixed ──
-  // Old: (state.baseLifeSteal + state.talentBonuses.baseLifeSteal || 0)
-  //   → if the sum was 0 the whole thing collapsed to 0, not (0+0)
-  state.lifeSteal = ((state.baseLifeSteal || 0) + (state.talentBonuses.baseLifeSteal || 0)) + (state.equipLifeSteal || 0);
+  const crit      = Math.floor((agi*0.0005 + (state.baseCrit||0))  * critMult)  + (state.equipCrit||0)  + (state.talentBonuses.baseCrit||0);
+  const dodge     = Math.floor((agi*1.9    + (state.baseDodge||0)) * dodgeMult) + (state.equipDodge||0) + (state.talentBonuses.baseDodge||0);
+  const hit       = Math.floor((agi*5.3    + (state.baseHit||0))   * hitMult)   + (state.equipHit||0)   + (state.talentBonuses.baseHit||0);
+  const maxMp     = Math.floor((50 + int_*3) * mpMult) + (state.equipMaxMp||0);
+  const manaRegen = Math.floor((0.5 + int_*1.5) * mpRegenMult) + (state.equipMpRegen||0);
+  const hpRegen   = Math.floor((sta*0.5 + (state.baseHpRegen||0) + (state.talentBonuses.baseHpRegen||0)) * hpRegenMult) + (state.equipHpRegen||0);
+  const lifeSteal = ((state.baseLifeSteal||0) + (state.talentBonuses.baseLifeSteal||0)) + (state.equipLifeSteal||0);
 
-  // ── Magic penetration (Mage class bonus) ──
-  state.magicPen       = (CLASSES[state.class]?.bonuses?.magicPen || 0) + (state.talentBonuses.magicPen || 0);
+  // ── Speed stats ──
+  const speedCfg      = GAME_CONFIG.combat_speed||{};
+  const atkSpdPerAgi  = speedCfg.attack_speed_per_agi   || 0.5;
+  const castSpdPerInt = speedCfg.cast_speed_per_int     || 0.3;
+  const minInterval   = speedCfg.min_attack_interval_ms || 400;
+  const maxInterval   = speedCfg.max_attack_interval_ms || 2000;
+  const maxAtkSpd     = speedCfg.max_attack_speed       || 800;
+  const maxCastSpd    = speedCfg.max_cast_speed         || 100;
+  const maxCdr        = speedCfg.max_cdr                || 0.50;
 
-  // ── Spell / heal / damage modifiers from talents ──
-  state.spellPowerMult = state.talentBonuses.spellPowerMult || 0;
-  state.healPowerMult  = state.talentBonuses.healPowerMult  || 0;
-  state.dmgReduction   = state.talentBonuses.dmgReduction   || 0;
-  state.dmgReflect     = state.talentBonuses.dmgReflect     || 0;
-  state.chainLightningChance = state.talentBonuses.chainChance || 0;
+  const attackSpeed    = Math.min(maxAtkSpd,  Math.floor(agi*atkSpdPerAgi));
+  const castSpeed      = Math.min(maxCastSpd, Math.floor(int_*castSpdPerInt));
+  const attackInterval = Math.max(minInterval, maxInterval-(attackSpeed*2));
+  const cdr            = Math.min(maxCdr, castSpeed/200);
 
-  // ── Attack & cast speed — BUG FIX #3: single block using GAME_CONFIG values ──
-  // Old code had two blocks; the second (hardcoded) always overwrote the first
-  // (GAME_CONFIG), making combat_speed config completely ignored.
-  const speedCfg       = GAME_CONFIG.combat_speed || {};
-  const atkSpdPerAgi   = speedCfg.attack_speed_per_agi    || 0.5;
-  const castSpdPerInt  = speedCfg.cast_speed_per_int      || 0.3;
-  const minInterval    = speedCfg.min_attack_interval_ms  || 400;
-  const maxInterval    = speedCfg.max_attack_interval_ms  || 2000;
-  const maxAtkSpd      = speedCfg.max_attack_speed        || 800;
-  const maxCastSpd     = speedCfg.max_cast_speed          || 100;
-  const maxCdr         = speedCfg.max_cdr                 || 0.50;
-
-  state.attackSpeed    = Math.min(maxAtkSpd,  Math.floor(state.agi * atkSpdPerAgi));
-  state.castSpeed      = Math.min(maxCastSpd, Math.floor(state.int * castSpdPerInt));
-  state.attackInterval = Math.max(minInterval, maxInterval - (state.attackSpeed * 2));
-  state.cdr            = Math.min(maxCdr, state.castSpeed / 200);
-
-  // ── Reputation title boost — BUG FIX #2: runs AFTER stats are calculated ──
-  // Old code applied this BEFORE state.attackPower / state.maxHp were set,
-  // meaning it multiplied stale values from the previous calcStats() call.
-  // This caused stats to compound and inflate on every call.
+  // ── Reputation boost (applied to local vars, not state) ──
   const repTitle = getCurrentTitle();
-  if (repTitle) {
-    const boost      = 1 + repTitle.boost;
-    state.attackPower = Math.floor(state.attackPower * boost);
-    state.maxHp       = Math.floor(state.maxHp       * boost);
-    state.armor       = Math.floor(state.armor       * boost);
-  }
+  const repBoost = repTitle ? (1+repTitle.boost) : 1;
 
-  // ── Clamp HP/MP to their maximums ──
-  state.hp = Math.min(state.hp, state.maxHp);
-  state.mp = Math.min(state.mp, state.maxMp);
+  // ── Write to state ONCE at the end ──
+  state.str          = str;
+  state.agi          = agi;
+  state.int          = int_;
+  state.sta          = sta;
+  state.attackPower  = Math.floor(attackPower * repBoost);
+  state.maxHp        = Math.floor(maxHp       * repBoost);
+  state.armor        = Math.floor(armor       * repBoost);
+  state.crit         = crit;
+  state.dodge        = dodge;
+  state.hit          = hit;
+  state.maxMp        = maxMp;
+  state.manaRegen    = manaRegen;
+  state.hpRegen      = hpRegen;
+  state.lifeSteal    = lifeSteal;
+  state.attackSpeed  = attackSpeed;
+  state.castSpeed    = castSpeed;
+  state.attackInterval = attackInterval;
+  state.cdr          = cdr;
+
+  // ── Talent modifiers ──
+  state.magicPen           = (CLASSES[state.class]?.bonuses?.magicPen||0) + (state.talentBonuses.magicPen||0);
+  state.spellPowerMult     = state.talentBonuses.spellPowerMult||0;
+  state.healPowerMult      = state.talentBonuses.healPowerMult||0;
+  state.dmgReduction       = state.talentBonuses.dmgReduction||0;
+  state.dmgReflect         = state.talentBonuses.dmgReflect||0;
+  state.chainLightningChance = state.talentBonuses.chainChance||0;
+
+  // ── Clamp HP/MP ──
+  if(state.hp>state.maxHp) state.hp=state.maxHp;
+  if(state.mp>state.maxMp) state.mp=state.maxMp;
 }
 
 
@@ -2085,7 +2099,7 @@ const SCENES={
     action:()=>{
       const innCost = GAME_CONFIG.inn_cost || 0;
       if(state.gold >= innCost){
-        state.gold -= innCost;
+        addGold(-innCost); // ✅ sanitized
         const hh=Math.floor(state.maxHp*0.5),mh=Math.floor(state.maxMp*0.5);
         state.hp=Math.min(state.maxHp,state.hp+hh);state.mp=Math.min(state.maxMp,state.mp+mh);
         addLog(`Rested: +${formatNumber(hh)} HP, +${formatNumber(mh)} MP. Cost ${formatNumber(innCost)}g.`,'good');
@@ -2381,7 +2395,7 @@ if (state.soulWeapon) {
   state.soulWeapon = null;
 }
 
-  state.gold -= cost;
+  addGold(-cost); // ✅ sanitized
   state.respecCount++;
 
   // Refund all talent points — count only spent ranks
@@ -3453,7 +3467,7 @@ function openTreasureBox(box){
   for(let i=0;i<matCount;i++)rollMatDrop(stageId,false);
 
   const bonusGold=Math.floor(1000*stageId*diff.goldMult);
-  state.gold+=bonusGold;
+  addGold(bonusGold); // ✅ sanitized
 
   const bossName=box.sourceBossName||`Stage ${stageId} Boss`;
   notify(`📦 ${bossName}'s chest opened! ${items.length} items found!`,'var(--gold)');
@@ -3794,55 +3808,46 @@ function addToInventory(item){
     const limit=getInvSlotLimit(cat);
     const current=countInvSlots(cat);
     if(current>=limit){
-  const label = cat.charAt(0).toUpperCase()+cat.slice(1);
-  const sellPrice = item.sellPrice || 0;
-  if(sellPrice > 0){
-    state.gold += sellPrice;
-    addLog(`⚠️ ${label} bag full! ${item.name} auto-sold for ${formatNumber(sellPrice)}g.`, 'bad');
-    notify(`⚠️ Bag full! ${item.name} sold for ${formatNumber(sellPrice)}g`, 'var(--red)');
-  } else {
-    addLog(`⚠️ ${label} bag full! ${item.name} discarded.`, 'bad');
-    notify(`⚠️ Bag full! ${item.name} discarded.`, 'var(--red)');
+      const label=cat.charAt(0).toUpperCase()+cat.slice(1);
+      const sellPrice=item.sellPrice||0;
+      if(sellPrice>0){
+        addGold(sellPrice); // ✅ sanitized
+        addLog(`⚠️ ${label} bag full! ${item.name} auto-sold for ${formatNumber(sellPrice)}g.`,'bad');
+        notify(`⚠️ Bag full! ${item.name} sold for ${formatNumber(sellPrice)}g`,'var(--red)');
+      } else {
+        addLog(`⚠️ ${label} bag full! ${item.name} discarded.`,'bad');
+        notify(`⚠️ Bag full! ${item.name} discarded.`,'var(--red)');
+      }
+      if(!document.getElementById('bag-full-popup')){
+        const popup=document.createElement('div');
+        popup.id='bag-full-popup';
+        popup.style.cssText=`
+          position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+          background:#1a0a0a;border:1px solid var(--red);
+          padding:20px 24px;z-index:99999;text-align:center;
+          font-family:var(--font-title);max-width:280px;width:90%;
+          box-shadow:0 0 40px rgba(255,34,68,0.3);`;
+        popup.innerHTML=`
+          <div style="font-size:1.4em;margin-bottom:8px;">⚠️</div>
+          <div style="color:var(--red);font-size:.85em;letter-spacing:2px;margin-bottom:8px;">BAG FULL</div>
+          <div style="font-size:.72em;color:var(--text-dim);line-height:1.6;margin-bottom:14px;">
+            Your ${label} bag is full.<br>
+            Additional drops will be <span style="color:var(--gold)">auto-sold</span> for gold.<br>
+            Sell or drop items to make room.
+          </div>
+          <button onclick="document.getElementById('bag-full-popup').remove()"
+            style="background:rgba(255,34,68,0.15);border:1px solid var(--red);
+            color:var(--red);font-family:var(--font-title);font-size:.75em;
+            letter-spacing:2px;padding:8px 20px;cursor:pointer;width:100%;">
+            ✖ GOT IT
+          </button>`;
+        document.body.appendChild(popup);
+        setTimeout(()=>{const el=document.getElementById('bag-full-popup');if(el)el.remove();},5000);
+      }
+      return;
+    }
   }
-  // Show one-time popup warning if not already showing
-  if(!document.getElementById('bag-full-popup')){
-    const popup = document.createElement('div');
-    popup.id = 'bag-full-popup';
-    popup.style.cssText = `
-      position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-      background:#1a0a0a;border:1px solid var(--red);
-      padding:20px 24px;z-index:99999;text-align:center;
-      font-family:var(--font-title);max-width:280px;width:90%;
-      box-shadow:0 0 40px rgba(255,34,68,0.3);
-    `;
-    popup.innerHTML = `
-      <div style="font-size:1.4em;margin-bottom:8px;">⚠️</div>
-      <div style="color:var(--red);font-size:.85em;letter-spacing:2px;margin-bottom:8px;">
-        BAG FULL
-      </div>
-      <div style="font-size:.72em;color:var(--text-dim);line-height:1.6;margin-bottom:14px;">
-        Your ${label} bag is full.<br>
-        Additional drops will be <span style="color:var(--gold)">auto-sold</span> for gold.<br>
-        Sell or drop items to make room.
-      </div>
-      <button onclick="document.getElementById('bag-full-popup').remove()"
-        style="background:rgba(255,34,68,0.15);border:1px solid var(--red);
-        color:var(--red);font-family:var(--font-title);font-size:.75em;
-        letter-spacing:2px;padding:8px 20px;cursor:pointer;width:100%;">
-        ✖ GOT IT
-      </button>
-    `;
-    document.body.appendChild(popup);
-    // Auto-remove after 5 seconds
-    setTimeout(() => {
-      const el = document.getElementById('bag-full-popup');
-      if(el) el.remove();
-    }, 5000);
-  }
-  return;
-}
-  }
-  state.inventory.push({...item, uid: String(item.uid || genUid())});
+  state.inventory.push({...item,uid:String(item.uid||genUid())});
   renderInventory();
 }
 function switchInvTab(tab){
@@ -3974,7 +3979,7 @@ async function doEnhance(uid) {
     return;
   }
 
-  state.gold -= cost;
+  addGold(-cost); // ✅ sanitized
 
   // Consume orb and boost rate
   if (useOrb && hasOrb) {
@@ -4169,18 +4174,18 @@ function closeItemPopup(){
 function closeItemPopup(){document.getElementById('item-popup').style.display='none';}
 
 function sellItem(uid){
-  const idx = state.inventory.findIndex(i => String(i.uid) === String(uid));
-  if(idx === -1) return;
-  const item = state.inventory[idx];
-  if(item.equipped) return;
-  const qty = item.qty || item.quantity || 1;
-  const total = (item.sellPrice || 0) * (item.stackable ? qty : 1);
-  state.gold += total;
-  addLog(`Sold ${item.name} for ${formatNumber(total)}g`, 'gold');
-  state.inventory.splice(idx, 1);
+  const idx=state.inventory.findIndex(i=>String(i.uid)===String(uid));
+  if(idx===-1)return;
+  const item=state.inventory[idx];
+  if(item.equipped)return;
+  const qty=item.qty||item.quantity||1;
+  const total=(item.sellPrice||0)*(item.stackable?qty:1);
+  addGold(total); // ✅ sanitized
+  addLog(`Sold ${item.name} for ${formatNumber(total)}g`,'gold');
+  state.inventory.splice(idx,1);
   renderInventory();
   updateUI();
-  if(state.gold >= 50) state.quests.gold50.done = true;
+  if(state.gold>=50)state.quests.gold50.done=true;
   renderQuests();
 }
 
@@ -4343,77 +4348,73 @@ async function saveTabAutoSell(tab) {
 }
 
 // ── AUTO-SELL NOW FOR A SPECIFIC TAB ──
-async function autoSellTab(tab) {
+async function autoSellTab(tab){
   migrateAutoSell();
-  const tabSell = state.autoSell[tab];
-  if (!tabSell) return;
-  if (!tabSell.normal && !tabSell.uncommon && !tabSell.rare && !tabSell.epic) {
-    notify('No rarities selected to auto-sell!', 'var(--gold)');
-    return;
+  const tabSell=state.autoSell[tab];
+  if(!tabSell)return;
+  if(!tabSell.normal&&!tabSell.uncommon&&!tabSell.rare&&!tabSell.epic){
+    notify('No rarities selected to auto-sell!','var(--gold)');return;
   }
 
-  let totalGold = 0, count = 0;
-  const toSell = state.inventory.filter(i => {
-    if (i.equipped) return false;
-    if (i.category !== tab) return false;
-    return (tabSell.normal   && i.rarity === 'normal')   ||
-           (tabSell.uncommon && i.rarity === 'uncommon') ||
-           (tabSell.rare     && i.rarity === 'rare')     ||
-           (tabSell.epic     && i.rarity === 'epic');
+  let totalGold=0,count=0;
+  const toSell=state.inventory.filter(i=>{
+    if(i.equipped)return false;
+    if(i.category!==tab)return false;
+    return (tabSell.normal&&i.rarity==='normal')||
+           (tabSell.uncommon&&i.rarity==='uncommon')||
+           (tabSell.rare&&i.rarity==='rare')||
+           (tabSell.epic&&i.rarity==='epic');
   });
 
-  toSell.forEach(item => {
-    totalGold += (item.sellPrice || 0) * (item.stackable ? item.qty : 1);
+  toSell.forEach(item=>{
+    totalGold+=Math.floor(Number(item.sellPrice||0))*(item.stackable?item.qty:1);
     count++;
-    const idx = state.inventory.findIndex(i => i.uid === item.uid);
-    if (idx !== -1) state.inventory.splice(idx, 1);
+    const idx=state.inventory.findIndex(i=>i.uid===item.uid);
+    if(idx!==-1)state.inventory.splice(idx,1);
   });
 
-  if (count > 0) {
-    addLog(`🗑️ Auto-sold ${count} ${tab} items for ${formatNumber(totalGold)}g!`, 'gold');
-    state.gold += totalGold;
-    notify(`🗑️ Sold ${count} items for ${formatNumber(totalGold)}g`, 'var(--gold)');
-    renderInventory();
-    updateUI();
+  if(count>0){
+    addGold(totalGold); // ✅ sanitized
+    addLog(`🗑️ Auto-sold ${count} ${tab} items for ${formatNumber(totalGold)}g!`,'gold');
+    notify(`🗑️ Sold ${count} items for ${formatNumber(totalGold)}g`,'var(--gold)');
+    renderInventory();updateUI();
     await savePlayerToSupabase();
   } else {
-    notify('No items to sell in this tab!', 'var(--text-dim)');
+    notify('No items to sell in this tab!','var(--text-dim)');
   }
 }
 
-// ── AUTO-SELL AFTER COMBAT (uses per-tab settings) ──
-async function autoSellAfterCombat() {
+async function autoSellAfterCombat(){
   migrateAutoSell();
-  let totalGold = 0, count = 0;
+  let totalGold=0,count=0;
 
-  ['equipment', 'consumable', 'material'].forEach(tab => {
-    const tabSell = state.autoSell[tab];
-    if (!tabSell) return;
-    if (!tabSell.normal && !tabSell.uncommon && !tabSell.rare && !tabSell.epic) return;
+  ['equipment','consumable','material'].forEach(tab=>{
+    const tabSell=state.autoSell[tab];
+    if(!tabSell)return;
+    if(!tabSell.normal&&!tabSell.uncommon&&!tabSell.rare&&!tabSell.epic)return;
 
-    const toSell = state.inventory.filter(i => {
-      if (i.equipped) return false;
-      if (i.category !== tab) return false;
-      return (tabSell.normal   && i.rarity === 'normal')   ||
-             (tabSell.uncommon && i.rarity === 'uncommon') ||
-             (tabSell.rare     && i.rarity === 'rare')     ||
-             (tabSell.epic     && i.rarity === 'epic');
+    const toSell=state.inventory.filter(i=>{
+      if(i.equipped)return false;
+      if(i.category!==tab)return false;
+      return (tabSell.normal&&i.rarity==='normal')||
+             (tabSell.uncommon&&i.rarity==='uncommon')||
+             (tabSell.rare&&i.rarity==='rare')||
+             (tabSell.epic&&i.rarity==='epic');
     });
 
-    toSell.forEach(item => {
-      totalGold += (item.sellPrice || 0) * (item.stackable ? item.qty : 1);
+    toSell.forEach(item=>{
+      totalGold+=Math.floor(Number(item.sellPrice||0))*(item.stackable?item.qty:1);
       count++;
-      const idx = state.inventory.findIndex(i => i.uid === item.uid);
-      if (idx !== -1) state.inventory.splice(idx, 1);
+      const idx=state.inventory.findIndex(i=>i.uid===item.uid);
+      if(idx!==-1)state.inventory.splice(idx,1);
     });
   });
 
-  if (count > 0) {
-    addLog(`🗑️ Auto-sold ${count} items for ${formatNumber(totalGold)}g!`, 'gold');
-    state.gold += totalGold;
-    notify(`🗑️ Auto-sold ${count} items for ${formatNumber(totalGold)}g`, 'var(--gold)');
-    renderInventory();
-    updateUI();
+  if(count>0){
+    addGold(totalGold); // ✅ sanitized
+    addLog(`🗑️ Auto-sold ${count} items for ${formatNumber(totalGold)}g!`,'gold');
+    notify(`🗑️ Auto-sold ${count} items for ${formatNumber(totalGold)}g`,'var(--gold)');
+    renderInventory();updateUI();
     await savePlayerToSupabase();
   }
 }
@@ -4668,7 +4669,7 @@ async function buySkillBook(bookId, skillId) {
   )) return;
 
   // Deduct gold and legacy points
-  state.gold -= book.price;
+  addGold(-book.price); // ✅ sanitized
   state.legacyPoints -= rankData.cost;
 
   // Learn/upgrade skill
