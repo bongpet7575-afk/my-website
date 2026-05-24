@@ -1738,14 +1738,31 @@ function spawnAbilityFloat(text,color='#ffffff'){
   div.textContent=text;document.body.appendChild(div);setTimeout(()=>div.remove(),1000);
 }
 
+function renderSettingsPanel() {
+  // keybind UI comes next session
+  // game settings — restore saved state
+  const sfx = localStorage.getItem('setting-sfx') !== 'false';
+  const particles = localStorage.getItem('setting-particles') !== 'false';
+  const autosave = localStorage.getItem('setting-autosave') !== 'false';
+  document.getElementById('setting-sfx').checked = sfx;
+  document.getElementById('setting-particles').checked = particles;
+  document.getElementById('setting-autosave').checked = autosave;
+}
+
+function saveSetting(key, value) {
+  localStorage.setItem(`setting-${key}`, value);
+  notify(`✅ ${key} ${value ? 'enabled' : 'disabled'}`, 'var(--green)');
+}
+
 // ── SWITCH MAIN SCENE ──
 function switchMainScene(scene){
   document.querySelectorAll('.main-scene').forEach(s=>s.style.display='none');
   document.getElementById(`main-scene-${scene}`).style.display='block';
-  ['char','adv','town'].forEach(s=>document.getElementById(`nav-${s}`).classList.remove('active'));
+  ['char','adv','town','settings'].forEach(s=>document.getElementById(`nav-${s}`).classList.remove('active'));
   document.getElementById(`nav-${scene}`).classList.add('active');
   if(scene==='adv')loadScene(state.currentScene||'town');
   if(scene==='town')renderShop();
+  if(scene==='settings')renderSettingsPanel();
 }
 
 const MONSTER_TEMPLATES = {
@@ -2453,6 +2470,7 @@ function showGame(){
   renderInventory();renderSkillBar();renderEquipSlots();fetchLeaderboard();
   setDifficulty(state.difficulty||'normal');
   renderSoulWeaponSlot(); // ← ADD THIS
+  initSkillBarKeyHandler();
   switchMainScene('adv');
 }
 
@@ -4112,34 +4130,44 @@ function dropTreasureBox(stageId){
   playSound('snd-levelup');
 }
 function openTreasureBox(box){
-  const stageId=box.stageId||1, table=TREASURE_TABLES[stageId]; if(!table)return;
-  const diff=DIFFICULTY[box.difficulty||'normal'];
+  // SECURITY: never trust stageId from the box object
+  // derive from currentStage at open time, cap at max valid stage
+  const MAX_STAGE = 10;
+  const stageId = Math.min(MAX_STAGE, Math.max(1, currentStage?.id || box.stageId || 1));
+  
+  // SECURITY: always use character's actual saved difficulty, not box.difficulty
+  const difficulty = state.difficulty || 'normal';
+  const diff = DIFFICULTY[difficulty];
+  
+  const table = TREASURE_TABLES[stageId]; if(!table)return;
   const slots=['weapon','armor','helmet','boots','ring','amulet'];
   const items=[];
-  // Equipment rolls
+
   for(let i=0;i<table.rolls;i++){
-  let rarity=rollTreasureRarity(table.tier);
-  const slot=slots[Math.floor(Math.random()*slots.length)];
-  const item=mkEquipDrop(slot,rarity,stageId);
-  const before=state.inventory.length;
-  addToInventory(item);
-  const added=state.inventory.length>before||
-    (item.stackable&&state.inventory.find(i=>i.name===item.name));
-  if(added){
-    items.push(item);
-    if(item.rarity==='legendary') state.quests.legendary.done=true;
+    let rarity=rollTreasureRarity(table.tier);
+    const slot=slots[Math.floor(Math.random()*slots.length)];
+    const item=mkEquipDrop(slot,rarity,stageId);
+    const before=state.inventory.length;
+    addToInventory(item);
+    const added=state.inventory.length>before||
+      (item.stackable&&state.inventory.find(i=>i.name===item.name));
+    if(added){
+      items.push(item);
+      if(item.rarity==='legendary') state.quests.legendary.done=true;
+    }
   }
-}
-if(items.length < table.rolls){
-  const lost = table.rolls - items.length;
-  notify(`⚠️ ${lost} item(s) lost — bag full! Sell items before opening chests.`, 'var(--red)');
-  addLog(`⚠️ ${lost} chest item(s) discarded due to full bag.`, 'bad');
-}
-  // Bonus mat drops from chest (2-3 mats matching stage)
+
+  if(items.length < table.rolls){
+    const lost = table.rolls - items.length;
+    notify(`⚠️ ${lost} item(s) lost — bag full! Sell items before opening chests.`, 'var(--red)');
+    addLog(`⚠️ ${lost} chest item(s) discarded due to full bag.`, 'bad');
+  }
+
   const matCount = 2 + Math.floor(Math.random()*2);
   for(let i=0;i<matCount;i++) rollMatDrop(stageId, false);
 
-  const bonusGold=Math.floor(1000*stageId*diff.goldMult); state.gold+=bonusGold;
+  const bonusGold=Math.floor(1000*stageId*diff.goldMult);
+  state.gold+=bonusGold;
   notify(`📦 Chest opened! ${items.length} items + mats found!`,'var(--gold)');
   addLog(`📦 ${box.name} opened!`,'legendary');
   items.forEach(item=>addLog(`  ${item.name} [${(RARITY[item.rarity]||RARITY.normal).label}]`,
@@ -4353,6 +4381,97 @@ function updateTalentBtn(){
   btn.style.boxShadow=state.talentPoints>0?'0 0 10px rgba(136,68,255,.6)':'none';
 }
 
+// ── SKILL BAR KEYBOARD SHORTCUTS ──
+let lastSkillUseTime = 0;
+const SKILL_GCD_MS = 800;
+
+function initSkillBarKeyHandler() {
+  if (window._skillBarKeyHandler) document.removeEventListener('keydown', window._skillBarKeyHandler);
+  window._skillBarKeyHandler = function (e) {
+    if (document.getElementById('item-popup')?.style.display === 'flex') return;
+    if (document.getElementById('enhance-screen')?.style.display === 'block') return;
+
+    const k = e.key.toLowerCase();
+
+    // ── SKILL SLOTS (outside combat) ──
+    if (!currentEnemy) {
+      
+    }
+
+    // ── COMBAT KEYS ──
+    if (currentEnemy) {
+      const now = Date.now();
+
+      if (k === 'a') {
+        const unassigned = state.skills.find(sid => !autoSkillSlots.includes(sid));
+        if (!unassigned) { notify('All skills already assigned!', 'var(--gold)'); return; }
+        const emptySlot = autoSkillSlots.indexOf(null);
+        if (emptySlot === -1) { notify('All 6 slots filled!', 'var(--gold)'); return; }
+        autoSkillSlots[emptySlot] = unassigned;
+        renderAutoSlots();
+        renderSkillBar();
+        const sk = SKILLS[unassigned];
+        notify(`${sk?.icon || ''} ${sk?.name} → Slot ${emptySlot + 1}`, 'var(--green)');
+      }
+      if (k === 'r') {
+        let lastFilled = -1;
+        for (let i = 5; i >= 0; i--) { if (autoSkillSlots[i] !== null) { lastFilled = i; break; } }
+        if (lastFilled === -1) { notify('No skills in slots!', 'var(--gold)'); return; }
+        const sk = SKILLS[autoSkillSlots[lastFilled]];
+        autoSkillSlots[lastFilled] = null;
+        renderAutoSlots();
+        renderSkillBar();
+        notify(`${sk?.icon || ''} ${sk?.name} removed from slot ${lastFilled + 1}`, 'var(--red)');
+      }
+      if (k === 'q') {
+        autoSkillSlots.fill(null);
+        renderAutoSlots();
+        renderSkillBar();
+        notify('🗑️ All skill slots cleared!', 'var(--red)');
+      }
+
+      // 1-9 → use skill
+      const num = parseInt(e.key);
+      if (num >= 1 && num <= 9) {
+        if (now - lastSkillUseTime < SKILL_GCD_MS) {
+          notify('⏳ Too fast!', 'var(--red)');
+          return;
+        }
+        lastSkillUseTime = now;
+        const skillId = state.skills[num - 1];
+        if (skillId) useSkillInCombat(skillId);
+        else notify(`No skill in slot ${num}!`, 'var(--gold)');
+        return;
+      }
+
+      // S → soul skill
+      if (k === 's') {
+        if (now - lastSkillUseTime < SKILL_GCD_MS) {
+          notify('⏳ Too fast!', 'var(--red)');
+          return;
+        }
+        lastSkillUseTime = now;
+        useSoulSkill();
+        return;
+      }
+
+      // Space → toggle auto-fight
+      if (e.key === ' ') {
+        e.preventDefault();
+        toggleAutoFight();
+        return;
+      }
+
+      // F → leave dungeon / flee
+      if (k === 'f') {
+        combatAction('flee');
+        return;
+      }
+    }
+  };
+  document.addEventListener('keydown', window._skillBarKeyHandler);
+}
+
 // ── SKILL SELECTION FOR MOBILE TAP-TO-ASSIGN ──
 let selectedSkillForSlot = null;
 
@@ -4427,15 +4546,22 @@ function renderSkillBar(){
   }
   document.getElementById('skills-bar').style.display='block';
 
-  // Regular skills
-  const regularSkills=state.skills.map(sid=>{
+  const regularSkills=state.skills.map((sid, index)=>{
     const sk=SKILLS[sid];if(!sk)return'';
     const cd=state.skillCooldowns[sid]||0;
     const inSlot=autoSkillSlots.includes(sid);
+    const keyNum=index<9?index+1:null;
+    const keyBadge=keyNum
+      ?`<div style="position:absolute;top:2px;left:4px;font-size:.6em;color:var(--gold);
+          background:rgba(0,0,0,0.6);border:1px solid rgba(255,153,0,0.3);
+          border-radius:3px;padding:0 3px;line-height:1.4;font-family:var(--font-body);">${keyNum}</div>`
+      :'';
     return`<div class="skill-slot ${inSlot?'in-slot':''}"
+      style="position:relative;"
       draggable="true"
       ondragstart="event.dataTransfer.setData('skillId','${sid}')"
       onclick="${currentEnemy?`useSkillInCombat('${sid}')`:`assignSkillToAutoSlot('${sid}')`}">
+      ${keyBadge}
       <div class="skill-icon-wrap ${cd>0?'on-cd':''}">${sk.icon}</div>
       <div class="skill-lbl">${sk.name}</div>
       <div class="skill-cd-lbl">${cd>0?`CD:${cd}`:`${typeof sk.mp==='function'?sk.mp():sk.mp}MP`}</div>
@@ -4450,7 +4576,10 @@ function renderSkillBar(){
       const cd=state.soulSkillCd||0;
       soulSkillHtml=`<div class="skill-slot soul-skill ${cd>0?'on-cd':''}"
         onclick="${currentEnemy?`useSoulSkill()`:`''`}"
-        style="border-color:var(--legendary);background:rgba(255,153,0,0.08);">
+        style="position:relative;border-color:var(--legendary);background:rgba(255,153,0,0.08);">
+        <div style="position:absolute;top:2px;left:4px;font-size:.6em;color:var(--legendary);
+          background:rgba(0,0,0,0.6);border:1px solid rgba(255,153,0,0.3);
+          border-radius:3px;padding:0 3px;line-height:1.4;font-family:var(--font-body);">S</div>
         <div class="skill-icon-wrap ${cd>0?'on-cd':''}">${sw.skill.icon}</div>
         <div class="skill-lbl" style="color:var(--legendary);">${sw.skill.name}</div>
         <div class="skill-cd-lbl">${cd>0?`CD:${cd}`:'SOUL'}</div>
@@ -4687,30 +4816,57 @@ function formatNumber(num){if(num>=1000000)return(num/1000000).toFixed(1)+'M';if
 // ── ENHANCEMENT ──
 const ENHANCE_COST=[0,500,1000,2000,3500,5000,8000,12000,18000,25000,35000,50000,70000,100000,150000,200000];
 const ENHANCE_RATE=[0,100,95,85,75,65,55,45,35,25,25,25,25,25,25,25];
-function openEnhance(uid){const item=state.inventory.find(i=>i.uid===uid);if(!item||item.category!=='equipment')return;document.getElementById('enhance-screen').style.display='block';renderEnhanceScreen(uid);}
-function closeEnhance(){document.getElementById('enhance-screen').style.display='none';savePlayerToSupabase();}
-function renderEnhanceScreen(uid){
-  const orbCount = state.inventory.filter(i =>
-  i.name === '⚗️ Enhancement Orb' && i.category === 'material'
-).reduce((sum, i) => sum + (i.quantity || 1), 0);
+function openEnhance(uid){
+  const item=state.inventory.find(i=>i.uid===uid);
+  if(!item||item.category!=='equipment')return;
+  document.getElementById('enhance-screen').style.display='block';
+  renderEnhanceScreen(uid);
 
-const orbHtml = `
-  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;
-    padding:8px;background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.2);
-    border-radius:6px;" onclick="event.stopPropagation()">
-    <input type="checkbox" id="enhance-orb-toggle"
-     onclick="event.stopPropagation()"
-     onchange="updateEnhanceRateDisplay()"
-    ${orbCount === 0 ? 'disabled' : ''}
-    style="width:16px;height:16px;cursor:pointer;accent-color:#22c55e;">
-    <div style="flex:1;">
-      <div style="font-size:.75em;color:var(--green);">⚗️ Use Enhancement Orb</div>
-      <div style="font-size:.65em;color:var(--text-dim);">+20% success rate this attempt</div>
-    </div>
-    <div style="font-size:.72em;color:${orbCount > 0 ? 'var(--green)' : 'var(--text-dim)'};">
-      ${orbCount > 0 ? `${orbCount} owned` : 'None owned'}
-    </div>
-  </div>`;
+  if(window._enhanceKeyHandler)document.removeEventListener('keydown',window._enhanceKeyHandler);
+  window._enhanceKeyHandler=function(e){
+    if(document.getElementById('enhance-screen').style.display==='none')return;
+    const k=e.key.toLowerCase();
+    if(k==='escape'){closeEnhance();return;}
+    if(k==='enter'||k==='e'){
+      const btn=document.querySelector('.enhance-btn:not(.enhance-btn-disabled)');
+      if(btn)doEnhance(uid);
+    }
+    if(k==='o'){
+      const chk=document.getElementById('enhance-orb-toggle');
+      if(chk&&!chk.disabled){chk.checked=!chk.checked;updateEnhanceRateDisplay();}
+    }
+  };
+  document.addEventListener('keydown',window._enhanceKeyHandler);
+}
+
+function closeEnhance(){
+  document.getElementById('enhance-screen').style.display='none';
+  if(window._enhanceKeyHandler){
+    document.removeEventListener('keydown',window._enhanceKeyHandler);
+    window._enhanceKeyHandler=null;
+  }
+  savePlayerToSupabase();
+}
+
+function renderEnhanceScreen(uid){
+  const orbCount=state.inventory.filter(i=>i.name==='⚗️ Enhancement Orb'&&i.category==='material').reduce((sum,i)=>sum+(i.quantity||1),0);
+  const orbHtml=`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;
+      padding:8px;background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.2);
+      border-radius:6px;" onclick="event.stopPropagation()">
+      <input type="checkbox" id="enhance-orb-toggle"
+       onclick="event.stopPropagation()"
+       onchange="updateEnhanceRateDisplay()"
+      ${orbCount===0?'disabled':''}
+      style="width:16px;height:16px;cursor:pointer;accent-color:#22c55e;">
+      <div style="flex:1;">
+        <div style="font-size:.75em;color:var(--green);">⚗️ Use Enhancement Orb <span style="color:#888;font-size:.85em;">(<u>O</u>)</span></div>
+        <div style="font-size:.65em;color:var(--text-dim);">+20% success rate this attempt</div>
+      </div>
+      <div style="font-size:.72em;color:${orbCount>0?'var(--green)':'var(--text-dim)'};">
+        ${orbCount>0?`${orbCount} owned`:'None owned'}
+      </div>
+    </div>`;
   const item=state.inventory.find(i=>i.uid===uid);if(!item)return;
   const r=RARITY[item.rarity]||RARITY.normal,enh=item.enhLevel||0,maxed=enh>=15,cost=ENHANCE_COST[enh+1]||0,rate=ENHANCE_RATE[enh+1]||0;
   const pips=Array.from({length:15},(_,i)=>`<div class="enhance-pip ${i<enh?enh>=11?'pip-high':'pip-filled':'pip-empty'}"></div>`).join('');
@@ -4733,10 +4889,12 @@ const orbHtml = `
           <div class="enhance-cost-row"><span>❌ Fail Effect</span><span style="color:var(--red)">${enh>0?`Drop to +${enh-1}`:'Nothing'}</span></div>
         </div>
         ${orbHtml}
-        <div style="text-align:center;margin-top:12px;"><button class="enhance-btn ${state.gold<cost?'enhance-btn-disabled':''}" onclick="doEnhance('${uid}')" ${state.gold<cost?'disabled':''}>⚒️ Enhance +${enh+1}</button></div>`:'<div style="text-align:center;color:var(--legendary);font-family:Cinzel,serif;margin:12px 0;">✨ MAX ENHANCED!</div>'
+        <div style="text-align:center;margin-top:12px;">
+          <button class="enhance-btn ${state.gold<cost?'enhance-btn-disabled':''}" onclick="doEnhance('${uid}')" ${state.gold<cost?'disabled':''}>⚒️ Enhance +${enh+1} <span style="color:#888;font-size:.8em;">[Enter]</span></button>
+        </div>`:'<div style="text-align:center;color:var(--legendary);font-family:Cinzel,serif;margin:12px 0;">✨ MAX ENHANCED!</div>'
       }
       </div>
-      <div style="text-align:center;margin-top:12px;"><button class="start-btn" onclick="closeEnhance()">✅ Close</button></div>
+      <div style="text-align:center;margin-top:12px;"><button class="start-btn" onclick="closeEnhance()">✅ Close <span style="color:#888;font-size:.8em;">[Esc]</span></button></div>
     </div>`;
 }
 function updateEnhanceRateDisplay() {
@@ -4869,7 +5027,7 @@ function showItemPopup(source,id){
       :item.effect?`<div class="tooltip-stat">Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}</div>`:'';
     reqLine=(item.levelReq&&item.levelReq>0)
       ?`<div style="font-size:.78em;margin-bottom:6px;color:${state.level>=item.levelReq?'var(--green)':'var(--red)'};">${state.level>=item.levelReq?'✅':'🔒'} Level ${item.levelReq} Required</div>`:'';
-    btns=`<button class="start-btn" onclick="buyShopItem('${item.id}');closeItemPopup()">💰 Buy (${item.price}g)</button>`;
+    btns=`<button class="start-btn" onclick="buyShopItem('${item.id}');closeItemPopup()">💰 <u>B</u>uy (${item.price}g)</button>`;
 
   } else {
     item=state.inventory.find(i=>String(i.uid)===String(id));if(!item)return;
@@ -4880,37 +5038,38 @@ function showItemPopup(source,id){
       ?`<div style="font-size:.78em;margin-bottom:6px;color:${state.level>=item.levelReq?'var(--green)':'var(--red)'};">${state.level>=item.levelReq?'✅':'🔒'} Level ${item.levelReq} Required</div>`:'';
     if(item.category==='equipment'){
       btns=item.equipped
-        ?`<button class="start-btn red-btn" onclick="unequipSlot('${item.slot}');closeItemPopup()">Unequip</button>`
-        :`<button class="start-btn blue-btn" onclick="equipItem('${item.uid}');closeItemPopup()">Equip</button>`;
-btns+=`<button class="start-btn purple-btn" onclick="closeItemPopup();openEnhance('${item.uid}')">⚒️ Enhance</button>`;
-if(!item.equipped)btns+=`<button class="start-btn" onclick="closeItemPopup();listItemForAuction('${item.uid}')" style="background:linear-gradient(135deg,#005580,#0088cc);">🏛️ Auction</button>`;
+        ?`<button class="start-btn red-btn" onclick="unequipSlot('${item.slot}');closeItemPopup()"><u>U</u>nequip</button>`
+        :`<button class="start-btn blue-btn" onclick="equipItem('${item.uid}');closeItemPopup()"><u>E</u>quip</button>`;
+      btns+=`<button class="start-btn purple-btn" onclick="closeItemPopup();openEnhance('${item.uid}')">⚒️ <u>H</u>enhance</button>`;
+      if(!item.equipped)btns+=`<button class="start-btn" onclick="closeItemPopup();listItemForAuction('${item.uid}')" style="background:linear-gradient(135deg,#005580,#0088cc);">🏛️ <u>A</u>uction</button>`;
     }
-    if(item.category==='consumable')btns+=`<button class="start-btn" onclick="useItem('${item.uid}');closeItemPopup()">Use</button>`;
+    if(item.category==='consumable')btns+=`<button class="start-btn" onclick="useItem('${item.uid}');closeItemPopup()"><u>U</u>se</button>`;
     if(item.category==='soul_weapon'){
-  const sw=SOUL_WEAPONS[item.slot==='soul'?state.class?.toLowerCase():''];
-  const alreadyHas=state.soulWeapon&&state.soulWeapon.tier>=item.soulTier;
-  const wrongClass=item.classReq&&item.classReq!==state.class?.toLowerCase();
-  const passiveDesc=sw?.passive?`<div style="font-size:.72em;color:var(--deep-gold);margin:4px 0;">⚡ Passive: ${sw.passive.desc}</div>`:'';
-  const skillDesc=sw?.skill?`<div style="font-size:.72em;color:var(--legendary);margin:4px 0;">🎯 Skill: ${sw.skill.name} — ${sw.skill.desc}</div>`:'';
-  statsHtml+=passiveDesc+skillDesc;
-  if(wrongClass){
-    btns=`<button class="start-btn" disabled style="opacity:.4;">❌ Wrong Class</button>`;
-  } else if(alreadyHas){
-    btns=`<button class="start-btn" disabled style="opacity:.4;">✅ Already Bound</button>`;
-  } else {
-    btns=`<button class="start-btn" style="border-color:var(--legendary);color:var(--legendary);" onclick="equipSoulWeapon('${item.uid}');closeItemPopup()">✨ Bind to Soul</button>`;
-  }
-}
-   if(!item.equipped){
-  const _qty = item.qty || item.quantity || 1;
-  const _total = (item.sellPrice||0) * (item.stackable ? _qty : 1);
-  btns+=`<button class="start-btn red-btn" onclick="sellItem('${item.uid}');closeItemPopup()">Sell ${item.stackable&&_qty>1?'All':''} (${formatNumber(_total)}g)</button>`;
-}
+      const sw=SOUL_WEAPONS[item.slot==='soul'?state.class?.toLowerCase():''];
+      const alreadyHas=state.soulWeapon&&state.soulWeapon.tier>=item.soulTier;
+      const wrongClass=item.classReq&&item.classReq!==state.class?.toLowerCase();
+      const passiveDesc=sw?.passive?`<div style="font-size:.72em;color:var(--deep-gold);margin:4px 0;">⚡ Passive: ${sw.passive.desc}</div>`:'';
+      const skillDesc=sw?.skill?`<div style="font-size:.72em;color:var(--legendary);margin:4px 0;">🎯 Skill: ${sw.skill.name} — ${sw.skill.desc}</div>`:'';
+      statsHtml+=passiveDesc+skillDesc;
+      if(wrongClass){
+        btns=`<button class="start-btn" disabled style="opacity:.4;">❌ Wrong Class</button>`;
+      } else if(alreadyHas){
+        btns=`<button class="start-btn" disabled style="opacity:.4;">✅ Already Bound</button>`;
+      } else {
+        btns=`<button class="start-btn" style="border-color:var(--legendary);color:var(--legendary);" onclick="equipSoulWeapon('${item.uid}');closeItemPopup()">✨ <u>B</u>ind to Soul</button>`;
+      }
+    }
+    if(!item.equipped){
+      const _qty=item.qty||item.quantity||1;
+      const _total=(item.sellPrice||0)*(item.stackable?_qty:1);
+      btns+=`<button class="start-btn red-btn" onclick="sellItem('${item.uid}');closeItemPopup()"><u>S</u>ell ${item.stackable&&_qty>1?'All':''} (${formatNumber(_total)}g)</button>`;
+    }
   }
 
-  showPopup(item, reqLine+statsHtml, btns);
+  showPopup(item, reqLine+statsHtml, btns, source, id);
 }
-function showPopup(item,statsHtml,btns){
+
+function showPopup(item,statsHtml,btns,source,id){
   const r=RARITY[item.rarity]||RARITY.normal;
   document.getElementById('item-popup-content').innerHTML=`
     <div style="text-align:center;margin-bottom:10px;"><div style="font-size:2.5em;">${item.name.split(' ')[0]}</div><div style="color:${r.color};font-family:'Cinzel',serif;font-size:1em;font-weight:600;">${item.name}</div><div style="color:${r.color};font-size:.78em;">${r.label}</div></div>
@@ -4918,6 +5077,36 @@ function showPopup(item,statsHtml,btns){
     <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">${btns}</div>
     <div style="margin-top:8px;text-align:center;"><button class="start-btn" style="background:rgba(255,255,255,.1);color:#aaa;" onclick="closeItemPopup()">✖ Close</button></div>`;
   document.getElementById('item-popup').style.display='flex';
+
+  // keyboard shortcuts
+  if(window._itemPopupKeyHandler) document.removeEventListener('keydown',window._itemPopupKeyHandler);
+  window._itemPopupKeyHandler=function(e){
+    if(!document.getElementById('item-popup') || document.getElementById('item-popup').style.display==='none') return;
+    const k=e.key.toLowerCase();
+    if(k==='escape'){closeItemPopup();return;}
+    if(source==='shop'){
+      if(k==='b'){buyShopItem(item.id);closeItemPopup();}
+    } else {
+      if(item.category==='equipment'){
+        if(item.equipped&&k==='u'){unequipSlot(item.slot);closeItemPopup();}
+        if(!item.equipped&&k==='e'){equipItem(item.uid);closeItemPopup();}
+        if(k==='h'){closeItemPopup();openEnhance(item.uid);}
+        if(!item.equipped&&k==='a'){closeItemPopup();listItemForAuction(item.uid);}
+      }
+      if(item.category==='consumable'&&k==='u'){useItem(item.uid);closeItemPopup();}
+      if(item.category==='soul_weapon'&&k==='b'){equipSoulWeapon(item.uid);closeItemPopup();}
+      if(!item.equipped&&k==='s'){sellItem(item.uid);closeItemPopup();}
+    }
+  };
+  document.addEventListener('keydown',window._itemPopupKeyHandler);
+}
+
+function closeItemPopup(){
+  document.getElementById('item-popup').style.display='none';
+  if(window._itemPopupKeyHandler){
+    document.removeEventListener('keydown',window._itemPopupKeyHandler);
+    window._itemPopupKeyHandler=null;
+  }
 }
 function closeItemPopup(){document.getElementById('item-popup').style.display='none';}
 
