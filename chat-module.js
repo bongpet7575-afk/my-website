@@ -242,6 +242,10 @@ async function sendChatMessage() {
       chat_color:        state.chatColor       || null,
     });
 
+console.log('Chat insert error:', error);
+    
+  
+
   if (error) {
     showChatStatus('❌ Failed to send. Try again.');
     console.error('Chat send error:', error);
@@ -251,6 +255,8 @@ async function sendChatMessage() {
   _lastSentAt  = now;
   _lastMessage = result.text; // BUG FIX #4: store filtered text
   input.value  = '';
+
+  
 
   // BUG FIX #2: DO NOT call appendChatMessage here.
   // The realtime subscription will receive the INSERT and render it.
@@ -265,7 +271,7 @@ async function loadChatHistory() {
   const { data, error } = await dbClient
     .from('chat_messages')
     .select('*')
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false })
     .limit(CHAT_CONFIG.historyLimit);
 
   if (error) {
@@ -288,7 +294,7 @@ async function loadChatHistory() {
     isSystem:    true,
   });
 
-  (data || []).forEach(row => appendChatMessage(row));
+  (data || []).reverse().forEach(row => appendChatMessage(row));
 }
 
 // ── Realtime Subscription ─────────────────────────────────────

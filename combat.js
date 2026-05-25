@@ -29,11 +29,11 @@ function startCombat(enemyId,isBoss){
   currentEnemy=applyTutorialScaling(currentEnemy);
   startCombatWith(currentEnemy);
   if(isTutorialActive()){addCombatLog('📚 TUTORIAL MODE: Enemies are weaker!','info');showTutorialHint('firstCombat');}
-  const combatArea = document.getElementById('combat-area'); // your existing combat container
-  combatArea.insertAdjacentHTML('afterbegin', renderEnemyStatPanel(enemy));
-
-  // Store current enemy reference for HP updates
-  window.currentEnemy = enemy;
+  const combatArea = document.getElementById('combat-area');
+    if(combatArea && typeof renderEnemyStatPanel === 'function'){
+    combatArea.insertAdjacentHTML('afterbegin', renderEnemyStatPanel(currentEnemy));
+}
+window.currentEnemy = currentEnemy;
 }
 
 // ── START COMBAT WITH (enemy object) ──
@@ -335,11 +335,14 @@ function handleEnemyTurn() {
   }
 
   // ── SHAMAN: Earth Totem damage reduction ──
+ if(state.earthTotemTurns>0){
+  state.earthTotemTurns--;
   if(state.earthTotemTurns===0){
-  state.earthTotemReduction=0;
-  state.combatBuffArmor=0; // remove armor buff
-  calcStats();
-  addCombatLog(`🪨 Earth Totem fades!`,'info');
+    state.earthTotemReduction=0;
+    state.combatBuffArmor=0;
+    calcStats();
+    addCombatLog(`🪨 Earth Totem fades!`,'info');
+  }
 }
 
   // ── Soul Barrier absorption ──
@@ -448,14 +451,9 @@ state.skillCooldowns[skillId] = Math.max(1, Math.floor(sk.cd * (1 - cdr)));sk.us
   spawnAbilityFloat(`${sk.icon} ${sk.name}!`,'#f0c040');
   Object.keys(state.skillCooldowns).forEach(k=>{if(k!==skillId&&state.skillCooldowns[k]>0)state.skillCooldowns[k]--;});
   if(currentEnemy&&currentEnemy.hp<=0){currentEnemy.hp=0;updateEnemyBar();clearInterval(autoFightTimer);autoFightTimer=null;endCombat(true);return;}
-  if(currentEnemy&&currentEnemy.hp>0){
-    const pDodge=Math.max(0,state.dodge-(currentEnemy.hit||0))/100;
-    let eDmg=Math.max(1,currentEnemy.atk+Math.floor(Math.random()*6)-Math.floor(state.armor/10));
-    if(state.manaShield){state.manaShield=false;addCombatLog('🔮 Mana Shield absorbed!','info');eDmg=0;}
-    if(Math.random()<pDodge){addCombatLog('💨 You dodged!','good');eDmg=0;}
-    state.hp-=eDmg;
-    if(eDmg>0){addCombatLog(`${currentEnemy.name} retaliates: ${eDmg}!`,'bad');animateAttack(false,eDmg,false);}
-    if(state.hp<=0){state.hp=0;updateUI();endCombat(false);return;}
+  if(currentEnemy && currentEnemy.hp > 0){
+    handleEnemyTurn();
+    if(state.hp <= 0){state.hp=0;updateUI();endCombat(false);return;}
   }
   updateEnemyBar();updateUI();renderSkillBar();
 }
@@ -514,14 +512,9 @@ async function endCombat(won){
   state.combatBuffAtkp=0;
   state.combatBuffHit=0;
   state.combatBuffArmor=0;
+  
 
-  if(state.class){
-    const c=CLASSES[state.class];
-    Object.entries(c.bonuses).forEach(([k,v])=>{if(k in state)state[k]=1.0+v;});
-  }
-  Object.keys(state.talentBonuses).forEach(k=>{
-    if(k in state&&k.includes('Mult'))state[k]+=state.talentBonuses[k];
-  });
+  
   calcStats();
 
   const wasBoss=currentEnemy.boss;
@@ -718,20 +711,7 @@ if (state.soulBarrierAbsorb > 0) {
     if(currentEnemy.abilityTurn>=currentEnemy.ability.triggerEvery){currentEnemy.abilityTurn=0;currentEnemy.ability.effect(currentEnemy);}
   }
   // Enemy attacks
-  if(currentEnemy.frozen){currentEnemy.frozen=false;addCombatLog(`${currentEnemy.name} is frozen!`,'info');}
-  else {
-    const dodge=state.webTrapped>0?0:state.dodge;
-    if(state.webTrapped>0)state.webTrapped--;
-    if(currentEnemy.phaseShifted){currentEnemy.phaseShifted=false;addCombatLog(`🌑 ${currentEnemy.name} phases back!`,'info');}
-    else {
-      const pDodge=Math.max(0,dodge-(currentEnemy.hit||0))/100;
-      let eDmg=calculateEnemyAttackDamage(currentEnemy.atk, state.armor);
-      if(state.defending)eDmg=Math.floor(eDmg/2);
-      if(Math.random()<pDodge){addCombatLog('💨 You dodged!','good');eDmg=0;}
-      state.hp-=eDmg;
-      if(eDmg>0){addCombatLog(`${currentEnemy.name} hits you for ${eDmg}!`,'bad');animateAttack(false,eDmg,false);}
-    }
-  }
+  handleEnemyTurn();
   if(currentEnemy.rageTimer>0){currentEnemy.rageTimer--;if(currentEnemy.rageTimer===0){currentEnemy.atk=Math.floor(currentEnemy.atk/2);addCombatLog(`👊 ${currentEnemy.name} calms down!`,'info');}}
   if(currentEnemy.poisoned>0){const pd=currentEnemy.poisonDmg||Math.floor(state.agi*0.8+state.attackPower*0.3);currentEnemy.hp-=pd;currentEnemy.poisoned--;addCombatLog(`🐍 Poison deals ${pd}!`,'good');spawnDmgFloat(`🐍${pd}`,true,'enemy-dmg');}
   if(state.hp<=0){

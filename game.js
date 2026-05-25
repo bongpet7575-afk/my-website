@@ -232,9 +232,9 @@ function buildSkillUse(skillId, m) {
     case 'battle_cry': return (e) => {
       if (state.battleCryActive) { addCombatLog(`📯 Battle Cry already active!`, 'info'); return 0; }
       state.battleCryActive = true;
-      state.strMult *= (1 + (m.strMult || 0.8));
-      state.attackPowerMult *= (1 + (m.atkMult || 0.6));
-      state.hitMult *= 1.3;
+      state.combatBuffStr = (m.strMult || 0.8);
+      state.combatBuffAtkp = (m.atkMult || 0.6);
+      state.combatBuffHit = 0.3;
       addCombatLog(`📯 Battle Cry! +${Math.round((m.strMult||0.8)*100)}% STR, +${Math.round((m.atkMult||0.6)*100)}% ATK!`, 'good');
       playSound('snd-magic'); calcStats(); return 0;
     };
@@ -444,8 +444,8 @@ function buildSkillUse(skillId, m) {
         addCombatLog(`🩸 Blood Rage already active!`, 'info'); return 0;
       }
       state.battleCryActive = true;
-      state.strMult *= (1 + (m.strMult || 0.8));
-      state.attackPowerMult *= (1 + (m.atkMult || 0.6));
+      state.combatBuffStr = (m.strMult || 0.8);
+      state.combatBuffAtkp = (m.atkMult || 0.6);
       addCombatLog(`🩸 BLOOD RAGE! +${Math.round((m.strMult||0.8)*100)}% STR, +${Math.round((m.atkMult||0.6)*100)}% ATK!`, 'legendary');
       playSound('snd-magic'); calcStats(); return 0;
     };
@@ -1635,6 +1635,7 @@ berserker:{
 const SKILLS={
   power_strike:{name:'Power Strike',icon:'💥',mp:()=>Math.floor(state.maxMp*0.10),cd:4,use:(e)=>{
     const d=Math.floor(state.attackPower*2.2);e.hp-=d;addCombatLog(`💥 Power Strike! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
+
   battle_cry:{name:'Battle Cry',icon:'📯',mp:()=>Math.floor(state.maxMp*0.15),cd:10,use:(e)=>{
   if(state.battleCryActive){addCombatLog(`📯 Battle Cry already active!`,'info');return 0;}
   state.battleCryActive=true;
@@ -1643,16 +1644,24 @@ const SKILLS={
   state.combatBuffHit=(state.combatBuffHit||0)+0.5;      // +50% HIT
   addCombatLog(`📯 Battle Cry! +150% STR, +140% ATK POWER!`,'good');
   playSound('snd-magic');calcStats();return 0;}},
+
   last_stand:{name:'Last Stand',icon:'🛡️',mp:()=>Math.floor(state.maxMp*0.20),cd:6,use:(e)=>{
     const h=Math.floor(state.maxHp*0.15);state.hp=Math.min(state.maxHp,state.hp+h);
     addCombatLog(`🛡️ Last Stand! +${h} HP!`,'good');playSound('snd-heal');spawnDmgFloat(`+${h}HP`,false,'heal-float');calcStats();return 0;}},
+
   fireball:{name:'Fireball',icon:'🔥',mp:()=>Math.floor(state.maxMp*0.12),cd:4,use:(e)=>{
     const d=Math.floor(state.int*6+Math.random()*state.int*2);e.hp-=d;addCombatLog(`🔥 Fireball! ${d} dmg!`,'good');playSound('snd-magic');animateAttack(true,d,false);return d;}},
+
   ice_lance:{name:'Ice Lance',icon:'❄️',mp:()=>Math.floor(state.maxMp*0.10),cd:6,use:(e)=>{
     const d=Math.floor(state.int*4.5);e.hp-=d;e.frozen=true;
     addCombatLog(`❄️ Ice Lance! ${d} dmg — Frozen!`,'info');playSound('snd-magic');animateAttack(true,d,false);return d;}},
+
   mana_shield:{name:'Mana Shield',icon:'🔮',mp:()=>Math.floor(state.maxMp*0.25),cd:10,use:(e)=>{
-    state.manaShield=true;addCombatLog(`🔮 Mana Shield active!`,'info');playSound('snd-heal');return 0;}},
+    state.manaShield=true;state.manaShieldAbsorb = Math.floor(state.maxMp * 1.5); // absorb pool based on MP
+  addCombatLog(`🔮 Mana Shield active! Absorbs ${state.manaShieldAbsorb}!`, 'info');console.log(state.manaShieldAbsorb)
+  playSound('snd-heal');
+  return 0;}},
+    
   backstab:{name:'Backstab',icon:'🗡️',mp:()=>Math.floor(state.maxMp*0.08),cd:4,use:(e)=>{
     const d=Math.floor(state.attackPower*1.5+state.agi*3);e.hp-=d;addCombatLog(`🗡️ Backstab! ${d} dmg!`,'good');playSound('snd-attack');animateAttack(true,d,false);return d;}},
   poison_blade:{name:'Poison Blade',icon:'🐍',mp:()=>Math.floor(state.maxMp*0.12),cd:5,use:(e)=>{
@@ -2406,6 +2415,7 @@ if (state.soulWeapon) {
   });
   addLog(`💔 Soul Weapon "${state.soulWeapon.name}" destroyed on respec!`, 'bad');
   state.soulWeapon = null;
+  state.craftedSoulTiers = {};
 }
 
   addGold(-cost); // ✅ sanitized
@@ -2447,6 +2457,8 @@ state.talentPoints += refunded;
   state.unlockedTalents = [];
   state.talentUnlockedFlags = {};
   state.class = null;
+  autoSkillSlots = [null,null,null,null,null,null];
+  autoSkillIndex = 0;
   // Reset portrait to placeholder
 const portraitEl = document.getElementById('char-portrait-img');
 if (portraitEl) portraitEl.src = 'images/classes/warrior.jpeg';
@@ -2457,7 +2469,7 @@ document.getElementById('char-class').textContent = 'No Class';
   state.strMult=1.0;state.agiMult=1.0;state.intMult=1.0;state.staMult=1.0;
   state.armorMult=1.0;state.critMult=1.0;state.dodgeMult=1.0;
   state.hpRegenMult=1.0;state.mpRegenMult=1.0;state.hitMult=1.0;
-  state.mpMult=1.0;state.attackPowerMult=1.;
+  state.mpMult=1.0;state.attackPowerMult=1.0;
   calcStats();
   addLog(`🔄 Respec complete! ${refunded} talent points refunded. Cost: ${formatNumber(cost)}g`,'gold');
   notify(`🔄 Class reset! Choose a new class.`,'var(--gold)');
@@ -2468,6 +2480,7 @@ document.getElementById('char-class').textContent = 'No Class';
   renderSkillBar();
   renderQuests();
   updateUI();
+  savePlayerToSupabase();
 }
 
 // ── AUTH: LOGOUT ──
@@ -2552,44 +2565,34 @@ function renderEnemyStatPanel(enemy) {
     <div class="enemy-stat-panel">
       <div class="enemy-stat-header">
         <span class="enemy-name">${enemy.name}</span>
-        <span class="enemy-level">Lv. ${enemy.level}</span>
       </div>
-
-      <!-- HP Bar -->
       <div class="stat-row hp-row">
         <span class="stat-label">❤️ HP</span>
         <div class="hp-bar-wrapper">
           <div class="hp-bar" style="width: ${(enemy.hp / enemy.maxHp) * 100}%"></div>
         </div>
-        <span class="stat-value">${enemy.hp.toLocaleString()} / ${enemy.maxHp.toLocaleString()}</span>
+        <span class="stat-value">${formatNumber(enemy.hp)} / ${formatNumber(enemy.maxHp)}</span>
       </div>
-
-      <!-- Combat Stats Grid -->
       <div class="enemy-stats-grid">
         <div class="stat-item">
           <span class="stat-icon">⚔️</span>
           <span class="stat-name">ATK</span>
-          <span class="stat-val">${enemy.attack}</span>
+          <span class="stat-val">${formatNumber(enemy.atk||0)}</span>
         </div>
         <div class="stat-item">
           <span class="stat-icon">🛡️</span>
           <span class="stat-name">ARM</span>
-          <span class="stat-val">${enemy.armor}</span>
+          <span class="stat-val">${formatNumber(enemy.armor||0)}</span>
         </div>
         <div class="stat-item">
           <span class="stat-icon">💨</span>
           <span class="stat-name">DODGE</span>
-          <span class="stat-val">${enemy.dodge}%</span>
+          <span class="stat-val">${enemy.dodge||0}</span>
         </div>
         <div class="stat-item">
           <span class="stat-icon">🎯</span>
           <span class="stat-name">HIT</span>
-          <span class="stat-val">${enemy.hit}%</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-icon">💥</span>
-          <span class="stat-name">CRIT</span>
-          <span class="stat-val">${enemy.crit}%</span>
+          <span class="stat-val">${enemy.hit||0}</span>
         </div>
       </div>
     </div>
@@ -3608,14 +3611,17 @@ function selectClass(classId){
   const c=CLASSES[classId];state.class=classId;state.quests.class.done=true;
   Object.entries(c.bonuses).forEach(([k,v])=>{state.classBonuses[k]=v;state[k]=(state[k]||1)+v;});
   state.skills=c.skills;
+  autoSkillSlots=[null,null,null,null,null,null];
+  autoSkillIndex=0;
   updateClassDisplay();
   updatePlayerAvatar();
   document.getElementById('class-screen').style.display='none';
   document.getElementById('talent-btn').style.display='inline-block';
   Object.entries(c.trees).forEach(([treeId,tree])=>{tree.talents.forEach(talent=>{state.talentUnlockedFlags[`${classId}_${talent.id}`]=false;});});
   addLog(`🎉 You are now a ${c.name}!`,'purple');playSound('snd-levelup');
-  updatePlayerAvatar(); // 👈 add this
   updateUI();renderSkillBar();renderQuests();
+  rebuildSkills();
+  savePlayerToSupabase();
 }
 
 // ── TALENTS ──
