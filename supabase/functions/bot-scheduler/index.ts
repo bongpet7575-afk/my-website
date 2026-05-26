@@ -30,6 +30,92 @@ function rand(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+async function generateBlackWingItems() {
+  // Check if Black Wing items already exist this week
+  const weekStart = new Date()
+  weekStart.setHours(0, 0, 0, 0)
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay()) // Monday
+
+  const { data: existing } = await supabase
+    .from('auctions')
+    .select('id')
+    .eq('source', 'blackwing')
+    .eq('status', 'active')
+    .gte('created_at', weekStart.toISOString())
+
+  if (existing && existing.length >= 5) {
+    console.log('Black Wing items already generated this week')
+    return
+  }
+
+  // Clear old expired Black Wing items first
+  await supabase
+    .from('auctions')
+    .update({ status: 'expired' })
+    .eq('source', 'blackwing')
+    .lt('ends_at', new Date().toISOString())
+
+  const slots = ['weapon', 'armor', 'helmet', 'boots', 'ring', 'amulet']
+  const endsAt = new Date()
+  endsAt.setDate(endsAt.getDate() + 7) // 7 days
+
+  // 3 epic + 2 legendary
+  const itemConfig = [
+    { rarity: 'epic',      stageRange: [6, 8] },
+    { rarity: 'epic',      stageRange: [6, 8] },
+    { rarity: 'epic',      stageRange: [7, 9] },
+    { rarity: 'legendary', stageRange: [8, 10] },
+    { rarity: 'legendary', stageRange: [9, 10] },
+  ]
+
+  for (const config of itemConfig) {
+    const slot = slots[rand(0, slots.length - 1)]
+    const stageId = rand(config.stageRange[0], config.stageRange[1])
+    const stats = genBotItemStats(slot, stageId, config.rarity)
+    const itemName = genBotItemName(slot, config.rarity)
+
+    const mult: Record<string, number> = { epic: 4, legendary: 7 }
+    const base = Math.pow(stageId, 2.2) * 8
+    const sellPrice = Math.round(base * (mult[config.rarity] || 1) * 500)
+    const startPrice = Math.floor(sellPrice * 2)
+
+    const item = {
+      uid: `blackwing_${Date.now()}_${Math.random()}`,
+      name: itemName,
+      category: 'equipment',
+      slot,
+      rarity: config.rarity,
+      stats,
+      equipped: false,
+      levelReq: (stageId - 1) * 10,
+      sellPrice,
+    }
+
+    const { error } = await supabase.from('auctions').insert({
+      seller_id: null,
+      user_id: BOT_USER_ID,
+      item_name: itemName,
+      item_description: JSON.stringify(item),
+      rarity: config.rarity,
+      start_price: startPrice,
+      buyout_price: null, // bidding only 👊
+      current_bid: 0,
+      current_bidder_id: null,
+      ends_at: endsAt.toISOString(),
+      status: 'active',
+      source: 'blackwing',
+      seller_collected: true,
+      winner_collected: false,
+    })
+
+    if (error) {
+      console.log(`Black Wing item generation failed: ${error.message}`)
+    } else {
+      console.log(`🖤 Black Wing: listed ${itemName} [${config.rarity}] starting at ${startPrice}g`)
+    }
+  }
+}
+
 function genBotItemName(slot: string, rarity: string): string {
   const prefixes: Record<string, string[]> = {
     legendary: ['Divine','Mythic','Godforged','Ancient','Eternal'],
@@ -103,22 +189,60 @@ function genBotItemStats(slot: string, stageId: number, rarity: string): Record<
 
 // ── ACTION 1: BOT DUNGEON RUN ──
 async function botDungeonRun(bot: any) {
-  // Pick highest stage bot can do based on level
-  const availableStages = STAGE_CONFIG.filter(s => bot.level >= s.levelReq);
-  if (!availableStages.length) return;
-  const stage = availableStages[availableStages.length - 1];
+  // Load stage config from game_config
+  const { data: configs } = await supabase
+    .from('game_config')
+    .select('key, value')
+    .in('key', ['monster_xp_mult', 'monster_gold_mult', 'boss_gold_ranges'])
 
-  const xpGained = stage.xp + rand(0, Math.floor(stage.xp * 0.3));
-  const goldGained = rand(stage.gold[0], stage.gold[1]);
-  const newExp = (bot.exp || 0) + xpGained;
-  const newGold = (bot.gold || 0) + goldGained;
+  const configMap: any = {}
+  configs?.forEach(c => { configMap[c.key] = c.value })
 
-  // Simple level up check
-  let newLevel = bot.level;
-  let remainingExp = newExp;
+  const bossGoldRanges = configMap['boss_gold_ranges'] || {}
+  const xpMults = configMap['monster_xp_mult'] || {}
+  const goldMults = configMap['monster_gold_mult'] || {}
+
+  // Pick highest stage bot can do
+  const STAGE_LEVEL_REQ: Record<number, number> = {
+    1:1, 2:10, 3:20, 4:30, 5:40, 6:50, 7:60, 8:70, 9:80, 10:90
+  }
+
+  const availableStages = Object.entries(STAGE_LEVEL_REQ)
+    .filter(([_, req]) => bot.level >= req)
+    .map(([id]) => Number(id))
+
+  if (!availableStages.length) return
+
+  const stageId = availableStages[availableStages.length - 1]
+  const bossKey = `stage_boss_${stageId}`
+  const stageKey = `stage_${stageId}`
+
+  // Use same gold ranges as real players
+  const bossGoldRange = bossGoldRanges[bossKey] || [50, 150]
+  const goldMult = goldMults[stageKey] || 1
+  const xpMult = xpMults[stageKey] || 1
+
+  // Boss XP values matching STAGE_BOSSES
+  const BOSS_XP: Record<number, number> = {
+    1:4000, 2:8000, 3:16000, 4:21000, 5:42000,
+    6:80000, 7:160000, 8:300000, 9:600000, 10:1000000
+  }
+
+  const baseXp = BOSS_XP[stageId] || 100
+  const xpGained = Math.floor(baseXp * xpMult)
+  const goldGained = Math.floor(
+    (Math.random() * (bossGoldRange[1] - bossGoldRange[0]) + bossGoldRange[0]) * goldMult
+  )
+
+  const newExp = (bot.exp || 0) + xpGained
+  const newGold = (bot.gold || 0) + goldGained
+
+  // Level up check
+  let newLevel = bot.level
+  let remainingExp = newExp
   while (remainingExp >= newLevel * 100 * 20 && newLevel < 100) {
-    remainingExp -= newLevel * 100 * 20;
-    newLevel++;
+    remainingExp -= newLevel * 100 * 20
+    newLevel++
   }
 
   await supabase.from('characters').update({
@@ -126,9 +250,8 @@ async function botDungeonRun(bot: any) {
     gold: newGold,
     level: newLevel,
     updated_at: new Date().toISOString(),
-  }).eq('id', bot.id);
+  }).eq('id', bot.id)
 
-  // Update leaderboard
   await supabase.from('leaderboard').upsert({
     player_id: bot.id,
     user_id: BOT_USER_ID,
@@ -136,9 +259,9 @@ async function botDungeonRun(bot: any) {
     gold: newGold,
     class: bot.class,
     updated_at: new Date().toISOString(),
-  }, { onConflict: 'player_id' });
+  }, { onConflict: 'player_id' })
 
-  console.log(`🤖 ${bot.name} completed stage ${stage.id} — +${xpGained}xp +${goldGained}g`);
+  console.log(`🤖 ${bot.name} completed stage ${stageId} — +${xpGained}xp +${goldGained}g`)
 }
 // ── ACTION 2: BOT PLACE BID ──
 async function botPlaceBid(bot: any) {
@@ -233,39 +356,56 @@ async function botPlaceBid(bot: any) {
 }
 // ── ACTION 3: BOT LIST ITEM ──
 async function botListItem(bot: any) {
-  // 40% chance to list an item this run
-  if (Math.random() > 0.4) return;
+  // 40% chance to list this run
+  if (Math.random() > 0.4) return
 
-  // Generate a random item to list
-  const slot = SLOTS[rand(0, SLOTS.length - 1)];
-  const rarity = RARITIES[rand(0, RARITIES.length - 1)];
-  const rarityStage: Record<string, [number,number]> = {
-    rare: [3,5], epic: [5,8], legendary: [8,10],
-  };
-  const [minStage, maxStage] = rarityStage[rarity];
-  const stageId = rand(minStage, maxStage);
+  // Check existing active listings
+  const { data: existingListings } = await supabase
+    .from('auctions')
+    .select('id')
+    .eq('seller_id', bot.id)
+    .eq('status', 'active')
 
-  const stats = genBotItemStats(slot, stageId, rarity);
-  const itemName = genBotItemName(slot, rarity);
-  const mult: Record<string, number> = { rare:2.5, epic:4, legendary:7 };
-  const base = Math.pow(stageId, 2.2) * 8;
-  const sellPrice = Math.round(base * (mult[rarity] || 1) * 500);
-  const startPrice = Math.floor(sellPrice * (1.5 + Math.random()));
-  const buyoutPrice = Math.floor(startPrice * (2 + Math.random()));
+  // Max 3 active listings per bot
+  if (existingListings && existingListings.length >= 3) {
+    console.log(`🤖 ${bot.name} already has ${existingListings.length} active listings`)
+    return
+  }
+
+  const slot = SLOTS[rand(0, SLOTS.length - 1)]
+  const RARITIES = ['rare','rare','rare','rare','epic']
+  const rarity = RARITIES[rand(0, RARITIES.length - 1)]
+  // Mostly rare, occasional epic but never legendary
+  
+  const rarityStage: Record<string, [number, number]> = {
+    rare: [3, 5], epic: [5, 8], legendary: [8, 10],
+  }
+  const [minStage, maxStage] = rarityStage[rarity]
+  const stageId = rand(minStage, maxStage)
+
+  const stats = genBotItemStats(slot, stageId, rarity)
+  const itemName = genBotItemName(slot, rarity)
+  const mult: Record<string, number> = { rare: 2.5, epic: 4, legendary: 7 }
+  const base = Math.pow(stageId, 2.2) * 8
+  const sellPrice = Math.round(base * (mult[rarity] || 1) * 500)
+  const startPrice = Math.floor(sellPrice * (1.5 + Math.random()))
+  const buyoutPrice = Math.floor(startPrice * (2 + Math.random()))
 
   const item = {
     uid: `bot_${Date.now()}_${Math.random()}`,
     name: itemName,
     category: 'equipment',
-    slot, rarity, stats, equipped: false,
+    slot, rarity, stats,
+    equipped: false,
     levelReq: (stageId - 1) * 10,
     sellPrice,
-  };
+  }
 
-  const endsAt = new Date();
-  endsAt.setHours(endsAt.getHours() + 24);
+  // 48 hours expiry
+  const endsAt = new Date()
+  endsAt.setHours(endsAt.getHours() + 48)
 
-  await supabase.from('auctions').insert({
+  const { error } = await supabase.from('auctions').insert({
     seller_id: bot.id,
     user_id: BOT_USER_ID,
     item_name: itemName,
@@ -280,23 +420,29 @@ async function botListItem(bot: any) {
     source: 'player',
     seller_collected: false,
     winner_collected: false,
-  });
+  })
 
-  console.log(`🤖 ${bot.name} listed ${itemName} starting at ${startPrice}g`);
+  if (error) {
+    console.log(`🤖 ${bot.name} failed to list item: ${error.message}`)
+    return
+  }
+
+  console.log(`🤖 ${bot.name} listed ${itemName} starting at ${startPrice}g (48h)`)
 }
 
 // ── ACTION 4: BOT ARENA REGISTRATION ──
 async function botArenaRegister(bot: any) {
-  // Check for open tournaments bot qualifies for
   const { data: tournaments, error } = await supabase
     .from('arena_tournaments')
     .select('*')
     .eq('status', 'open')
     .lte('min_level', bot.level)
-   // .gt('starts_at', new Date().toISOString());
-    console.log(`🤖 ${bot.name} found ${tournaments?.length ?? 0} tournaments`, error);
+    .gt('starts_at', new Date().toISOString()) // ✅ uncommented
 
-  if (!tournaments || !tournaments.length) return;
+  console.log(`🤖 ${bot.name} found ${tournaments?.length ?? 0} tournaments`, error)
+
+  if (!tournaments || !tournaments.length) return
+  // rest of function unchanged
 
   for (const tournament of tournaments) {
     // Check if already registered
@@ -377,7 +523,25 @@ async function botCollectWonItems(bot: any) {
 }
 
 // ── MAIN HANDLER ──
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  const authHeader = req.headers.get('Authorization')
+  const expectedKey = Deno.env.get('BOT_SCHEDULER_SECRET')
+  
+  if (!authHeader || authHeader !== `Bearer ${expectedKey}`) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401, headers: corsHeaders
+    })
+  }
+
   try {
     // Fetch all bot characters
     const { data: bots, error } = await supabase
@@ -404,7 +568,7 @@ Deno.serve(async (req) => {
         console.error(`Bot ${bot.name} error:`, botError);
       }
     }
-
+    await generateBlackWingItems() // ✅ ADD THIS
     return new Response(JSON.stringify({ 
       success: true, 
       botsRun: bots.length,

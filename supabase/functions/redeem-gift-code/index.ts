@@ -158,10 +158,10 @@ Deno.serve(async (req) => {
       const currentInventory = (character.inventory || []).map((item: any) =>
   typeof item === 'string' ? JSON.parse(item) : item
 )
-      updatePayload.inventory = [...currentInventory, ...starterItems]
       updatePayload.starter_pack_redeemed = true
       updatePayload.supporter_title = '🎖️ Supporter'
       updatePayload.chat_color = '#22c55e'
+      updatePayload.is_supporter = true  // ✅ ADD THIS
     }
 
     const { error: rewardError } = await supabase

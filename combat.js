@@ -15,25 +15,41 @@ let SKILL_GCD_MS = parseInt(localStorage.getItem('setting-gcd') || 800);
 let selectedSkillForSlot = null;
 
 // ── START COMBAT ──
-function startCombat(enemyId,isBoss){
-  const tmpl=MONSTER_TEMPLATES[enemyId];if(!tmpl)return;
-  const diff=DIFFICULTY[state.difficulty||'normal'];
-  const scale=(1+Math.max(0,(state.level-1))*0.3)*diff.hpMult;
-  const atkScale=(1+Math.max(0,(state.level-1))*0.3)*diff.atkMult;
-  const armorScale=(1+Math.max(0,(state.level-1))*0.3)*diff.armorMult;
-  const hitScale=(1+Math.max(0,(state.level-1))*0.3)*diff.hitMult;
-  const dodgeScale=(1+Math.max(0,(state.level-1))*0.3)*diff.dodgeMult;
-  const prefix=state.difficulty==='hell'?'💀 Hell ':state.difficulty==='hard'?'🔥 Hard ':'';
+async function startCombat(stageId) {
+  // Must request server stats before combat starts
+  const session = await requestCombatSession(stageId)
+  if (!session) {
+    notify('Failed to start combat. Please try again.', 'var(--red)')
+    return
+  }
   
-  currentEnemy={...tmpl,name:prefix+tmpl.name,hp:Math.floor(tmpl.hp*scale),maxHp:Math.floor(tmpl.hp*scale),atk:Math.floor(tmpl.atk*atkScale),armor:tmpl.armor,hit:Math.floor((tmpl.hit||0)*5),dodge:Math.floor((tmpl.dodge||0)*5),poisoned:0,frozen:false,crippled:0,boss:false,_xpMult:diff.xpMult,_goldMult:diff.goldMult};
-  currentEnemy=applyTutorialScaling(currentEnemy);
-  startCombatWith(currentEnemy);
-  if(isTutorialActive()){addCombatLog('📚 TUTORIAL MODE: Enemies are weaker!','info');showTutorialHint('firstCombat');}
-  const combatArea = document.getElementById('combat-area');
-    if(combatArea && typeof renderEnemyStatPanel === 'function'){
-    combatArea.insertAdjacentHTML('afterbegin', renderEnemyStatPanel(currentEnemy));
+  // Apply server authoritative stats
+  applyServerStats(session)
+  
+  // Now start combat
+  beginCombat(stageId)
 }
-window.currentEnemy = currentEnemy;
+
+async function requestCombatSession(stageId) {
+  try {
+    const { data: { session } } = await dbClient.auth.getSession()
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/smooth-processor`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        character_id: state.character_id,
+        stage_id: stageId
+      })
+    })
+    const data = await res.json()
+    if (!data.success) return null
+    return data // includes session_id and session stats
+  } catch {
+    return null
+  }
 }
 
 // ── START COMBAT WITH (enemy object) ──
@@ -118,6 +134,197 @@ function combatAction(action) {
   updateEnemyBar();
   updateUI();
 }
+
+// ── DUNGEON FLOW ──
+async function enterDungeon(stageId) {
+  const stage = STAGES.find(s => s.id === stageId)
+  if (!stage) return
+  if (state.level < stage.levelReq) {
+    notify(`⚠️ Need Level ${stage.levelReq} to enter ${stage.name}!`, 'var(--red)')
+    return
+  }
+
+  // Request combat session from server
+  const combatData = await requestCombatSession(stageId)
+  if (!combatData) {
+    notify('⚠️ Failed to start dungeon. Check connection.', 'var(--red)')
+    return
+  }
+
+  // Store session_id for combat-end validation later
+  state.currentCombatSessionId = combatData.session_id
+
+  // Apply server authoritative stats
+  applyServerStats(combatData.session)
+
+  currentStage = stage
+  dungeonWave = 0
+  dungeonQueue = []
+  addLog(`⚔️ Entering ${stage.name}!`, 'gold')
+  notify(`⚔️ ${stage.name} — Prepare!`, 'var(--gold)')
+  document.getElementById('choices-box').style.display = 'none'
+  document.getElementById('story-content').innerHTML = `
+    <div class="scene-title">${stage.name}</div>
+    <p style="color:#aaa;">Three waves of monsters await... then the boss!</p>
+    <p style="color:var(--gold);margin-top:8px;">⚔️ Wave 1 incoming!</p>`
+  startNextWave()
+}
+function applyServerStats(session) {
+  if (!session) return
+
+  // Base stats from server
+  state.baseStr = session.baseStr
+  state.baseAgi = session.baseAgi
+  state.baseInt = session.baseInt
+  state.baseSta = session.baseSta
+  state.baseArmor = session.baseArmor
+  state.baseHit = session.baseHit
+  state.baseCrit = session.baseCrit
+  state.baseDodge = session.baseDodge
+  state.baseHpRegen = session.baseHpRegen
+  state.baseLifeSteal = session.baseLifeSteal
+  state.baseAttackPower = session.baseAttackPower
+
+  // Equipment bonuses from server
+  state.equipStr = session.equipStr
+  state.equipAgi = session.equipAgi
+  state.equipInt = session.equipInt
+  state.equipSta = session.equipSta
+  state.equipArmor = session.equipArmor
+  state.equipMaxHp = session.equipMaxHp
+  state.equipMaxMp = session.equipMaxMp
+  state.equipCrit = session.equipCrit
+  state.equipDodge = session.equipDodge
+  state.equipHit = session.equipHit
+  state.equipHpRegen = session.equipHpRegen
+  state.equipAttackPower = session.equipAttackPower
+  state.equipLifeSteal = session.equipLifeSteal
+  state.equipStrMult = session.equipStrMult
+  state.equipAgiMult = session.equipAgiMult
+  state.equipIntMult = session.equipIntMult
+  state.equipStaMult = session.equipStaMult
+  state.equipArmorMult = session.equipArmorMult
+  state.equipMaxHpMult = session.equipMaxHpMult
+  state.equipDodgeMult = session.equipDodgeMult
+  state.equipHitMult = session.equipHitMult
+
+  // Class bonuses from server config
+  state.classBonuses = session.classBonuses || {}
+
+  // Recalculate with server verified values
+  calcStats()
+}
+function showWaveAnnouncement(text,color){
+  const div=document.createElement('div');
+  div.style.cssText=`position:fixed;top:45%;left:50%;transform:translate(-50%,-50%);font-family:'Cinzel',serif;font-size:2em;font-weight:700;color:${color};text-shadow:0 0 30px ${color};pointer-events:none;z-index:9999;animation:levelUpFlash 2s ease forwards;white-space:nowrap;`;
+  div.textContent=text;document.body.appendChild(div);setTimeout(()=>div.remove(),2000);
+}
+function spawnNextDungeonMonster(){
+  if(!currentStage||dungeonQueue.length===0)return;
+  const nextId=dungeonQueue.shift();
+  if(nextId==='BOSS'){triggerStageBoss(currentStage.bossId);return;}
+  const monster=scaleMonster(nextId,currentStage.id);if(!monster)return;
+  currentEnemy=monster;startCombatWith(currentEnemy);
+  clearInterval(autoFightTimer);
+  autoFightTimer=setInterval(()=>{if(!currentEnemy){clearInterval(autoFightTimer);return;}autoFightStep();},1000);
+}
+async function startNextWave(){
+  if(!currentStage)return;
+  dungeonWave++;
+  if(dungeonWave===1){
+    dungeonQueue=[currentStage.monsters[0]];showWaveAnnouncement('⚔️ WAVE 1','#f0c040');
+  } else if(dungeonWave===2){
+    const c=Math.floor(Math.random()*5)+3;
+    dungeonQueue=Array.from({length:c},()=>currentStage.monsters[Math.floor(Math.random()*currentStage.monsters.length)]);
+    showWaveAnnouncement(`⚔️ WAVE 2 — ${c} enemies!`,'#ff8800');
+  } else if(dungeonWave===3){
+    const c=Math.floor(Math.random()*5)+3;
+    dungeonQueue=Array.from({length:c},()=>currentStage.monsters[Math.floor(Math.random()*currentStage.monsters.length)]);
+    showWaveAnnouncement(`⚔️ WAVE 3 — ${c} enemies!`,'#ff4444');
+  } else if(dungeonWave===4){
+    dungeonQueue=['BOSS'];showWaveAnnouncement('💀 BOSS INCOMING!','#ff0000');
+  } else {
+    await dungeonComplete();
+  }
+  dungeonMonstersLeft=dungeonQueue.length;
+  setTimeout(()=>spawnNextDungeonMonster(),2500);
+}
+// BUG FIX #4: playSound was after 'return' so boss music never played
+function triggerStageBoss(bossId) {
+  const boss = STAGE_BOSSES[bossId];
+  if (!boss) return;
+  pendingBossId = bossId;
+  document.getElementById('boss-icon').textContent       = boss.icon;
+  document.getElementById('boss-cs-name').textContent    = boss.cs.title;
+  document.getElementById('boss-cs-req').textContent     = boss.cs.req;
+  document.getElementById('boss-cs-text').textContent    = boss.cs.text;
+  document.getElementById('boss-cutscene').style.display = 'block';
+  playSound('snd-boss'); // BUG FIX: was after return, now plays correctly
+  startStageBossFight();
+}
+function startBossFight(){
+  if(currentStage){startStageBossFight();return;}
+  document.getElementById('boss-cutscene').style.display='none';
+}
+function startStageBossFight(){
+  document.getElementById('boss-cutscene').style.display='none';
+  if(!pendingBossId)return;
+  const boss=STAGE_BOSSES[pendingBossId];if(!boss)return;
+  const diff=DIFFICULTY[state.difficulty||'normal'];
+  const stageLevel=currentStage?currentStage.id:1;
+  const stageScale=1+(stageLevel-1)*0.4;
+  const prefix=state.difficulty==='hell'?'💀 Hell ':state.difficulty==='hard'?'🔥 Hard ':'';
+  currentEnemy={...boss,name:prefix+boss.name,hp:Math.floor(boss.hp*stageScale*diff.hpMult),maxHp:Math.floor(boss.hp*stageScale*diff.hpMult),atk:Math.floor(boss.atk*stageScale*diff.atkMult),armor:Math.floor(boss.armor*stageScale),hit:Math.floor(boss.hit*stageScale),dodge:Math.floor(boss.dodge*stageScale),xp:Math.floor(boss.xp*diff.xpMult),gold:[Math.floor(boss.gold[0]*diff.goldMult),Math.floor(boss.gold[1]*diff.goldMult)],poisoned:0,frozen:false,boss:true,abilityTurn:0,_xpMult:1,_goldMult:1};
+  startCombatWith(currentEnemy);
+  clearInterval(autoFightTimer);
+  autoFightTimer=setInterval(()=>{if(!currentEnemy){clearInterval(autoFightTimer);return;}autoFightStep();},1000);
+}
+// BUG FIX #10: was 15ms (effectively instant) — player never saw rewards.
+// Now waits 3 seconds so the treasure box notification is visible.
+async function dungeonComplete() {
+  // Send to combat-end for validation
+  if (state.currentCombatSessionId) {
+    await fetch(`${SUPABASE_URL}/functions/v1/rapid-function`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${(await dbClient.auth.getSession()).data.session.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        session_id: state.currentCombatSessionId,
+        character_id: state.character_id,
+        gold_earned: state.sessionGoldEarned || 0,
+        xp_earned: state.sessionXpEarned || 0,
+        kills: state.sessionKills || 0,
+        boss_defeated: state.sessionBossDefeated || false,
+        stage_id: currentStage.id
+      })
+    })
+    // Reset session trackers
+    state.currentCombatSessionId = null
+    state.sessionGoldEarned = 0
+    state.sessionXpEarned = 0
+    state.sessionKills = 0
+    state.sessionBossDefeated = false
+  }
+  const stageId        = currentStage.id;
+  const completedStage = currentStage;
+  currentStage  = null;
+  dungeonWave   = 0;
+  dungeonQueue  = [];
+  addLog('🏆 Dungeon Complete! Next run starting in 3s...', 'legendary');
+  notify('🏆 Dungeon Complete!', 'var(--gold)');
+  dropTreasureBox(stageId);
+  updateUI();
+  renderInventory();
+  await savePlayerToSupabase();
+ 
+  // Auto loop — restart same dungeon after short pause
+  setTimeout(() => {
+    enterDungeon(completedStage.id);
+  }, 3000);
+}
+
 
 // ── PLAYER ATTACK ──
 function handlePlayerAttack() {
@@ -521,6 +728,8 @@ async function endCombat(won){
   const defeatedId=currentEnemy.id;
 
   if(won){
+     
+  if (wasBoss) state.sessionBossDefeated = true
     if(defeatedId&&!wasBoss)autoFightEnemyId=defeatedId;
 
     const baseGold=currentEnemy.gold&&Array.isArray(currentEnemy.gold)?currentEnemy.gold:[50,150];
@@ -538,6 +747,10 @@ async function endCombat(won){
 
     const g=Math.floor((Math.random()*(baseGold[1]-baseGold[0])+baseGold[0])*goldMult*spinGoldMult);
     const xp=Math.floor(currentEnemy.xp*xpMult);
+    // Track cumulative rewards for combat-end validation
+  state.sessionGoldEarned = (state.sessionGoldEarned || 0) + g
+  state.sessionXpEarned = (state.sessionXpEarned || 0) + xp
+  state.sessionKills = (state.sessionKills || 0) + 1
     addGold(g); // ✅ sanitized
     state.xp+=xp;
     addLog(`Defeated ${currentEnemy.name}! +${xp} XP, +${g} Gold`,'good');
@@ -718,6 +931,10 @@ if (state.soulBarrierAbsorb > 0) {
     state.hp=0;updateUI();clearInterval(autoFightTimer);autoFightTimer=null;
     currentStage=null;dungeonWave=0;dungeonQueue=[];
     addLog('💀 You died!','bad');notify('💀 You died!','var(--red)');endCombat(false);return;
+    // When player dies or flees
+if (state.currentCombatSessionId) {
+  state.currentCombatSessionId = null
+}
   }
   updateEnemyBar();updateUI();
 }
@@ -977,6 +1194,10 @@ function initSkillBarKeyHandler() {
       if (e.key === ' ') { e.preventDefault(); toggleAutoFight(); return; }
       // F → leave dungeon / flee
       if (k === 'f') { combatAction('flee'); return; }
+      // When player dies or flees
+if (state.currentCombatSessionId) {
+  state.currentCombatSessionId = null
+}
     }
   };
   document.addEventListener('keydown', window._skillBarKeyHandler);

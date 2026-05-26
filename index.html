@@ -1192,16 +1192,17 @@ padding:8px 16px;background:rgba(200,168,75,0.1);border:1px solid var(--border-b
         </div>
 
         <!-- AUCTION HOUSE -->
-        <div id="town-panel-auction" class="town-panel">
-          <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;">
-            <button id="market-tab-ah" class="shop-tab active" onclick="switchMarketTab('auction')">Active Auctions</button>
-            <button class="shop-tab" onclick="showMyAuctions(this)">My Listings</button>
-            <button class="start-btn" style="margin-left:auto;padding:6px 12px;" onclick="fetchAuctions()">↻ Refresh</button>
-          </div>
-          <div id="market-ah">
-            <div id="auction-list"><div style="text-align:center;color:var(--text-dim);padding:20px;">Loading...</div></div>
-          </div>
-        </div>
+<div id="town-panel-auction" class="town-panel">
+  <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap;">
+    <button id="market-tab-ah" class="shop-tab active" onclick="switchMarketTab('auction')">Active Auctions</button>
+    <button class="shop-tab" onclick="showMyAuctions(this)">My Listings</button>
+    <button class="shop-tab" onclick="switchMarketTab('blackwing')" id="market-tab-blackwing">🖤 Black Wing</button>
+    <button class="start-btn" style="margin-left:auto;padding:6px 12px;" onclick="fetchAuctions(currentAuctionSource)">↻ Refresh</button>
+  </div>
+  <div id="market-ah">
+    <div id="auction-list"><div style="text-align:center;color:var(--text-dim);padding:20px;">Loading...</div></div>
+  </div>
+</div>
 
         <!-- TOURNAMENT -->
         <div id="town-panel-tournament" class="town-panel">
@@ -1450,7 +1451,7 @@ async function switchTownPanel(panel, btn) {
 
   if (panel === 'shop')       renderShop();
   if (panel === 'craft')      renderCrafting();
-  if (panel === 'auction')    fetchAuctions();
+  if (panel === 'auction') fetchAuctions(currentAuctionSource || 'auction')
   if (panel === 'tournament') renderTournament();
   if (panel === 'quests') renderAdventurerBoard();
 }

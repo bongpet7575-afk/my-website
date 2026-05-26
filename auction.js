@@ -59,63 +59,65 @@ async function checkAndSettleAuctions() {
 // GENERATE SYSTEM ITEMS
 // ============================================
 
-async function generateSystemAuctionItems() {
-  const { data: existing } = await dbClient.from('auctions').select('id')
+async function generateSystemItems() {
+  // Check existing count server side
+  const { data: existing } = await supabase
+    .from('auctions')
+    .select('id')
     .eq('source', 'system')
-    .eq('status', 'active');
-  if (existing && existing.length >= SYSTEM_ITEMS_PER_DAY) return;
-  const slots = ['weapon', 'armor', 'helmet', 'boots', 'ring', 'amulet'];
-  const rarities = ['rare', 'rare', 'epic', 'epic', 'legendary'];
-  const rarityStage = {
-    rare:      [3, 5],
-    epic:      [5, 8],
-    legendary: [8, 10],
-  };
-  const endsAt = new Date();
-  endsAt.setHours(endsAt.getHours() + 24);
-  for (let i = 0; i < SYSTEM_ITEMS_PER_DAY; i++) {
-    const slot = slots[Math.floor(Math.random() * slots.length)];
-    const rarity = rarities[Math.floor(Math.random() * rarities.length)];
-    const [minStage, maxStage] = rarityStage[rarity];
-    const stageId = Math.floor(Math.random() * (maxStage - minStage + 1)) + minStage;
-    const item = mkEquipDrop(slot, rarity, stageId);
-    const basePrice = Math.floor(item.sellPrice * (2 + Math.random() * 2));
-    const { error } = await dbClient.from('auctions').insert({
-      seller_id: null, item_name: item.name, item_description: JSON.stringify(item),
-      rarity: item.rarity, start_price: basePrice, buyout_price: Math.floor(basePrice * 2.5),
-      current_bid: 0, current_bidder_id: null, ends_at: endsAt.toISOString(),
-      status: 'active', source: 'system', seller_collected: true, winner_collected: false,
-    });
+    .eq('status', 'active')
+
+  if (existing && existing.length >= 10) {
+    console.log('System items already at limit')
+    return
   }
+  // generation logic here
 }
 // ============================================
 // FETCH & RENDER
 // ============================================
 
-async function fetchAuctions() {
-  const container = document.getElementById('auction-list');
-  if (!container) return;
-  container.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">Loading...</div>';
+async function fetchAuctions(source = 'auction') {
+  const container = document.getElementById('auction-list')
+  if (!container) return
+  container.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">Loading...</div>'
+
   try {
-    await checkAndSettleAuctions();
-    await generateSystemAuctionItems();
-    const { data, error } = await dbClient.from('auctions').select('*')
-      .eq('status', 'active').gt('ends_at', new Date().toISOString()).order('ends_at', { ascending: true });
-    if (error) throw error;
+    await checkAndSettleAuctions()
+
+    let query = dbClient.from('auctions').select('*')
+      .eq('status', 'active')
+      .gt('ends_at', new Date().toISOString())
+      .order('ends_at', { ascending: true })
+
+    if (source === 'blackwing') {
+      query = query.eq('source', 'blackwing')
+    } else {
+      query = query.neq('source', 'blackwing')
+    }
+
+    const { data, error } = await query
+    if (error) throw error
+
     if (!data || !data.length) {
-      container.innerHTML = '<div style="text-align:center;color:#444;padding:20px;font-style:italic;">No active auctions!</div>';
-      return;
+      const emptyMsg = source === 'blackwing'
+        ? '🖤 No Black Wing items this week. Check back next reset!'
+        : 'No active auctions!'
+      container.innerHTML = `<div style="text-align:center;color:#444;padding:20px;font-style:italic;">${emptyMsg}</div>`
+      return
     }
-    const sellerIds = [...new Set(data.map(a => a.seller_id).filter(Boolean))];
-    let sellerMap = {};
+
+    const sellerIds = [...new Set(data.map(a => a.seller_id).filter(Boolean))]
+    let sellerMap = {}
     if (sellerIds.length) {
-      const { data: chars } = await dbClient.from('characters').select('id,name').in('id', sellerIds);
-      if (chars) chars.forEach(c => { sellerMap[c.id] = c.name; });
+      const { data: chars } = await dbClient.from('characters').select('id,name').in('id', sellerIds)
+      if (chars) chars.forEach(c => { sellerMap[c.id] = c.name })
     }
-    renderAuctions(data, sellerMap);
+
+    renderAuctions(data, sellerMap)
   } catch (error) {
-    console.error('Fetch auctions error:', error);
-    container.innerHTML = '<div style="text-align:center;color:#f00;padding:20px;">Failed to load auctions</div>';
+    console.error('Fetch auctions error:', error)
+    container.innerHTML = '<div style="text-align:center;color:#f00;padding:20px;">Failed to load auctions</div>'
   }
 }
 
@@ -248,7 +250,8 @@ async function placeBid(auctionId, currentBid) {
     addLog(`⬆️ Bid: ${formatNumber(bidAmount)}g on ${auction.item_name}!`, 'gold');
     notify(`⬆️ Bid: ${formatNumber(bidAmount)}g!`, 'var(--gold)');
     updateUI();
-    fetchAuctions();
+    // Wherever fetchAuctions() is called without arguments
+fetchAuctions(currentAuctionSource || 'auction')
   } catch (error) {
     notify('❌ Bid failed: ' + error.message, 'var(--red)');
     console.error('Bid error:', error);
@@ -288,7 +291,8 @@ async function buyoutAuction(auctionId, buyoutPrice) {
     playSound('snd-craft');
     updateUI();
     renderInventory();
-    fetchAuctions();
+    // Wherever fetchAuctions() is called without arguments
+fetchAuctions(currentAuctionSource || 'auction')
 
   } catch (error) {
     notify('❌ Purchase failed: ' + error.message, 'var(--red)');
@@ -368,7 +372,8 @@ async function cancelAuction(auctionId){
     await savePlayerToSupabase();
     notify('✅ Auction cancelled!','var(--gold)');
     addLog(`❌ Cancelled auction for ${auction.item_name}`,'info');
-    renderInventory();updateUI();fetchAuctions();
+    renderInventory();updateUI();// Wherever fetchAuctions() is called without arguments
+fetchAuctions(currentAuctionSource || 'auction')
 
   }catch(error){
     notify('❌ Cancel failed: '+error.message,'var(--red)');
@@ -380,9 +385,19 @@ async function cancelAuction(auctionId){
 // SWITCH TAB
 // ============================================
 
+let currentAuctionSource = 'auction' // track active tab
+
 function switchMarketTab(tab) {
-  document.querySelectorAll('#town-panel-auction .shop-tab').forEach(t => t.classList.remove('active'));
-document.getElementById('market-tab-ah').classList.add('active');
-  document.getElementById('market-ah').style.display = 'block';
-  if (tab === 'auction') fetchAuctions();
+  currentAuctionSource = tab // remember current tab
+  document.querySelectorAll('#town-panel-auction .shop-tab').forEach(t => t.classList.remove('active'))
+
+  if (tab === 'auction') {
+    document.getElementById('market-tab-ah').classList.add('active')
+    // Wherever fetchAuctions() is called without arguments
+fetchAuctions(currentAuctionSource || 'auction')
+  } else if (tab === 'blackwing') {
+    document.getElementById('market-tab-blackwing').classList.add('active')
+    // Wherever fetchAuctions() is called without arguments
+fetchAuctions(currentAuctionSource || 'auction')
+  }
 }
