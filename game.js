@@ -3727,9 +3727,20 @@ function updateTalentBtn(){
 
 
 // ── EQUIPMENT ──
+let equipCooldown = false
+
 async function equipItem(uid) {
+  if (equipCooldown) {
+    notify('⏳ Please wait before equipping again!', 'var(--gold)')
+    return
+  }
+  equipCooldown = true
+  setTimeout(() => equipCooldown = false, 2000) // 2 second cooldown
+
   const item = state.inventory.find(i => String(i.uid) === String(uid))
   if (!item || item.category !== 'equipment') return
+
+  // rest of function unchanged
 
   // Check tournament item expiry
   if (item.tournamentReward && item.expiresAt) {
