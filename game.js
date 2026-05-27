@@ -2232,71 +2232,161 @@ function showCharacterSelect(characters) {
     </div>`;
 }
 
-async function selectCharacterAndPlay(characterId){
-  setTimeout(()=>collectArenaRewards(), 2000);
-  setTimeout(()=>resumeStuckTournaments(), 3000);
-  const screen=document.getElementById('char-select-screen');
-  if(screen) screen.remove();
-  
+async function selectCharacterAndPlay(characterId) {
   try {
-    const{data:character, error}=await dbClient
+    // Check if session is already active
+    const { data: charCheck } = await dbClient
+      .from('characters')
+      .select('active_session, session_started_at, name')
+      .eq('id', characterId)
+      .single()
+
+    if (charCheck?.active_session) {
+      const since = charCheck.session_started_at
+        ? new Date(charCheck.session_started_at).toLocaleTimeString()
+        : 'unknown time'
+
+      const force = confirm(
+        `⚠️ ${charCheck.name} is already logged in from another session (since ${since}).\n\nForce login? The other session will be disconnected.`
+      )
+
+      if (!force) {
+        document.getElementById('char-select-screen').remove()
+        document.getElementById('auth-screen').style.display = 'flex'
+        return
+      }
+    }
+
+    // Claim the session
+    const sessionToken = `${characterId}_${Date.now()}`
+    await dbClient
+      .from('characters')
+      .update({
+        active_session: sessionToken,
+        session_started_at: new Date().toISOString()
+      })
+      .eq('id', characterId)
+
+    state.sessionToken = sessionToken
+
+    setTimeout(() => collectArenaRewards(), 2000)
+    setTimeout(() => resumeStuckTournaments(), 3000)
+
+    const screen = document.getElementById('char-select-screen')
+    if (screen) screen.remove()
+
+    const { data: character, error } = await dbClient
       .from('characters')
       .select('*')
       .eq('id', characterId)
-      .single();
-    
-    if(error) {
-      console.error('Supabase error:', error);
-      notify('❌ Failed to load character: ' + error.message, 'var(--red)');
-      return;
+      .single()
+
+    if (error) {
+      console.error('Supabase error:', error)
+      notify('❌ Failed to load character: ' + error.message, 'var(--red)')
+      return
     }
-    
-    if(!character) {
-      notify('❌ Character not found', 'var(--red)');
-      return;
+
+    if (!character) {
+      notify('❌ Character not found', 'var(--red)')
+      return
     }
-    
-    if(!character.id || !character.name) {
-      console.error('Invalid character data:', character);
-      notify('❌ Character data is corrupted', 'var(--red)');
-      return;
+
+    if (!character.id || !character.name) {
+      console.error('Invalid character data:', character)
+      notify('❌ Character data is corrupted', 'var(--red)')
+      return
     }
-    
-    if(typeof syncCharacterToState==='function') {
-      await syncCharacterToState(character);
+
+    if (typeof syncCharacterToState === 'function') {
+      await syncCharacterToState(character)
     } else {
-      console.warn('syncCharacterToState not loaded yet');
-      notify('❌ Game initialization failed', 'var(--red)');
-      return;
+      console.warn('syncCharacterToState not loaded yet')
+      notify('❌ Game initialization failed', 'var(--red)')
+      return
     }
 
-    await checkLoginReward();
+    await checkLoginReward()
 
-    if (typeof initChat === 'function') await initChat();
+    if (typeof initChat === 'function') await initChat()
 
-    showGame();
-    loadScene(state.currentScene || 'town');
-    
-    if(typeof initializeSupabaseSync==='function') {
-      initializeSupabaseSync();
+    showGame()
+    // After showGame()
+    // In selectCharacterAndPlay after showGame()
+// Give the session token time to settle before watching
+setTimeout(() => startSessionWatcher(), 10000) // wait 10 seconds before starting
+    loadScene(state.currentScene || 'town')
+
+    if (typeof initializeSupabaseSync === 'function') {
+      initializeSupabaseSync()
     }
-    
-    checkAndSettleAuctions();
-    addLog(`☁️ Welcome back ${state.name}! (Lv.${state.level})`, 'gold');
 
-    // Show login reward popup after scene is fully loaded
+    checkAndSettleAuctions()
+    addLog(`☁️ Welcome back ${state.name}! (Lv.${state.level})`, 'gold')
+
     setTimeout(() => {
       if (window._pendingLoginReward) {
-        const { reward, day, item, alreadyClaimed } = window._pendingLoginReward;
-        showLoginRewardPopup(reward, day, item, alreadyClaimed);
-        window._pendingLoginReward = null;
+        const { reward, day, item, alreadyClaimed } = window._pendingLoginReward
+        showLoginRewardPopup(reward, day, item, alreadyClaimed)
+        window._pendingLoginReward = null
       }
-    }, 500);
-    
-  } catch(e) {
-    console.error('Character load error:', e);
-    notify('❌ Load failed: ' + e.message, 'var(--red)');
+    }, 500)
+
+  } catch (e) {
+    console.error('Character load error:', e)
+    notify('❌ Load failed: ' + e.message, 'var(--red)')
   }
+}
+let sessionWatcherInterval = null
+
+function startSessionWatcher() {
+  // Clear any existing watcher first
+  if (sessionWatcherInterval) clearInterval(sessionWatcherInterval)
+
+  sessionWatcherInterval = setInterval(async () => {
+  if (!state.character_id || !state.sessionToken) return
+
+  const { data } = await dbClient
+    .from('characters')
+    .select('active_session')
+    .eq('id', state.character_id)
+    .single()
+
+  if (data?.active_session !== state.sessionToken) {
+    // Stop watcher AND disable heartbeat immediately
+    clearInterval(sessionWatcherInterval)
+    sessionWatcherInterval = null
+    state.sessionToken = null // disables heartbeat in savePlayerToSupabase
+
+    if (currentEnemy) {
+      notify('⚠️ Another session detected! Logging out after combat.', 'var(--red)')
+      const waitForCombatEnd = setInterval(async () => {
+        if (!currentEnemy) {
+          clearInterval(waitForCombatEnd)
+          await forceLogout()
+        }
+      }, 1000)
+    } else {
+      await forceLogout()
+    }
+  }
+}, 5000)
+}
+
+async function forceLogout() {
+  clearInterval(autoFightTimer)
+  autoFightOn = false
+
+  try {
+    await savePlayerToSupabase()
+  } catch (e) {
+    console.warn('Emergency save failed:', e)
+  }
+
+  state.sessionToken = null
+  await dbClient.auth.signOut()
+  alert('⚠️ You have been logged out. Another session has taken over.')
+  location.reload()
 }
 
 async function respecClass(){
@@ -2388,16 +2478,32 @@ document.getElementById('char-class').textContent = 'No Class';
 }
 
 // ── AUTH: LOGOUT ──
-async function logoutUser(){
-  if(currentEnemy){
-    if(!confirm('⚠️ You are in combat! Logging out will abandon the fight. Continue?')) return;
+async function logoutUser() {
+  if (currentEnemy) {
+    notify('⚠️ Cannot logout during combat!', 'var(--red)')
+    return
   }
+
+  // Stop session watcher
+  if (sessionWatcherInterval) {
+    clearInterval(sessionWatcherInterval)
+    sessionWatcherInterval = null
+  }
+
   try {
-    await savePlayerToSupabase();
-  } catch(e){ console.warn('Save on logout failed:',e); }
-  cleanupSupabaseSync();
-  await dbClient.auth.signOut();
-  location.reload();
+    await savePlayerToSupabase()
+  } catch(e) { console.warn('Save on logout failed:', e) }
+
+  if (state.character_id) {
+    await dbClient
+      .from('characters')
+      .update({ active_session: null, session_started_at: null })
+      .eq('id', state.character_id)
+  }
+
+  cleanupSupabaseSync()
+  await dbClient.auth.signOut()
+  location.reload()
 }
 
 // ── SHOW GAME ──
@@ -3621,48 +3727,72 @@ function updateTalentBtn(){
 
 
 // ── EQUIPMENT ──
-function equipItem(uid){
-  const item = state.inventory.find(i => String(i.uid) === String(uid));
-  if(!item || item.category !== 'equipment') return;
-  
+async function equipItem(uid) {
+  const item = state.inventory.find(i => String(i.uid) === String(uid))
+  if (!item || item.category !== 'equipment') return
+
   // Check tournament item expiry
   if (item.tournamentReward && item.expiresAt) {
     if (new Date() > new Date(item.expiresAt)) {
-      notify(`❌ This tournament item has expired!`, 'var(--red)');
-      addLog(`❌ ${item.name} has expired and cannot be equipped!`, 'bad');
-      state.inventory = state.inventory.filter(i => i.uid !== uid);
-      renderInventory();
-      return;
+      notify(`❌ This tournament item has expired!`, 'var(--red)')
+      addLog(`❌ ${item.name} has expired and cannot be equipped!`, 'bad')
+      state.inventory = state.inventory.filter(i => i.uid !== uid)
+      renderInventory()
+      return
     }
   }
 
-  // Level check
-  const req=item.levelReq||0;
-  if(state.level<req){
-    notify(`❌ Need Level ${req} to equip ${item.name}!`,'var(--red)');
-    addLog(`❌ Need Level ${req} to equip ${item.name}!`,'bad');
-    return;
+  // Server side validation — read actual values from database
+  const { data: character, error } = await dbClient
+    .from('characters')
+    .select('level, reputation_rank')
+    .eq('id', state.character_id)
+    .single()
+
+  if (error || !character) {
+    notify('❌ Failed to validate equipment requirements.', 'var(--red)')
+    return
   }
 
-  // Reputation check
-  const REP_REQ = { rare:'baron', epic:'chief', legendary:'mayor' };
-  const repNeeded = REP_REQ[item.rarity];
-  if(repNeeded){
-    const repTiers = REPUTATION_TITLES.map(r=>r.id);
-    const playerRepIndex = repTiers.indexOf(state.reputationTitle || '');
-    const reqRepIndex = repTiers.indexOf(repNeeded);
-    if(playerRepIndex < reqRepIndex){
-      const repLabel = REPUTATION_TITLES.find(r=>r.id===repNeeded)?.label;
-      notify(`❌ Need ${repLabel} reputation to equip ${item.name}!`,'var(--red)');
-      addLog(`❌ Need ${repLabel} reputation to equip ${item.name}!`,'bad');
-      return;
+  // Level check against real database value
+  const req = item.levelReq || 0
+  if (character.level < req) {
+    notify(`❌ Need Level ${req} to equip ${item.name}!`, 'var(--red)')
+    addLog(`❌ Need Level ${req} to equip ${item.name}!`, 'bad')
+    return
+  }
+
+  // Reputation check against real database value
+  const REP_REQ = { rare: 'baron', epic: 'chief', legendary: 'mayor' }
+  const repNeeded = REP_REQ[item.rarity]
+  if (repNeeded) {
+    const repTiers = REPUTATION_TITLES.map(r => r.id)
+    const playerRepIndex = repTiers.indexOf(character.reputation_rank || '')
+    const reqRepIndex = repTiers.indexOf(repNeeded)
+    if (playerRepIndex < reqRepIndex) {
+      const repLabel = REPUTATION_TITLES.find(r => r.id === repNeeded)?.label
+      notify(`❌ Need ${repLabel} reputation to equip ${item.name}!`, 'var(--red)')
+      addLog(`❌ Need ${repLabel} reputation to equip ${item.name}!`, 'bad')
+      return
     }
   }
 
-  if(state.equipped[item.slot])unequipSlot(item.slot,true);
-  Object.entries(item.stats||{}).forEach(([k,v])=>{const ek='equip'+k.charAt(0).toUpperCase()+k.slice(1);state[ek]=(state[ek]||0)+v;});
-  item.equipped=true;state.equipped[item.slot]=uid;state.quests.equip.done=true;
-  calcStats();addLog(`Equipped ${item.name}!`,'good');playSound('snd-craft');renderInventory();renderEquipSlots();updateUI();renderQuests();
+  // All checks passed — equip the item
+  if (state.equipped[item.slot]) unequipSlot(item.slot, true)
+  Object.entries(item.stats || {}).forEach(([k, v]) => {
+    const ek = 'equip' + k.charAt(0).toUpperCase() + k.slice(1)
+    state[ek] = (state[ek] || 0) + v
+  })
+  item.equipped = true
+  state.equipped[item.slot] = uid
+  state.quests.equip.done = true
+  calcStats()
+  addLog(`Equipped ${item.name}!`, 'good')
+  playSound('snd-craft')
+  renderInventory()
+  renderEquipSlots()
+  updateUI()
+  renderQuests()
 }
 function unequipSlot(slot,silent=false){
   const uid=state.equipped[slot];if(!uid)return;

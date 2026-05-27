@@ -397,9 +397,23 @@ async function savePlayerToSupabase() {
         equipHitMult:          state.equipHitMult,
       },
     });
+    
 
     if (error) throw error;
-    console.log('✅ Character saved to Supabase (fully secured)');
+
+// Refresh session heartbeat
+if (state.sessionToken) {
+  await dbClient
+    .from('characters')
+    .update({ 
+      active_session: state.sessionToken,
+      session_started_at: new Date().toISOString()
+    })
+    .eq('id', state.character_id)
+    .eq('active_session', state.sessionToken)
+}
+
+console.log('✅ Character saved to Supabase (fully secured)');
 
   } catch (error) {
     console.error('Save character error:', error);
