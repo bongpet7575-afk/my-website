@@ -218,52 +218,42 @@ function openSkillComboPicker(tournament, tier, tierKey) {
   };
 
   window.confirmTournamentRegistration = async function() {
-    try {
-      if(state.gold < tier.fee){notify('Not enough gold!','var(--red)');return;}
-addGold(-tier.fee); // ✅ sanitized
-const newGold = state.gold; // use sanitized value for DB update
+  try {
+    notify('⏳ Registering...', 'var(--gold)')
 
-      calcStats(); // ensure stats are fresh before snapshot
-      const snapshot = {
+    const { data: { session } } = await dbClient.auth.getSession()
+    const res = await fetch('https://xagwrqrgcuuitwgroiwh.supabase.co/functions/v1/tournament', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
         character_id: state.character_id,
-        name:         state.name,
-        level:        state.level,
-        class:        state.class,
-        attackPower:  state.attackPower,
-        maxHp:        state.maxHp || 1000,
-        armor:        state.armor,
-        hit:          state.hit,
-        dodge:        state.dodge,
-        crit:         state.crit,
-        lifeSteal:    state.lifeSteal,
-        skillCombo:   selectedCombo.filter(Boolean),
-      };
+        tier_key: tierKey,
+        skill_combo: selectedCombo.filter(Boolean)
+      })
+    })
 
-      await dbClient.from('arena_registrations').insert({
-        tournament_id:      tournament.id,
-        character_id:       state.character_id,
-        user_id:            state.user_id,
-        character_snapshot: snapshot,
-        skill_combo:        selectedCombo.filter(Boolean),
-        points:             0,
-      });
-
-      await dbClient.from('characters')
-        .update({ gold: newGold })
-        .eq('id', state.character_id);
-
-      closeItemPopup();
-      addLog(`⚔️ Registered for ${tier.label} Tournament! Fee: ${formatNumber(tier.fee)}g paid.`, 'gold');
-      notify(`✅ Registered for ${tier.label} Tournament!`, 'var(--gold)');
-      updateUI();
-      renderTournament();
-
-    } catch(e) {
-      addGold(tier.fee); // ✅ sanitized refund on failure
-      notify('Registration failed: ' + e.message, 'var(--red)');
-      console.error(e);
+    const data = await res.json()
+    if (!data.success) {
+      notify(`❌ ${data.error}`, 'var(--red)')
+      return
     }
-  };
+
+    // Update local gold
+    state.gold -= data.fee
+    closeItemPopup()
+    addLog(`⚔️ Registered for ${data.tier} Tournament! Fee: ${formatNumber(data.fee)}g paid.`, 'gold')
+    notify(`✅ Registered for ${data.tier} Tournament!`, 'var(--gold)')
+    updateUI()
+    renderTournament()
+
+  } catch(e) {
+    notify('❌ Registration failed: ' + e.message, 'var(--red)')
+    console.error(e)
+  }
+};
 
   renderPicker();
 }

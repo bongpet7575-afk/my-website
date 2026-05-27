@@ -172,20 +172,8 @@ async function enterDungeon(stageId) {
 function applyServerStats(session) {
   if (!session) return
 
-  // Base stats from server
-  state.baseStr = session.baseStr
-  state.baseAgi = session.baseAgi
-  state.baseInt = session.baseInt
-  state.baseSta = session.baseSta
-  state.baseArmor = session.baseArmor
-  state.baseHit = session.baseHit
-  state.baseCrit = session.baseCrit
-  state.baseDodge = session.baseDodge
-  state.baseHpRegen = session.baseHpRegen
-  state.baseLifeSteal = session.baseLifeSteal
-  state.baseAttackPower = session.baseAttackPower
-
-  // Equipment bonuses from server
+  // Equipment bonuses from server ONLY
+  // Never overwrite base stats — those belong to the player
   state.equipStr = session.equipStr
   state.equipAgi = session.equipAgi
   state.equipInt = session.equipInt
@@ -211,7 +199,7 @@ function applyServerStats(session) {
   // Class bonuses from server config
   state.classBonuses = session.classBonuses || {}
 
-  // Recalculate with server verified values
+  // Recalculate with server verified equipment values
   calcStats()
 }
 function showWaveAnnouncement(text,color){
@@ -224,9 +212,13 @@ function spawnNextDungeonMonster(){
   const nextId=dungeonQueue.shift();
   if(nextId==='BOSS'){triggerStageBoss(currentStage.bossId);return;}
   const monster=scaleMonster(nextId,currentStage.id);if(!monster)return;
-  currentEnemy=monster;startCombatWith(currentEnemy);
-  clearInterval(autoFightTimer);
-  autoFightTimer=setInterval(()=>{if(!currentEnemy){clearInterval(autoFightTimer);return;}autoFightStep();},1000);
+  currentEnemy = monster
+startCombatWith(currentEnemy)
+clearInterval(autoFightTimer)
+autoFightTimer = setInterval(() => {
+  if (!currentEnemy) { clearInterval(autoFightTimer); return; }
+  autoFightStep()
+}, currentEnemy.attackInterval || 1000);
 }
 async function startNextWave(){
   if(!currentStage)return;
@@ -275,9 +267,12 @@ function startStageBossFight(){
   const stageScale=1+(stageLevel-1)*0.4;
   const prefix=state.difficulty==='hell'?'💀 Hell ':state.difficulty==='hard'?'🔥 Hard ':'';
   currentEnemy={...boss,name:prefix+boss.name,hp:Math.floor(boss.hp*stageScale*diff.hpMult),maxHp:Math.floor(boss.hp*stageScale*diff.hpMult),atk:Math.floor(boss.atk*stageScale*diff.atkMult),armor:Math.floor(boss.armor*stageScale),hit:Math.floor(boss.hit*stageScale),dodge:Math.floor(boss.dodge*stageScale),xp:Math.floor(boss.xp*diff.xpMult),gold:[Math.floor(boss.gold[0]*diff.goldMult),Math.floor(boss.gold[1]*diff.goldMult)],poisoned:0,frozen:false,boss:true,abilityTurn:0,_xpMult:1,_goldMult:1};
-  startCombatWith(currentEnemy);
-  clearInterval(autoFightTimer);
-  autoFightTimer=setInterval(()=>{if(!currentEnemy){clearInterval(autoFightTimer);return;}autoFightStep();},1000);
+  startCombatWith(currentEnemy)
+clearInterval(autoFightTimer)
+autoFightTimer = setInterval(() => {
+  if (!currentEnemy) { clearInterval(autoFightTimer); return; }
+  autoFightStep()
+}, currentEnemy.attackInterval || 1000);
 }
 // BUG FIX #10: was 15ms (effectively instant) — player never saw rewards.
 // Now waits 3 seconds so the treasure box notification is visible.
@@ -871,72 +866,141 @@ async function stopAutoFight() {
   await savePlayerToSupabase();
 }
 
-async function autoFightStep(){
-  if(!currentEnemy)return;
-  // Player attacks
-  const eDodge=Math.max(0,(currentEnemy.dodge||0)-state.hit)/100;
-  if(Math.random()<eDodge){ addCombatLog(`💨 ${currentEnemy.name} dodged!`,'bad'); }
-  else {
-    let dmg=calculateAttackDamage(state.attackPower, currentEnemy.armor);
-    let isCrit=false;
-    if(Math.random()<state.crit/100){dmg=Math.floor(dmg*2);isCrit=true;}
-    if(state.unlockedTalents.includes('berserker')&&state.hp<state.maxHp*.5)dmg=Math.floor(dmg*1.35);
-    if(state.unlockedTalents.includes('death_mark'))dmg=Math.floor(dmg*1.5);
-    if(isCrit)showCritEffect();
-    currentEnemy.hp-=dmg;
-    const ls=state.lifeSteal||0;
-    if(ls>0){const h=Math.floor(dmg*ls);if(h>0){state.hp=Math.min(state.maxHp,state.hp+h);addCombatLog(`🩸 Life Steal +${h} HP!`,'good');spawnDmgFloat(`🩸+${h}`,false,'heal-float');}}
-    useNextAutoSkill(currentEnemy);
-    addCombatLog(`⚔️ ${isCrit?'💥CRIT! ':''}Auto: ${dmg} dmg!`,isCrit?'gold':'good');
-    animateAttack(true,dmg,isCrit);
+async function autoFightStep() {
+  if (!currentEnemy) return
+
+  // Calculate how many times player attacks this tick
+  const tickMs = currentEnemy.attackInterval || 1000
+  const rawHits = Math.floor(tickMs / (state.attackInterval || 1000))
+  const playerHits = Math.min(3, Math.max(1, rawHits)) // cap at 3 hits max
+
+  // Player attacks (multiple hits if fast enough)
+  for (let i = 0; i < playerHits; i++) {
+    if (!currentEnemy || currentEnemy.hp <= 0) break
+
+    const eDodge = Math.max(0, (currentEnemy.dodge || 0) - state.hit) / 100
+    if (Math.random() < eDodge) {
+      addCombatLog(`💨 ${currentEnemy.name} dodged!`, 'bad')
+    } else {
+      let dmg = calculateAttackDamage(state.attackPower, currentEnemy.armor)
+      let isCrit = false
+      if (Math.random() < state.crit / 100) { dmg = Math.floor(dmg * 2); isCrit = true }
+      if (state.unlockedTalents.includes('berserker') && state.hp < state.maxHp * .5) dmg = Math.floor(dmg * 1.35)
+      if (state.unlockedTalents.includes('death_mark')) dmg = Math.floor(dmg * 1.5)
+      if (isCrit) showCritEffect()
+      currentEnemy.hp -= dmg
+
+      const ls = state.lifeSteal || 0
+      if (ls > 0) {
+        const h = Math.floor(dmg * ls)
+        if (h > 0) {
+          state.hp = Math.min(state.maxHp, state.hp + h)
+          addCombatLog(`🩸 Life Steal +${h} HP!`, 'good')
+          spawnDmgFloat(`🩸+${h}`, false, 'heal-float')
+        }
+      }
+
+      // Only use auto skill on first hit
+      if (i === 0) useNextAutoSkill(currentEnemy)
+
+      const hitLabel = playerHits > 1 ? ` (${i + 1}/${playerHits})` : ''
+      addCombatLog(`⚔️ ${isCrit ? '💥CRIT! ' : ''}Auto${hitLabel}: ${dmg} dmg!`, isCrit ? 'gold' : 'good')
+      animateAttack(true, dmg, isCrit)
+    }
   }
-  if(currentEnemy.hp<=0){currentEnemy.hp=0;updateEnemyBar();endCombat(true);return;}
-Object.keys(state.skillCooldowns).forEach(k=>{if(state.skillCooldowns[k]>0)state.skillCooldowns[k]--;});if(state.soulSkillCd>0)state.soulSkillCd--;
+
+  if (currentEnemy && currentEnemy.hp <= 0) {
+    currentEnemy.hp = 0
+    updateEnemyBar()
+    endCombat(true)
+    return
+  }
+
+  // Skill cooldowns tick once per step regardless of hits
+  Object.keys(state.skillCooldowns).forEach(k => {
+    if (state.skillCooldowns[k] > 0) state.skillCooldowns[k]--
+  })
+  if (state.soulSkillCd > 0) state.soulSkillCd--
 
   // Tick down Arcane Surge
-if (state.arcaneSurgeActive && state.arcaneSurgeTurns > 0) {
-  state.arcaneSurgeTurns--;
-  if (state.arcaneSurgeTurns <= 0) {
-    state.arcaneSurgeActive = false;
-    // Remove buff
-    const m = state.arcaneSurgeMult || 1;
-    state.strMult /= m;
-    state.agiMult /= m;
-    state.intMult /= m;
-    state.staMult /= m;
-    state.arcaneSurgeMult = 1;
-    calcStats();
-    addCombatLog(`💫 Arcane Surge fades!`, 'info');
+  if (state.arcaneSurgeActive && state.arcaneSurgeTurns > 0) {
+    state.arcaneSurgeTurns--
+    if (state.arcaneSurgeTurns <= 0) {
+      state.arcaneSurgeActive = false
+      const m = state.arcaneSurgeMult || 1
+      state.strMult /= m
+      state.agiMult /= m
+      state.intMult /= m
+      state.staMult /= m
+      state.arcaneSurgeMult = 1
+      calcStats()
+      addCombatLog(`💫 Arcane Surge fades!`, 'info')
+    }
   }
-}
 
-// Tick down Soul Barrier
-if (state.soulBarrierAbsorb > 0) {
-  // Soul barrier is consumed in handleEnemyTurn
-  // Just show it's active
-}
+  // HP and mana regen
+  if (state.hpRegen > 0) {
+    const r = Math.floor(state.hpRegen)
+    if (r > 0 && state.hp < state.maxHp) {
+      state.hp = Math.min(state.maxHp, state.hp + r)
+      addCombatLog(`💚 Regen +${r} HP`, 'good')
+    }
+  }
+  if (state.manaRegen > 0) {
+    const r = Math.floor(state.manaRegen)
+    if (r > 0 && state.mp < state.maxMp) {
+      state.mp = Math.min(state.maxMp, state.mp + r)
+      addCombatLog(`💙 Mana Regen +${r} MP`, 'info')
+    }
+  }
 
-  if(state.hpRegen>0){const r=Math.floor(state.hpRegen);if(r>0&&state.hp<state.maxHp){state.hp=Math.min(state.maxHp,state.hp+r);addCombatLog(`💚 Regen +${r} HP`,'good');}}
-  if(state.manaRegen>0){const r=Math.floor(state.manaRegen);if(r>0&&state.mp<state.maxMp){state.mp=Math.min(state.maxMp,state.mp+r);addCombatLog(`💙 Mana Regen +${r} MP`,'info');}}
   // Boss ability
   if(currentEnemy.boss&&currentEnemy.ability){
-    currentEnemy.abilityTurn=(currentEnemy.abilityTurn||0)+1;
-    if(currentEnemy.abilityTurn>=currentEnemy.ability.triggerEvery){currentEnemy.abilityTurn=0;currentEnemy.ability.effect(currentEnemy);}
+  currentEnemy.abilityTurn=(currentEnemy.abilityTurn||0)+1;
+  const triggerEvery = currentEnemy.abilityTriggerEvery || currentEnemy.ability.triggerEvery || 3;
+  if(currentEnemy.abilityTurn>=triggerEvery){
+    currentEnemy.abilityTurn=0;
+    currentEnemy.ability.effect(currentEnemy);
   }
-  // Enemy attacks
-  handleEnemyTurn();
-  if(currentEnemy.rageTimer>0){currentEnemy.rageTimer--;if(currentEnemy.rageTimer===0){currentEnemy.atk=Math.floor(currentEnemy.atk/2);addCombatLog(`👊 ${currentEnemy.name} calms down!`,'info');}}
-  if(currentEnemy.poisoned>0){const pd=currentEnemy.poisonDmg||Math.floor(state.agi*0.8+state.attackPower*0.3);currentEnemy.hp-=pd;currentEnemy.poisoned--;addCombatLog(`🐍 Poison deals ${pd}!`,'good');spawnDmgFloat(`🐍${pd}`,true,'enemy-dmg');}
-  if(state.hp<=0){
-    state.hp=0;updateUI();clearInterval(autoFightTimer);autoFightTimer=null;
-    currentStage=null;dungeonWave=0;dungeonQueue=[];
-    addLog('💀 You died!','bad');notify('💀 You died!','var(--red)');endCombat(false);return;
-    // When player dies or flees
-if (state.currentCombatSessionId) {
-  state.currentCombatSessionId = null
 }
+
+  // Enemy attacks once per tick
+  handleEnemyTurn()
+
+  if (currentEnemy && currentEnemy.rageTimer > 0) {
+    currentEnemy.rageTimer--
+    if (currentEnemy.rageTimer === 0) {
+      currentEnemy.atk = Math.floor(currentEnemy.atk / 2)
+      addCombatLog(`👊 ${currentEnemy.name} calms down!`, 'info')
+    }
   }
-  updateEnemyBar();updateUI();
+
+  // Poison tick
+  if (currentEnemy && currentEnemy.poisoned > 0) {
+    const pd = currentEnemy.poisonDmg || Math.floor(state.agi * 0.8 + state.attackPower * 0.3)
+    currentEnemy.hp -= pd
+    currentEnemy.poisoned--
+    addCombatLog(`🐍 Poison deals ${pd}!`, 'good')
+    spawnDmgFloat(`🐍${pd}`, true, 'enemy-dmg')
+  }
+
+  if (state.hp <= 0) {
+    state.hp = 0
+    updateUI()
+    clearInterval(autoFightTimer)
+    autoFightTimer = null
+    currentStage = null
+    dungeonWave = 0
+    dungeonQueue = []
+    addLog('💀 You died!', 'bad')
+    notify('💀 You died!', 'var(--red)')
+    endCombat(false)
+    if (state.currentCombatSessionId) state.currentCombatSessionId = null
+    return
+  }
+
+  updateEnemyBar()
+  updateUI()
 }
 
 

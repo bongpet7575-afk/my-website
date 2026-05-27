@@ -1366,10 +1366,10 @@ function calcStats(){
   const mpRegenMult = (state.mpRegenMult||1) + (state.classBonuses.mpRegenMult||0)     + (state.talentBonuses.mpRegenMult||0)     + (state.equipMpRegenMult||0);
 
   // ── Primary stats (local variables — no state mutation yet) ──
-  const str = Math.floor(baseStr*strMult) + (state.equipStr||0) + (state.talentBonuses.baseStr||0);
-  const agi = Math.floor(baseAgi*agiMult) + (state.equipAgi||0) + (state.talentBonuses.baseAgi||0);
-  const int_ = Math.floor(baseInt*intMult) + (state.equipInt||0) + (state.talentBonuses.baseInt||0);
-  const sta = Math.floor(baseSta*staMult) + (state.equipSta||0) + (state.talentBonuses.baseSta||0);
+const str  = Math.floor((baseStr  + (state.equipStr||0) + (state.talentBonuses.baseStr||0))  * strMult);
+const agi  = Math.floor((baseAgi  + (state.equipAgi||0) + (state.talentBonuses.baseAgi||0))  * agiMult);
+const int_ = Math.floor((baseInt  + (state.equipInt||0) + (state.talentBonuses.baseInt||0))  * intMult);
+const sta  = Math.floor((baseSta  + (state.equipSta||0) + (state.talentBonuses.baseSta||0))  * staMult);
 
   // ── Derived stats (all local) ──
   const attackPower = Math.floor(
@@ -1806,6 +1806,27 @@ function switchMainScene(scene){
   if(scene==='settings')renderSettingsPanel();
 }
 
+async function loadMonsterData() {
+  const { data, error } = await dbClient
+    .from('monsters')
+    .select('id, attack_interval, base_hp, base_atk, base_armor, base_hit, base_dodge, base_xp, gold_min, gold_max, regen_pct')
+
+  if (data) {
+    data.forEach(m => {
+      if (MONSTER_TEMPLATES[m.id]) {
+        MONSTER_TEMPLATES[m.id].attackInterval = m.attack_interval
+        MONSTER_TEMPLATES[m.id].regenPct = m.regen_pct || 0
+      }
+      if (STAGE_BOSSES[m.id]) {
+  STAGE_BOSSES[m.id].attackInterval = m.attack_interval
+  STAGE_BOSSES[m.id].regenPct = m.regen_pct || 0
+  STAGE_BOSSES[m.id].abilityTriggerEvery = m.ability_trigger_every || 3
+  STAGE_BOSSES[m.id].abilityDamagePct = m.ability_damage_pct || 0
+  STAGE_BOSSES[m.id].abilityHealPct = m.ability_heal_pct || 0
+}
+    })
+  }
+}
 const MONSTER_TEMPLATES = {
   // Stage 1 — Level 1-9 — atk ~player lvl1 ATK (80), HP takes ~15 hits
   young_wolf:      {id:'young_wolf',     name:'🐺 Young Wolf',      icon:'images/monsters/wolf',    hp:1200,   atk:60,    armor:5000,   hit:80,   dodge:50,   xp:800,   gold:[300,600]},
@@ -1884,17 +1905,16 @@ const STAGES=[
 
 // ── STAGE BOSSES ──
 const STAGE_BOSSES={
-  // Boss 1 — after Stage 1 (player ~Lv9, ATK ~260, HP ~1580)
   stage_boss_1:{id:'stage_boss_1',name:'🐺 Wolf King',icon:'images/bosses/boss1',
     hp:18000,atk:500,armor:20000,hit:600,dodge:400,xp:4000,gold:[3000,6000],
     ability:{name:'PACK HOWL!',color:'#ffdd00',triggerEvery:3,effect:(e)=>{
-      const d=Math.floor(e.atk*0.5);state.hp=Math.max(1,state.hp-d);
+      const d=Math.floor(e.atk*(e.abilityDamagePct||0.5));
+      state.hp=Math.max(1,state.hp-d);
       spawnAbilityFloat('🐺 PACK HOWL!','#ffdd00');
       addCombatLog(`🐺 Wolf King howls! Pack attacks for ${d}!`,'bad');
       animateAttack(false,d,false);}},
     cs:{title:'Wolf King',req:'Required: Stage 1 Clear',text:'The mighty Wolf King rises from the pack!'}},
 
-  // Boss 2 — after Stage 2 (player ~Lv19, ATK ~560, HP ~3380)
   stage_boss_2:{id:'stage_boss_2',name:'🕷️ Spider Queen',icon:'images/bosses/boss2',
     hp:120000,atk:8600,armor:50000,hit:5500,dodge:4600,xp:8000,gold:[8000,16000],
     ability:{name:'WEB TRAP!',color:'#44ff44',triggerEvery:3,effect:(e)=>{
@@ -1903,20 +1923,19 @@ const STAGE_BOSSES={
       addCombatLog(`🕸️ Spider Queen webs you! Dodge 0 for 2 turns!`,'bad');}},
     cs:{title:'Spider Queen',req:'Required: Stage 2 Clear',text:'From the depths of her web kingdom, the Spider Queen descends!'}},
 
-  // Boss 3 — after Stage 3 (player ~Lv29, ATK ~940, HP ~6080)
   stage_boss_3:{id:'stage_boss_3',name:'👹 Goblin Warlord',icon:'images/bosses/boss3',
     hp:480000,atk:13200,armor:50000,hit:12000,dodge:10200,xp:16000,gold:[15000,28000],
     ability:{name:'GOLD STEAL!',color:'#f0c040',triggerEvery:3,effect:(e)=>{
-      const s=Math.floor(state.gold*0.10);state.gold=Math.max(0,state.gold-s);
+      const s=Math.floor(state.gold*(e.abilityDamagePct||0.10));
+      state.gold=Math.max(0,state.gold-s);
       spawnAbilityFloat('💰 GOLD STEAL!','#f0c040');
       addCombatLog(`💰 Goblin Warlord steals ${s} gold!`,'bad');}},
     cs:{title:'Goblin Warlord',req:'Required: Stage 3 Clear',text:'The Goblin Warlord commands an army of thieves!'}},
 
-  // Boss 4 — after Stage 4 (player ~Lv39, ATK ~1460, HP ~9480)
   stage_boss_4:{id:'stage_boss_4',name:'💀 Skeleton Lord',icon:'images/bosses/boss4',
     hp:1800000,atk:29500,armor:50000,hit:18500,dodge:16500,xp:21000,gold:[30000,55000],
     ability:{name:'DEATH CURSE!',color:'#aa44ff',triggerEvery:3,effect:(e)=>{
-      const r=Math.floor(state.maxHp*0.05);
+      const r=Math.floor(state.maxHp*(e.abilityDamagePct||0.05));
       state.activeDebuffs.maxHpReduction+=r;
       state.equipMaxHp=(state.equipMaxHp||0)-r;
       spawnAbilityFloat('💀 DEATH CURSE!','#aa44ff');
@@ -1924,7 +1943,6 @@ const STAGE_BOSSES={
       calcStats();}},
     cs:{title:'Skeleton Lord',req:'Required: Stage 4 Clear',text:'The Skeleton Lord rises from his eternal tomb!'}},
 
-  // Boss 5 — after Stage 5 (player ~Lv49, ATK ~2090, HP ~13880)
   stage_boss_5:{id:'stage_boss_5',name:'👊 Orc Chieftain',icon:'images/bosses/boss5',
     hp:6000000,atk:63000,armor:80000,hit:46000,dodge:33000,xp:42000,gold:[60000,110000],
     ability:{name:'BERSERKER RAGE!',color:'#ff8800',triggerEvery:5,effect:(e)=>{
@@ -1934,40 +1952,34 @@ const STAGE_BOSSES={
       addCombatLog(`👊 Orc Chieftain berserk! ATK doubled!`,'bad');}},
     cs:{title:'Orc Chieftain',req:'Required: Stage 5 Clear',text:'The Orc Chieftain is the strongest warrior alive!'}},
 
-  // Boss 6 — after Stage 6 (player ~Lv59, ATK ~2820, HP ~19480)
   stage_boss_6:{id:'stage_boss_6',name:'🧛 Vampire Lord',icon:'images/bosses/boss6',
     hp:18000000,atk:120000,armor:80000,hit:72000,dodge:56000,xp:80000,gold:[110000,200000],
     ability:{name:'LIFE DRAIN!',color:'#ff2244',triggerEvery:3,effect:(e)=>{
-      const h=Math.floor(currentEnemy.atk*0.2);
+      const h=Math.floor(currentEnemy.atk*(e.abilityHealPct||0.2));
       currentEnemy.hp=Math.min(currentEnemy.maxHp,currentEnemy.hp+h);
       spawnAbilityFloat('🧛 LIFE DRAIN!','#ff2244');
       addCombatLog(`🧛 Vampire Lord drains life! +${h} HP!`,'bad');
       updateEnemyBar();}},
     cs:{title:'Vampire Lord',req:'Required: Stage 6 Clear',text:'The Vampire Lord rules the night!'}},
 
-  // Boss 7 — after Stage 7 (player ~Lv69, ATK ~3650, HP ~26180)
   stage_boss_7:{id:'stage_boss_7',name:'👾 Troll King',icon:'images/bosses/boss7',
     hp:55000000,atk:222000,armor:160000,hit:125000,dodge:92000,xp:160000,gold:[200000,380000],
     ability:{name:'REGENERATION!',color:'#00ff88',triggerEvery:2,effect:(e)=>{
-      const h=Math.floor(currentEnemy.maxHp*0.03);
-      currentEnemy.hp=Math.min(currentEnemy.maxHp,currentEnemy.hp+h);
-      spawnAbilityFloat('👾 REGENERATION!','#00ff88');
-      addCombatLog(`👾 Troll King regenerates ${h} HP!`,'bad');
-      updateEnemyBar();}},
+      const h=Math.floor(e.maxHp*(e.regenPct||0.006));
+      e.hp=Math.min(e.maxHp,e.hp+h);
+      updateEnemyBar();}}, // silent regen
     cs:{title:'Troll King',req:'Required: Stage 7 Clear',text:'The Troll King cannot be killed!'}},
 
-  // Boss 8 — after Stage 8 (player ~Lv79, ATK ~4580, HP ~33980)
   stage_boss_8:{id:'stage_boss_8',name:'😈 Demon Prince',icon:'images/bosses/boss8',
     hp:160000000,atk:405000,armor:160000,hit:160000,dodge:135000,xp:300000,gold:[380000,700000],
     ability:{name:'HELLFIRE!',color:'#ff4400',triggerEvery:3,effect:(e)=>{
-      const d=Math.floor(currentEnemy.atk*0.8);
+      const d=Math.floor(currentEnemy.atk*(e.abilityDamagePct||0.8));
       state.hp=Math.max(1,state.hp-d);
       spawnAbilityFloat('😈 HELLFIRE!','#ff4400');
       addCombatLog(`😈 Hellfire! ${d} true damage — armor ignored!`,'bad');
       animateAttack(false,d,false);}},
     cs:{title:'Demon Prince',req:'Required: Stage 8 Clear',text:'The Demon Prince wields hellfire that melts through any armor!'}},
 
-  // Boss 9 — after Stage 9 (player ~Lv89, ATK ~5660, HP ~43280)
   stage_boss_9:{id:'stage_boss_9',name:'🌑 Shadow Emperor',icon:'images/bosses/boss9',
     hp:450000000,atk:810000,armor:400000,hit:460000,dodge:210000,xp:600000,gold:[700000,1300000],
     ability:{name:'PHASE SHIFT!',color:'#4488ff',triggerEvery:3,effect:(e)=>{
@@ -1976,11 +1988,10 @@ const STAGE_BOSSES={
       addCombatLog(`🌑 Shadow Emperor phases out! Next attack misses!`,'bad');}},
     cs:{title:'Shadow Emperor',req:'Required: Stage 9 Clear',text:'The Shadow Emperor exists between dimensions!'}},
 
-  // Boss 10 — FINAL BOSS (player ~Lv99, ATK ~6790, HP ~53580)
   stage_boss_10:{id:'stage_boss_10',name:'🌟 Eternal King',icon:'images/bosses/boss10',
     hp:1200000000,atk:1400000,armor:400000,hit:800000,dodge:400000,xp:1000000,gold:[1500000,3000000],
     ability:{name:'ALL POWERS!',color:'#ffffff',triggerEvery:2,effect:(e)=>{
-      const d=Math.floor(currentEnemy.atk*0.6);
+      const d=Math.floor(currentEnemy.atk*(e.abilityDamagePct||0.6));
       state.hp=Math.max(1,state.hp-d);
       spawnAbilityFloat('🌟 ETERNAL POWER!','#ffffff');
       addCombatLog(`🌟 Eternal King unleashes power! ${d} damage!`,'bad');
@@ -2526,6 +2537,7 @@ function showGame(){
   renderSoulWeaponSlot(); // ← ADD THIS
   initSkillBarKeyHandler();
   switchMainScene('adv');
+  loadMonsterData();
 }
 
 // ── LOAD SCENE ──
