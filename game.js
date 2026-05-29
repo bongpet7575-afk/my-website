@@ -1151,6 +1151,190 @@ const REPUTATION_TITLES = [
   { id:'count',    label:'Count',    req:75000, boost:0.75, soulTier:5 },
 ];
 
+const NPC_LIST = {
+  // Class Trainers
+  aldric:        { name: 'Aldric',        role: 'Warrior Trainer',     location: 'Iron Brotherhood Hall' },
+  seraphine:     { name: 'Seraphine',     role: 'Mage Trainer',        location: 'Arcane Sanctum'        },
+  vex:           { name: 'Vex',           role: 'Rogue Trainer',       location: 'The Shadow Den'        },
+  kara:          { name: 'Kara',          role: 'Hunter Trainer',      location: 'Wilderness Outpost'    },
+  brother_elian: { name: 'Brother Elian', role: 'Paladin Trainer',     location: 'Sacred Monastery'      },
+  malachar:      { name: 'Malachar',      role: 'Necromancer Trainer', location: 'The Crypt'             },
+  nara:          { name: 'Nara',          role: 'Shaman Trainer',      location: 'Spirit Grove'          },
+  ragnar:        { name: 'Ragnar',        role: 'Berserker Trainer',   location: 'The Bloodpit'          },
+
+  // General NPCs
+  mirela:        { name: 'Mirela',        role: 'Quest Giver',         location: 'Merchant Guild Hall'   },
+  sovan:         { name: 'Sovan',         role: 'Blacksmith',          location: "Sovan's Forge"         },
+};
+
+// ============================================================
+// NPC SYSTEM
+// ============================================================
+async function openNPCPanel(npcId) {
+  const npc = NPC_LIST[npcId]
+  if (!npc) return
+
+  // Show panel
+  const panel = document.createElement('div')
+  panel.id = 'npc-panel'
+  panel.innerHTML = `
+    <div id="npc-overlay" onclick="closeNPCPanel()" style="
+      position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;
+      display:flex;align-items:center;justify-content:center;">
+      <div onclick="event.stopPropagation()" style="
+        background:#1a1208;border:2px solid #8b6914;border-radius:12px;
+        width:min(480px,95vw);max-height:80vh;display:flex;flex-direction:column;
+        box-shadow:0 0 30px rgba(139,105,20,0.4);">
+
+        <!-- HEADER -->
+        <div style="padding:16px 20px;border-bottom:1px solid #8b6914;
+          display:flex;align-items:center;gap:12px;">
+          <div id="npc-avatar" style="
+            width:56px;height:56px;border-radius:50%;
+            background:#2a1f0a;border:2px solid #8b6914;
+            display:flex;align-items:center;justify-content:center;
+            font-size:28px;flex-shrink:0;">
+            ${getNPCEmoji(npcId)}
+          </div>
+          <div style="flex:1">
+            <div style="color:#f0c040;font-size:18px;font-weight:bold;">${npc.name}</div>
+            <div style="color:#a0845c;font-size:13px;">${npc.role}</div>
+            <div style="color:#666;font-size:11px;">📍 ${npc.location}</div>
+          </div>
+          <div id="npc-rep-badge" style="
+            padding:4px 10px;border-radius:20px;font-size:11px;font-weight:bold;
+            background:#2a1f0a;border:1px solid #444;color:#888;">
+            Loading...
+          </div>
+          <button onclick="closeNPCPanel()" style="
+            background:none;border:none;color:#888;font-size:20px;
+            cursor:pointer;padding:4px 8px;">✕</button>
+        </div>
+
+        <!-- DIALOGUE BOX -->
+        <div style="padding:20px;flex:1;overflow-y:auto;">
+          <div id="npc-dialogue" style="
+            background:#0f0a02;border:1px solid #3a2f1a;border-radius:8px;
+            padding:16px;min-height:80px;color:#e8d5a0;font-size:15px;
+            line-height:1.6;font-style:italic;">
+            <span style="color:#555">...</span>
+          </div>
+        </div>
+
+        <!-- ACTIONS -->
+        <div style="padding:12px 20px;border-top:1px solid #2a1f0a;
+          display:flex;gap:8px;flex-wrap:wrap;">
+          <button onclick="chatWithNPC('${npcId}', 'greet')" style="
+            background:#2a1f0a;border:1px solid #8b6914;color:#f0c040;
+            padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;">
+            💬 Greet
+          </button>
+          <button style="
+            background:#1a1208;border:1px solid #333;color:#555;
+            padding:8px 16px;border-radius:6px;cursor:not-allowed;font-size:13px;"
+            title="Coming soon">
+            📜 Quests
+          </button>
+          <button style="
+            background:#1a1208;border:1px solid #333;color:#555;
+            padding:8px 16px;border-radius:6px;cursor:not-allowed;font-size:13px;"
+            title="Coming soon">
+            ⚔️ Train
+          </button>
+        </div>
+
+      </div>
+    </div>
+  `
+  document.body.appendChild(panel)
+
+  // Auto greet on open
+  await chatWithNPC(npcId, 'greet')
+}
+
+async function chatWithNPC(npcId, messageType) {
+  const dialogueBox = document.getElementById('npc-dialogue')
+  if (!dialogueBox) return
+
+  // Loading state
+  dialogueBox.innerHTML = `<span style="color:#555">...</span>`
+
+  try {
+    const { data: { session } } = await dbClient.auth.getSession()
+    const res = await fetch('https://xagwrqrgcuuitwgroiwh.supabase.co/functions/v1/talk-to-npc', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      body: JSON.stringify({
+        npc_id: npcId,
+        message_type: messageType,
+        character_id: state.character_id
+      })
+    })
+
+    const data = await res.json()
+    if (data.error) throw new Error(data.error)
+
+    // Typing animation
+    await typeDialogue(data.response)
+
+    // Update rep badge
+    updateRepBadge(data.relationship_score, data.mood)
+
+  } catch (err) {
+    console.error('NPC error:', err)
+    if (dialogueBox) dialogueBox.innerHTML = `<span style="color:#c0392b">*The NPC stares blankly. Something went wrong.*</span>`
+  }
+}
+
+async function typeDialogue(text) {
+  const dialogueBox = document.getElementById('npc-dialogue')
+  if (!dialogueBox) return
+  dialogueBox.innerHTML = ''
+  for (let i = 0; i < text.length; i++) {
+    dialogueBox.innerHTML += text[i]
+    await new Promise(r => setTimeout(r, 18))
+  }
+}
+
+function updateRepBadge(score, mood) {
+  const badge = document.getElementById('npc-rep-badge')
+  if (!badge) return
+  const tiers = [
+    { min: 60,  label: '⭐ Revered',  color: '#f0c040', border: '#f0c040' },
+    { min: 30,  label: '😊 Warm',     color: '#2ecc71', border: '#2ecc71' },
+    { min: 0,   label: '😐 Neutral',  color: '#888',    border: '#444'    },
+    { min: -20, label: '😒 Cold',     color: '#e67e22', border: '#e67e22' },
+    { min: -100,label: '😡 Hostile',  color: '#c0392b', border: '#c0392b' },
+  ]
+  const tier = tiers.find(t => score >= t.min) || tiers[tiers.length - 1]
+  badge.textContent = tier.label
+  badge.style.color = tier.color
+  badge.style.borderColor = tier.border
+}
+
+function getNPCEmoji(npcId) {
+  const emojis = {
+    aldric:        '⚔️',
+    seraphine:     '🔮',
+    vex:           '🗡️',
+    kara:          '🏹',
+    brother_elian: '✨',
+    malachar:      '💀',
+    nara:          '🌿',
+    ragnar:        '🪓',
+    mirela:        '💰',
+    sovan:         '🔨',
+  }
+  return emojis[npcId] || '👤'
+}
+
+function closeNPCPanel() {
+  const panel = document.getElementById('npc-panel')
+  if (panel) panel.remove()
+}
 function getCurrentTitle() {
   let current = null;
   for (const t of REPUTATION_TITLES) {
@@ -2003,7 +2187,19 @@ function scaleMonster(templateId,stageLevel){
   const tmpl=MONSTER_TEMPLATES[templateId];if(!tmpl)return null;
   const diff=DIFFICULTY[state.difficulty||'normal'];
   const stageScale=1+(stageLevel-1)*0.3;
-  return{...tmpl,hp:Math.floor(tmpl.hp*stageScale*diff.hpMult),maxHp:Math.floor(tmpl.hp*stageScale*diff.hpMult),atk:Math.floor(tmpl.atk*stageScale*diff.atkMult),armor:Math.floor(tmpl.armor*stageScale),hit:Math.floor(tmpl.hit*stageScale),dodge:Math.floor(tmpl.dodge*stageScale),xp:Math.floor(tmpl.xp*diff.xpMult),gold:[Math.floor(tmpl.gold[0]*diff.goldMult),Math.floor(tmpl.gold[1]*diff.goldMult)],poisoned:0,frozen:false,boss:false,_xpMult:1,_goldMult:1};
+  const isPhase1 = (state.worldPhase || 1) < 2;
+  return{...tmpl,
+    hp:    Math.floor(tmpl.hp*stageScale*diff.hpMult),
+    maxHp: Math.floor(tmpl.hp*stageScale*diff.hpMult),
+    atk:   Math.floor(tmpl.atk*stageScale*diff.atkMult),
+    armor: Math.floor(tmpl.armor*stageScale),
+    hit:   isPhase1 ? 0 : Math.floor(tmpl.hit*stageScale),
+    dodge: isPhase1 ? 0 : Math.floor(tmpl.dodge*stageScale),
+    crit:  isPhase1 ? 0 : (tmpl.base_crit || 0),
+    xp:    Math.floor(tmpl.xp*diff.xpMult),
+    gold:  [Math.floor(tmpl.gold[0]*diff.goldMult),Math.floor(tmpl.gold[1]*diff.goldMult)],
+    poisoned:0,frozen:false,boss:false,_xpMult:1,_goldMult:1
+  };
 }
 
 // ── SCENES ──

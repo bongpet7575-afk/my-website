@@ -16,18 +16,7 @@ let selectedSkillForSlot = null;
 
 // ── START COMBAT ──
 async function startCombat(stageId) {
-  // Must request server stats before combat starts
-  const session = await requestCombatSession(stageId)
-  if (!session) {
-    notify('Failed to start combat. Please try again.', 'var(--red)')
-    return
-  }
-  
-  // Apply server authoritative stats
-  applyServerStats(session)
-  
-  // Now start combat
-  beginCombat(stageId)
+  await enterDungeon(stageId)
 }
 
 async function requestCombatSession(stageId) {
@@ -324,13 +313,16 @@ async function dungeonComplete() {
 // ── PLAYER ATTACK ──
 function handlePlayerAttack() {
   // Check dodge
-  const enemyDodgeChance = calculateDodgeChance(currentEnemy.dodge, state.hit);
+  const enemyDodgeChance = state.worldPhase >= 2 
+  ? calculateDodgeChance(currentEnemy.dodge, state.hit) 
+  : 0
   if (Math.random() < enemyDodgeChance) {
     addCombatLog(`💨 ${currentEnemy.name} dodged!`, 'bad');
     playSound('snd-attack');
     state.defending = false;
     return;
   }
+  
 
   // Calculate base damage
   let damage = calculateAttackDamage(state.attackPower, currentEnemy.armor);
@@ -344,6 +336,8 @@ function handlePlayerAttack() {
     damage = Math.floor(damage * 1.35);
   }
 
+  // Check for critical hit
+  // Check for critical hit — Phase 2+
   // Check for critical hit
   let isCrit = false;
   if (Math.random() < state.crit / 100) {
@@ -511,7 +505,9 @@ function handleEnemyTurn() {
   }
 
   // Calculate enemy dodge chance (player trying to dodge enemy attack)
-  const playerDodgeChance = calculateDodgeChance(state.dodge, currentEnemy.hit);
+  const playerDodgeChance = state.worldPhase >= 2 
+  ? calculateDodgeChance(state.dodge, currentEnemy.hit) 
+  : 0
   if (Math.random() < playerDodgeChance) {
     addCombatLog('💨 You dodged!', 'good');
     return;
@@ -955,7 +951,7 @@ async function autoFightStep() {
   }
 
   // Boss ability
-  if(currentEnemy.boss&&currentEnemy.ability){
+  if(state.worldPhase >= 2 && currentEnemy.boss && currentEnemy.ability){
   currentEnemy.abilityTurn=(currentEnemy.abilityTurn||0)+1;
   const triggerEvery = currentEnemy.abilityTriggerEvery || currentEnemy.ability.triggerEvery || 3;
   if(currentEnemy.abilityTurn>=triggerEvery){

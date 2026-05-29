@@ -188,19 +188,20 @@ state.goldMultExpiry = character.gold_mult_expiry   || null;
   state.skillCooldowns      = character.skill_cooldowns || {};
 
   // ── Quests ──
-  state.quests = character.quests || {
-    kill1:     { text:'🗡️ Defeat your first enemy', done:false },
-    gold50:    { text:'💰 Earn 50 gold',            done:false },
-    level5:    { text:'⭐ Reach Level 5',           done:false },
-    level10:   { text:'🏆 Reach Level 10',          done:false },
-    boss:      { text:'🐉 Defeat a Boss',           done:false },
-    class:     { text:'✨ Choose a Class',          done:false },
-    talent:    { text:'🌟 Unlock a Talent',         done:false },
-    equip:     { text:'🛡️ Equip an item',           done:false },
-    legendary: { text:'🔱 Find a Legendary item',  done:false },
-    craft:     { text:'⚗️ Craft an item',           done:false },
-    level50:   { text:'👑 Reach Level 50',          done:false },
-    level100:  { text:'🌟 Reach Max Level 100',     done:false },
+ const loadedQuests = character.quests || {};
+  state.quests = {
+    kill1:     loadedQuests.kill1     || { text:'🗡️ Defeat your first enemy', done:false },
+    gold50:    loadedQuests.gold50    || { text:'💰 Earn 50 gold',            done:false },
+    level5:    loadedQuests.level5    || { text:'⭐ Reach Level 5',           done:false },
+    level10:   loadedQuests.level10   || { text:'🏆 Reach Level 10',          done:false },
+    boss:      loadedQuests.boss      || { text:'🐐 Defeat a Boss',           done:false },
+    class:     loadedQuests.class     || { text:'✨ Choose a Class',          done:false },
+    talent:    loadedQuests.talent    || { text:'🌟 Unlock a Talent',         done:false },
+    equip:     loadedQuests.equip     || { text:'🛡️ Equip an item',           done:false },
+    legendary: loadedQuests.legendary || { text:'🔱 Find a Legendary item',  done:false },
+    craft:     loadedQuests.craft     || { text:'⚗️ Craft an item',           done:false },
+    level50:   loadedQuests.level50   || { text:'👑 Reach Level 50',          done:false },
+    level100:  loadedQuests.level100  || { text:'🌟 Reach Max Level 100',     done:false },
   };
 
   // ── Active debuffs ──
@@ -229,6 +230,16 @@ state.goldMultExpiry = character.gold_mult_expiry   || null;
   if (state.class && state.level >= 10) {
     if (typeof checkTalentUnlocks === 'function') checkTalentUnlocks();
   }
+
+  // ── calcStats ONCE at the very end ──
+  // ── Load world phase ──
+  const { data: worldState } = await dbClient
+    .from('world_state')
+    .select('phase')
+    .eq('id', 1)
+    .single()
+  state.worldPhase = worldState?.phase || 1
+  console.log('🌍 World Phase:', state.worldPhase)
 
   // ── calcStats ONCE at the very end ──
   if (typeof calcStats === 'function') calcStats();
