@@ -1292,9 +1292,11 @@ async function chatWithNPC(npcId, messageType) {
 async function typeDialogue(text) {
   const dialogueBox = document.getElementById('npc-dialogue')
   if (!dialogueBox) return
+  // Strip surrounding quotes if present
+  const clean = text.replace(/^["']|["']$/g, '').trim()
   dialogueBox.innerHTML = ''
-  for (let i = 0; i < text.length; i++) {
-    dialogueBox.innerHTML += text[i]
+  for (let i = 0; i < clean.length; i++) {
+    dialogueBox.innerHTML += clean[i]
     await new Promise(r => setTimeout(r, 18))
   }
 }
@@ -2217,6 +2219,8 @@ const SCENES={
       {text:'🌑 Shadow Realm (Lv 80+)',   next:'dungeon_9'},
       {text:'🌟 Eternal Kingdom (Lv 90+)',next:'dungeon_10'},
       {text:`⛪ Inn (+50% HP and MP, ${formatNumber(GAME_CONFIG.inn_cost||0)}g)`, next:'inn'},
+      {text:'🔨 Sovan\'s Forge',          action:()=>openNPCPanel('sovan')},
+      {text:'💰 Merchant Guild',          action:()=>openNPCPanel('mirela')},
     ]},
   dungeon_1:{title:'🐺 Wolf Mountain',text:'The howling mountain awaits.',choices:[{text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:1},{text:'🏘️ Town',next:'town'}]},
   dungeon_2:{title:'🕷️ Spider Cavern',text:'Dark webs cover every surface.',choices:[{text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:2},{text:'🏘️ Town',next:'town'}]},
