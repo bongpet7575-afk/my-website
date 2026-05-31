@@ -1506,6 +1506,7 @@ const SOUL_WEAPONS = {
 // ADVENTURE SCENE TAB SWITCHER
 // ============================================================
 function switchAdvTab(tab, btn) {
+  if (tab !== 'merchant') resetMerchantSession()
   // Hide all adv panels
   document.querySelectorAll('[id^="adv-panel-"]').forEach(p => p.style.display = 'none')
   // Deactivate all tabs
@@ -1577,33 +1578,23 @@ function renderTrainingHall() {
 // MERCHANT TAB SWITCHER
 // ============================================================
 function switchMerchantTab(tab, btn) {
-  // Gate auction behind Baron rep
-  if (tab === 'auction') {
-    const rank = state.reputationTitle || 'citizen'
-    const ranksWithAccess = ['baron', 'chief', 'mayor', 'viscount', 'count']
-    if (!ranksWithAccess.includes(rank)) {
-      openNPCPanel('voss') // Clerk Voss blocks the door
-      return // Don't switch tab
-    }
-  }
-
   document.querySelectorAll('[id^="merchant-panel-"]').forEach(p => p.style.display = 'none')
-  document.querySelectorAll('#adv-panel-merchant .town-tab').forEach(b => b.classList.remove('active'))
-  const panel = document.getElementById('merchant-panel-' + tab)
+  document.querySelectorAll('#merchant-tabs .town-tab').forEach(b => b.classList.remove('active'))
+
+  const panel = document.getElementById(`merchant-panel-${tab}`)
   if (panel) panel.style.display = 'block'
   if (btn) btn.classList.add('active')
 
-  if (tab === 'shop') renderShop()
-  if (tab === 'craft') renderCrafting()
-  if (tab === 'auction') {
-    fetchAuctions(currentAuctionSource || 'auction')
-    // Gate Black Wing behind Chief rep
-    const rank = state.reputationTitle || 'citizen'
-    const blackWingRanks = ['chief', 'mayor', 'viscount', 'count']
-    const bwBtn = document.getElementById('market-tab-blackwing-m')
-    if (bwBtn) bwBtn.style.display = blackWingRanks.includes(rank) ? 'block' : 'none'
+  if (tab === 'inventory') {
+    renderInventory()
+    updateInventorySlotIndicator()
   }
+  if (tab === 'shop')      renderShop()
+  if (tab === 'craft')     renderCrafting()
+  if (tab === 'auction')   fetchAuctions('auction')
+  if (tab === 'blackwing') fetchAuctions('blackwing')
 }
+
 
 // ============================================================
 // BLACK WING VISIBILITY
@@ -3112,6 +3103,355 @@ function renderBuffsAndTitles() {
   content.innerHTML = allRows.join('');
 }
 
+// ============================================================
+// MERCHANT HALL STATE — resets on every visit
+// ============================================================
+const merchantSession = {
+  craftUnlocked:     false,
+  shopUnlocked:      false,
+  auctionUnlocked:   false,
+  blackWingUnlocked: false,
+}
+
+function resetMerchantSession() {
+  merchantSession.craftUnlocked     = false
+  merchantSession.shopUnlocked      = false
+  merchantSession.auctionUnlocked   = false
+  merchantSession.blackWingUnlocked = false
+
+  // Hide all NPC inline panels
+  const mirelaPanel = document.getElementById('mirela-inline-panel')
+  const sovanPanel  = document.getElementById('sovan-inline-panel')
+  if (mirelaPanel) mirelaPanel.style.display = 'none'
+  if (sovanPanel)  sovanPanel.style.display  = 'none'
+
+  // Hide all tabs except inventory
+  ;['craft','shop','auction','blackwing'].forEach(tab => {
+    const btn = document.getElementById(`merchant-tab-${tab}`)
+    if (btn) btn.style.display = 'none'
+  })
+
+  // Reset to inventory tab
+  switchMerchantTab('inventory', document.getElementById('merchant-tab-inventory'))
+}
+
+// ============================================================
+// MERCHANT HALL
+// ============================================================
+
+async function openMerchantNPC(npcId) {
+  if (npcId === 'sovan') await openSovanPopup()
+  if (npcId === 'mirela') await openMirelaPopup()
+}
+
+function closeMerchantContent() {
+  // Hide all content panels
+  document.querySelectorAll('[id^="merchant-panel-"]').forEach(p => p.style.display = 'none')
+  // Hide content view, show default
+  document.getElementById('merchant-content-view').style.display = 'none'
+  document.getElementById('merchant-default-view').style.display = 'flex'
+}
+
+function showMerchantPanel(panelId) {
+  // Hide all panels
+  document.querySelectorAll('[id^="merchant-panel-"]').forEach(p => p.style.display = 'none')
+  // Show content view
+  document.getElementById('merchant-default-view').style.display = 'none'
+  document.getElementById('merchant-content-view').style.display = 'flex'
+  // Show target panel
+  const panel = document.getElementById(panelId)
+  if (panel) panel.style.display = 'flex'
+}
+
+// ============================================================
+// SOVAN POPUP
+// ============================================================
+async function openSovanPopup() {
+  // Create popup
+  const popup = document.createElement('div')
+  popup.id = 'sovan-popup'
+  popup.innerHTML = `
+    <div onclick="event.stopPropagation()" style="
+      background:#1a1208;border:2px solid #8b6914;border-radius:12px;
+      width:min(420px,92vw);max-height:75vh;display:flex;flex-direction:column;
+      box-shadow:0 0 30px rgba(139,105,20,0.4);">
+
+      <!-- Header -->
+      <div style="padding:14px 16px;border-bottom:1px solid #8b6914;
+        display:flex;align-items:center;gap:10px;">
+        <div style="width:48px;height:48px;border-radius:50%;background:#2a1f0a;
+          border:2px solid #8b6914;display:flex;align-items:center;
+          justify-content:center;font-size:1.6em;flex-shrink:0;">🔨</div>
+        <div style="flex:1;">
+          <div style="color:#f0c040;font-size:16px;font-weight:bold;font-family:var(--font-title);">Sovan</div>
+          <div style="color:#a0845c;font-size:12px;">Master Blacksmith</div>
+        </div>
+        <button onclick="document.getElementById('sovan-popup').remove()"
+          style="background:none;border:none;color:#888;font-size:18px;cursor:pointer;">✕</button>
+      </div>
+
+      <!-- Dialogue -->
+      <div style="padding:16px;flex:1;overflow-y:auto;">
+        <div id="sovan-popup-dialogue" style="
+          background:#0f0a02;border:1px solid #3a2f1a;border-radius:8px;
+          padding:14px;color:#e8d5a0;font-size:14px;line-height:1.6;
+          font-style:italic;min-height:60px;">
+          <span style="color:#555">...</span>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div style="padding:10px 16px;border-top:1px solid #2a1f0a;display:flex;flex-direction:column;gap:6px;">
+        <button onclick="
+          document.getElementById('sovan-popup').remove();
+          showMerchantPanel('merchant-panel-craft');
+          renderCrafting();"
+          style="background:#2a1f0a;border:1px solid #8b6914;color:#f0c040;
+          padding:9px 16px;border-radius:6px;cursor:pointer;font-size:13px;text-align:left;">
+          ⚗️ Enter the Forge — Crafting
+        </button>
+      </div>
+
+    </div>`
+
+  popup.style.cssText = `
+    position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:1000;
+    display:flex;align-items:center;justify-content:center;`
+  popup.onclick = () => popup.remove()
+  document.body.appendChild(popup)
+
+  // Fetch Sovan dialogue
+  try {
+    const { data: { session } } = await dbClient.auth.getSession()
+    const res = await fetch('https://xagwrqrgcuuitwgroiwh.supabase.co/functions/v1/talk-to-npc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ npc_id: 'sovan', message_type: 'greet', character_id: state.character_id })
+    })
+    const data = await res.json()
+    await typeNPCPopupDialogue('sovan-popup-dialogue', data.response || '...')
+  } catch(err) {
+    document.getElementById('sovan-popup-dialogue').textContent = '*Sovan glances up from his hammer*'
+  }
+}
+
+// ============================================================
+// MIRELA POPUP
+// ============================================================
+async function openMirelaPopup() {
+  const rank = state.reputationTitle || 'citizen'
+  const REP_ORDER = ['citizen','baron','chief','mayor','viscount','count']
+  const rankIndex = REP_ORDER.indexOf(rank)
+
+  // Inn cost by rank
+  const INN_DISCOUNTS = {
+    citizen:1.00, baron:0.90, chief:0.75, mayor:0.50, viscount:0.20, count:0.00
+  }
+  const baseCost = GAME_CONFIG.inn_cost || 10000
+  const discount = INN_DISCOUNTS[rank] ?? 1.00
+  const innCost = Math.floor(baseCost * discount)
+  const innLabel = innCost === 0
+    ? `🛏️ Rest at the Inn — FREE`
+    : `🛏️ Rest at the Inn — ${formatNumber(innCost)}g${discount < 1 ? ` (${Math.round((1-discount)*100)}% off)` : ''}`
+
+  // Build action buttons based on rank
+  const auctionBtn = rankIndex >= REP_ORDER.indexOf('chief')
+    ? `<button onclick="
+        document.getElementById('mirela-popup').remove();
+        showMerchantPanel('merchant-panel-auction');
+        fetchAuctions('auction');"
+        style="background:#2a1f0a;border:1px solid #8b6914;color:#f0c040;
+        padding:9px 16px;border-radius:6px;cursor:pointer;font-size:13px;text-align:left;">
+        🏛️ Auction House
+      </button>` : ''
+
+  const blackwingBtn = rankIndex >= REP_ORDER.indexOf('mayor')
+    ? `<button onclick="
+        document.getElementById('mirela-popup').remove();
+        showMerchantPanel('merchant-panel-blackwing');
+        fetchAuctions('blackwing');"
+        style="background:#1a0a1a;border:1px solid #5a2d8a;color:#a855f7;
+        padding:9px 16px;border-radius:6px;cursor:pointer;font-size:13px;text-align:left;">
+        🖤 Black Wing <span style="font-size:.8em;color:#666;">(Restricted)</span>
+      </button>` : ''
+
+  const popup = document.createElement('div')
+  popup.id = 'mirela-popup'
+  popup.innerHTML = `
+    <div onclick="event.stopPropagation()" style="
+      background:#1a1208;border:2px solid #8b6914;border-radius:12px;
+      width:min(420px,92vw);max-height:80vh;display:flex;flex-direction:column;
+      box-shadow:0 0 30px rgba(139,105,20,0.4);">
+
+      <!-- Header -->
+      <div style="padding:14px 16px;border-bottom:1px solid #8b6914;
+        display:flex;align-items:center;gap:10px;">
+        <div style="width:48px;height:48px;border-radius:50%;background:#2a1f0a;
+          border:2px solid #8b6914;display:flex;align-items:center;
+          justify-content:center;font-size:1.6em;flex-shrink:0;">💰</div>
+        <div style="flex:1;">
+          <div style="color:#f0c040;font-size:16px;font-weight:bold;font-family:var(--font-title);">Mirela</div>
+          <div style="color:#a0845c;font-size:12px;">Merchant Guild Representative</div>
+        </div>
+        <button onclick="document.getElementById('mirela-popup').remove()"
+          style="background:none;border:none;color:#888;font-size:18px;cursor:pointer;">✕</button>
+      </div>
+
+      <!-- Dialogue -->
+      <div style="padding:16px;flex:1;overflow-y:auto;">
+        <div id="mirela-popup-dialogue" style="
+          background:#0f0a02;border:1px solid #3a2f1a;border-radius:8px;
+          padding:14px;color:#e8d5a0;font-size:14px;line-height:1.6;
+          font-style:italic;min-height:60px;">
+          <span style="color:#555">...</span>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div style="padding:10px 16px;border-top:1px solid #2a1f0a;display:flex;flex-direction:column;gap:6px;">
+
+        <button id="mirela-inn-popup-btn"
+          onclick="handleMirelaInn()"
+          style="background:#2a1f0a;border:1px solid #8b6914;color:#f0c040;
+          padding:9px 16px;border-radius:6px;cursor:pointer;font-size:13px;text-align:left;">
+          ${innLabel}
+        </button>
+
+        <button onclick="
+          document.getElementById('mirela-popup').remove();
+          showMerchantPanel('merchant-panel-inventory');
+          renderInventory();
+          updateInventorySlotIndicator();"
+          style="background:#2a1f0a;border:1px solid #8b6914;color:#f0c040;
+          padding:9px 16px;border-radius:6px;cursor:pointer;font-size:13px;text-align:left;">
+          🎒 View Inventory
+        </button>
+
+        <button onclick="
+          document.getElementById('mirela-popup').remove();
+          showMerchantPanel('merchant-panel-shop');
+          renderShop();"
+          style="background:#2a1f0a;border:1px solid #8b6914;color:#f0c040;
+          padding:9px 16px;border-radius:6px;cursor:pointer;font-size:13px;text-align:left;">
+          🏪 Browse Shop
+        </button>
+
+        ${auctionBtn}
+        ${blackwingBtn}
+
+      </div>
+    </div>`
+
+  popup.style.cssText = `
+    position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:1000;
+    display:flex;align-items:center;justify-content:center;`
+  popup.onclick = () => popup.remove()
+  document.body.appendChild(popup)
+
+  // Fetch Mirela dialogue
+  try {
+    const { data: { session } } = await dbClient.auth.getSession()
+    const res = await fetch('https://xagwrqrgcuuitwgroiwh.supabase.co/functions/v1/talk-to-npc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ npc_id: 'mirela', message_type: 'greet', character_id: state.character_id })
+    })
+    const data = await res.json()
+    await typeNPCPopupDialogue('mirela-popup-dialogue', data.response || '...')
+  } catch(err) {
+    document.getElementById('mirela-popup-dialogue').textContent = '*Mirela looks up from her ledger*'
+  }
+}
+
+// ============================================================
+// MIRELA INN HANDLER
+// ============================================================
+async function handleMirelaInn() {
+  const rank = state.reputationTitle || 'citizen'
+  const INN_DISCOUNTS = {
+    citizen:1.00, baron:0.90, chief:0.75, mayor:0.50, viscount:0.20, count:0.00
+  }
+  const baseCost = GAME_CONFIG.inn_cost || 10000
+  const innCost = Math.floor(baseCost * (INN_DISCOUNTS[rank] ?? 1.00))
+
+  if (state.gold >= innCost || innCost === 0) {
+    if (innCost > 0) addGold(-innCost)
+    const hh = Math.floor(state.maxHp * 0.5)
+    const mh = Math.floor(state.maxMp * 0.5)
+    state.hp = Math.min(state.maxHp, state.hp + hh)
+    state.mp = Math.min(state.maxMp, state.mp + mh)
+    addLog(`Rested: +${formatNumber(hh)} HP +${formatNumber(mh)} MP. Cost ${formatNumber(innCost)}g.`, 'good')
+    notify(`🛏️ Rested! +${formatNumber(hh)} HP +${formatNumber(mh)} MP`, 'var(--green)')
+    updateUI()
+    savePlayerToSupabase()
+
+    // Fetch inn response from Edge Function
+    try {
+      const { data: { session } } = await dbClient.auth.getSession()
+      const res = await fetch('https://xagwrqrgcuuitwgroiwh.supabase.co/functions/v1/talk-to-npc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ npc_id: 'mirela', message_type: 'inn', character_id: state.character_id })
+      })
+      const data = await res.json()
+      await typeNPCPopupDialogue('mirela-popup-dialogue', data.response || '...')
+    } catch(err) {
+      document.getElementById('mirela-popup-dialogue').textContent = '*Mirela nods as you head upstairs*'
+    }
+  } else {
+    notify(`🛏️ Need ${formatNumber(innCost)}g to rest!`, 'var(--red)')
+    await typeNPCPopupDialogue('mirela-popup-dialogue', `You cannot afford to rest here. ${formatNumber(innCost)}g required. Come back when you have the gold.`)
+  }
+}
+
+// ============================================================
+// TYPING ANIMATION FOR POPUP DIALOGUE
+// ============================================================
+async function typeNPCPopupDialogue(elementId, text) {
+  const el = document.getElementById(elementId)
+  if (!el) return
+  const clean = text.replace(/^["']|["']$/g, '').trim()
+  el.textContent = ''
+  for (let i = 0; i < clean.length; i++) {
+    el.textContent += clean[i]
+    await new Promise(r => setTimeout(r, 15))
+  }
+}
+
+// ============================================================
+// INVENTORY SLOT INDICATOR
+// ============================================================
+function updateInventorySlotIndicator() {
+  const el = document.getElementById('inventory-slot-indicator')
+  if (!el) return
+  const rank = state.reputationTitle || 'citizen'
+  const slots = GAME_CONFIG.inventory_slots_by_rank?.[rank] || { equipment:20, consumable:20, material:20 }
+  const tab = state.invTab || 'equipment'
+  const limit = slots[tab] || 20
+  const current = state.inventory.filter(i => i.category === tab).length
+  el.textContent = `${current}/${limit} slots`
+  el.style.color = current >= limit ? 'var(--red)' : 'var(--text-dim)'
+}
+
+// ============================================================
+// UPDATED switchMerchantTab — simplified
+// ============================================================
+function switchMerchantTab(tab, btn) {
+  // Reset merchant hall to default view when leaving
+  if (tab !== 'merchant') {
+    document.getElementById('merchant-default-view').style.display = 'flex'
+    document.getElementById('merchant-content-view').style.display = 'none'
+    document.querySelectorAll('[id^="merchant-panel-"]').forEach(p => p.style.display = 'none')
+  }
+  const panel = document.getElementById(`merchant-panel-${tab}`)
+  if (panel) panel.style.display = 'flex'
+
+  if (tab === 'inventory') { renderInventory(); updateInventorySlotIndicator() }
+  if (tab === 'shop')      renderShop()
+  if (tab === 'craft')     renderCrafting()
+  if (tab === 'auction')   fetchAuctions('auction')
+  if (tab === 'blackwing') fetchAuctions('blackwing')
+}
 
 // ===== ENEMY STATS DISPLAY MANAGER =====
 

@@ -91,6 +91,8 @@ const NPC_DIALOGUES: Record<string, (ctx: any) => string> = {
     if (gold < 1000000000)                  return `${gold.toLocaleString()} gold. *leans forward* Interesting. For a citizen, that is... notable. But gold alone doesn't buy respect here.`
 
     return `${gold.toLocaleString()} gold and still a citizen? *tilts head* You have the wealth but not the reputation. The guild deals in both. Go earn your rank.`
+
+    
   },
 
   aldric: (ctx) => {
@@ -356,7 +358,7 @@ serve(async (req) => {
     // Fetch real player data
     const { data: character, error: charError } = await supabase
       .from('characters')
-      .select('id, name, level, class, stats, equipped, inventory, gold')
+      .select('id, name, level, class, stats, equipped, inventory, gold, reputation_rank')
       .eq('user_id', user.id)
       .eq('id', character_id)
       .single()
@@ -438,6 +440,25 @@ serve(async (req) => {
   agiStat:          stats.baseAgi || 0,
   intStat:          stats.baseInt || 0,
 }
+
+    // Build stat-aware dialogue
+    // Inn handler — Mirela only
+    if (message_type === 'inn') {
+      const rank = character.reputation_rank || 'citizen'
+      const innResponses: Record<string, string> = {
+        citizen:  `*Mirela points to the back without looking up* Common room. Full price. Don't disturb the other guests.`,
+        baron:    `*glances up* Baron. The decent room is available. 10% off — don't mention it to the citizens.`,
+        chief:    `Chief. *folds hands* The good room is yours. 25% off. You've earned a proper rest.`,
+        mayor:    `Lord Mayor. *stands* The finest room has been prepared. Half price, as always for your rank.`,
+        viscount: `*quietly* Lord Viscount. The staff was notified the moment you walked in. 80% off. Please, rest well.`,
+        count:    `*bows head* Lord Count. *very quietly* The inn is yours tonight. No charge. It is an honor.`,
+      }
+      return jsonResponse({
+        response: innResponses[rank] || innResponses.citizen,
+        mood: relationship?.mood || 'neutral',
+        relationship_score: relationship?.relationship_score || 0
+      })
+    }
 
     // Build stat-aware dialogue
     const response = buildDialogue(npc_id, ctx)
