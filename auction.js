@@ -78,7 +78,8 @@ async function generateSystemItems() {
 // ============================================
 
 async function fetchAuctions(source = 'auction') {
-  const container = document.getElementById('auction-list')
+  // Target merchant panel if visible, fallback to town panel
+  const container = document.getElementById('auction-list-merchant') || document.getElementById('auction-list')
   if (!container) return
   container.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">Loading...</div>'
 
@@ -122,65 +123,65 @@ async function fetchAuctions(source = 'auction') {
 }
 
 async function showMyAuctions(btn) {
-  document.querySelectorAll('#town-panel-auction .shop-tab').forEach(t => t.classList.remove('active'));
-  btn.classList.add('active');
+  // Target correct tab container
+  const tabContainer = document.getElementById('merchant-panel-auction') || document.getElementById('town-panel-auction')
+  tabContainer?.querySelectorAll('.shop-tab').forEach(t => t.classList.remove('active'))
+  btn.classList.add('active')
 
   if (!state.character_id) { notify('Must be logged in!', 'var(--red)'); return; }
 
-  const container = document.getElementById('auction-list');
-  container.innerHTML = `<div style="text-align:center;color:var(--text-dim);padding:20px;">Loading...</div>`;
+  const container = document.getElementById('auction-list-merchant') || document.getElementById('auction-list')
+  if (!container) return
+  container.innerHTML = `<div style="text-align:center;color:var(--text-dim);padding:20px;">Loading...</div>`
 
   const { data } = await dbClient
     .from('auctions').select('*')
     .eq('seller_id', state.character_id).eq('status', 'active')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
 
   if (!data || !data.length) {
-    container.innerHTML = `<div style="text-align:center;color:var(--text-dim);padding:20px;font-style:italic;">No active listings.</div>`;
-    return;
+    container.innerHTML = `<div style="text-align:center;color:var(--text-dim);padding:20px;font-style:italic;">No active listings.</div>`
+    return
   }
 
-  renderAuctions(data, { [state.character_id]: state.name });
+  renderAuctions(data, { [state.character_id]: state.name })
 }
 
 function renderAuctions(auctions, sellerMap = {}) {
-  const container = document.getElementById('auction-list');
-  if (!container) return;
-  const r_ = r => RARITY[r] || RARITY.normal;
+  // Target merchant panel if visible, fallback to town panel
+  const container = document.getElementById('auction-list-merchant') || document.getElementById('auction-list')
+  if (!container) return
+  const r_ = r => RARITY[r] || RARITY.normal
   container.innerHTML = auctions.map(auction => {
-    const endsAt = new Date(auction.ends_at), timeLeft = endsAt - new Date();
-    const hoursLeft = Math.max(0, Math.floor(timeLeft / 3600000));
-    const minsLeft = Math.max(0, Math.floor((timeLeft % 3600000) / 60000));
-    const isExpired = timeLeft <= 0;
-    const isOwn = auction.seller_id === state.character_id;
-    const isSystem = auction.source === 'system';
-    const currentBid = auction.current_bid || auction.start_price;
-    const rColor = r_(auction.rarity).color;
-    const sellerName = isSystem ? '🤖 Auction House' : `👤 ${sellerMap[auction.seller_id] || 'Unknown'}`;
+    const endsAt = new Date(auction.ends_at), timeLeft = endsAt - new Date()
+    const hoursLeft = Math.max(0, Math.floor(timeLeft / 3600000))
+    const minsLeft = Math.max(0, Math.floor((timeLeft % 3600000) / 60000))
+    const isExpired = timeLeft <= 0
+    const isOwn = auction.seller_id === state.character_id
+    const isSystem = auction.source === 'system'
+    const currentBid = auction.current_bid || auction.start_price
+    const rColor = r_(auction.rarity).color
+    const sellerName = isSystem ? '🤖 Auction House' : `👤 ${sellerMap[auction.seller_id] || 'Unknown'}`
 
-    // Parse item for lock checks
-    let parsedItem = null;
-    try { parsedItem = typeof auction.item_description === 'string' ? JSON.parse(auction.item_description) : auction.item_description; } catch(e) {}
+    let parsedItem = null
+    try { parsedItem = typeof auction.item_description === 'string' ? JSON.parse(auction.item_description) : auction.item_description } catch(e) {}
 
-    // Level lock check
-    const levelReq = parsedItem?.levelReq || 0;
-    const isLevelLocked = levelReq > state.level;
+    const levelReq = parsedItem?.levelReq || 0
+    const isLevelLocked = levelReq > state.level
 
-    // Reputation lock check
-    const REP_REQ = { rare:'baron', epic:'chief', legendary:'mayor' };
-    const repNeeded = REP_REQ[auction.rarity];
-    const repTiers = REPUTATION_TITLES.map(r => r.id);
-    const playerRepIndex = repTiers.indexOf(state.reputationTitle || '');
-    const reqRepIndex = repTiers.indexOf(repNeeded || '');
-    const isRepLocked = repNeeded && playerRepIndex < reqRepIndex;
-    const repLabel = isRepLocked ? REPUTATION_TITLES.find(r => r.id === repNeeded)?.label : null;
+    const REP_REQ = { rare:'baron', epic:'chief', legendary:'mayor' }
+    const repNeeded = REP_REQ[auction.rarity]
+    const repTiers = REPUTATION_TITLES.map(r => r.id)
+    const playerRepIndex = repTiers.indexOf(state.reputationTitle || '')
+    const reqRepIndex = repTiers.indexOf(repNeeded || '')
+    const isRepLocked = repNeeded && playerRepIndex < reqRepIndex
+    const repLabel = isRepLocked ? REPUTATION_TITLES.find(r => r.id === repNeeded)?.label : null
 
-    // Lock warning banner
     const lockWarning = (isLevelLocked || isRepLocked) ? `
       <div style="background:rgba(255,0,0,0.08);border:1px solid var(--red);border-radius:4px;padding:4px 8px;margin-bottom:6px;font-size:.7em;display:flex;gap:8px;flex-wrap:wrap;">
         ${isLevelLocked ? `<span style="color:var(--red);">🔒 Requires Level ${levelReq}</span>` : ''}
         ${isRepLocked ? `<span style="color:var(--epic);">👑 Requires ${repLabel} Reputation</span>` : ''}
-      </div>` : '';
+      </div>` : ''
 
     return `<div style="background:linear-gradient(135deg,rgba(255,255,255,0.03),rgba(8,8,40,0.7));border:1px solid ${rColor};border-radius:8px;padding:10px;margin-bottom:8px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
@@ -211,8 +212,8 @@ function renderAuctions(auctions, sellerMap = {}) {
             <button class="start-btn red-btn" onclick="cancelAuction('${auction.id}')" style="flex:1;font-size:.72em;padding:5px 8px;">❌ Cancel</button>
            </div>`
         : ''}
-    </div>`;
-  }).join('');
+    </div>`
+  }).join('')
 }
 
 

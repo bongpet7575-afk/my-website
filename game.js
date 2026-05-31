@@ -1165,6 +1165,7 @@ const NPC_LIST = {
   // General NPCs
   mirela:        { name: 'Mirela',        role: 'Quest Giver',         location: 'Merchant Guild Hall'   },
   sovan:         { name: 'Sovan',         role: 'Blacksmith',          location: "Sovan's Forge"         },
+  voss: { name: 'Clerk Voss', role: 'Auction House Guard', location: 'Auction House Entrance' }
 };
 
 // ============================================================
@@ -1399,6 +1400,8 @@ async function addReputation(points) {
   await savePlayerToSupabase();
 }
 
+
+
 // ── SOUL WEAPONS ──
 const SOUL_WEAPONS = {
   warrior: {
@@ -1498,6 +1501,140 @@ const SOUL_WEAPONS = {
       effect(enemy){ state.hp=Math.max(1,state.hp-Math.floor(state.maxHp*0.2)); const d=Math.floor(state.attackPower*10); return d; }},
   },
 };
+
+// ============================================================
+// ADVENTURE SCENE TAB SWITCHER
+// ============================================================
+function switchAdvTab(tab, btn) {
+  // Hide all adv panels
+  document.querySelectorAll('[id^="adv-panel-"]').forEach(p => p.style.display = 'none')
+  // Deactivate all tabs
+  document.querySelectorAll('#adv-tabs .town-tab').forEach(b => b.classList.remove('active'))
+  // Show selected panel
+  const panel = document.getElementById('adv-panel-' + tab)
+  if (panel) panel.style.display = 'flex'
+  // Activate tab
+  if (btn) btn.classList.add('active')
+
+  // Render content on switch
+  if (tab === 'training') renderTrainingHall()
+  if (tab === 'merchant') {
+    renderInventory()
+    renderShop()
+    renderCrafting()
+    fetchAuctions(currentAuctionSource || 'auction')
+    updateBlackWingVisibility()
+  }
+}
+
+// ============================================================
+// TRAINING HALL RENDERER
+// ============================================================
+function renderTrainingHall() {
+  const container = document.getElementById('training-hall-npcs')
+  if (!container) return
+
+  const CLASS_TRAINERS = {
+    warrior:     { npcId: 'aldric',        name: 'Aldric',        role: 'Warrior Trainer',     icon: '⚔️', unlockLevel: 10  },
+    mage:        { npcId: 'seraphine',     name: 'Seraphine',     role: 'Mage Trainer',        icon: '🔮', unlockLevel: 10  },
+    rogue:       { npcId: 'vex',           name: 'Vex',           role: 'Rogue Trainer',       icon: '🗡️', unlockLevel: 10  },
+    hunter:      { npcId: 'kara',          name: 'Kara',          role: 'Hunter Trainer',      icon: '🏹', unlockLevel: 20  },
+    paladin:     { npcId: 'brother_elian', name: 'Brother Elian', role: 'Paladin Trainer',     icon: '✨', unlockLevel: 30  },
+    necromancer: { npcId: 'malachar',      name: 'Malachar',      role: 'Necromancer Trainer', icon: '💀', unlockLevel: 50  },
+    shaman:      { npcId: 'nara',          name: 'Nara',          role: 'Shaman Trainer',      icon: '🌿', unlockLevel: 70  },
+    berserker:   { npcId: 'ragnar',        name: 'Ragnar',        role: 'Berserker Trainer',   icon: '🪓', unlockLevel: 90  },
+  }
+
+  const playerClass = state.class?.toLowerCase()
+  const trainer = CLASS_TRAINERS[playerClass]
+
+  container.innerHTML = ''
+
+  // Your class trainer
+  if (trainer) {
+    const btn = document.createElement('button')
+    btn.className = 'choice-btn'
+    btn.innerHTML = `${trainer.icon} ${trainer.name} — ${trainer.role}`
+    btn.onclick = () => openNPCPanel(trainer.npcId)
+    container.appendChild(btn)
+  } else {
+    const msg = document.createElement('p')
+    msg.style.cssText = 'color:var(--text-dim);font-style:italic;font-size:.85em;padding:8px 0;'
+    msg.textContent = 'Choose a class first to find your trainer.'
+    container.appendChild(msg)
+  }
+
+  // Ragnar always visible
+  const ragnarBtn = document.createElement('button')
+  ragnarBtn.className = 'choice-btn'
+  ragnarBtn.innerHTML = `🪓 Ragnar — Berserker Trainer <span style="font-size:.75em;color:var(--text-dim);">(Lv 90+ Berserker)</span>`
+  ragnarBtn.onclick = () => openNPCPanel('ragnar')
+  if (playerClass === 'berserker') ragnarBtn.style.display = 'none' // already shown above
+  container.appendChild(ragnarBtn)
+}
+
+// ============================================================
+// MERCHANT TAB SWITCHER
+// ============================================================
+function switchMerchantTab(tab, btn) {
+  // Gate auction behind Baron rep
+  if (tab === 'auction') {
+    const rank = state.reputationTitle || 'citizen'
+    const ranksWithAccess = ['baron', 'chief', 'mayor', 'viscount', 'count']
+    if (!ranksWithAccess.includes(rank)) {
+      openNPCPanel('voss') // Clerk Voss blocks the door
+      return // Don't switch tab
+    }
+  }
+
+  document.querySelectorAll('[id^="merchant-panel-"]').forEach(p => p.style.display = 'none')
+  document.querySelectorAll('#adv-panel-merchant .town-tab').forEach(b => b.classList.remove('active'))
+  const panel = document.getElementById('merchant-panel-' + tab)
+  if (panel) panel.style.display = 'block'
+  if (btn) btn.classList.add('active')
+
+  if (tab === 'shop') renderShop()
+  if (tab === 'craft') renderCrafting()
+  if (tab === 'auction') {
+    fetchAuctions(currentAuctionSource || 'auction')
+    // Gate Black Wing behind Chief rep
+    const rank = state.reputationTitle || 'citizen'
+    const blackWingRanks = ['chief', 'mayor', 'viscount', 'count']
+    const bwBtn = document.getElementById('market-tab-blackwing-m')
+    if (bwBtn) bwBtn.style.display = blackWingRanks.includes(rank) ? 'block' : 'none'
+  }
+}
+
+// ============================================================
+// BLACK WING VISIBILITY
+// ============================================================
+function updateBlackWingVisibility() {
+  const btn = document.getElementById('blackwing-btn')
+  if (!btn) return
+  const rank = state.reputationTitle || 'citizen'
+  const ranksWithAccess = ['baron', 'chief', 'mayor', 'viscount', 'count']
+  btn.style.display = ranksWithAccess.includes(rank) ? 'flex' : 'none'
+}
+
+// ============================================================
+// INN from Merchant Hall
+// ============================================================
+function openInn() {
+  const innCost = GAME_CONFIG.inn_cost || 0
+  if (state.gold >= innCost) {
+    addGold(-innCost)
+    const hh = Math.floor(state.maxHp * 0.5)
+    const mh = Math.floor(state.maxMp * 0.5)
+    state.hp = Math.min(state.maxHp, state.hp + hh)
+    state.mp = Math.min(state.maxMp, state.mp + mh)
+    addLog(`Rested at the Inn: +${formatNumber(hh)} HP, +${formatNumber(mh)} MP. Cost ${formatNumber(innCost)}g.`, 'good')
+    notify(`⛪ Rested! +${formatNumber(hh)} HP +${formatNumber(mh)} MP`, 'var(--green)')
+  } else {
+    notify(`⛪ Need ${formatNumber(innCost)}g to rest!`, 'var(--red)')
+  }
+  updateUI()
+  savePlayerToSupabase()
+}
 
 // ── DIFFICULTY ──
 const DIFFICULTY={
@@ -2218,9 +2355,6 @@ const SCENES={
       {text:'😈 Demon Citadel (Lv 70+)',  next:'dungeon_8'},
       {text:'🌑 Shadow Realm (Lv 80+)',   next:'dungeon_9'},
       {text:'🌟 Eternal Kingdom (Lv 90+)',next:'dungeon_10'},
-      {text:`⛪ Inn (+50% HP and MP, ${formatNumber(GAME_CONFIG.inn_cost||0)}g)`, next:'inn'},
-      {text:'🔨 Sovan\'s Forge',          action:()=>openNPCPanel('sovan')},
-      {text:'💰 Merchant Guild',          action:()=>openNPCPanel('mirela')},
     ]},
   dungeon_1:{title:'🐺 Wolf Mountain',text:'The howling mountain awaits.',choices:[{text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:1},{text:'🏘️ Town',next:'town'}]},
   dungeon_2:{title:'🕷️ Spider Cavern',text:'Dark webs cover every surface.',choices:[{text:'⚔️ Enter Dungeon',next:'enter_dungeon',stageId:2},{text:'🏘️ Town',next:'town'}]},
@@ -4025,41 +4159,76 @@ function unequipSlot(slot,silent=false){
 }
 function renderEquipSlots(){
   ['weapon','armor','helmet','boots','ring','amulet'].forEach(slot=>{
-    const slotEl=document.getElementById(`slot-${slot}`),nameEl=document.getElementById(`slot-${slot}-name`);
-    slotEl.className='equip-slot';
-    const existing=slotEl.querySelector('.equip-tooltip');
-    if(existing)existing.remove();
-    const enhLabelEl=slotEl.querySelector('.slot-enh-label');
-    if(enhLabelEl)enhLabelEl.remove();
+    // Target both main and merchant slot elements
+    const slotEl  = document.getElementById(`slot-${slot}`)
+    const nameEl  = document.getElementById(`slot-${slot}-name`)
+    const slotElM = document.getElementById(`slot-${slot}-m`)
+    const nameElM = document.getElementById(`slot-${slot}-name-m`)
 
-    const uid=state.equipped[slot];
+    // Reset both
+    if(slotEl)  slotEl.className  = 'equip-slot'
+    if(slotElM) slotElM.className = 'equip-slot'
+
+    ;[slotEl, slotElM].forEach(el => {
+      if(!el) return
+      const existing = el.querySelector('.equip-tooltip')
+      if(existing) existing.remove()
+      const enhLabelEl = el.querySelector('.slot-enh-label')
+      if(enhLabelEl) enhLabelEl.remove()
+    })
+
+    const uid = state.equipped[slot]
     if(uid){
-      const item=state.inventory.find(i=>i.uid===uid);
+      const item = state.inventory.find(i => i.uid === uid)
       if(item){
-        const enh=item.enhLevel||0;
+        const enh = item.enhLevel || 0
+        const shortName = item.name.replace(/^[^\s]+ /,'').substring(0,12)
 
-        nameEl.textContent=item.name.replace(/^[^\s]+ /,'').substring(0,12);
+        // Enhancement label
+        const makeEnhEl = () => {
+          const enhEl = document.createElement('div')
+          enhEl.className = 'slot-enh-label'
+          enhEl.textContent = enh > 0 ? `+${enh}` : ''
+          enhEl.style.color = enh >= 15 ? 'var(--legendary)' : enh >= 7 ? 'var(--gold)' : '#aaa'
+          return enhEl
+        }
 
-        // Enh label under name
-        const enhEl=document.createElement('div');
-        enhEl.className='slot-enh-label';
-        enhEl.textContent=enh>0?`+${enh}`:'';
-        enhEl.style.color=enh>=15?'var(--legendary)':enh>=7?'var(--gold)':'#aaa';
-        slotEl.appendChild(enhEl);
+        // Tooltip HTML
+        const statsHtml = Object.entries(item.stats||{}).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join('')
+        const rarity = RARITY[item.rarity] || RARITY.normal
+        const enh_label = enh > 0 ? `<div style="color:${enh>=7?'var(--legendary)':'var(--gold)'};font-size:0.75em;">+${enh} Enhanced</div>` : ''
+        const tooltipHtml = `<div class="equip-tooltip" style="display:none;">
+          <div style="color:${rarity.color};font-weight:600;">${item.name}</div>
+          <div style="color:${rarity.color};font-size:0.8em;margin:3px 0;">${rarity.label}</div>
+          ${enh_label}${statsHtml}
+          <div style="color:#888;font-size:0.75em;margin-top:4px;">Sell: ${item.sellPrice}g</div>
+        </div>`
 
-        slotEl.classList.add('has-item',item.rarity);
-        if(enh>=15)slotEl.classList.add('enh-glow-15');
-        else if(enh>=7)slotEl.classList.add('enh-glow-7');
+        // Apply to main slot
+        if(slotEl && nameEl){
+          nameEl.textContent = shortName
+          slotEl.appendChild(makeEnhEl())
+          slotEl.classList.add('has-item', item.rarity)
+          if(enh >= 15) slotEl.classList.add('enh-glow-15')
+          else if(enh >= 7) slotEl.classList.add('enh-glow-7')
+          slotEl.insertAdjacentHTML('beforeend', tooltipHtml)
+        }
 
-        const statsHtml=Object.entries(item.stats||{}).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join('');
-        const rarity=RARITY[item.rarity]||RARITY.normal;
-        const enh_label=enh>0?`<div style="color:${enh>=7?'var(--legendary)':'var(--gold)'};font-size:0.75em;">+${enh} Enhanced</div>`:'';
-        slotEl.insertAdjacentHTML('beforeend',`<div class="equip-tooltip" style="display:none;"><div style="color:${rarity.color};font-weight:600;">${item.name}</div><div style="color:${rarity.color};font-size:0.8em;margin:3px 0;">${rarity.label}</div>${enh_label}${statsHtml}<div style="color:#888;font-size:0.75em;margin-top:4px;">Sell: ${item.sellPrice}g</div></div>`);
+        // Mirror to merchant slot
+        if(slotElM && nameElM){
+          nameElM.textContent = shortName
+          slotElM.appendChild(makeEnhEl())
+          slotElM.classList.add('has-item', item.rarity)
+          if(enh >= 15) slotElM.classList.add('enh-glow-15')
+          else if(enh >= 7) slotElM.classList.add('enh-glow-7')
+          slotElM.insertAdjacentHTML('beforeend', tooltipHtml)
+        }
       }
     } else {
-      nameEl.textContent='Empty';
+      if(nameEl)  nameEl.textContent  = 'Empty'
+      if(nameElM) nameElM.textContent = 'Empty'
     }
-  });
+  })
 }
 
 // ── INVENTORY ──
@@ -4343,7 +4512,9 @@ function showItemPopup(source,id){
   let item,btns='',statsHtml='',reqLine='';
 
   if(source==='shop'){
-    const all=[...SHOP_EQUIP,...SHOP_CONS];
+    const equipItems = window._shopEquipCache || SHOP_EQUIP
+    const consItems = window._shopConsCache || SHOP_CONS
+    const all=[...equipItems,...consItems];
     item=all.find(i=>i.id===id);if(!item)return;
     statsHtml=item.stats
       ?Object.entries(item.stats).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join('')
@@ -4501,7 +4672,7 @@ function migrateAutoSell() {
 function renderInventory() {
   migrateAutoSell();
 
-  const list  = document.getElementById('inventory-list');
+  const list  = document.getElementById('inventory-list-merchant') || document.getElementById('inventory-list');
   const items = state.inventory.filter(i => i.category === currentInvTab);
 
   // Soul tab has no slot limit
@@ -4705,7 +4876,7 @@ function openCrafting(){document.getElementById('craft-screen').style.display='b
 function closeCrafting(){document.getElementById('craft-screen').style.display='none';}
 function getMaterialQty(name){const item=state.inventory.find(i=>i.name===name&&i.stackable);return item?item.qty:0;}
 function renderCrafting(){
-  const grid=document.getElementById('craft-grid-town'),r_=r=>RARITY[r]||RARITY.normal;
+  const grid=document.getElementById('craft-grid-merchant') || document.getElementById('craft-grid-town'),r_=r=>RARITY[r]||RARITY.normal;
   grid.innerHTML=CRAFTING.map(recipe=>{
     // Hide other class soul weapons
     if(recipe.classReq){
@@ -4790,119 +4961,246 @@ function switchShopTab(tab){
   document.querySelectorAll('.shop-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById(`shop-tab-${tab}`).classList.add('active');renderShop();
 }
-function renderShop() {
-  const container = document.getElementById('shop-content');
-  if (!container) return;
+async function renderShop() {
+  const container = document.getElementById('shop-content-merchant') || document.getElementById('shop-content')
+  if (!container) return
 
-  const items = currentShopTab === 'equipment' ? SHOP_EQUIP : SHOP_CONS;
-  const r_ = r => RARITY[r] || RARITY.normal;
+  container.innerHTML = `<div style="text-align:center;color:var(--text-dim);padding:20px;">Loading...</div>`
 
-  // ── EQUIPMENT TAB ──
-  if (currentShopTab === 'equipment') {
-    container.innerHTML = `
-      <div class="item-grid">
-        ${items.map(item => `
-          <div class="item-icon-box ${item.rarity}"
-            onclick="showItemPopup('shop','${item.id}')"
-            title="${item.name}">
-            <div class="item-icon-emoji">${item.name.split(' ')[0]}</div>
-            <div class="item-icon-price">💰${formatNumber(item.price)}</div>
-          </div>`).join('')}
-      </div>`;
-    return;
-  }
+  try {
+    const { data: { session } } = await dbClient.auth.getSession()
+    const res = await fetch('https://xagwrqrgcuuitwgroiwh.supabase.co/functions/v1/get-shop', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      body: JSON.stringify({
+        character_id: state.character_id,
+        tab: currentShopTab || 'equipment'
+      })
+    })
 
-  // ── CONSUMABLES TAB ──
-  let html = `
-    <div class="item-grid">
-      ${items.map(item => `
-        <div class="item-icon-box ${item.rarity}"
-          onclick="showItemPopup('shop','${item.id}')"
-          title="${item.name}">
-          <div class="item-icon-emoji">${item.name.split(' ')[0]}</div>
-          <div class="item-icon-price">💰${formatNumber(item.price)}</div>
-        </div>`).join('')}
-    </div>`;
+    const data = await res.json()
+    if (data.error) throw new Error(data.error)
 
-  // ── LEGACY SKILL TOMES ──
-  const skillBooks = GAME_CONFIG.skill_books || [];
-  const defs = getLegacySkillDefs();
-  const learned = getLearnedLegacySkills();
+    const { items, lockedCount, nextLockedRank, nextLockedCount, mirelaIntro, playerGold, playerLevel } = data
+    const r_ = r => RARITY[r] || RARITY.normal
 
-  if (skillBooks.length) {
+    let html = ''
+
+    // Mirela intro
     html += `
-      <div style="font-family:var(--font-title);font-size:.65em;
-        color:var(--text-dim);letter-spacing:2px;margin:12px 0 6px;">
-        ✨ LEGACY SKILL TOMES
-      </div>`;
+      <div style="background:rgba(200,168,75,0.05);border:1px solid var(--border);
+        border-radius:8px;padding:10px 14px;margin-bottom:12px;
+        font-style:italic;font-size:.82em;color:var(--text-dim);">
+        💰 <span style="color:var(--gold);">Mirela:</span> "${mirelaIntro}"
+      </div>`
 
-    skillBooks.forEach(book => {
-      const def = defs[book.skillId];
-      if (!def) return;
-      const currentRank = learned[book.skillId] || 0;
-      const nextRank = currentRank + 1;
-      const nextRankData = def.ranks[String(nextRank)];
-      const isMaxed = currentRank >= 5;
-      const canAfford = state.gold >= book.price;
-      const hasLegacyPts = nextRankData &&
-        (state.legacyPoints || 0) >= nextRankData.cost;
-      const rColor = '#a855f7';
+    if (currentShopTab === 'equipment') {
+      // Group visible items by rep tier
+      const tiers = [
+        { key: null,       label: '🏪 Basic Stock',              color: 'var(--text-dim)' },
+        { key: 'baron',    label: '📦 Back Shelf — Baron+',      color: 'var(--rare)' },
+        { key: 'chief',    label: '🔑 Real Inventory — Chief+',  color: 'var(--epic)' },
+        { key: 'mayor',    label: '⭐ Reserved — Mayor+',        color: 'var(--legendary)' },
+        { key: 'viscount', label: '💎 Hidden Shelf — Viscount+', color: '#00ffcc' },
+        { key: 'count',    label: '👑 Legend Inventory — Count', color: '#ffd700' },
+      ]
 
-      html += `
-        <div style="background:rgba(168,85,247,0.04);
-          border:1px solid ${rColor}44;border-radius:8px;
-          padding:10px;margin-bottom:8px;">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-            <div style="font-size:1.5em;">${def.icon}</div>
-            <div style="flex:1;">
-              <div style="font-family:var(--font-title);font-size:.80em;color:${rColor};">
-                ${book.name}
-              </div>
-              <div style="font-size:.65em;color:var(--text-dim);">${def.desc}</div>
-              ${currentRank > 0 ? `
-                <div style="font-size:.62em;color:#a855f7;margin-top:2px;">
-                  Currently: Rank ${currentRank}/5
-                </div>` : ''}
-            </div>
-            <div style="text-align:right;">
-              <div style="font-family:var(--font-title);color:var(--gold);font-size:.78em;">
-                ${formatNumber(book.price)}g
-              </div>
-              ${nextRankData ? `
-                <div style="font-size:.60em;color:#a855f7;">
-                  ${nextRankData.cost} LP required
-                </div>` : ''}
-            </div>
+      tiers.forEach(tier => {
+        const tierItems = items.filter(i => (i.repReq || null) === tier.key)
+        if (!tierItems.length) return
+
+        html += `
+          <div style="font-family:var(--font-title);font-size:.65em;
+            color:${tier.color};letter-spacing:2px;margin:12px 0 6px;">
+            ${tier.label}
           </div>
-          ${isMaxed ? `
-            <div style="text-align:center;font-size:.70em;color:var(--gold);
-              padding:5px;background:rgba(255,153,0,0.08);border-radius:6px;">
-              ✅ MAX RANK — Fully Mastered!
-            </div>
-          ` : `
-            <button onclick="buySkillBook('${book.id}', '${book.skillId}')"
-              style="width:100%;padding:7px;font-size:.72em;
-              background:${canAfford && hasLegacyPts
-                ? 'rgba(168,85,247,0.15)' : 'rgba(255,255,255,0.03)'};
-              border:1px solid ${canAfford && hasLegacyPts
-                ? rColor : 'var(--border)'};
-              border-radius:6px;
-              color:${canAfford && hasLegacyPts ? rColor : 'var(--text-dim)'};
-              cursor:${canAfford && hasLegacyPts ? 'pointer' : 'not-allowed'};">
-              ${currentRank === 0
-                ? '📖 Learn Skill'
-                : `⬆️ Upgrade to Rank ${nextRank}`}
-              ${!canAfford
-                ? ` (need ${formatNumber(book.price - state.gold)}g more)`
-                : !hasLegacyPts && nextRankData
-                ? ` (need ${nextRankData.cost - (state.legacyPoints||0)} more LP)`
-                : ''}
-            </button>`}
-        </div>`;
-    });
-  }
+          <div class="item-grid">`
 
-  container.innerHTML = html;
+        tierItems.forEach(item => {
+          const cantAfford = playerGold < item.price
+          const levelLocked = playerLevel < (item.levelReq || 0)
+          html += `
+            <div class="item-icon-box ${item.rarity}"
+              onclick="showItemPopup('shop','${item.id}')"
+              title="${item.name}"
+              style="${cantAfford || levelLocked ? 'opacity:0.6;' : ''}">
+              <div class="item-icon-emoji">${item.name.split(' ')[0]}</div>
+              <div class="item-icon-price" style="color:${cantAfford ? 'var(--red)' : 'var(--gold)'};">
+                💰${formatNumber(item.price)}
+              </div>
+              ${levelLocked ? `<div style="position:absolute;top:2px;left:2px;font-size:.5em;color:var(--red);">Lv${item.levelReq}</div>` : ''}
+            </div>`
+        })
+
+        html += `</div>`
+      })
+
+      // Locked silhouettes — psychological torture 💀
+      if (lockedCount > 0) {
+        const nextLabel = nextLockedRank
+          ? nextLockedRank.charAt(0).toUpperCase() + nextLockedRank.slice(1)
+          : 'higher rank'
+
+        html += `
+          <div style="font-family:var(--font-title);font-size:.65em;
+            color:#333;letter-spacing:2px;margin:16px 0 6px;">
+            🔒 LOCKED — Reach ${nextLabel} to unlock
+          </div>
+          <div class="item-grid">`
+
+        for (let i = 0; i < Math.min(nextLockedCount, 6); i++) {
+          html += `
+            <div class="item-icon-box" style="opacity:0.12;cursor:not-allowed;filter:blur(3px);">
+              <div class="item-icon-emoji">❓</div>
+              <div class="item-icon-price">???g</div>
+            </div>`
+        }
+
+        if (lockedCount > nextLockedCount) {
+          html += `
+            <div style="grid-column:1/-1;text-align:center;
+              color:#2a2a2a;font-size:.72em;padding:8px;font-style:italic;">
+              +${lockedCount - nextLockedCount} more items in higher tiers...
+            </div>`
+        }
+
+        html += `</div>`
+      }
+
+    } else {
+      // Consumables
+      const tiers = [
+        { key: null,       label: '🏪 Basic Potions',      color: 'var(--text-dim)' },
+        { key: 'baron',    label: '📦 Baron Potions',      color: 'var(--rare)' },
+        { key: 'chief',    label: '🔑 Chief Potions',      color: 'var(--epic)' },
+        { key: 'mayor',    label: '⭐ Mayor Potions',      color: 'var(--legendary)' },
+        { key: 'viscount', label: '💎 Viscount Potions',   color: '#00ffcc' },
+        { key: 'count',    label: '👑 Count Potions',      color: '#ffd700' },
+      ]
+
+      tiers.forEach(tier => {
+        const tierItems = items.filter(i => (i.repReq || null) === tier.key)
+        if (!tierItems.length) return
+
+        html += `
+          <div style="font-family:var(--font-title);font-size:.65em;
+            color:${tier.color};letter-spacing:2px;margin:12px 0 6px;">
+            ${tier.label}
+          </div>
+          <div class="item-grid">`
+
+        tierItems.forEach(item => {
+          const cantAfford = playerGold < item.price
+          html += `
+            <div class="item-icon-box ${item.rarity}"
+              onclick="showItemPopup('shop','${item.id}')"
+              title="${item.name}"
+              style="${cantAfford ? 'opacity:0.6;' : ''}">
+              <div class="item-icon-emoji">${item.name.split(' ')[0]}</div>
+              <div class="item-icon-price" style="color:${cantAfford ? 'var(--red)' : 'var(--gold)'};">
+                💰${formatNumber(item.price)}
+              </div>
+            </div>`
+        })
+
+        html += `</div>`
+      })
+
+      // Locked silhouettes
+      if (lockedCount > 0) {
+        const nextLabel = nextLockedRank
+          ? nextLockedRank.charAt(0).toUpperCase() + nextLockedRank.slice(1)
+          : 'higher rank'
+        html += `
+          <div style="font-family:var(--font-title);font-size:.65em;
+            color:#333;letter-spacing:2px;margin:16px 0 6px;">
+            🔒 LOCKED — Reach ${nextLabel} to unlock
+          </div>
+          <div class="item-grid">`
+
+        for (let i = 0; i < Math.min(nextLockedCount, 4); i++) {
+          html += `
+            <div class="item-icon-box" style="opacity:0.12;cursor:not-allowed;filter:blur(3px);">
+              <div class="item-icon-emoji">❓</div>
+              <div class="item-icon-price">???g</div>
+            </div>`
+        }
+
+        html += `</div>`
+      }
+
+      // Legacy Skill Tomes — unchanged
+      const skillBooks = GAME_CONFIG.skill_books || []
+      const defs = getLegacySkillDefs()
+      const learned = getLearnedLegacySkills()
+
+      if (skillBooks.length) {
+        html += `
+          <div style="font-family:var(--font-title);font-size:.65em;
+            color:var(--text-dim);letter-spacing:2px;margin:12px 0 6px;">
+            ✨ LEGACY SKILL TOMES
+          </div>`
+
+        skillBooks.forEach(book => {
+          const def = defs[book.skillId]
+          if (!def) return
+          const currentRank = learned[book.skillId] || 0
+          const nextRank = currentRank + 1
+          const nextRankData = def.ranks[String(nextRank)]
+          const isMaxed = currentRank >= 5
+          const canAfford = state.gold >= book.price
+          const hasLegacyPts = nextRankData && (state.legacyPoints || 0) >= nextRankData.cost
+          const rColor = '#a855f7'
+
+          html += `
+            <div style="background:rgba(168,85,247,0.04);
+              border:1px solid ${rColor}44;border-radius:8px;
+              padding:10px;margin-bottom:8px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <div style="font-size:1.5em;">${def.icon}</div>
+                <div style="flex:1;">
+                  <div style="font-family:var(--font-title);font-size:.80em;color:${rColor};">${book.name}</div>
+                  <div style="font-size:.65em;color:var(--text-dim);">${def.desc}</div>
+                  ${currentRank > 0 ? `<div style="font-size:.62em;color:#a855f7;margin-top:2px;">Currently: Rank ${currentRank}/5</div>` : ''}
+                </div>
+                <div style="text-align:right;">
+                  <div style="font-family:var(--font-title);color:var(--gold);font-size:.78em;">${formatNumber(book.price)}g</div>
+                  ${nextRankData ? `<div style="font-size:.60em;color:#a855f7;">${nextRankData.cost} LP required</div>` : ''}
+                </div>
+              </div>
+              ${isMaxed
+                ? `<div style="text-align:center;font-size:.70em;color:var(--gold);padding:5px;background:rgba(255,153,0,0.08);border-radius:6px;">✅ MAX RANK — Fully Mastered!</div>`
+                : `<button onclick="buySkillBook('${book.id}', '${book.skillId}')"
+                    style="width:100%;padding:7px;font-size:.72em;
+                    background:${canAfford && hasLegacyPts ? 'rgba(168,85,247,0.15)' : 'rgba(255,255,255,0.03)'};
+                    border:1px solid ${canAfford && hasLegacyPts ? rColor : 'var(--border)'};
+                    border-radius:6px;
+                    color:${canAfford && hasLegacyPts ? rColor : 'var(--text-dim)'};
+                    cursor:${canAfford && hasLegacyPts ? 'pointer' : 'not-allowed'};">
+                    ${currentRank === 0 ? '📖 Learn Skill' : `⬆️ Upgrade to Rank ${nextRank}`}
+                    ${!canAfford ? ` (need ${formatNumber(book.price - state.gold)}g more)` : !hasLegacyPts && nextRankData ? ` (need ${nextRankData.cost - (state.legacyPoints||0)} more LP)` : ''}
+                  </button>`}
+            </div>`
+        })
+      }
+    }
+
+    container.innerHTML = html
+
+    // Also update SHOP_EQUIP/SHOP_CONS in memory for buyItem() to work
+    if (currentShopTab === 'equipment') {
+      window._shopEquipCache = items
+    } else {
+      window._shopConsCache = items
+    }
+
+  } catch (err) {
+    console.error('renderShop error:', err)
+    container.innerHTML = `<div style="text-align:center;color:var(--red);padding:20px;">Failed to load shop. Check connection.</div>`
+  }
 }
 
 // ── BUY SKILL BOOK FROM SHOP ──
@@ -4994,7 +5292,10 @@ function updateUI(){
   document.getElementById('mp-max').textContent=formatNumber(state.maxMp);
   document.getElementById('xp-val').textContent=formatNumber(state.xp);
   document.getElementById('xp-next').textContent=formatNumber(state.xpNext);
-  document.getElementById('gold-val').textContent=formatNumber(state.gold);
+  const goldEl = document.getElementById('gold-val')
+  const goldElM = document.getElementById('gold-val-merchant')
+  if (goldEl) goldEl.textContent = formatNumber(state.gold)
+  if (goldElM) goldElM.textContent = formatNumber(state.gold).textContent=formatNumber(state.gold);
   const crystalEl = document.getElementById('soul-crystal-val');
   if (crystalEl) crystalEl.textContent = formatNumber(state.soulCrystals || 0);
   document.getElementById('str-val').textContent=formatNumber(state.str);

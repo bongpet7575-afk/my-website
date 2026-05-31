@@ -1014,10 +1014,20 @@ padding:8px 16px;background:rgba(200,168,75,0.1);border:1px solid var(--border-b
 
     </div><!-- /main-scene-char -->
 
+   
     <!-- ───────────── ADVENTURE SCENE ───────────── -->
-    <div id="main-scene-adv" class="main-scene">
+<div id="main-scene-adv" class="main-scene">
 
-      <!-- Arena — only shows during combat -->
+  <!-- Adventure Tabs — hidden during combat -->
+  <div id="adv-tabs" class="town-tabs" style="flex-shrink:0;">
+    <button class="town-tab active" id="adv-tab-dungeons"  onclick="switchAdvTab('dungeons',this)">🗺️ Dungeons</button>
+    <button class="town-tab"        id="adv-tab-training"  onclick="switchAdvTab('training',this)">⚔️ Training</button>
+    <button class="town-tab"        id="adv-tab-merchant"  onclick="switchAdvTab('merchant',this)">🏪 Merchant</button>
+  </div>
+
+  <!-- DUNGEONS PANEL -->
+  <div id="adv-panel-dungeons" class="town-panel active" style="display:flex;flex-direction:column;flex:1;overflow:hidden;padding:0;">
+    <!-- Arena — only shows during combat -->
       <div id="arena" style="display:none;">
         <div class="arena-side">
           <!-- BUG FIX #3: renamed from 'arena-player' to 'char-avatar-display'
@@ -1104,37 +1114,132 @@ padding:8px 16px;background:rgba(200,168,75,0.1);border:1px solid var(--border-b
               <span class="skill-lbl">Slot 6</span>
             </div>
           </div>
-        </div>
-        
-      </div>
-      
+        </div><!-- ends auto-skill-panel char-panel -->
+      </div><!-- ends combat-controls -->
 
-    </div><!-- /main-scene-adv -->
+  </div><!-- /adv-panel-dungeons -->
+
+  <!-- TRAINING HALL PANEL -->
+  <div id="adv-panel-training" class="town-panel" style="display:none;padding:12px;gap:10px;flex-direction:column;">
+    <div style="font-family:var(--font-title);color:var(--gold);font-size:.85em;letter-spacing:2px;margin-bottom:4px;">⚔️ TRAINING HALL</div>
+    <p style="font-size:.82em;color:var(--text-dim);font-style:italic;margin-bottom:12px;">Seek your class trainer. They will judge you before they teach you.</p>
+    <div id="training-hall-npcs" style="display:flex;flex-direction:column;gap:8px;"></div>
+  </div>
+
+  <!-- MERCHANT HALL PANEL -->
+  <div id="adv-panel-merchant" class="town-panel" style="display:none;padding:0;flex-direction:column;">
+
+    <!-- Merchant Hall NPC buttons -->
+    <div style="padding:12px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div style="font-family:var(--font-title);color:var(--gold);font-size:.85em;letter-spacing:2px;margin-bottom:4px;">🏪 MERCHANT HALL</div>
+      <button class="choice-btn" onclick="openNPCPanel('sovan')">🔨 Sovan's Forge — Blacksmith</button>
+      <button class="choice-btn" onclick="openNPCPanel('mirela')">💰 Mirela — Merchant Guild</button>
+      <button class="choice-btn" onclick="openInn()">⛪ The Rusty Flagon Inn</button>
+      
+    </div>
+
+    <!-- Merchant Hall sub-tabs -->
+    <div class="town-tabs" style="flex-shrink:0;">
+      <button class="town-tab active" id="merchant-tab-inventory" onclick="switchMerchantTab('inventory',this)">🎒 Inventory</button>
+      <button class="town-tab" id="merchant-tab-shop"      onclick="switchMerchantTab('shop',this)">🏪 Shop</button>
+      <button class="town-tab" id="merchant-tab-craft"     onclick="switchMerchantTab('craft',this)">⚗️ Craft</button>
+      <button class="town-tab" id="merchant-tab-auction"   onclick="switchMerchantTab('auction',this)">🏛️ Auction</button>
+    </div>
+
+    <div class="town-content" style="flex:1;overflow:hidden;">
+
+      <!-- INVENTORY -->
+      <div id="merchant-panel-inventory" class="town-panel active">
+        <div class="inv-tab-row">
+          <button class="inv-tab active" id="inv-tab-equipment"   onclick="switchInvTab('equipment')">Equipment</button>
+          <button class="inv-tab"        id="inv-tab-consumable"  onclick="switchInvTab('consumable')">Consumable</button>
+          <button class="inv-tab"        id="inv-tab-material"    onclick="switchInvTab('material')">Materials</button>
+          <button class="inv-tab"        id="inv-tab-soul_weapon" onclick="switchInvTab('soul_weapon')">✨ Soul</button>
+        </div>
+        <div id="top-btns-merchant" style="display:flex;align-items:center;gap:6px;flex-shrink:0;margin-bottom:8px;">
+          <div style="font-size:.65em;padding:4px 10px;
+            background:rgba(255,153,0,0.08);border:1px solid rgba(255,153,0,0.25);
+            border-radius:20px;color:var(--gold);font-family:'Cinzel',serif;letter-spacing:1px;">
+            💰 <span id="gold-val-merchant">0</span>g
+          </div>
+          <div style="font-size:.65em;padding:4px 10px;
+            background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.25);
+            border-radius:20px;color:var(--purple);font-family:'Cinzel',serif;letter-spacing:1px;">
+            💠 <span id="soul-crystal-val-merchant">0</span>
+          </div>
+          <div onclick="if(typeof openRechargePanel==='function')openRechargePanel()" style="
+            font-size:.65em;padding:4px 10px;
+            background:rgba(168,85,247,0.2);border:1px solid rgba(168,85,247,0.5);
+            border-radius:20px;color:#a855f7;font-family:'Cinzel',serif;letter-spacing:1px;
+            cursor:pointer;">
+            ＋ RECHARGE
+          </div>
+        </div>
+        <div id="inventory-list-merchant"><div class="equip-slot">No items here</div></div>
+        <div class="char-panel">
+          <div class="panel-title">Equipment</div>
+          <div class="equip-grid">
+            <div class="equip-slot" id="slot-weapon-m"  onclick="unequipSlot('weapon')">  <span class="equip-slot-icon">⚔️</span><span class="equip-slot-name" id="slot-weapon-name-m">Empty</span></div>
+            <div class="equip-slot" id="slot-armor-m"   onclick="unequipSlot('armor')">   <span class="equip-slot-icon">🛡️</span><span class="equip-slot-name" id="slot-armor-name-m">Empty</span></div>
+            <div class="equip-slot" id="slot-helmet-m"  onclick="unequipSlot('helmet')">  <span class="equip-slot-icon">⛑️</span><span class="equip-slot-name" id="slot-helmet-name-m">Empty</span></div>
+            <div class="equip-slot" id="slot-boots-m"   onclick="unequipSlot('boots')">   <span class="equip-slot-icon">👢</span><span class="equip-slot-name" id="slot-boots-name-m">Empty</span></div>
+            <div class="equip-slot" id="slot-ring-m"    onclick="unequipSlot('ring')">    <span class="equip-slot-icon">💍</span><span class="equip-slot-name" id="slot-ring-name-m">Empty</span></div>
+            <div class="equip-slot" id="slot-amulet-m"  onclick="unequipSlot('amulet')">  <span class="equip-slot-icon">📿</span><span class="equip-slot-name" id="slot-amulet-name-m">Empty</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SHOP -->
+      <div id="merchant-panel-shop" class="town-panel" style="display:none;">
+        <div class="shop-tab-row">
+          <button class="shop-tab active" id="shop-tab-equipment"  onclick="switchShopTab('equipment')">Equipment</button>
+          <button class="shop-tab"        id="shop-tab-consumable" onclick="switchShopTab('consumable')">Potions</button>
+        </div>
+        <div id="shop-content-merchant"></div>
+      </div>
+
+      <!-- CRAFTING -->
+      <div id="merchant-panel-craft" class="town-panel" style="display:none;">
+        <div id="craft-grid-merchant"></div>
+      </div>
+
+      <!-- AUCTION -->
+      <div id="merchant-panel-auction" class="town-panel" style="display:none;">
+        <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap;">
+          <button id="market-tab-ah-m" class="shop-tab active" onclick="switchMarketTab('auction')">Active Auctions</button>
+          <button class="shop-tab" onclick="showMyAuctions(this)">My Listings</button>
+          <button class="shop-tab" onclick="switchMarketTab('blackwing')" id="market-tab-blackwing-m">🖤 Black Wing</button>
+          <button class="start-btn" style="margin-left:auto;padding:6px 12px;" onclick="fetchAuctions(currentAuctionSource)">↻ Refresh</button>
+        </div>
+        <div id="market-ah-merchant">
+          <div id="auction-list-merchant"><div style="text-align:center;color:var(--text-dim);padding:20px;">Loading...</div></div>
+        </div>
+      </div>
+
+    </div><!-- /town-content merchant -->
+  </div><!-- /adv-panel-merchant -->
+
+</div><!-- /main-scene-adv -->
 
    <!-- ───────────── TOWN SCENE ───────────── -->
     <div id="main-scene-town" class="main-scene">
 
       <!-- Town tabs -->
       <div class="town-tabs">
-        <button class="town-tab active" onclick="switchTownPanel('inventory',this)">🎒 Inventory</button>
-        <button class="town-tab" onclick="switchTownPanel('shop',this)">🏪 Shop</button>
-        <button class="town-tab" onclick="switchTownPanel('craft',this)">⚗️ Craft</button>
-        <button class="town-tab" onclick="switchTownPanel('auction',this)">🏛️ Auction</button>
-        <button class="town-tab" onclick="switchTownPanel('tournament',this)">⚔️ Tournament</button>
+        <button class="town-tab active" onclick="switchTownPanel('tournament',this)">⚔️ Tournament</button>
         <button class="town-tab" onclick="switchTownPanel('quests',this)">📋 Quests</button>
       </div>
 
       <div class="town-content">
 
         <!-- INVENTORY -->
-        <div id="town-panel-inventory" class="town-panel active">
+        <div id="town-panel-inventory" class="town-panel">
           
           <div class="inv-tab-row">
-            
-            <button class="inv-tab active" id="inv-tab-equipment"   onclick="switchInvTab('equipment')">Equipment</button>
-            <button class="inv-tab"        id="inv-tab-consumable"  onclick="switchInvTab('consumable')">Consumable</button>
-            <button class="inv-tab"        id="inv-tab-material"    onclick="switchInvTab('material')">Materials</button>
-            <button class="inv-tab"        id="inv-tab-soul_weapon" onclick="switchInvTab('soul_weapon')">✨ Soul</button>
+            <button class="inv-tab active" onclick="switchInvTab('equipment')">Equipment</button>
+            <button class="inv-tab"        onclick="switchInvTab('consumable')">Consumable</button>
+            <button class="inv-tab"        onclick="switchInvTab('material')">Materials</button>
+            <button class="inv-tab"        onclick="switchInvTab('soul_weapon')">✨ Soul</button>
           </div>
           
    <!-- Gold + Buttons -->
@@ -1205,7 +1310,7 @@ padding:8px 16px;background:rgba(200,168,75,0.1);border:1px solid var(--border-b
 </div>
 
         <!-- TOURNAMENT -->
-        <div id="town-panel-tournament" class="town-panel">
+        <div id="town-panel-tournament" class="town-panel active">
           <div id="arena-content">
             <div style="text-align:center;color:var(--text-dim);padding:20px;">Loading...</div>
           </div>
@@ -1494,8 +1599,14 @@ window.switchMainScene = async function(scene) {
   const activeBtn = document.getElementById('nav-' + scene);
   if (activeBtn) activeBtn.classList.add('active');
 
-  if (scene === 'adv')  loadScene(state.currentScene || 'town');
-  if (scene === 'town') { await loadGameConfig(); renderShop(); renderInventory(); }
+  if (scene === 'adv') {
+  switchAdvTab('dungeons', document.getElementById('adv-tab-dungeons'))
+  loadScene(state.currentScene || 'town')
+}
+if (scene === 'town') {
+  await loadGameConfig()
+  switchTownPanel('tournament', document.querySelector('#main-scene-town .town-tab'))
+}
   if (scene === 'char') renderStatPoints();
 };
 

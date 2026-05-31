@@ -7,280 +7,310 @@ const CORS_HEADERS = {
 }
 
 // ============================================================
-// STAT-AWARE DIALOGUE BUILDER — SERVER ONLY
+// CONTEMPT-FIRST NPC DIALOGUES — NO FREE PASSES
 // ============================================================
 
-function buildSovanDialogue(ctx: any): string {
-  const { level, enhancement, isFirstVisit, rep, mood } = ctx
+// ============================================================
+// REPUTATION RANKS — MATCHES GAME.JS EXACTLY
+// ============================================================
+const REP_RANKS = ['citizen', 'baron', 'chief', 'mayor', 'viscount', 'count']
 
-  // First visit
-  if (isFirstVisit) return `Sok sabay! First time here? Come, come! Sovan makes the best weapons in the kingdom, bong!`
-
-  // Mood overrides
-  if (mood === 'angry' || rep < -20) return `Oun... Sovan is disappointed. Come back with better attitude.`
-
-  // Enhancement reactions — most specific first
-  const enhLines: Record<string, string[]> = {
-    none: [
-      `No enhancement at all? Oun, the weapon is crying. Go enhance before you come back.`,
-      `Bong... zero enhancement? Sovan's heart hurts. The craft deserves respect.`,
-    ],
-    low: [
-      `+${enhancement}? Some work done, bong. But Sovan knows you can do better.`,
-      `The weapon is +${enhancement}. Decent start. Keep pushing, oun.`,
-    ],
-    mid: [
-      `+${enhancement}! Now we're talking. The ancestors nod their heads, bong.`,
-      `Ah, +${enhancement}. Respectable craft. Sovan is pleased today.`,
-    ],
-    high: [
-      `+${enhancement}! Bong, this is serious craft. Angkor smiths would approve.`,
-      `Look at this +${enhancement}! Sovan is getting emotional. The ancestors are proud.`,
-    ],
-    max: [
-      `*Sovan drops his hammer* +${enhancement}... The ancestors weep with joy, bong. This is perfection.`,
-      `+${enhancement}! Sovan has never been more proud. This weapon will be remembered in history, lok.`,
-    ]
-  }
-
-  // Level reactions
-  const levelComment =
-    level < 10  ? `You are still young, level ${level}. Much to learn.` :
-    level < 30  ? `Level ${level} — still growing. Keep fighting, bong.` :
-    level < 60  ? `Level ${level}! You have come far. Sovan remembers when you started.` :
-    level < 90  ? `Level ${level}... You are truly powerful now, lok.` :
-    `Level ${level}. A legend walks into Sovan's forge. Awkunh for honoring this place.`
-
-  // Rep-based warmth
-  const warmth =
-    rep >= 75000 ? `Lord Count! Please, come in! Sovan has something special prepared for you today. ` :
-    rep >= 35000 ? `Oh my! Lord Viscount! What brings you to my forge today? ` :
-    rep >= 15000 ? `Sovan's What a great day! Lord Mayor! ` :
-    rep >= 5000 ? `Greetings, Esteemed Chief! Welcome back to the forge. ` :
-    rep >= 1000 ? `Good to see you again, bong! ` :
-    rep >= 0  ? `Back again! ` : ``
-
-  // Pick enhancement tier
-  const tier =
-    enhancement === 0            ? 'none' :
-    enhancement <= 4             ? 'low'  :
-    enhancement <= 9             ? 'mid'  :
-    enhancement <= 12            ? 'high' : 'max'
-
-  const lines = enhLines[tier]
-  const enhLine = lines[level % lines.length] // deterministic, not random
-
-  if (rep >= 75000 && enhancement >= 15) {
-  return `Lord Count... *Sovan lowers his voice* There is something beneath this forge I have never shown another customer. Follow me.`
-}
-if (rep >= 35000 && enhancement >= 13) {
-  return `Lord Viscount! A +${enhancement} weapon? Ahh... now this is the kind of craftsmanship Sovan lives for.`
+function rankIndex(rank: string): number {
+  return REP_RANKS.indexOf(rank?.toLowerCase() || 'citizen')
 }
 
-  return `${warmth}${enhLine} ${levelComment}`
+function isAtLeast(rank: string, minimum: string): boolean {
+  return rankIndex(rank) >= rankIndex(minimum)
 }
 
-function buildMirelaDialogue(ctx: any): string {
-  const { level, gold, rep, mood, isFirstVisit, questsCompleted, questsAbandoned } = ctx
+// ============================================================
+// CONTEMPT-FIRST NPC DIALOGUES — REPUTATION GATED
+// ============================================================
+const NPC_DIALOGUES: Record<string, (ctx: any) => string> = {
 
-  if (isFirstVisit) return `Ah, a new face. The guild always has work for capable hands... for the right price.`
-  if (mood === 'angry' || rep < -20) return `I'm a busy woman. Your completion rate is noted. Come back when you're serious about business.`
+  sovan: (ctx) => {
+    const { level, enhancement, isFirstVisit, reputationRank, mood } = ctx
+    const rank = reputationRank || 'citizen'
 
-  const goldComment =
-    gold === 0         ? `I see your pockets are empty. The guild has... budget-friendly options.` :
-    gold < 10000        ? `Limited budget, I see. Mirela works with what she has.` :
-    gold < 100000       ? `Some gold in your pocket. Good. We can do business.` :
-    gold < 1000000      ? `A respectable sum. Let me show you what the guild has prepared.` :
-    gold < 10000000     ? `A serious investor walks in. I saved something special for you.` :
-    `*Mirela straightens up* That gold balance... The guild council will want to meet you personally.`
+    if (isFirstVisit) return `*Sovan glances up from his hammer, looks you over, then looks back down* ...Sok sabay. First time here? Sovan can tell. Come back when that gear is worth looking at.`
+    if (mood === 'angry') return `Oun... you have disappointed Sovan. The forge is closed to you today.`
 
-  const repComment =
-    rep >= 60 ? ` Our most trusted associate returns.` :
-    rep >= 30 ? ` Always good to see a reliable contractor.` :
-    rep >= 0  ? `` :
-    ` Your completion rate is... being monitored.`
+    // Count + max enhancement — secret room
+    if (rank === 'count' && enhancement >= 15) return `*Sovan sets down his hammer slowly, looks both ways* ...Lord Count. +${enhancement}. *lowers voice* There is something beneath this forge. Something Sovan has never shown another soul. Follow me.`
+    if (rank === 'count') return `*Sovan stands and bows* Lord Count honors this forge today. Awkunh, lok. What can Sovan do for you?`
+    if (rank === 'viscount' && enhancement >= 13) return `Lord Viscount! A +${enhancement} weapon! *emotional* The Angkor smiths... they would weep seeing this craftsmanship.`
+    if (rank === 'viscount') return `Lord Viscount! *bows head* Sovan is honored. The forge is yours today.`
+    if (rank === 'mayor' && enhancement >= 10) return `Lord Mayor! +${enhancement} enhancement! Now THIS is why Sovan became a blacksmith. Bong, the ancestors smile today.`
+    if (rank === 'mayor') return `Lord Mayor! What a great day! Come in, come in! Sovan has been working on something special.`
+    if (rank === 'chief' && enhancement >= 7) return `Esteemed Chief! +${enhancement}! *nods with deep respect* You understand the craft, bong. Sovan respects this.`
+    if (rank === 'chief') return `Greetings, Esteemed Chief! Welcome back to the forge. Sovan is at your service.`
+    if (rank === 'baron' && enhancement >= 7) return `*looks up properly for first time* ...Baron. +${enhancement}. *quiet nod* You've earned the right to stand in this forge.`
+    if (rank === 'baron') return `*looks up* ...A Baron walks in. *studies your gear* You've proven yourself out there. What do you need, bong?`
 
-  const abandonedComment = questsAbandoned > 0
-    ? ` ${questsAbandoned} abandoned contract${questsAbandoned > 1 ? 's' : ''} on record. That affects our arrangement.`
-    : ``
+    // Citizen — contempt tier
+    if (enhancement === 0 && level < 20) return `*doesn't look up* Zero enhancement. Level ${level}. You would be killed instantly outside this town. Why are you in Sovan's forge?`
+    if (enhancement === 0 && level < 50) return `Level ${level} and zero enhancement? *sighs heavily* Oun, even the wolves outside have more bite than your weapon right now.`
+    if (enhancement === 0) return `A level ${level} citizen with zero enhancement walks into Sovan's forge. *long pause* ...The ancestors are embarrassed for you, bong.`
+    if (enhancement < 5)  return `+${enhancement} at level ${level}. *shakes head* The craft weeps. Come back when you're serious about your weapon.`
+    if (enhancement < 7)  return `+${enhancement}. You are trying. But trying is not enough in this world, oun. +7 minimum before Sovan respects your effort.`
+    if (enhancement < 10) return `+${enhancement}. *small nod* Now you have Sovan's attention. Keep pushing, citizen.`
+    if (enhancement < 13) return `+${enhancement}! *nods slowly* This is craft. But you are still a citizen. The forge respects the weapon, not yet the wielder.`
 
-  return `${goldComment}${repComment}${abandonedComment}`
-}
+    return `+${enhancement}. *Sovan looks up slowly* ...Impressive weapon for a citizen. But a title means nothing to Sovan. Go earn your rank first.`
+  },
 
-function buildAldricDialogue(ctx: any): string {
-  const { level, playerClass, enhancement, rep, mood, isFirstVisit } = ctx
+  mirela: (ctx) => {
+    const { level, gold, reputationRank, mood, isFirstVisit, questsAbandoned } = ctx
+    const rank = reputationRank || 'citizen'
 
-  if (isFirstVisit) return `...Another one walks through my door. Let's see if you're worth my time.`
-  if (playerClass !== 'warrior') return `A ${playerClass}? I train Warriors. You're in the wrong hall.`
-  if (mood === 'angry' || rep < -20) return `I have nothing to say to you. Prove yourself before you come back here.`
+    if (isFirstVisit) return `*Mirela looks up briefly, takes in your gear, looks back at her ledger* ...A new face. The guild has work for capable hands. Whether you qualify remains to be seen.`
+    if (mood === 'angry') return `Your file is flagged. The guild does not work with unreliable contractors. Come back when you've earned our trust again.`
 
-  const levelComment =
-    level < 15  ? `Level ${level}. Raw. Unpolished. You have a long way to go.` :
-    level < 30  ? `Level ${level}. Getting there. Don't get comfortable.` :
-    level < 60  ? `Level ${level}. Now I see a warrior taking shape.` :
-    level < 90  ? `Level ${level}. You've earned your scars. Good.` :
-    `Level ${level}. ...I have nothing left to teach you. Sit down anyway.`
+    // Count
+    if (rank === 'count') return `*Mirela walks to the door and locks it* Lord Count. *quiet* The guild master has been waiting for this meeting. Sit. This conversation stays between us.`
 
-  const enhComment =
-    enhancement < 5   ? ` That weapon enhancement is embarrassing. Fix it.` :
-    enhancement < 10  ? ` Enhancement is acceptable. Push it higher.` :
-    enhancement < 13  ? `` :
-    ` That enhancement... Hmph. Not bad.`
+    // Viscount
+    if (rank === 'viscount') return `*stands up* Lord Viscount. *leans forward* I have been holding something back for someone of your standing. Today is that day.${questsAbandoned > 0 ? ` Though those ${questsAbandoned} abandoned contracts... we should address that first.` : ``}`
 
-  const repComment =
-    rep >= 60 ? `Kid. ` :
-    rep >= 30 ? `` : ``
+    // Mayor
+    if (rank === 'mayor') return `Lord Mayor. *closes ledger* For you I show the real inventory. Not what sits on the shelf for citizens.${questsAbandoned > 0 ? ` ${questsAbandoned} abandoned contracts on record though. That affects pricing.` : ``}`
 
-  return `${repComment}${levelComment}${enhComment}`
-}
+    // Chief
+    if (rank === 'chief') return `Chief. *nods once* You've proven yourself. ${gold.toLocaleString()} gold in your pocket. The guild has premium contracts reserved for people like you.`
 
-function buildSeraphineDialogue(ctx: any): string {
-  const { level, playerClass, intStat, rep, mood, isFirstVisit } = ctx
+    // Baron
+    if (rank === 'baron') return `*looks up properly* ...A Baron. ${gold.toLocaleString()} gold. *closes ledger* Sit down. The guild has been watching your progress.${questsAbandoned > 0 ? ` Those ${questsAbandoned} abandoned contracts are noted however.` : ``}`
 
-  if (isFirstVisit) return `Another student presents themselves. We shall see if your mind is worth my time.`
-  if (playerClass !== 'mage') return `You are not a Mage. I find this conversation already tiresome.`
-  if (mood === 'angry' || rep < -20) return `I don't waste my knowledge on the unreliable. Prove your worth first.`
+    // Citizen contempt — gold gated
+    if (gold === 0 && level < 20)          return `*without looking up* Empty pockets. Level ${level}. The beggars guild is two streets north. This is the Merchant Guild.`
+    if (gold === 0)                         return `Level ${level} with zero gold. *finally looks up* How are you even alive? Come back when you have something worth spending.`
+    if (gold < 500000 && level < 30)        return `${gold.toLocaleString()} gold and level ${level}. *closes ledger* You are wasting my time. Come back when you're serious.`
+    if (gold < 1000000)                     return `${gold.toLocaleString()} gold. That barely covers my ink. I'll make this quick — come back richer.`
+    if (gold < 10000000)                    return `${gold.toLocaleString()} gold. Limited budget. Mirela works with what she has, but don't expect premium service.`
+    if (gold < 100000000)                   return `${gold.toLocaleString()} gold. Adequate. We can do small business today, citizen.`
+    if (gold < 1000000000)                  return `${gold.toLocaleString()} gold. *leans forward* Interesting. For a citizen, that is... notable. But gold alone doesn't buy respect here.`
 
-  const intComment =
-    intStat < 50   ? `Your INT is... modest. We have much foundational work to do.` :
-    intStat < 150  ? `INT of ${intStat}. Acceptable. The arcane demands more.` :
-    intStat < 300  ? `INT ${intStat}. Now we are speaking the same language.` :
-    `INT ${intStat}. Remarkable. You may actually be worth my time.`
+    return `${gold.toLocaleString()} gold and still a citizen? *tilts head* You have the wealth but not the reputation. The guild deals in both. Go earn your rank.`
+  },
 
-  const levelComment =
-    level < 15 ? ` Level ${level} — still an apprentice.` :
-    level < 40 ? `` :
-    level < 70 ? ` Your progress is... acceptable.` :
-    ` A true arcane scholar stands before me.`
+  aldric: (ctx) => {
+    const { level, playerClass, enhancement, reputationRank, mood, isFirstVisit } = ctx
+    const rank = reputationRank || 'citizen'
 
-  return `${intComment}${levelComment}`
-}
+    if (isFirstVisit) return `*Aldric stares without blinking* ...Another one walks through my door. *looks at your gear* Hmph. Don't touch anything.`
+    if (playerClass !== 'warrior') return `*doesn't turn around* A ${playerClass} in my hall. Wrong door. Leave before I make you leave.`
+    if (mood === 'angry') return `*turns away* I have nothing to say to cowards. Come back when you've earned the right to stand here.`
 
-function buildVexDialogue(ctx: any): string {
-  const { level, playerClass, agiStat, rep, mood, isFirstVisit } = ctx
+    // Count
+    if (rank === 'count') return `*Aldric stands. Sets down his sword. The entire hall goes quiet.* ...Count. *long silence* I have trained warriors for forty years. I have never said this to anyone. *looks you in the eye* You have surpassed me. Sit. Let us talk as equals.`
 
-  if (isFirstVisit) return `Oh look. Fresh meat found the Den. Cute. Let's see if you last.`
-  if (playerClass !== 'rogue') return `Wrong class, wrong door, wrong everything. Classic. *starts to fade*`
-  if (mood === 'angry' || rep < -20) return `Oh it's you. I'd leave if I were you. Actually I am leaving. *vanishes*`
+    // Viscount
+    if (rank === 'viscount') return `*turns around slowly* ...Viscount. *studies you for a long moment* I remember when you walked in here as nothing. *quiet* I was wrong about you. Sit down.`
 
-  const agiComment =
-    agiStat < 50  ? `You move like a cart horse. We have work to do. Maybe.` :
-    agiStat < 150 ? `AGI ${agiStat}. Not terrible. Not great. Somewhere in between.` :
-    agiStat < 300 ? `Okay. AGI ${agiStat}. You might not die immediately.` :
-    `...AGI ${agiStat}. I'm actually impressed. Don't tell anyone.`
+    // Mayor
+    if (rank === 'mayor') return `Lord Mayor. *nods with genuine respect* The Iron Brotherhood has heard your name. You have made us proud, warrior.`
 
-  const repComment =
-    rep >= 60 ? `Crew's here. ` :
-    rep >= 30 ? `Heh. You came back. ` : ``
+    // Chief
+    if (rank === 'chief') return `Chief walks into my hall. *crosses arms, rare approval* You've bled for that title. I can see it. What do you need?`
 
-  return `${repComment}${agiComment}`
-}
+    // Baron
+    if (rank === 'baron') return `*turns around for the first time* ...Baron. *long look* I'll be honest — I didn't think you had it in you. *pulls out a chair* Sit down, kid.`
 
-function buildKaraDialogue(ctx: any): string {
-  const { level, playerClass, rep, mood, isFirstVisit } = ctx
+    // Citizen contempt
+    if (enhancement === 0 && level < 20) return `Zero enhancement. Level ${level}. *spits* I've seen better stats on the training dummy. Get out of my hall.`
+    if (enhancement === 0 && level < 50) return `Level ${level}. Zero enhancement. *laughs once* That's not a weapon. That's a stick. Go fix it before you waste my time.`
+    if (enhancement === 0)               return `Level ${level} warrior. Zero enhancement. *long silence* ...The Iron Brotherhood is ashamed.`
+    if (enhancement < 5 && level < 30)  return `+${enhancement} at level ${level}. Raw. Weak. Come back when that number means something.`
+    if (enhancement < 5)                return `Level ${level} and +${enhancement}? I expect better from someone who's survived this long. Fix your weapon, citizen.`
+    if (enhancement < 7)                return `+${enhancement}. You're trying. Barely. A citizen warrior should be at +7 minimum. Push harder.`
+    if (enhancement < 10)               return `+${enhancement}. *nods once* Acceptable. Don't get comfortable — push that number higher and go earn a real title.`
+    if (enhancement < 13)               return `+${enhancement} on a level ${level} warrior. *rare nod* Decent weapon. Terrible reputation. Fix the second one.`
 
-  if (isFirstVisit) return `You found the outpost. Good instincts. Ash is watching you.`
-  if (playerClass !== 'hunter') return `Ash doesn't like you. I trust Ash. Wrong path.`
-  if (mood === 'angry' || rep < -20) return `*silence* *Ash blocks your path*`
+    return `+${enhancement} and still a citizen. *shakes head* The weapon tells one story. Your rank tells another. Go earn your title, warrior.`
+  },
 
-  const levelComment =
-    level < 25  ? `Level ${level}. The forest will still kill you. Train more.` :
-    level < 50  ? `Level ${level}. You move better now. Ash has noticed.` :
-    level < 75  ? `Level ${level}. The hunt has changed you. Good.` :
-    `Level ${level}. Ash wagged his tail when you arrived. That means something.`
+  seraphine: (ctx) => {
+    const { level, playerClass, intStat, reputationRank, mood, isFirstVisit } = ctx
+    const rank = reputationRank || 'citizen'
 
-  const repComment = rep >= 60 ? `Pack member returns. ` : ``
+    if (isFirstVisit) return `*doesn't look up from her tome* Another student. *finally looks up* ...Your eyes suggest intelligence. The rest remains to be proven.`
+    if (playerClass !== 'mage') return `You are not a Mage. *returns to tome* This conversation is already over.`
+    if (mood === 'angry') return `Unreliable. Weak. Two traits I cannot tolerate. Leave.`
 
-  return `${repComment}${levelComment}`
-}
+    if (rank === 'count')    return `*Seraphine closes her tome for the first time anyone has seen* ...Count. *stands* There are arcane secrets I have told no living soul. Today that changes. Sit.`
+    if (rank === 'viscount') return `Lord Viscount. *genuine respect from someone who gives none* Your mastery of the arcane has... impressed me. That does not happen often.`
+    if (rank === 'mayor')    return `Lord Mayor. *nods* The Arcane Sanctum acknowledges your standing. INT ${intStat} at this rank — you have earned my full attention.`
+    if (rank === 'chief')    return `Chief. INT ${intStat}. *finally closes tome* You have proven both power and reputation. The Sanctum has advanced teachings for someone like you.`
+    if (rank === 'baron')    return `*looks up properly* ...Baron Mage. INT ${intStat}. *pause* You are beginning to interest me. Sit.`
 
-function buildElianDialogue(ctx: any): string {
-  const { level, playerClass, rep, mood, isFirstVisit, questsAbandoned } = ctx
+    // Citizen contempt
+    if (intStat < 30 && level < 20)  return `INT ${intStat}. Level ${level}. *closes tome* You cannot form a basic spell with that mind. Come back when you've actually studied.`
+    if (intStat < 50)                return `INT ${intStat}. *sighs* This is what walks into the Sanctum today. The arcane arts weep.`
+    if (intStat < 100)               return `INT ${intStat} at level ${level}. Mediocre. The library is downstairs. Use it, citizen.`
+    if (intStat < 200)               return `INT ${intStat}. Acceptable foundation. But a citizen mage with decent INT is still just a citizen.`
+    if (intStat < 400)               return `INT ${intStat}. *looks up* The numbers are there. The reputation is not. Go earn your rank, then come back.`
 
-  if (isFirstVisit) return `Welcome, traveler. The monastery is open to those who seek the light.`
-  if (playerClass !== 'paladin') return `The light calls different souls to different paths. Yours does not lead here, friend.`
-  if (mood === 'angry' || rep < -20) return `I pray for your soul. But I cannot teach you today. Reflect on your choices.`
+    return `INT ${intStat}. Impressive for a citizen. *tilts head* But the Sanctum's advanced knowledge is not for citizens. You know what to do.`
+  },
 
-  const abandonComment = questsAbandoned > 0
-    ? `You left ${questsAbandoned} soul${questsAbandoned > 1 ? 's' : ''} without help. The light sees this. Tell me why.`
-    : `The light welcomes you back.`
+  vex: (ctx) => {
+    const { level, playerClass, agiStat, reputationRank, mood, isFirstVisit } = ctx
+    const rank = reputationRank || 'citizen'
 
-  const levelComment =
-    level < 35  ? ` Level ${level} — your faith is still young. That is fine.` :
-    level < 60  ? `` :
-    ` Your spirit grows stronger. I can see it.`
+    if (isFirstVisit) return `*a voice from the shadows* Oh look. Fresh meat found the Den. *steps into dim light* Cute. Let's see how long you last.`
+    if (playerClass !== 'rogue') return `Wrong class. Wrong door. Wrong life choices. *vanishes*`
+    if (mood === 'angry') return `Oh it's you. *already fading* I'd leave if I were you. Actually... I am leaving.`
 
-  return `${abandonComment}${levelComment}`
-}
+    if (rank === 'count')    return `*Vex steps fully into the light for the first time* ...Count. *quiet* I don't do this often. *extends hand* You've earned it. Welcome to the inner circle.`
+    if (rank === 'viscount') return `Viscount Rogue. *whistles quietly* You actually did it. *leans against wall* I had bets you wouldn't make it this far. I lost. Respect.`
+    if (rank === 'mayor')    return `Lord Mayor. *grins from shadows* AGI ${agiStat}. That title. *nods* You're the kind of rogue stories get written about.`
+    if (rank === 'chief')    return `Chief. AGI ${agiStat}. *steps closer* Now you have my real attention. Not many reach Chief. The Den has work only Chiefs can handle.`
+    if (rank === 'baron')    return `*steps slightly out of shadow* ...Baron. AGI ${agiStat}. *pause* Heh. You actually came back. And you brought receipts. Not bad.`
 
-function buildMalacharDialogue(ctx: any): string {
-  const { level, playerClass, rep, mood, isFirstVisit } = ctx
+    // Citizen contempt
+    if (agiStat < 30 && level < 20)  return `AGI ${agiStat}. Level ${level}. *stares* You move like a dying cart horse. How are you even a rogue? Leave.`
+    if (agiStat < 50)                return `AGI ${agiStat}. *winces* I could hear you coming from three streets away. That's not a rogue. That's a liability.`
+    if (agiStat < 100)               return `AGI ${agiStat} at level ${level}. Slow. Fixable. Maybe. Come back with a better number and a real title.`
+    if (agiStat < 200)               return `AGI ${agiStat}. Not bad. Not great. Still a citizen though. The Den doesn't respect citizens, only reputation.`
+    if (agiStat < 350)               return `AGI ${agiStat}. *leans against wall* The stats are getting there. The rank isn't. You know what that means.`
 
-  if (isFirstVisit) return `...Someone living enters the Crypt. Interesting. The dead are curious about you.`
-  if (playerClass !== 'necromancer') return `The dead whisper... wrong class. They find it amusing.`
-  if (level < 50) return `...The dead say you are not ready. Come back when you have seen more death. Level 50 minimum.`
-  if (mood === 'angry' || rep < -20) return `The dead have told me things about you. Unflattering things. Leave.`
+    return `AGI ${agiStat}. *genuine pause* ...Good numbers for a citizen. But good numbers don't open doors here. Reputation does. Go get some.`
+  },
 
-  const levelComment =
-    level < 65  ? `Level ${level}. The dead are... mildly interested.` :
-    level < 80  ? `Level ${level}. The line between life and death blurs around you now.` :
-    `Level ${level}. ...The dead bow. Do you understand what that means?`
+  kara: (ctx) => {
+    const { level, playerClass, reputationRank, mood, isFirstVisit } = ctx
+    const rank = reputationRank || 'citizen'
 
-  const repComment = rep >= 60 ? `...The dead smile when you arrive. ` : ``
+    if (isFirstVisit) return `*Ash growls softly* ...You found the outpost. *studies you carefully* Ash is reserving judgment. So am I.`
+    if (playerClass !== 'hunter') return `*Ash blocks your path* He doesn't like you. I trust Ash. Wrong path.`
+    if (mood === 'angry') return `*complete silence* *Ash sits directly in front of you, unmoving*`
 
-  return `${repComment}${levelComment}`
-}
+    if (rank === 'count')    return `*Ash lies down at your feet* ...He has never done that for anyone. *Kara quiet for a long moment* Count. The forest knows your name now. The hunt has no more secrets from you.`
+    if (rank === 'viscount') return `*Ash walks to your side and stays* Viscount. *Kara nods slowly* The pack accepts you fully. That is not given. That is earned.`
+    if (rank === 'mayor')    return `Lord Mayor. *Ash wags tail once* He remembers you now. Level ${level}. You have become something the forest respects.`
+    if (rank === 'chief')    return `Chief Hunter. *Kara almost smiles* Ash stopped growling weeks ago. You've earned that. What do you need?`
+    if (rank === 'baron')    return `*Ash steps aside on his own* ...Baron. *Kara watches Ash* He chose that himself. Level ${level}. You're becoming someone the forest notices.`
 
-function buildNaraDialogue(ctx: any): string {
-  const { level, playerClass, rep, mood, isFirstVisit } = ctx
+    // Citizen contempt
+    if (level < 25)  return `Level ${level}. *quiet* The forest would kill you in minutes. Ash agrees. You are not ready.`
+    if (level < 40)  return `Level ${level}. Still a citizen. The outpost has no use for citizens who haven't proven themselves beyond these walls.`
+    if (level < 60)  return `Level ${level}. You move better. But Ash still watches you with caution. A citizen title means the world hasn't recognized you yet. Neither has he.`
+    if (level < 80)  return `Level ${level} citizen. *Kara tilts head* The stats say one thing. The title says another. The forest judges both.`
 
-  if (isFirstVisit) return `The spirits told me you would come. Sit. The grove has been waiting.`
-  if (playerClass !== 'shaman') return `Your spirit walks a different path. This one is not yours.`
-  if (level < 70) return `Your spirit is not yet ready for this grove. Return when you reach level 70.`
-  if (mood === 'angry' || rep < -20) return `Your spirit is clouded today. The spirits will not speak through me for you.`
+    return `Level ${level} and still citizen? *quiet* You have survived much. But the world hasn't acknowledged it yet. Go make it.`
+  },
 
-  const levelComment =
-    level < 80  ? `Level ${level}. The spirits stir when you arrive. They are beginning to know you.` :
-    level < 95  ? `Level ${level}. Your spirit has grown vast. The ancient ones are taking notice.` :
-    `Level ${level}. Elder spirit walks in living flesh. The grove honors you.`
+  brother_elian: (ctx) => {
+    const { level, playerClass, reputationRank, mood, isFirstVisit, questsAbandoned } = ctx
+    const rank = reputationRank || 'citizen'
 
-  return levelComment
-}
+    if (isFirstVisit) return `*looks up from prayer* Welcome. The monastery receives all who seek... *studies you* ...though what you seek, I am not yet certain.`
+    if (playerClass !== 'paladin') return `The light guides different souls down different roads. Yours does not pass through here. Go find your path.`
+    if (mood === 'angry') return `*quiet, disappointed* I do not turn away souls. But I cannot teach one who has not reflected. Come back when you are ready.`
 
-function buildRagnarDialogue(ctx: any): string {
-  const { level, playerClass, rep, isFirstVisit } = ctx
+    if (rank === 'count')    return `*Brother Elian kneels* ...Count. *looks up* I have prayed for a soul of this magnitude to walk through these doors. The light has answered. Sit. There is much I must tell you.`
+    if (rank === 'viscount') return `Lord Viscount. *stands slowly* The light has watched your journey from the beginning. *quiet* I am honored you still return here.`
+    if (rank === 'mayor')    return `Lord Mayor. *bows head* ${questsAbandoned > 0 ? `Those ${questsAbandoned} abandoned souls weigh on your record still. But your rank shows growth. Let us speak of both.` : `Your record is clean. Your rank is high. The light is pleased.`}`
+    if (rank === 'chief')    return `Chief. *nods with warmth* You have helped many to reach this title. ${questsAbandoned > 0 ? `Though ${questsAbandoned} abandoned still trouble me.` : `The light sees your consistency.`}`
+    if (rank === 'baron')    return `*looks up with genuine warmth* Baron. *quiet* You earned that through action, not words. ${questsAbandoned > 0 ? `Though you left ${questsAbandoned} souls without help. Tell me why.` : `The light is pleased with your path.`}`
 
-  if (playerClass !== 'berserker') return `WRONG CLASS! Come back as a Berserker! HAHA!`
-  if (level < 90) return `LEVEL 90 MINIMUM! COME BACK WHEN YOU'VE BLED MORE! HAHAHAHA!`
-  if (isFirstVisit) return `YOU MADE IT TO LEVEL 90?! THEN YOU'RE ALREADY MY KIND OF PERSON! WELCOME TO THE BLOODPIT!`
+    // Citizen
+    if (questsAbandoned > 2) return `You have abandoned ${questsAbandoned} people who needed help. *long pause* The light sees this. Before anything else — why?`
+    if (questsAbandoned > 0) return `${questsAbandoned} abandoned. The light does not forget. Level ${level} citizen — power means nothing without responsibility.`
+    if (level < 35)          return `Level ${level} citizen. Your faith is young. That is not a weakness — but it is not yet a strength. Prove yourself beyond these walls.`
+    if (level < 60)          return `Level ${level}. Still a citizen. The light values deeds over levels. Go accumulate reputation through action, not just combat.`
 
-  const levelComment =
-    level < 95  ? `YOU'RE HERE! Level ${level} Berserker! THE BLOODPIT MISSED YOUR CHAOS!` :
-    level < 100 ? `Level ${level}! ALMOST THERE! KEEP BREAKING THINGS!` :
-    `LEVEL 100 BERSERKER ENTERS THE BLOODPIT! EVERYONE STOP! SHOW SOME RESPECT! HAHAHA!`
+    return `Level ${level} citizen. *gentle but firm* You have fought hard. But the world has not yet acknowledged your character. That acknowledgment must be earned.`
+  },
 
-  const repComment = rep >= 60 ? `MY FAVORITE WALKING DISASTER! ` : ``
+  malachar: (ctx) => {
+    const { level, playerClass, reputationRank, mood, isFirstVisit } = ctx
+    const rank = reputationRank || 'citizen'
 
-  return `${repComment}${levelComment}`
+    if (isFirstVisit) return `...Someone living enters the Crypt. *opens eyes slowly* Interesting. The dead are curious. They don't get curious often.`
+    if (playerClass !== 'necromancer') return `*the dead whisper* ...Wrong class. They find it amusing. I find it tiresome. Leave.`
+    if (level < 50) return `...Level ${level}. *long silence* The dead have looked you over. They are not impressed. Come back at level 50. If you survive.`
+    if (mood === 'angry') return `The dead have told me things about you. *pause* Unflattering things. Leave before they say worse.`
+
+    if (rank === 'count')    return `*every candle in the Crypt extinguishes simultaneously* ...Count. *long silence* The dead have not bowed since the ancient kings walked this earth. *whispers* They are bowing now.`
+    if (rank === 'viscount') return `Viscount. *the dead grow restless with excitement* ...They recognize your power now. Level ${level}. The boundary between life and death bends around you.`
+    if (rank === 'mayor')    return `Lord Mayor. *the dead whisper your name* ...They know you now. That is not given to many living souls.`
+    if (rank === 'chief')    return `Chief Necromancer. *looks at you differently* The dead have been following your progress. Level ${level}. They approve.`
+    if (rank === 'baron')    return `*the dead go quiet* ...Baron walks into the Crypt. Level ${level}. *pause* The dead are paying attention. That is more than most get.`
+
+    // Citizen contempt
+    if (level < 65)  return `Level ${level} citizen. The dead are... unimpressed. They have seen thousands like you. Most don't come back.`
+    if (level < 80)  return `Level ${level}. Still a citizen. *quiet* The dead respect power AND reputation. You have one. Not the other.`
+    if (level < 95)  return `Level ${level} citizen. *whispers* The dead are curious why someone this powerful has not yet earned the world's recognition. So am I.`
+
+    return `Level ${level} citizen necromancer. *long pause* The dead find this... puzzling. Power without recognition. Go change that.`
+  },
+
+  nara: (ctx) => {
+    const { level, playerClass, reputationRank, mood, isFirstVisit } = ctx
+    const rank = reputationRank || 'citizen'
+
+    if (isFirstVisit) return `*eyes closed, speaks without turning* The spirits told me you would come. *opens eyes* They did not say you would arrive so... unformed. Sit anyway.`
+    if (playerClass !== 'shaman') return `Your spirit walks a different path. *gently* This grove is not yours. Find your own.`
+    if (level < 70) return `Level ${level}. *quietly* The spirits are not yet ready to speak through me for you. Return at level 70.`
+    if (mood === 'angry') return `Your spirit is clouded with conflict. The spirits will not come today. Return when you are clear.`
+
+    if (rank === 'count')    return `*the entire grove goes silent* ...Count. *long pause* The ancient spirits have not spoken this clearly in centuries. *opens eyes slowly* They say you are one of them now. Sit. This will take time.`
+    if (rank === 'viscount') return `Lord Viscount. *the grove brightens* The spirits rejoice when you arrive now. Level ${level}. Your soul has grown vast.`
+    if (rank === 'mayor')    return `Lord Mayor. *nods with deep respect* The ancient ones are watching you closely now. Few citizens ever reach this. Fewer still reach Mayor.`
+    if (rank === 'chief')    return `Chief Shaman. *the spirits stir visibly* Level ${level}. You carry their blessing now. I can feel it.`
+    if (rank === 'baron')    return `*opens eyes* ...Baron. Level ${level}. The spirits recognize your title. They are beginning to trust you. That is rare.`
+
+    // Citizen contempt
+    if (level < 80)  return `Level ${level} citizen. *quietly* The spirits stir but do not speak. They wait for the world to acknowledge you first.`
+    if (level < 95)  return `Level ${level}. The ancient ones watch you with interest. But citizen... *shakes head gently* The spirits speak to those the world has recognized. Go earn that recognition.`
+
+    return `Level ${level} citizen. *the grove whispers* Even the spirits are puzzled. This much power, this little recognition. The world does not yet know what stands before it. Go make it know.`
+  },
+
+  ragnar: (ctx) => {
+    const { level, playerClass, reputationRank, isFirstVisit } = ctx
+    const rank = reputationRank || 'citizen'
+
+    if (playerClass !== 'berserker') return `WRONG CLASS! *laughing* Come back as a Berserker or DON'T COME BACK AT ALL! HAHA!`
+    if (level < 90) return `LEVEL ${level}?! *laughing louder* LEVEL 90 MINIMUM! COME BACK WHEN YOU'VE ACTUALLY BLED! THE BLOODPIT DOESN'T ACCEPT CHILDREN! HAHAHAHA!`
+    if (isFirstVisit) return `*stops everything* YOU. MADE IT. TO LEVEL 90. *grabs your shoulder* THEN YOU ARE ALREADY MY KIND OF PERSON! WELCOME TO THE BLOODPIT!`
+
+    if (rank === 'count')    return `*Ragnar goes completely silent. First time ever.* ...Count Berserker. *very quietly* ...I have waited my whole life to meet someone like you. *stands straight* THE BLOODPIT BOWS TO NO ONE. EXCEPT YOU! EVERYONE DOWN! NOW!`
+    if (rank === 'viscount') return `VISCOUNT! *slams table* A BERSERKER VISCOUNT! I DIDN'T THINK THIS DAY WOULD COME! THE BLOODPIT IS YOURS TODAY! HAHAHA!`
+    if (rank === 'mayor')    return `LORD MAYOR BERSERKER! *laughing and emotional at same time* LEVEL ${level}! WHAT A BEAUTIFUL DISASTER YOU'VE BECOME!`
+    if (rank === 'chief')    return `CHIEF BERSERKER! *roars with joy* THE BLOODPIT KNEW YOU'D MAKE IT! LEVEL ${level}! WHAT DO YOU NEED?!`
+    if (rank === 'baron')    return `*stops mid-swing* BARON. *genuine respect breaking through the chaos* Level ${level} Baron Berserker. THE BLOODPIT RESPECTS THIS! WELCOME BACK!`
+
+    // Citizen — still respected at 90+ just not titled
+    if (level < 95)  return `YOU'RE BACK! Level ${level} Berserker citizen! THE BLOODPIT MISSED YOUR CHAOS! NOW GO GET A TITLE!`
+    if (level < 100) return `Level ${level}! SO CLOSE TO MAX! KEEP BREAKING THINGS! AND GET A TITLE WHILE YOU'RE AT IT!`
+
+    return `LEVEL 100 CITIZEN BERSERKER! *confused and impressed* HOW ARE YOU LEVEL 100 WITH NO TITLE?! GO. GET. BARON. NOW. THEN COME BACK! HAHA!`
+  },
+
+    voss: (ctx) => {
+  const { level, reputationRank, isFirstVisit } = ctx
+  const rank = reputationRank || 'citizen'
+
+  if (isFirstVisit && rank === 'citizen') return `*A stern clerk blocks the entrance* ...The Auction House is a place of serious business. Citizens are not permitted. Come back when the world knows your name.`
+  if (rank === 'citizen') return `*Clerk Voss doesn't even look up* Citizen. You know the rules. Baron minimum. Leave.`
+  if (isFirstVisit && rank === 'baron') return `*Clerk Voss checks a ledger, finds your name, steps aside* ...Baron. Welcome to the Auction House. Don't embarrass yourself in there.`
+  if (rank === 'baron') return `Baron. *nods once* You may enter. Black Wing is reserved for Chiefs and above. Don't ask about it.`
+  if (rank === 'chief') return `Chief. *steps fully aside* The Black Wing section is open to you today. Don't let it go to your head.`
+  if (rank === 'mayor') return `Lord Mayor. *bows slightly* The Auction House and Black Wing are yours. The best lots have been reserved.`
+  if (rank === 'viscount') return `Lord Viscount. *opens door personally* Black Wing's finest items were held for your arrival.`
+  if (rank === 'count') return `*Clerk Voss stands at attention* Lord Count. *quietly* The entire Auction House clears when you walk in. Everything is available to you.`
+},
 }
 
 // ============================================================
 // DIALOGUE ROUTER
 // ============================================================
 function buildDialogue(npcId: string, ctx: any): string {
-  switch(npcId) {
-    case 'sovan':         return buildSovanDialogue(ctx)
-    case 'mirela':        return buildMirelaDialogue(ctx)
-    case 'aldric':        return buildAldricDialogue(ctx)
-    case 'seraphine':     return buildSeraphineDialogue(ctx)
-    case 'vex':           return buildVexDialogue(ctx)
-    case 'kara':          return buildKaraDialogue(ctx)
-    case 'brother_elian': return buildElianDialogue(ctx)
-    case 'malachar':      return buildMalacharDialogue(ctx)
-    case 'nara':          return buildNaraDialogue(ctx)
-    case 'ragnar':        return buildRagnarDialogue(ctx)
-    default: return `...`
-  }
+  const fn = NPC_DIALOGUES[npcId]
+  if (!fn) return `...`
+  return fn(ctx)
 }
 
 // ============================================================
@@ -297,6 +327,7 @@ const NPC_META: Record<string, any> = {
   ragnar:        { unlockLevel: 90,  requiredClass: 'berserker'    },
   mirela:        { unlockLevel: 1,   requiredClass: null           },
   sovan:         { unlockLevel: 1,   requiredClass: null           },
+  voss: { unlockLevel: 1, requiredClass: null }
 }
 
 // ============================================================
@@ -393,19 +424,20 @@ serve(async (req) => {
     // Build context
     const stats = character.stats || {}
     const ctx = {
-      level:            character.level,
-      playerClass:      character.class,
-      gold:             character.gold || 0,
-      enhancement:      maxEnhancement,
-      rep:              relationship.relationship_score,
-      mood:             relationship.mood,
-      isFirstVisit,
-      questsCompleted:  (relationship.quests_completed as any[]).length,
-      questsAbandoned:  (relationship.quests_abandoned as any[]).length,
-      strStat:          stats.baseStr || 0,
-      agiStat:          stats.baseAgi || 0,
-      intStat:          stats.baseInt || 0,
-    }
+  level:            character.level,
+  playerClass:      character.class,
+  gold:             character.gold || 0,
+  enhancement:      maxEnhancement,
+  reputationRank:   character.reputation_rank || 'citizen',
+  rep:              relationship.relationship_score,
+  mood:             relationship.mood,
+  isFirstVisit,
+  questsCompleted:  (relationship.quests_completed as any[]).length,
+  questsAbandoned:  (relationship.quests_abandoned as any[]).length,
+  strStat:          stats.baseStr || 0,
+  agiStat:          stats.baseAgi || 0,
+  intStat:          stats.baseInt || 0,
+}
 
     // Build stat-aware dialogue
     const response = buildDialogue(npc_id, ctx)
