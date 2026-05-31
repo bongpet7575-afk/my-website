@@ -289,21 +289,7 @@ const NPC_DIALOGUES: Record<string, (ctx: any) => string> = {
     if (level < 100) return `Level ${level}! SO CLOSE TO MAX! KEEP BREAKING THINGS! AND GET A TITLE WHILE YOU'RE AT IT!`
 
     return `LEVEL 100 CITIZEN BERSERKER! *confused and impressed* HOW ARE YOU LEVEL 100 WITH NO TITLE?! GO. GET. BARON. NOW. THEN COME BACK! HAHA!`
-  },
-
-    voss: (ctx) => {
-  const { level, reputationRank, isFirstVisit } = ctx
-  const rank = reputationRank || 'citizen'
-
-  if (isFirstVisit && rank === 'citizen') return `*A stern clerk blocks the entrance* ...The Auction House is a place of serious business. Citizens are not permitted. Come back when the world knows your name.`
-  if (rank === 'citizen') return `*Clerk Voss doesn't even look up* Citizen. You know the rules. Baron minimum. Leave.`
-  if (isFirstVisit && rank === 'baron') return `*Clerk Voss checks a ledger, finds your name, steps aside* ...Baron. Welcome to the Auction House. Don't embarrass yourself in there.`
-  if (rank === 'baron') return `Baron. *nods once* You may enter. Black Wing is reserved for Chiefs and above. Don't ask about it.`
-  if (rank === 'chief') return `Chief. *steps fully aside* The Black Wing section is open to you today. Don't let it go to your head.`
-  if (rank === 'mayor') return `Lord Mayor. *bows slightly* The Auction House and Black Wing are yours. The best lots have been reserved.`
-  if (rank === 'viscount') return `Lord Viscount. *opens door personally* Black Wing's finest items were held for your arrival.`
-  if (rank === 'count') return `*Clerk Voss stands at attention* Lord Count. *quietly* The entire Auction House clears when you walk in. Everything is available to you.`
-},
+  },   
 }
 
 // ============================================================
@@ -329,7 +315,6 @@ const NPC_META: Record<string, any> = {
   ragnar:        { unlockLevel: 90,  requiredClass: 'berserker'    },
   mirela:        { unlockLevel: 1,   requiredClass: null           },
   sovan:         { unlockLevel: 1,   requiredClass: null           },
-  voss: { unlockLevel: 1, requiredClass: null }
 }
 
 // ============================================================

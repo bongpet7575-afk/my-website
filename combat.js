@@ -41,6 +41,39 @@ async function requestCombatSession(stageId) {
   }
 }
 
+function renderPlayerStatPanel() {
+  const el = document.getElementById('player-stats')
+  if (!el) return
+  el.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:2px;margin-top:4px;">
+      <div style="display:flex;justify-content:space-between;">
+        <span style="color:var(--text-dim);">⚔️ ATK</span>
+        <strong style="color:var(--gold);">${formatNumber(state.attackPower||0)}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span style="color:var(--text-dim);">🛡️ ARM</span>
+        <strong style="color:var(--text);">${formatNumber(state.armor||0)}</strong>
+      </div>
+      ${state.worldPhase >= 2 ? `
+      <div style="display:flex;justify-content:space-between;">
+        <span style="color:var(--text-dim);">💨 DDG</span>
+        <strong style="color:var(--text);">${formatNumber(state.dodge||0)}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span style="color:var(--text-dim);">🎯 HIT</span>
+        <strong style="color:var(--text);">${formatNumber(state.hit||0)}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span style="color:var(--text-dim);">💥 CRIT</span>
+        <strong style="color:var(--deep-gold);">${(state.crit||0).toFixed(1)}%</strong>
+      </div>` : ''}
+      <div style="display:flex;justify-content:space-between;">
+        <span style="color:var(--text-dim);">💚 REGEN</span>
+        <strong style="color:var(--green);">${formatNumber(state.hpRegen||0)}</strong>
+      </div>
+    </div>`
+}
+
 // ── START COMBAT WITH (enemy object) ──
 function startCombatWith(enemy){
   autoSkillIndex=0;
@@ -54,17 +87,10 @@ function startCombatWith(enemy){
   document.getElementById('combat-log').innerHTML='';
   showCombatMode();
   // Enemy stats under their HP bar
-  const es=document.getElementById('enemy-stats');
-  if(es){
-    es.style.display='block';
-    es.innerHTML=`
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 6px;font-size:.65em;">
-        <span style="color:var(--text-dim);">⚔️ ATK <strong style="color:var(--red)">${formatNumber(enemy.atk)}</strong></span>
-        <span style="color:var(--text-dim);">🛡️ ARM <strong style="color:var(--text)">${formatNumber(enemy.armor||0)}</strong></span>
-        <span style="color:var(--text-dim);">🎯 HIT <strong style="color:var(--text)">${formatNumber(enemy.hit||0)}</strong></span>
-        <span style="color:var(--text-dim);">💨 DDG <strong style="color:var(--text)">${formatNumber(enemy.dodge||0)}</strong></span>
-        ${enemy.ability?`<span style="color:var(--red);grid-column:span 2;">⚡ ${enemy.ability.name}</span>`:''}
-      </div>`;
+  const es = document.getElementById('enemy-stats')
+  if (es) {
+    es.style.display = 'block'
+    es.innerHTML = renderEnemyStatPanel(enemy)
   }
 
   document.getElementById('story-content').innerHTML=`
@@ -73,6 +99,7 @@ function startCombatWith(enemy){
 
   updatePlayerAvatar();
   updateAutoFightBtn();
+  renderPlayerStatPanel()
 }
 
 // ── COMBAT ACTION (manual) ──
@@ -255,7 +282,23 @@ function startStageBossFight(){
   const stageLevel=currentStage?currentStage.id:1;
   const stageScale=1+(stageLevel-1)*0.4;
   const prefix=state.difficulty==='hell'?'💀 Hell ':state.difficulty==='hard'?'🔥 Hard ':'';
-  currentEnemy={...boss,name:prefix+boss.name,hp:Math.floor(boss.hp*stageScale*diff.hpMult),maxHp:Math.floor(boss.hp*stageScale*diff.hpMult),atk:Math.floor(boss.atk*stageScale*diff.atkMult),armor:Math.floor(boss.armor*stageScale),hit:Math.floor(boss.hit*stageScale),dodge:Math.floor(boss.dodge*stageScale),xp:Math.floor(boss.xp*diff.xpMult),gold:[Math.floor(boss.gold[0]*diff.goldMult),Math.floor(boss.gold[1]*diff.goldMult)],poisoned:0,frozen:false,boss:true,abilityTurn:0,_xpMult:1,_goldMult:1};
+  const isPhase1 = (state.worldPhase || 1) < 2
+const isPhase2 = (state.worldPhase || 1) < 3
+currentEnemy = {
+  ...boss,
+  name:    prefix + boss.name,
+  hp:      Math.floor(boss.hp * stageScale * diff.hpMult),
+  maxHp:   Math.floor(boss.hp * stageScale * diff.hpMult),
+  atk:     Math.floor(boss.atk * stageScale * diff.atkMult),
+  armor:   Math.floor(boss.armor * stageScale),
+  hit:     isPhase1 ? 0 : Math.floor(boss.hit * stageScale),
+  dodge:   isPhase1 ? 0 : Math.floor(boss.dodge * stageScale),
+  crit:    isPhase1 ? 0 : (boss.base_crit || 0),
+  ability: isPhase2 ? null : boss.ability,
+  xp:      Math.floor(boss.xp * diff.xpMult),
+  gold:    [Math.floor(boss.gold[0] * diff.goldMult), Math.floor(boss.gold[1] * diff.goldMult)],
+  poisoned: 0, frozen: false, boss: true, abilityTurn: 0, _xpMult: 1, _goldMult: 1
+}
   startCombatWith(currentEnemy)
 clearInterval(autoFightTimer)
 autoFightTimer = setInterval(() => {
@@ -301,12 +344,8 @@ async function dungeonComplete() {
   dropTreasureBox(stageId);
   updateUI();
   renderInventory();
-  await savePlayerToSupabase();
- 
-  // Auto loop — restart same dungeon after short pause
-  setTimeout(() => {
-    enterDungeon(completedStage.id);
-  }, 3000);
+  loadScene(town);
+  await savePlayerToSupabase();  
 }
 
 
@@ -516,6 +555,13 @@ function handleEnemyTurn() {
   // Calculate enemy damage
   let enemyDamage = calculateEnemyAttackDamage(currentEnemy.atk, state.armor);
 
+  // Monster crit — Phase 2+
+  let enemyCrit = false
+  if (state.worldPhase >= 2 && currentEnemy.crit > 0 && Math.random() < currentEnemy.crit / 100) {
+    enemyDamage = Math.floor(enemyDamage * 2)
+    enemyCrit = true
+  }
+
   // Apply tutorial difficulty modifier
   if (isTutorialActive()) {
     enemyDamage = Math.floor(enemyDamage * TUTORIAL_CONFIG.enemyDamageMultiplier);
@@ -588,8 +634,8 @@ if (state.soulBarrierAbsorb > 0 && enemyDamage > 0) {
   state.hp -= enemyDamage;
 
   if (enemyDamage > 0) {
-    addCombatLog(`${currentEnemy.name} hits you for ${formatNumber(enemyDamage)}!`, 'bad');
-    animateAttack(false, enemyDamage, false);
+    addCombatLog(`${enemyCrit ? '💥 CRIT! ' : ''}${currentEnemy.name} hits you for ${formatNumber(enemyDamage)}!`, 'bad');
+    animateAttack(false, enemyDamage, enemyCrit);
 
     // ── PALADIN: Damage reflect ──
     if (state.dmgReflect > 0 && currentEnemy && currentEnemy.hp > 0) {
@@ -796,7 +842,7 @@ async function endCombat(won){
   } else {
     currentEnemy=null;
     showCombatMode();
-    loadScene('town');
+    loadScene('town'); return;
   }
 
   updateUI();renderSkillBar();updateAutoFightBtn();
@@ -951,7 +997,7 @@ async function autoFightStep() {
   }
 
   // Boss ability
-  if(state.worldPhase >= 2 && currentEnemy.boss && currentEnemy.ability){
+  if(state.worldPhase >= 3 && currentEnemy.boss && currentEnemy.ability){
   currentEnemy.abilityTurn=(currentEnemy.abilityTurn||0)+1;
   const triggerEvery = currentEnemy.abilityTriggerEvery || currentEnemy.ability.triggerEvery || 3;
   if(currentEnemy.abilityTurn>=triggerEvery){
@@ -991,8 +1037,8 @@ async function autoFightStep() {
     addLog('💀 You died!', 'bad')
     notify('💀 You died!', 'var(--red)')
     endCombat(false)
-    if (state.currentCombatSessionId) state.currentCombatSessionId = null
-    return
+    if (state.currentCombatSessionId) state.currentCombatSessionId = null    
+    openMirelaPopup();
   }
 
   updateEnemyBar()

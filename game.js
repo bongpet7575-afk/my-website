@@ -651,6 +651,7 @@ function updatePlayerAvatar() {
   if (portraitEl) portraitEl.src = img;
 }
 
+
 // ══════════════════════════════════════════
 // LEGACY SKILL SYSTEM
 // ══════════════════════════════════════════
@@ -2123,20 +2124,22 @@ function switchMainScene(scene){
 async function loadMonsterData() {
   const { data, error } = await dbClient
     .from('monsters')
-    .select('id, attack_interval, base_hp, base_atk, base_armor, base_hit, base_dodge, base_xp, gold_min, gold_max, regen_pct')
+    .select('id, attack_interval, base_hp, base_atk, base_armor, base_hit, base_dodge, base_xp, gold_min, gold_max, regen_pct, base_crit, ability_trigger_every, ability_damage_pct, ability_heal_pct')
 
   if (data) {
     data.forEach(m => {
       if (MONSTER_TEMPLATES[m.id]) {
-        MONSTER_TEMPLATES[m.id].attackInterval = m.attack_interval
-        MONSTER_TEMPLATES[m.id].regenPct = m.regen_pct || 0
+        MONSTER_TEMPLATES[m.id].attackInterval    = m.attack_interval
+        MONSTER_TEMPLATES[m.id].regenPct          = m.regen_pct || 0
+        MONSTER_TEMPLATES[m.id].base_crit         = m.base_crit || 0
       }
       if (STAGE_BOSSES[m.id]) {
-  STAGE_BOSSES[m.id].attackInterval = m.attack_interval
-  STAGE_BOSSES[m.id].regenPct = m.regen_pct || 0
+  STAGE_BOSSES[m.id].attackInterval    = m.attack_interval
+  STAGE_BOSSES[m.id].regenPct          = m.regen_pct || 0
+  STAGE_BOSSES[m.id].base_crit         = m.base_crit || 0
   STAGE_BOSSES[m.id].abilityTriggerEvery = m.ability_trigger_every || 3
-  STAGE_BOSSES[m.id].abilityDamagePct = m.ability_damage_pct || 0
-  STAGE_BOSSES[m.id].abilityHealPct = m.ability_heal_pct || 0
+  STAGE_BOSSES[m.id].abilityDamagePct  = m.ability_damage_pct || 0
+  STAGE_BOSSES[m.id].abilityHealPct    = m.ability_heal_pct || 0
 }
     })
   }
@@ -2317,15 +2320,17 @@ function scaleMonster(templateId,stageLevel){
   const tmpl=MONSTER_TEMPLATES[templateId];if(!tmpl)return null;
   const diff=DIFFICULTY[state.difficulty||'normal'];
   const stageScale=1+(stageLevel-1)*0.3;
-  const isPhase1 = (state.worldPhase || 1) < 2;
+  const isPhase1 = (state.worldPhase || 1) < 2
+  const isPhase2 = (state.worldPhase || 1) < 3
   return{...tmpl,
-    hp:    Math.floor(tmpl.hp*stageScale*diff.hpMult),
-    maxHp: Math.floor(tmpl.hp*stageScale*diff.hpMult),
-    atk:   Math.floor(tmpl.atk*stageScale*diff.atkMult),
-    armor: Math.floor(tmpl.armor*stageScale),
-    hit:   isPhase1 ? 0 : Math.floor(tmpl.hit*stageScale),
-    dodge: isPhase1 ? 0 : Math.floor(tmpl.dodge*stageScale),
-    crit:  isPhase1 ? 0 : (tmpl.base_crit || 0),
+    hp:      Math.floor(tmpl.hp*stageScale*diff.hpMult),
+    maxHp:   Math.floor(tmpl.hp*stageScale*diff.hpMult),
+    atk:     Math.floor(tmpl.atk*stageScale*diff.atkMult),
+    armor:   Math.floor(tmpl.armor*stageScale),
+    hit:     isPhase1 ? 0 : Math.floor(tmpl.hit*stageScale),
+    dodge:   isPhase1 ? 0 : Math.floor(tmpl.dodge*stageScale),
+    crit:    isPhase1 ? 0 : (tmpl.base_crit || 0),
+    ability: isPhase2 ? null : tmpl.ability,
     xp:    Math.floor(tmpl.xp*diff.xpMult),
     gold:  [Math.floor(tmpl.gold[0]*diff.goldMult),Math.floor(tmpl.gold[1]*diff.goldMult)],
     poisoned:0,frozen:false,boss:false,_xpMult:1,_goldMult:1
@@ -2414,14 +2419,39 @@ function animateAttack(isPlayer, dmg, isCrit) {
   }
   spawnDmgFloat(isCrit ? `💥${dmg}!` : String(dmg), !isPlayer, isCrit ? 'crit-dmg' : isPlayer ? 'enemy-dmg' : 'player-dmg');
 }
-function spawnDmgFloat(text,onEnemy,cls=''){
-  const arena=document.getElementById('arena');if(!arena)return;
-  const rect=arena.getBoundingClientRect();
-  const div=document.createElement('div');div.className=`dmg-float ${cls}`;div.textContent=text;
-  const rx=Math.floor(Math.random()*40)-20,ry=Math.floor(Math.random()*30)-15;
-  div.style.left=(onEnemy?rect.right-80:rect.left+30)+rx+'px';
-  div.style.top=(rect.top+rect.height/2-20)+ry+'px';
-  document.body.appendChild(div);setTimeout(()=>div.remove(),950);
+// Track float queue per side
+const _floatQueues = { enemy: 0, player: 0 }
+
+function spawnDmgFloat(text, onEnemy, cls='') {
+  const targetId = onEnemy ? 'arena-enemy' : 'arena-player'
+  const target = document.getElementById(targetId)
+  if (!target) return
+
+  const rect = target.getBoundingClientRect()
+  const side = onEnemy ? 'enemy' : 'player'
+
+  // Stack offset — each new float is 24px higher than previous
+  const stackOffset = _floatQueues[side] * 24
+  _floatQueues[side]++
+
+  const div = document.createElement('div')
+  div.className = `dmg-float ${cls}`
+  div.textContent = text
+  div.style.cssText = `
+    position:fixed;
+    left:${rect.left + rect.width / 2}px;
+    top:${rect.top - 10 - stackOffset}px;
+    transform:translateX(-50%);
+    z-index:9999;
+  `
+
+  document.body.appendChild(div)
+
+  // Clean up and decrement queue
+  setTimeout(() => {
+    div.remove()
+    _floatQueues[side] = Math.max(0, _floatQueues[side] - 1)
+  }, 950)
 }
 
 // ── AUTH: REGISTER ──
@@ -2916,11 +2946,13 @@ function renderEnemyStatPanel(enemy) {
       <div class="stat-row hp-row">
         <span class="stat-label">❤️ HP</span>
         <div class="hp-bar-wrapper">
-          <div class="hp-bar" style="width: ${(enemy.hp / enemy.maxHp) * 100}%"></div>
+          <div class="hp-bar" style="width: ${Math.max(0,(enemy.hp / enemy.maxHp) * 100)}%"></div>
         </div>
         <span class="stat-value">${formatNumber(enemy.hp)} / ${formatNumber(enemy.maxHp)}</span>
       </div>
       <div class="enemy-stats-grid">
+
+        <!-- Phase 1+ — always shown -->
         <div class="stat-item">
           <span class="stat-icon">⚔️</span>
           <span class="stat-name">ATK</span>
@@ -2931,19 +2963,36 @@ function renderEnemyStatPanel(enemy) {
           <span class="stat-name">ARM</span>
           <span class="stat-val">${formatNumber(enemy.armor||0)}</span>
         </div>
+
+        <!-- Phase 2+ — dodge, hit, crit unlocked -->
+        ${state.worldPhase >= 2 ? `
         <div class="stat-item">
           <span class="stat-icon">💨</span>
           <span class="stat-name">DODGE</span>
-          <span class="stat-val">${enemy.dodge||0}</span>
+          <span class="stat-val">${formatNumber(enemy.dodge||0)}</span>
         </div>
         <div class="stat-item">
           <span class="stat-icon">🎯</span>
           <span class="stat-name">HIT</span>
-          <span class="stat-val">${enemy.hit||0}</span>
+          <span class="stat-val">${formatNumber(enemy.hit||0)}</span>
         </div>
+        <div class="stat-item">
+          <span class="stat-icon">💥</span>
+          <span class="stat-name">CRIT</span>
+          <span class="stat-val">${enemy.crit||0}%</span>
+        </div>` : ''}
+
+        <!-- Phase 3+ — skills, flee unlocked (coming later) -->
+        ${state.worldPhase >= 3 ? `
+        <div class="stat-item">
+          <span class="stat-icon">⚡</span>
+          <span class="stat-name">SKILLS</span>
+          <span class="stat-val">Active</span>
+        </div>` : ''}
+
       </div>
     </div>
-  `;
+  `
 }
 
 
@@ -5695,6 +5744,7 @@ if (charClassEl) {
   renderTournamentRewards();
   updateTutorialStatus();
   renderBuffsAndTitles();
+  renderPlayerStatPanel()
 }
 
 // ── LEADERBOARD ──
