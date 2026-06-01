@@ -222,40 +222,42 @@ function renderAuctions(auctions, sellerMap = {}) {
 // ============================================
 
 async function placeBid(auctionId, currentBid) {
-  const minBid = currentBid + Math.max(100, Math.floor(currentBid * 0.05));
-  const bidAmount = parseInt(prompt(`Minimum bid: ${formatNumber(minBid)}g\nEnter your bid:`));
-  if (!bidAmount || isNaN(bidAmount)) return;
+  const minBid = currentBid + Math.max(100, Math.floor(currentBid * 0.05))
+  const bidAmount = parseInt(prompt(`Minimum bid: ${formatNumber(minBid)}g\nEnter your bid:`))
+  if (!bidAmount || isNaN(bidAmount)) return
   if (bidAmount < minBid) { notify(`❌ Minimum bid is ${formatNumber(minBid)}g!`, 'var(--red)'); return; }
   if (bidAmount > state.gold) { notify('❌ Not enough gold!', 'var(--red)'); return; }
+
   try {
-    // Fetch auction to know if we were the previous bidder
-    const { data: auction } = await dbClient.from('auctions')
-      .select('current_bidder_id,current_bid,item_name').eq('id', auctionId).single();
-    if (!auction) { notify('❌ Auction not found!', 'var(--red)'); return; }
-    const wasOurBid = auction.current_bidder_id === state.character_id;
-    const prevBid = auction.current_bid || 0;
+    const { data: { session } } = await dbClient.auth.getSession()
+    const res = await fetch('https://xagwrqrgcuuitwgroiwh.supabase.co/functions/v1/auction-action', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      body: JSON.stringify({
+        action: 'bid',
+        character_id: state.character_id,
+        auction_id: auctionId,
+        bid_amount: bidAmount
+      })
+    })
 
-    const { error } = await dbClient.rpc('process_bid', {
-      p_auction_id: auctionId,
-      p_bidder_character_id: state.character_id,
-      p_bid_amount: bidAmount,
-    });
-    if (error) throw error;
+    const data = await res.json()
+    if (data.error) throw new Error(data.error)
 
-    // Sync state.gold to match what DB just did
-    // If we were also the bidder, refund state.gold
-  if(wasOurBid&&bidToRefund>0) addGold(bidToRefund); // ✅ sanitized
-    addGold(-bidAmount); // ✅ sanitized              // new bid deducted
+    // Update local gold only after server confirms
+    addGold(-bidAmount)
+    await savePlayerToSupabase()
+    addLog(`⬆️ Bid: ${formatNumber(bidAmount)}g placed!`, 'gold')
+    notify(`⬆️ Bid: ${formatNumber(bidAmount)}g!`, 'var(--gold)')
+    updateUI()
+    fetchAuctions(currentAuctionSource || 'auction')
 
-    await savePlayerToSupabase();
-    addLog(`⬆️ Bid: ${formatNumber(bidAmount)}g on ${auction.item_name}!`, 'gold');
-    notify(`⬆️ Bid: ${formatNumber(bidAmount)}g!`, 'var(--gold)');
-    updateUI();
-    // Wherever fetchAuctions() is called without arguments
-fetchAuctions(currentAuctionSource || 'auction')
   } catch (error) {
-    notify('❌ Bid failed: ' + error.message, 'var(--red)');
-    console.error('Bid error:', error);
+    notify('❌ ' + error.message, 'var(--red)')
+    console.error('Bid error:', error)
   }
 }
 
@@ -267,37 +269,44 @@ fetchAuctions(currentAuctionSource || 'auction')
 async function buyoutAuction(auctionId, buyoutPrice) {
   if (buyoutPrice > state.gold) { notify('❌ Not enough gold!', 'var(--red)'); return; }
   if (!confirm(`Buy now for ${formatNumber(buyoutPrice)}g?\n(10% fee applies to seller)`)) return;
+
   try {
-    const { error } = await dbClient.rpc('process_buyout', {
-      p_auction_id: auctionId,
-      p_buyer_character_id: state.character_id,
-    });
-    if (error) throw error;
+    const { data: { session } } = await dbClient.auth.getSession()
+    const res = await fetch('https://xagwrqrgcuuitwgroiwh.supabase.co/functions/v1/auction-action', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      body: JSON.stringify({
+        action: 'buyout',
+        character_id: state.character_id,
+        auction_id: auctionId
+      })
+    })
 
-    // Sync state.gold to match what DB just did
-    addGold(-buyoutPrice); // ✅ sanitized
+    const data = await res.json()
+    if (data.error) throw new Error(data.error)
 
-    // Fetch auction to get item (now completed)
-    const { data: auction } = await dbClient.from('auctions').select('*').eq('id', auctionId).single();
-    const item = auction.item_description
-      ? (typeof auction.item_description === 'string' ? JSON.parse(auction.item_description) : auction.item_description)
-      : { name: auction.item_name, rarity: auction.rarity, uid: genUid(), category: 'equipment', equipped: false };
-    item.uid = genUid();
-    addToInventory(item);
+    // Update local state only after server confirms
+    addGold(-buyoutPrice)
+    if (data.item) {
+      data.item.uid = genUid()
+      addToInventory(data.item)
+    }
 
-    trackQuestAuction();
-    await savePlayerToSupabase();
-    addLog(`🏛️ Bought ${auction.item_name} for ${formatNumber(buyoutPrice)}g!`, 'legendary');
-    notify(`🏛️ Item purchased!`, 'var(--gold)');
-    playSound('snd-craft');
-    updateUI();
-    renderInventory();
-    // Wherever fetchAuctions() is called without arguments
-fetchAuctions(currentAuctionSource || 'auction')
+    trackQuestAuction()
+    await savePlayerToSupabase()
+    addLog(`🏛️ Bought ${data.item?.name || 'item'} for ${formatNumber(buyoutPrice)}g!`, 'legendary')
+    notify(`🏛️ Item purchased!`, 'var(--gold)')
+    playSound('snd-craft')
+    updateUI()
+    renderInventory()
+    fetchAuctions(currentAuctionSource || 'auction')
 
   } catch (error) {
-    notify('❌ Purchase failed: ' + error.message, 'var(--red)');
-    console.error('Buyout error:', error);
+    notify('❌ ' + error.message, 'var(--red)')
+    console.error('Buyout error:', error)
   }
 }
 
@@ -306,39 +315,54 @@ fetchAuctions(currentAuctionSource || 'auction')
 // ============================================
 
 async function listItemForAuction(uid) {
-  const item = state.inventory.find(i => i.uid === uid);
+  const item = state.inventory.find(i => i.uid === uid)
   if (!item) { notify('❌ Item not found!', 'var(--red)'); return; }
   if (item.equipped) { notify('❌ Unequip item first!', 'var(--red)'); return; }
-  if (!state.character_id) { notify('❌ Must be logged in to list items!', 'var(--red)'); return; }
-  const startPrice = parseInt(prompt('Starting bid price (gold):'));
-  if (!startPrice || isNaN(startPrice) || startPrice <= 0) return;
-  const buyoutInput = prompt('Buyout price (leave empty for no buyout):');
-  const buyoutPrice = buyoutInput ? parseInt(buyoutInput) : null;
-  if (buyoutPrice && buyoutPrice <= startPrice) { notify('❌ Buyout must be higher than start price!', 'var(--red)'); return; }
+  if (!state.character_id) { notify('❌ Must be logged in!', 'var(--red)'); return; }
+
+  const startPrice = parseInt(prompt(`Starting bid price (gold):`))
+  if (!startPrice || isNaN(startPrice) || startPrice <= 0) return
+
+  const buyoutInput = prompt('Buyout price (leave empty for no buyout):')
+  const buyoutPrice = buyoutInput ? parseInt(buyoutInput) : null
+  if (buyoutPrice && buyoutPrice <= startPrice) {
+    notify('❌ Buyout must be higher than start price!', 'var(--red)')
+    return
+  }
+
   try {
-    const idx = state.inventory.findIndex(i => i.uid === uid);
-    state.inventory.splice(idx, 1);
-    const endsAt = new Date();
-    endsAt.setHours(endsAt.getHours() + 24);
-    const { error } = await dbClient.rpc('create_auction_listing', {
-      p_character_id: state.character_id,
-      p_item_name: item.name,
-      p_item_description: typeof item === 'object' ? item : JSON.parse(item),
-      p_rarity: item.rarity || 'normal',
-      p_start_price: startPrice,
-      p_buyout_price: buyoutPrice || null,
-      p_ends_at: endsAt.toISOString(),
-    });
-    if (error) throw error;
-    await savePlayerToSupabase();
-    addLog(`🏛️ ${item.name} listed! Starts at ${formatNumber(startPrice)}g`, 'gold');
-    notify(`🏛️ Item listed for auction!`, 'var(--gold)');
-    renderInventory();
-    updateUI();
+    const { data: { session } } = await dbClient.auth.getSession()
+    const res = await fetch('https://xagwrqrgcuuitwgroiwh.supabase.co/functions/v1/auction-action', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      body: JSON.stringify({
+        action: 'list',
+        character_id: state.character_id,
+        item,
+        start_price: startPrice,
+        buyout_price: buyoutPrice || null
+      })
+    })
+
+    const data = await res.json()
+    if (data.error) throw new Error(data.error)
+
+    // Remove item from local inventory only after server confirms
+    const idx = state.inventory.findIndex(i => i.uid === uid)
+    if (idx !== -1) state.inventory.splice(idx, 1)
+
+    await savePlayerToSupabase()
+    addLog(`🏛️ ${item.name} listed! Starts at ${formatNumber(startPrice)}g`, 'gold')
+    notify(`🏛️ Item listed for auction!`, 'var(--gold)')
+    renderInventory()
+    updateUI()
+
   } catch (error) {
-    state.inventory.push(item); // restore item on failure
-    notify('❌ Listing failed: ' + error.message, 'var(--red)');
-    console.error('List error:', error);
+    notify('❌ ' + error.message, 'var(--red)')
+    console.error('List error:', error)
   }
 }
 
@@ -346,39 +370,46 @@ async function listItemForAuction(uid) {
 // CANCEL AUCTION
 // ============================================
 
-async function cancelAuction(auctionId){
-  if(!confirm('Cancel this auction? Item will be returned.'))return;
-  try{
-    const{data:auction}=await dbClient.from('auctions').select('*').eq('id',auctionId).single();
-    if(!auction){notify('❌ Auction not found!','var(--red)');return;}
-    if(auction.seller_id!==state.character_id){notify('❌ Not your auction!','var(--red)');return;}
+async function cancelAuction(auctionId) {
+  if (!confirm('Cancel this auction? Item will be returned.')) return
 
-    const wasOurBid=auction.current_bidder_id===state.character_id;
-    const bidToRefund=auction.current_bid||0;
+  try {
+    const { data: { session } } = await dbClient.auth.getSession()
+    const res = await fetch('https://xagwrqrgcuuitwgroiwh.supabase.co/functions/v1/auction-action', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      body: JSON.stringify({
+        action: 'cancel',
+        character_id: state.character_id,
+        auction_id: auctionId
+      })
+    })
 
-    const{error}=await dbClient.rpc('process_cancel',{
-      p_auction_id:auctionId,
-      p_seller_character_id:state.character_id,
-    });
-    if(error)throw error;
+    const data = await res.json()
+    if (data.error) throw new Error(data.error)
 
-    if(wasOurBid&&bidToRefund>0)addGold(bidToRefund); // ✅ sanitized
+    // Refund bid if we were also the bidder
+    if (data.bid_refund > 0) addGold(data.bid_refund)
 
-    const item=auction.item_description
-      ?(typeof auction.item_description==='string'?JSON.parse(auction.item_description):auction.item_description)
-      :{name:auction.item_name,rarity:auction.rarity,category:'equipment',equipped:false};
-    item.uid=genUid();
-    addToInventory(item);
+    // Return item to inventory only after server confirms
+    if (data.item) {
+      data.item.uid = genUid()
+      addToInventory(data.item)
+    }
 
-    await savePlayerToSupabase();
-    notify('✅ Auction cancelled!','var(--gold)');
-    addLog(`❌ Cancelled auction for ${auction.item_name}`,'info');
-    renderInventory();updateUI();// Wherever fetchAuctions() is called without arguments
-fetchAuctions(currentAuctionSource || 'auction')
+    await savePlayerToSupabase()
+    notify('✅ Auction cancelled!', 'var(--gold)')
+    addLog(`❌ Cancelled auction for ${data.item?.name || 'item'}`, 'info')
+    renderInventory()
+    updateUI()
+    fetchAuctions(currentAuctionSource || 'auction')
 
-  }catch(error){
-    notify('❌ Cancel failed: '+error.message,'var(--red)');
-    console.error('Cancel error:',error);
+  } catch (error) {
+    notify('❌ ' + error.message, 'var(--red)')
+    console.error('Cancel error:', error)
   }
 }
 

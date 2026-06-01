@@ -2942,14 +2942,7 @@ function renderEnemyStatPanel(enemy) {
     <div class="enemy-stat-panel">
       <div class="enemy-stat-header">
         <span class="enemy-name">${enemy.name}</span>
-      </div>
-      <div class="stat-row hp-row">
-        <span class="stat-label">❤️ HP</span>
-        <div class="hp-bar-wrapper">
-          <div class="hp-bar" style="width: ${Math.max(0,(enemy.hp / enemy.maxHp) * 100)}%"></div>
-        </div>
-        <span class="stat-value">${formatNumber(enemy.hp)} / ${formatNumber(enemy.maxHp)}</span>
-      </div>
+      </div>      
       <div class="enemy-stats-grid">
 
         <!-- Phase 1+ — always shown -->
@@ -3509,7 +3502,7 @@ const enemyStats = {
   name: document.getElementById('enemy-stats-name'),
   level: document.getElementById('enemy-stats-level'),
   hpBar: document.getElementById('enemy-hp-bar'),
-  hpValue: document.getElementById('enemy-hp-value'),
+  hpValue: document.getElementById('enemy-hp-val'),
   atk: document.getElementById('enemy-atk-value'),
   arm: document.getElementById('enemy-arm-value'),
   dodge: document.getElementById('enemy-dodge-value'),
@@ -3536,7 +3529,7 @@ function showEnemyStats(enemy) {
   enemyStats.crit.textContent = `${enemy.crit || 0}%`;
 
   // Update HP
-  updateEnemyHP(enemy.hp, enemy.maxHp);
+ // updateEnemyHP(enemy.hp, enemy.maxHp);
 
   // Show panel
   enemyStatsPanel.style.display = 'block';

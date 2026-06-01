@@ -31,87 +31,89 @@ function rand(min: number, max: number) {
 }
 
 async function generateBlackWingItems() {
-  // Check if Black Wing items already exist this week
-  const weekStart = new Date()
-  weekStart.setHours(0, 0, 0, 0)
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay()) // Monday
+  // Only run on Monday (UTC+7 Cambodia time)
+  const nowCambodia = new Date()
+  nowCambodia.setUTCHours(nowCambodia.getUTCHours() + 7)
+  const dayOfWeek = nowCambodia.getUTCDay() // 0=Sunday, 1=Monday
 
-  const { data: existing } = await supabase
-    .from('auctions')
-    .select('id')
-    .eq('source', 'blackwing')
-    .eq('status', 'active')
-    .gte('created_at', weekStart.toISOString())
-
-  if (existing && existing.length >= 5) {
-    console.log('Black Wing items already generated this week')
+  if (dayOfWeek !== 1) {
+    console.log('Black Wing only restocks on Monday — skipping')
     return
   }
 
-  // Clear old expired Black Wing items first
-  await supabase
+  // Check current active Black Wing inventory
+  const { data: existing } = await supabase
     .from('auctions')
-    .update({ status: 'expired' })
+    .select('rarity')
     .eq('source', 'blackwing')
-    .lt('ends_at', new Date().toISOString())
+    .eq('status', 'active')
+
+  const currentEpic      = existing?.filter(i => i.rarity === 'epic').length || 0
+  const currentLegendary = existing?.filter(i => i.rarity === 'legendary').length || 0
+
+  const neededEpic      = 3 - currentEpic
+  const neededLegendary = 2 - currentLegendary
+
+  if (neededEpic <= 0 && neededLegendary <= 0) {
+    console.log('🖤 Black Wing fully stocked — nothing to restock')
+    return
+  }
+
+  console.log(`🖤 Black Wing Monday restock: +${neededEpic} epic, +${neededLegendary} legendary`)
 
   const slots = ['weapon', 'armor', 'helmet', 'boots', 'ring', 'amulet']
   const endsAt = new Date()
-  endsAt.setDate(endsAt.getDate() + 7) // 7 days
+  endsAt.setDate(endsAt.getDate() + 7) // expires next Monday
 
-  // 3 epic + 2 legendary
-  const itemConfig = [
-    { rarity: 'epic',      stageRange: [6, 8] },
-    { rarity: 'epic',      stageRange: [6, 8] },
-    { rarity: 'epic',      stageRange: [7, 9] },
-    { rarity: 'legendary', stageRange: [8, 10] },
-    { rarity: 'legendary', stageRange: [9, 10] },
+  const itemsToGenerate = [
+    ...Array(neededEpic).fill({ rarity: 'epic', stageRange: [6, 8] as [number, number] }),
+    ...Array(neededLegendary).fill({ rarity: 'legendary', stageRange: [8, 10] as [number, number] }),
   ]
 
-  for (const config of itemConfig) {
-    const slot = slots[rand(0, slots.length - 1)]
-    const stageId = rand(config.stageRange[0], config.stageRange[1])
-    const stats = genBotItemStats(slot, stageId, config.rarity)
+  for (const config of itemsToGenerate) {
+    const slot     = slots[rand(0, slots.length - 1)]
+    const stageId  = rand(config.stageRange[0], config.stageRange[1])
+    const stats    = genBotItemStats(slot, stageId, config.rarity)
     const itemName = genBotItemName(slot, config.rarity)
 
     const mult: Record<string, number> = { epic: 4, legendary: 7 }
-    const base = Math.pow(stageId, 2.2) * 8
-    const sellPrice = Math.round(base * (mult[config.rarity] || 1) * 500)
+    const base       = Math.pow(stageId, 2.2) * 8
+    const sellPrice  = Math.round(base * (mult[config.rarity] || 1) * 500)
     const startPrice = Math.floor(sellPrice * 2)
 
     const item = {
-      uid: `blackwing_${Date.now()}_${Math.random()}`,
-      name: itemName,
+      uid:      `blackwing_${Date.now()}_${Math.random()}`,
+      name:     itemName,
       category: 'equipment',
       slot,
-      rarity: config.rarity,
+      rarity:   config.rarity,
       stats,
-      equipped: false,
+      equipped:  false,
       levelReq: (stageId - 1) * 10,
       sellPrice,
     }
 
     const { error } = await supabase.from('auctions').insert({
-      seller_id: null,
-      user_id: BOT_USER_ID,
-      item_name: itemName,
-      item_description: JSON.stringify(item),
-      rarity: config.rarity,
-      start_price: startPrice,
-      buyout_price: null, // bidding only 👊
-      current_bid: 0,
+      seller_id:         null,
+      user_id:           BOT_USER_ID,
+      item_name:         itemName,
+      item_description:  JSON.stringify(item),
+      rarity:            config.rarity,
+      start_price:       startPrice,
+      buyout_price:      null,
+      current_bid:       0,
       current_bidder_id: null,
-      ends_at: endsAt.toISOString(),
-      status: 'active',
-      source: 'blackwing',
-      seller_collected: true,
-      winner_collected: false,
+      ends_at:           endsAt.toISOString(),
+      status:            'active',
+      source:            'blackwing',
+      seller_collected:  true,
+      winner_collected:  false,
     })
 
     if (error) {
-      console.log(`Black Wing item generation failed: ${error.message}`)
+      console.log(`Black Wing generation failed: ${error.message}`)
     } else {
-      console.log(`🖤 Black Wing: listed ${itemName} [${config.rarity}] starting at ${startPrice}g`)
+      console.log(`🖤 Black Wing restocked: ${itemName} [${config.rarity}]`)
     }
   }
 }
@@ -534,9 +536,12 @@ Deno.serve(async (req) => {
   }
 
   const authHeader = req.headers.get('Authorization')
-  const expectedKey = Deno.env.get('BOT_SCHEDULER_SECRET')
-  
-  if (!authHeader || authHeader !== `Bearer ${expectedKey}`) {
+const expectedKey = Deno.env.get('BOT_SCHEDULER_SECRET')
+
+console.log('Auth received:', authHeader)
+console.log('Expected key length:', expectedKey?.length)
+
+if (!authHeader || authHeader !== `Bearer ${expectedKey}`) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401, headers: corsHeaders
     })
