@@ -35,22 +35,32 @@ async function checkAndSettleAuctions() {
       .eq('winner_collected', false);
 
     if (wonAuctions && wonAuctions.length) {
-      for (const auction of wonAuctions) {
-        const item = auction.item_description
-          ? (typeof auction.item_description === 'string'
-            ? JSON.parse(auction.item_description)
-            : auction.item_description)
-          : { name: auction.item_name, rarity: auction.rarity, uid: genUid() };
-        item.uid = genUid();
-        addToInventory(item);
-        await dbClient.from('auctions').update({ winner_collected: true }).eq('id', auction.id);
-        addLog(`🏛️ Received ${auction.item_name} from auction!`, 'legendary');
-      }
-      await savePlayerToSupabase();
-      renderInventory();
-      updateUI();
-      notify(`📦 New items from auction!`, 'var(--gold)');
+  for (const auction of wonAuctions) {
+    // Mark collected FIRST before anything else
+    const { error: markError } = await dbClient
+      .from('auctions')
+      .update({ winner_collected: true })
+      .eq('id', auction.id)
+    
+    if (markError) {
+      console.error('Failed to mark collected:', markError)
+      continue // skip this item — don't add to inventory
     }
+
+    const item = auction.item_description
+      ? (typeof auction.item_description === 'string'
+        ? JSON.parse(auction.item_description)
+        : auction.item_description)
+      : { name: auction.item_name, rarity: auction.rarity, uid: genUid() }
+    item.uid = genUid()
+    addToInventory(item)
+    addLog(`🏛️ Received ${auction.item_name} from auction!`, 'legendary')
+  }
+  await savePlayerToSupabase()
+  renderInventory()
+  updateUI()
+  //notify(`📦 New items from auction!`, 'var(--gold)')
+}
 
   } catch (error) { console.error('Settle auctions error:', error); }
 }
@@ -79,9 +89,12 @@ async function generateSystemItems() {
 
 async function fetchAuctions(source = 'auction') {
   // Target merchant panel if visible, fallback to town panel
-  const container = document.getElementById('auction-list-merchant') || document.getElementById('auction-list')
+  const container = 
+  currentAuctionSource === 'blackwing' 
+    ? document.getElementById('blackwing-list-merchant') || document.getElementById('auction-list-merchant')
+    : document.getElementById('auction-list-merchant') || document.getElementById('auction-list')
   if (!container) return
-  container.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">Loading...</div>'
+  container.innerHTML = '<div style="text-align:center; color:#888; padding:20px; width:100%;">Loading...</div>';
 
   try {
     await checkAndSettleAuctions()
@@ -115,7 +128,7 @@ async function fetchAuctions(source = 'auction') {
       if (chars) chars.forEach(c => { sellerMap[c.id] = c.name })
     }
 
-    renderAuctions(data, sellerMap)
+    renderAuctions(data, sellerMap, source)
   } catch (error) {
     console.error('Fetch auctions error:', error)
     container.innerHTML = '<div style="text-align:center;color:#f00;padding:20px;">Failed to load auctions</div>'
@@ -144,12 +157,13 @@ async function showMyAuctions(btn) {
     return
   }
 
-  renderAuctions(data, { [state.character_id]: state.name })
+  renderAuctions(data, { [state.character_id]: state.name }, 'auction')
 }
 
-function renderAuctions(auctions, sellerMap = {}) {
-  // Target merchant panel if visible, fallback to town panel
-  const container = document.getElementById('auction-list-merchant') || document.getElementById('auction-list')
+function renderAuctions(auctions, sellerMap = {}, source = 'auction') {
+  const container = source === 'blackwing'
+    ? document.getElementById('blackwing-list-merchant')
+    : document.getElementById('auction-list-merchant') || document.getElementById('auction-list')
   if (!container) return
   const r_ = r => RARITY[r] || RARITY.normal
   container.innerHTML = auctions.map(auction => {
@@ -289,20 +303,17 @@ async function buyoutAuction(auctionId, buyoutPrice) {
     if (data.error) throw new Error(data.error)
 
     // Update local state only after server confirms
-    addGold(-buyoutPrice)
-    if (data.item) {
-      data.item.uid = genUid()
-      addToInventory(data.item)
-    }
+    // Update local state only after server confirms
+await loadPlayerFromSupabase(state.character_id)  // DB has the truth, gold + item both updated server-side
 
-    trackQuestAuction()
-    await savePlayerToSupabase()
-    addLog(`🏛️ Bought ${data.item?.name || 'item'} for ${formatNumber(buyoutPrice)}g!`, 'legendary')
-    notify(`🏛️ Item purchased!`, 'var(--gold)')
-    playSound('snd-craft')
-    updateUI()
-    renderInventory()
-    fetchAuctions(currentAuctionSource || 'auction')
+trackQuestAuction()
+// ❌ remove savePlayerToSupabase() — you just loaded from DB, don't overwrite it
+addLog(`🏛️ Bought ${data.item?.name || 'item'} for ${formatNumber(buyoutPrice)}g!`, 'legendary')
+notify(`🏛️ Item purchased!`, 'var(--gold)')
+playSound('snd-craft')
+updateUI()
+renderInventory()
+fetchAuctions(currentAuctionSource || 'auction')
 
   } catch (error) {
     notify('❌ ' + error.message, 'var(--red)')
@@ -420,16 +431,28 @@ async function cancelAuction(auctionId) {
 let currentAuctionSource = 'auction' // track active tab
 
 function switchMarketTab(tab) {
-  currentAuctionSource = tab // remember current tab
-  document.querySelectorAll('#town-panel-auction .shop-tab').forEach(t => t.classList.remove('active'))
+  // Remove active class from all tabs
+  document.querySelectorAll('.shop-tab').forEach(t => {
+    t.classList.remove('active');
+  });
 
   if (tab === 'auction') {
-    document.getElementById('market-tab-ah').classList.add('active')
-    // Wherever fetchAuctions() is called without arguments
-fetchAuctions(currentAuctionSource || 'auction')
+    // Use the correct ID: market-tab-ah-m
+    const target = document.getElementById('market-tab-ah-m');
+    if (target) target.classList.add('active');
+    
+    fetchAuctions(currentAuctionSource || 'auction');
+    
   } else if (tab === 'blackwing') {
-    document.getElementById('market-tab-blackwing').classList.add('active')
-    // Wherever fetchAuctions() is called without arguments
-fetchAuctions(currentAuctionSource || 'auction')
+    const target = document.getElementById('market-tab-blackwing');
+    if (target) target.classList.add('active');
+    
+    fetchAuctions(currentAuctionSource || 'blackwing');
+    
+  } else if (tab === 'my-listings') {
+    // You need to handle the "My Listings" tab click too
+    // Assuming you use showMyAuctions for this, or call switchMarketTab('my-listings')
+    const target = document.querySelector("button[onclick*='showMyAuctions']");
+    if (target) target.classList.add('active');
   }
 }

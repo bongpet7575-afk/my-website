@@ -3307,14 +3307,14 @@ async function openMirelaPopup() {
         🏛️ Auction House
       </button>` : ''
 
-  const blackwingBtn = rankIndex >= REP_ORDER.indexOf('mayor')
+  const blackwingBtn = rankIndex >= REP_ORDER.indexOf('viscount')
     ? `<button onclick="
         document.getElementById('mirela-popup').remove();
         showMerchantPanel('merchant-panel-blackwing');
         fetchAuctions('blackwing');"
         style="background:#1a0a1a;border:1px solid #5a2d8a;color:#a855f7;
         padding:9px 16px;border-radius:6px;cursor:pointer;font-size:13px;text-align:left;">
-        🖤 Black Wing <span style="font-size:.8em;color:#666;">(Restricted)</span>
+        🖤 Black Wing <span style="font-size:.8em;color:#666;"></span>
       </button>` : ''
 
   const popup = document.createElement('div')

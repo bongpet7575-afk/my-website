@@ -314,7 +314,7 @@ const NPC_META: Record<string, any> = {
   nara:          { unlockLevel: 70,  requiredClass: 'shaman'       },
   ragnar:        { unlockLevel: 90,  requiredClass: 'berserker'    },
   mirela:        { unlockLevel: 1,   requiredClass: null           },
-  sovan:         { unlockLevel: 1,   requiredClass: null           },
+  sovan:         { unlockLevel: 20,   requiredClass: null           },
 }
 
 // ============================================================
