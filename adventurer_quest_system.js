@@ -234,10 +234,10 @@ async function renderAdventurerBoard() {
         // Mat submit check
         const matName  = aq.req_target;
         const matCount = aq.req_type === 'collect'
-          ? state.inventory
-              .filter(i => i.category === 'material' && i.name.includes(matName))
-              .reduce((sum, i) => sum + (i.qty || 1), 0)
-          : 0;
+  ? (state.inventory.material || [])
+      .filter(i => i.name.includes(matName))
+      .reduce((sum, i) => sum + (i.qty || 1), 0)
+  : 0;
         const canSubmit  = aq.req_type === 'collect' && !aq.completed && !isExpired && matCount > 0;
         const stillNeeds = aq.req_qty - aq.progress;
 
@@ -363,10 +363,10 @@ async function renderAdventurerBoard() {
 
           // Show mat count hint for collect quests on the board
           const boardMatCount = q.req_type === 'collect'
-            ? state.inventory
-                .filter(i => i.category === 'material' && i.name.includes(q.req_target))
-                .reduce((sum, i) => sum + (i.qty || 1), 0)
-            : 0;
+  ? (state.inventory.material || [])
+      .filter(i => i.name.includes(q.req_target))
+      .reduce((sum, i) => sum + (i.qty || 1), 0)
+  : 0;
 
           html += `
             <div style="background:rgba(255,255,255,0.02);
