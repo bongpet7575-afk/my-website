@@ -201,28 +201,33 @@ async function redeemGiftCode() {
       return;
     }
 
-    state.gold = (state.gold || 0) + data.rewards.gold;
+    // Update local display state — server already wrote to DB
+    state.gold         = (state.gold         || 0) + data.rewards.gold;
     state.soulCrystals = (state.soulCrystals || 0) + data.rewards.diamonds;
     state.premiumSpins = (state.premiumSpins || 0) + data.rewards.spins;
 
     if (data.rewards.starterItems) {
-      data.rewards.starterItems.forEach(item => addToInventory(item));
+      data.rewards.starterItems.forEach(item => {
+        // Add to equipment bag directly
+        if (state.inventory.equipment.length < 20) {
+          state.inventory.equipment.push(item);
+        }
+      });
+      await saveInventoryToSupabase();
       renderInventory();
     }
+
     if (data.rewards.supporterTitle) state.supporterTitle = data.rewards.supporterTitle;
-    if (data.rewards.chatColor) state.chatColor = data.rewards.chatColor;
+    if (data.rewards.chatColor)      state.chatColor      = data.rewards.chatColor;
 
-    await savePlayerToSupabase();
+    // Save only UI cosmetics — NOT gold/crystals/spins (already in DB from edge fn)
+    //await savePlayerToSupabase();
 
-    const goldEl = document.getElementById('gold-val');
-    const crystalEl = document.getElementById('soul-crystal-val');
-    if (goldEl) goldEl.textContent = state.gold.toLocaleString();
-    if (crystalEl) crystalEl.textContent = state.soulCrystals.toLocaleString();
-
+    updateUI();
     msg.style.color = '#44aa44';
     msg.textContent = `✅ Redeemed! +${data.rewards.diamonds} 💎 +${data.rewards.gold.toLocaleString()} 🪙 +${data.rewards.spins} 🎰`;
     input.value = '';
-    addCombatLog(`🎁 Gift code redeemed! Tier: ${data.rewards.tier.toUpperCase()}`, 'good');
+    addLog(`🎁 Gift code redeemed! Tier: ${data.rewards.tier.toUpperCase()}`, 'gold');
 
   } catch (err) {
     msg.style.color = '#cc4444';

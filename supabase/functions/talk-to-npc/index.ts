@@ -342,11 +342,11 @@ serve(async (req) => {
 
     // Fetch real player data
     const { data: character, error: charError } = await supabase
-      .from('characters')
-      .select('id, name, level, class, stats, equipped, inventory, gold, reputation_rank')
-      .eq('user_id', user.id)
-      .eq('id', character_id)
-      .single()
+  .from('characters')
+  .select('id, name, level, class, base_str, base_agi, base_int, base_sta, equipped, inventory, gold, reputation_rank')
+  .eq('user_id', user.id)
+  .eq('id', character_id)
+  .single()
 
     if (charError || !character) return errorResponse('Character not found')
 
@@ -401,29 +401,29 @@ serve(async (req) => {
 
     // Calculate max enhancement from equipped items
     const equipped = character.equipped || {}
-    const inventory = character.inventory || []
-    const equippedUids = Object.values(equipped) as string[]
-    const equippedItems = inventory.filter((item: any) => equippedUids.includes(item.uid))
-    const maxEnhancement = equippedItems.length > 0
-      ? Math.max(...equippedItems.map((item: any) => item.enhancement || 0))
-      : 0
+const equipmentBag = (character.inventory?.equipment || []) as any[]
+const equippedUids = Object.values(equipped).filter(Boolean) as string[]
+const equippedItems = equipmentBag.filter((item: any) => equippedUids.includes(String(item.uid)))
+const maxEnhancement = equippedItems.length > 0
+  ? Math.max(...equippedItems.map((item: any) => item.enh_level ?? item.enhLevel ?? item.enhancement ?? 0))
+  : 0
 
     // Build context
     const stats = character.stats || {}
     const ctx = {
-  level:            character.level,
-  playerClass:      character.class,
-  gold:             character.gold || 0,
-  enhancement:      maxEnhancement,
-  reputationRank:   character.reputation_rank || 'citizen',
-  rep:              relationship.relationship_score,
-  mood:             relationship.mood,
+  level:           character.level,
+  playerClass:     character.class,
+  gold:            character.gold || 0,
+  enhancement:     maxEnhancement,
+  reputationRank:  character.reputation_rank || 'citizen',
+  rep:             relationship.relationship_score,
+  mood:            relationship.mood,
   isFirstVisit,
-  questsCompleted:  (relationship.quests_completed as any[]).length,
-  questsAbandoned:  (relationship.quests_abandoned as any[]).length,
-  strStat:          stats.baseStr || 0,
-  agiStat:          stats.baseAgi || 0,
-  intStat:          stats.baseInt || 0,
+  questsCompleted: (relationship.quests_completed as any[]).length,
+  questsAbandoned: (relationship.quests_abandoned as any[]).length,
+  strStat:         character.base_str || 0,
+  agiStat:         character.base_agi || 0,
+  intStat:         character.base_int || 0,
 }
 
     // Build stat-aware dialogue

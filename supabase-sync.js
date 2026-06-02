@@ -52,149 +52,169 @@ async function loadPlayerFromSupabase(characterId) {
 async function syncCharacterToState(character) {
 
   // ── Identity ──
-  state.character_id  = character.id;
-  state.user_id       = character.user_id;
-  state.name          = character.name;
-  state.level         = character.level || 1;
-  state.xp            = character.exp || 0;
-  state.xpNext        = Math.floor((character.level || 1) * 100 * 20);
-  state.gold          = character.gold || 0;
-  state.reputation    = character.reputation || 0;
-  state.reputationTitle = character.reputation_rank || null; // ✅ FIX: was reputation_title (column doesn't exist)
-  state.luckyTitle = character.lucky_title || null;
+  state.character_id   = character.id;
+  state.user_id        = character.user_id;
+  state.name           = character.name;
+  state.level          = character.level || 1;
+  state.xp             = character.exp   || 0;
+  state.xpNext         = Math.floor((character.level || 1) * 100 * 50);
+  state.gold           = character.gold  || 0;
+  state.reputation     = character.reputation   || 0;
+  state.reputationTitle = character.reputation_rank || null;
+  state.luckyTitle     = character.lucky_title     || null;
   state.supporterTitle = character.supporter_title || null;
   state.chatColor      = character.chat_color      || null;
+  state.class          = character.class           || null;
+  state.currentScene   = character.current_scene   || 'town';
 
-// ✅ FIX: recalculate rank on load in case DB value is stale
-const _loadedTitle = getCurrentTitle();
-if (_loadedTitle && _loadedTitle.id !== state.reputationTitle) {
-  state.reputationTitle = _loadedTitle.id;
-}
-  state.class         = character.class || null;
-  state.currentScene  = character.current_scene || 'town';
+  // ── Recalculate reputation rank on load in case DB is stale ──
+  const _loadedTitle = getCurrentTitle();
+  if (_loadedTitle && _loadedTitle.id !== state.reputationTitle) {
+    state.reputationTitle = _loadedTitle.id;
+  }
 
-  // ── Progression flags ──
-  state.soulWeapon        = character.soul_weapon         || null;
-  state.craftedSoulTiers  = character.crafted_soul_tiers  || {};
-  state.freeStatPoints = character.free_stat_points || 0;
-  state.legacyPoints   = character.legacy_points || 0;
-  state.legacySkills   = character.legacy_skills || {};
-  state.respecCount    = character.respec_count || 0;
-  state.goldMult       = character.gold_mult         || 1;
-state.goldMultExpiry = character.gold_mult_expiry   || null;
+  // ── Progression ──
+  state.soulWeapon       = character.soul_weapon        || null;
+  state.craftedSoulTiers = character.crafted_soul_tiers || {};
+  state.freeStatPoints   = character.free_stat_points   || 0;
+  state.legacyPoints     = character.legacy_points      || 0;
+  state.legacySkills     = character.legacy_skills      || {};
+  state.respecCount      = character.respec_count       || 0;
+  state.goldMult         = character.gold_mult          || 1;
+  state.goldMultExpiry   = character.gold_mult_expiry   || null;
 
-  // ── Soul Crystals & Login ──
-  state.soulCrystals    = character.soul_crystals   || 0;
-  state.loginStreak     = character.login_streak    || 0;
-  state.lastLoginDate   = character.last_login_date || null;
-  state.totalLoginDays  = character.total_login_days || 0;
-  state.premiumSpins    = character.premium_spins || 0;
+  // ── Currency & login ──
+  state.soulCrystals   = character.soul_crystals    || 0;
+  state.premiumSpins   = character.premium_spins    || 0;
+  state.loginStreak    = character.login_streak     || 0;
+  state.lastLoginDate  = character.last_login_date  || null;
+  state.totalLoginDays = character.total_login_days || 0;
 
   // ── Health / Mana ──
-  state.hp    = character.health    || 100;
+  state.hp    = character.health     || 100;
   state.maxHp = character.max_health || 100;
-  state.mp    = character.mana      || 50;
-  state.maxMp = character.max_mana  || 50;
+  state.mp    = character.mana       || 50;
+  state.maxMp = character.max_mana   || 50;
 
-  // ── Base stats (from stats JSONB) ──
-  const stats = character.stats || {};
+  // ── Base stats — now flat columns, NOT stats JSONB ──
+  state.baseStr         = character.base_str          || 5;
+  state.baseAgi         = character.base_agi          || 5;
+  state.baseInt         = character.base_int          || 5;
+  state.baseSta         = character.base_sta          || 5;
+  state.baseArmor       = character.base_armor        || 0;
+  state.baseHit         = character.base_hit          || 2;
+  state.baseCrit        = character.base_crit         || 0.1;
+  state.baseDodge       = character.base_dodge        || 2;
+  state.baseHpRegen     = character.base_hp_regen     || 20;
+  state.baseLifeSteal   = character.base_life_steal   || 0;
+  state.baseAttackPower = character.base_attack_power || 10;
 
-  state.baseStr         = stats.baseStr         || 5;
-  state.baseAgi         = stats.baseAgi         || 5;
-  state.baseInt         = stats.baseInt         || 5;
-  state.baseSta         = stats.baseSta         || 5;
-  state.baseArmor       = stats.baseArmor       || 0;
-  state.baseHit         = stats.baseHit         || 2;
-  state.baseCrit        = stats.baseCrit        || 0.1;
-  state.baseDodge       = stats.baseDodge       || 2;
-  state.baseHpRegen     = stats.baseHpRegen     || 20;
-  state.baseLifeSteal   = stats.baseLifeSteal   || 0;
-  state.baseAttackPower = stats.baseAttackPower || 10;
+  // ── Multipliers — always reset to 1.0, recalculated by calcStats() ──
+  // Never loaded from DB — these are derived, not stored
+  state.strMult         = 1.0;
+  state.agiMult         = 1.0;
+  state.intMult         = 1.0;
+  state.staMult         = 1.0;
+  state.armorMult       = 1.0;
+  state.maxHpMult       = 1.0;
+  state.hpRegenMult     = 1.0;
+  state.maxMpMult       = 1.0;
+  state.mpMult          = 1.0;
+  state.critMult        = 1.0;
+  state.dodgeMult       = 1.0;
+  state.mpRegenMult     = 1.0;
+  state.hitMult         = 1.0;
+  state.lifeStealMult   = 1.0;
+  state.attackPowerMult = 1.0;
 
-  // ── Stat multipliers ──
-  state.strMult         = stats.strMult         || 1.0;
-  state.agiMult         = stats.agiMult         || 1.0;
-  state.intMult         = stats.intMult         || 1.0;
-  state.staMult         = stats.staMult         || 1.0;
-  state.armorMult       = stats.armorMult       || 1.0;
-  state.maxHpMult       = stats.maxHpMult       || 1.0;
-  state.hpRegenMult     = stats.hpRegenMult     || 1.0;
-  state.maxMpMult       = stats.maxMpMult       || 1.0;
-  state.mpMult          = stats.mpMult          || 1.0;
-  state.critMult        = stats.critMult        || 1.0;
-  state.dodgeMult       = stats.dodgeMult       || 1.0;
-  state.mpRegenMult     = stats.mpRegenMult     || 1.0;
-  state.hitMult         = stats.hitMult         || 1.0;
-  state.lifeStealMult   = stats.lifeStealMult   || 1.0;
-  state.attackPowerMult = stats.attackPowerMult || 1.0;
-
-  // ── Class bonuses ──
-  state.classBonuses = stats.classBonuses || {
+  // ── Class bonuses — reset, reapplied by calcStats() from class definition ──
+  state.classBonuses = {
     strMult:0, agiMult:0, intMult:0, staMult:0,
     hitMult:0, critMult:0, dodgeMult:0, hpRegenMult:0,
     mpRegenMult:0, armorMult:0, mpMult:0, lifeStealMult:0,
     attackPowerMult:0, maxHpMult:0,
   };
 
-  // ── Talent bonuses ──
-  state.talentBonuses = stats.talentBonuses || {
+  // ── Talent bonuses — reset, reapplied by calcStats() from unlocked talents ──
+  state.talentBonuses = {
     strMult:0, agiMult:0, intMult:0, staMult:0,
     hitMult:0, critMult:0, dodgeMult:0, hpRegenMult:0,
     mpRegenMult:0, armorMult:0, mpMult:0, lifeStealMult:0,
     attackPowerMult:0, maxHpMult:0,
   };
 
-  // ── Equipment flat bonuses ──
-  state.equipStr            = stats.equipStr            || 0;
-  state.equipStrMult        = stats.equipStrMult        || 0;
-  state.equipAgi            = stats.equipAgi            || 0;
-  state.equipAgiMult        = stats.equipAgiMult        || 0;
-  state.equipInt            = stats.equipInt            || 0;
-  state.equipIntMult        = stats.equipIntMult        || 0;
-  state.equipSta            = stats.equipSta            || 0;
-  state.equipStaMult        = stats.equipStaMult        || 0;
-  state.equipMaxHp          = stats.equipMaxHp          || 0;
-  state.equipMaxHpMult      = stats.equipMaxHpMult      || 0;
-  state.equipMaxMp          = stats.equipMaxMp          || 0;
-  state.equipMaxMpMult      = stats.equipMaxMpMult      || 0;
-  state.equipArmor          = stats.equipArmor          || 0;
-  state.equipArmorMult      = stats.equipArmorMult      || 0;
-  state.equipCrit           = stats.equipCrit           || 0;
-  state.equipDodge          = stats.equipDodge          || 0;
-  state.equipDodgeMult      = stats.equipDodgeMult      || 0;
-  state.equipLifeSteal      = stats.equipLifeSteal      || 0;
-  state.equipLifeStealMult  = stats.equipLifeStealMult  || 1.0;
-  state.equipAttackPower    = stats.equipAttackPower    || 0;
-  state.equipAttackPowerMult = stats.equipAttackPowerMult || 0;
-  state.equipHpRegen        = stats.equipHpRegen        || 0;
-  state.equipHpRegenMult    = stats.equipHpRegenMult    || 0;
-  state.equipMpRegen        = stats.equipMpRegen        || 0;
-  state.equipMpRegenMult    = stats.equipMpRegenMult    || 0;
-  state.equipHit            = stats.equipHit            || 0;
-  state.equipHitMult        = stats.equipHitMult        || 0;
+  // ── Equipment bonuses — reset, reapplied by calcStats() from equipped items ──
+  state.equipStr             = 0;
+  state.equipStrMult         = 0;
+  state.equipAgi             = 0;
+  state.equipAgiMult         = 0;
+  state.equipInt             = 0;
+  state.equipIntMult         = 0;
+  state.equipSta             = 0;
+  state.equipStaMult         = 0;
+  state.equipMaxHp           = 0;
+  state.equipMaxHpMult       = 0;
+  state.equipMaxMp           = 0;
+  state.equipMaxMpMult       = 0;
+  state.equipArmor           = 0;
+  state.equipArmorMult       = 0;
+  state.equipCrit            = 0;
+  state.equipDodge           = 0;
+  state.equipDodgeMult       = 0;
+  state.equipLifeSteal       = 0;
+  state.equipLifeStealMult   = 1.0;
+  state.equipAttackPower     = 0;
+  state.equipAttackPowerMult = 0;
+  state.equipHpRegen         = 0;
+  state.equipHpRegenMult     = 0;
+  state.equipMpRegen         = 0;
+  state.equipMpRegenMult     = 0;
+  state.equipHit             = 0;
+  state.equipHitMult         = 0;
 
-  // ── Inventory & Equipment ──
-  state.inventory = (character.inventory || []).map(item =>
-  typeof item === 'string' ? JSON.parse(item) : item
-).map(item => ({ ...item, uid: String(item.uid) })); // ✅ normalize uid type
-  state.equipped  = character.equipped  || {
-    weapon:null, armor:null, helmet:null, boots:null, ring:null, amulet:null,
+  // ── Inventory — handle both 3-bag structure and legacy flat array ──
+  const rawInventory = character.inventory;
+  if (rawInventory && !Array.isArray(rawInventory) && rawInventory.equipment !== undefined) {
+    // New 3-bag structure
+    const normalizeBag = (bag) => (bag || []).map(item =>
+      typeof item === 'string' ? JSON.parse(item) : item
+    ).map(item => ({ ...item, uid: String(item.uid) }));
+
+    state.inventory = {
+      equipment:  normalizeBag(rawInventory.equipment),
+      consumable: normalizeBag(rawInventory.consumable),
+      material:   normalizeBag(rawInventory.material),
+    };
+  } else if (Array.isArray(rawInventory)) {
+    // Legacy flat array — migrate into equipment bag
+    const items = rawInventory.map(item =>
+      typeof item === 'string' ? JSON.parse(item) : item
+    ).map(item => ({ ...item, uid: String(item.uid) }));
+    state.inventory = { equipment: items, consumable: [], material: [] };
+  } else {
+    state.inventory = { equipment: [], consumable: [], material: [] };
+  }
+
+  // ── Equipped ──
+  state.equipped = character.equipped || {
+    weapon:null, armor:null, helmet:null,
+    boots:null,  ring:null,  amulet:null,
   };
 
   // ── Talents & Skills ──
-  state.talentPoints        = character.talent_points        || 0;
-  state.unlockedTalents     = character.unlocked_talents     || [];
+  state.talentPoints        = character.talent_points         || 0;
+  state.unlockedTalents     = character.unlocked_talents      || [];
   state.talentUnlockedFlags = character.talent_unlocked_flags || {};
-  state.skillCooldowns      = character.skill_cooldowns || {};
+  state.skillCooldowns      = character.skill_cooldowns       || {};
 
   // ── Quests ──
- const loadedQuests = character.quests || {};
+  const loadedQuests = character.quests || {};
   state.quests = {
     kill1:     loadedQuests.kill1     || { text:'🗡️ Defeat your first enemy', done:false },
     gold50:    loadedQuests.gold50    || { text:'💰 Earn 50 gold',            done:false },
     level5:    loadedQuests.level5    || { text:'⭐ Reach Level 5',           done:false },
     level10:   loadedQuests.level10   || { text:'🏆 Reach Level 10',          done:false },
-    boss:      loadedQuests.boss      || { text:'🐐 Defeat a Boss',           done:false },
+    boss:      loadedQuests.boss      || { text:'🐉 Defeat a Boss',           done:false },
     class:     loadedQuests.class     || { text:'✨ Choose a Class',          done:false },
     talent:    loadedQuests.talent    || { text:'🌟 Unlock a Talent',         done:false },
     equip:     loadedQuests.equip     || { text:'🛡️ Equip an item',           done:false },
@@ -218,28 +238,35 @@ state.goldMultExpiry = character.gold_mult_expiry   || null;
   };
 
   // ── Tournament rewards ──
-  state.tournamentTitle           = character.tournament_title            || null;
-  state.tournamentBuff            = character.tournament_buff             || null;
-  state.tournamentItem            = character.tournament_item             || null;
+  state.tournamentTitle           = character.tournament_title             || null;
+  state.tournamentBuff            = character.tournament_buff              || null;
+  state.tournamentItem            = character.tournament_item              || null;
   state.tournamentRewardsExpireAt = character.tournament_rewards_expire_at || null;
 
-  // ── Rebuild skills AFTER all state is loaded ──
-  await rebuildSkills();
-
-  // ── Talent unlocks (needs class + level to be set first) ──
-  if (state.class && state.level >= 10) {
-    if (typeof checkTalentUnlocks === 'function') checkTalentUnlocks();
-  }
-
-  // ── calcStats ONCE at the very end ──
-  // ── Load world phase ──
+  // ── World phase ──
   const { data: worldState } = await dbClient
     .from('world_state')
     .select('phase')
     .eq('id', 1)
-    .single()
-  state.worldPhase = worldState?.phase || 1
-  console.log('🌍 World Phase:', state.worldPhase)
+    .single();
+  state.worldPhase = worldState?.phase || 1;
+  console.log('🌍 World Phase:', state.worldPhase);
+
+  // ── Rebuild skills AFTER all state is loaded ──
+  await rebuildSkills();
+
+  // ── Talent unlocks (needs class + level set first) ──
+  if (state.class && state.level >= 10) {
+    if (typeof checkTalentUnlocks === 'function') checkTalentUnlocks();
+  }
+
+  // ── Reapply all derived bonuses before calcStats ──
+  reapplyClassBonuses();
+  reapplyTalentBonuses();
+  reapplyEquipBonuses();
+
+  // ── World phase ──
+  
 
   // ── calcStats ONCE at the very end ──
   if (typeof calcStats === 'function') calcStats();
@@ -296,145 +323,83 @@ function stopRealtimeSync() {
 
 async function savePlayerToSupabase() {
   try {
-    const { data: { user } } = await dbClient.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
-    if (!state.character_id) throw new Error('No character ID');
+    const { data: { user } } = await dbClient.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+    if (!state.character_id) throw new Error('No character ID')
 
-    const safeGold = state.gold;
-
-    const { error } = await dbClient.rpc('update_character_safe', {
-      p_soul_weapon:           state.soulWeapon || null,
-      p_crafted_soul_tiers:    state.craftedSoulTiers || {},
+    const { data, error } = await dbClient.rpc('update_character_safe', {
       p_character_id:          state.character_id,
-      p_level:                 state.level,
-      p_xp:                    state.xp,
-      p_gold:                  safeGold,
-      p_hp:                    state.hp,
-      p_mp:                    state.mp,
-      p_supporter_title: state.supporterTitle || null,
-      p_chat_color:      state.chatColor      || null,
-      p_lucky_title: state.luckyTitle || null,
-      p_reputation:            state.reputation    || 0,
-      p_reputation_rank:       state.reputationTitle || null, // ✅ FIX: now saves rank to DB
-      p_name:                  state.name,
-      p_class:                 state.class,
-      p_max_health:            state.maxHp,
-      p_max_mana:              state.maxMp,
-      p_free_stat_points:      state.freeStatPoints || 0,
-      p_legacy_points:         state.legacyPoints   || 0,
-      p_legacy_skills:         state.legacySkills   || {},
+
+      // UI / session state
       p_current_scene:         state.currentScene,
-      p_talent_points:         state.talentPoints,
-      p_unlocked_talents:      state.unlockedTalents,
-      p_talent_unlocked_flags: state.talentUnlockedFlags,
-      p_skill_cooldowns:       state.skillCooldowns,
-      p_quests:                state.quests,
-      p_inventory:             state.inventory,
-      p_equipped:              state.equipped,
       p_difficulty:            state.difficulty,
       p_inv_tab:               state.invTab,
       p_shop_tab:              state.shopTab,
       p_auto_sell:             state.autoSell,
+
+      // Combat runtime
+      p_hp:                    state.hp,
+      p_mp:                    state.mp,
+      p_skill_cooldowns:       state.skillCooldowns,
       p_active_debuffs:        state.activeDebuffs,
-      p_respec_count:          state.respecCount,
-      p_gold_mult:             state.goldMult        || 1,
-      p_gold_mult_expiry:      state.goldMultExpiry   || null,
-      p_soul_crystals:         state.soulCrystals   || 0,
-      p_premium_spins:         state.premiumSpins   || 0,
+
+      // Talents
+      p_talent_points:         state.talentPoints,
+      p_unlocked_talents:      state.unlockedTalents,
+      p_talent_unlocked_flags: state.talentUnlockedFlags,
+
+      // Quests
+      p_quests:                state.quests,
+
+      // Cosmetics
+      p_supporter_title:       state.supporterTitle || null,
+      p_chat_color:            state.chatColor      || null,
+      p_lucky_title:           state.luckyTitle     || null,
+
+      // Login tracking
       p_login_streak:          state.loginStreak    || 0,
-      p_last_login_date: state.lastLoginDate 
-      ? new Date(state.lastLoginDate).toISOString().split('T')[0] 
-      : null,
+      p_last_login_date:       state.lastLoginDate
+        ? new Date(state.lastLoginDate).toISOString().split('T')[0]
+        : null,
       p_total_login_days:      state.totalLoginDays || 0,
-      p_stats: {
-        // ── Base stats ──
-        baseStr:               state.baseStr,
-        baseAgi:               state.baseAgi,
-        baseInt:               state.baseInt,
-        baseSta:               state.baseSta,
-        baseArmor:             state.baseArmor,
-        baseHit:               state.baseHit,
-        baseCrit:              state.baseCrit,
-        baseDodge:             state.baseDodge,
-        baseHpRegen:           state.baseHpRegen,
-        baseLifeSteal:         state.baseLifeSteal,
-        baseAttackPower:       state.baseAttackPower,
-        // ── Multipliers ──
-        strMult:               state.strMult,
-        agiMult:               state.agiMult,
-        intMult:               state.intMult,
-        staMult:               state.staMult,
-        armorMult:             state.armorMult,
-        maxHpMult:             state.maxHpMult,
-        hpRegenMult:           state.hpRegenMult,
-        maxMpMult:             state.maxMpMult,
-        mpMult:                state.mpMult,
-        critMult:              state.critMult,
-        dodgeMult:             state.dodgeMult,
-        mpRegenMult:           state.mpRegenMult,
-        hitMult:               state.hitMult,
-        lifeStealMult:         state.lifeStealMult,
-        attackPowerMult:       state.attackPowerMult,
-        // ── Bonus objects ──
-        classBonuses:          state.classBonuses,
-        talentBonuses:         state.talentBonuses,
-        // ── Equipment bonuses ──
-        equipStr:              state.equipStr,
-        equipStrMult:          state.equipStrMult,
-        equipAgi:              state.equipAgi,
-        equipAgiMult:          state.equipAgiMult,
-        equipInt:              state.equipInt,
-        equipIntMult:          state.equipIntMult,
-        equipSta:              state.equipSta,
-        equipStaMult:          state.equipStaMult,
-        equipMaxHp:            state.equipMaxHp,
-        equipMaxHpMult:        state.equipMaxHpMult,
-        equipMaxMp:            state.equipMaxMp,
-        equipMaxMpMult:        state.equipMaxMpMult,
-        equipArmor:            state.equipArmor,
-        equipArmorMult:        state.equipArmorMult,
-        equipCrit:             state.equipCrit,
-        equipDodge:            state.equipDodge,
-        equipDodgeMult:        state.equipDodgeMult,
-        equipLifeSteal:        state.equipLifeSteal,
-        equipLifeStealMult:    state.equipLifeStealMult,
-        equipAttackPower:      state.equipAttackPower,
-        equipAttackPowerMult:  state.equipAttackPowerMult,
-        equipHpRegen:          state.equipHpRegen,
-        equipHpRegenMult:      state.equipHpRegenMult,
-        equipMpRegen:          state.equipMpRegen,
-        equipMpRegenMult:      state.equipMpRegenMult,
-        equipHit:              state.equipHit,
-        equipHitMult:          state.equipHitMult,
-      },
-    });
-    
 
-    if (error) throw error;
-
-// Refresh session heartbeat
-if (state.sessionToken) {
-  await dbClient
-    .from('characters')
-    .update({ 
-      active_session: state.sessionToken,
-      session_started_at: new Date().toISOString()
+      // Soul weapon
+      p_soul_weapon:           state.soulWeapon          || null,
+      p_crafted_soul_tiers:    state.craftedSoulTiers     || {},
     })
-    .eq('id', state.character_id)
-    .eq('active_session', state.sessionToken)
-}
 
-console.log('✅ Character saved to Supabase (fully secured)');
+    if (error) throw error
+    if (data && !data.success) throw new Error(data.error)
 
+    // Session heartbeat via RPC (no more direct .update())
+    if (state.sessionToken) {
+      await dbClient.rpc('heartbeat_session', {
+        p_character_id:  state.character_id,
+        p_session_token: state.sessionToken,
+      })
+    }
+
+    console.log('✅ Character saved (locked down)')
   } catch (error) {
-    console.error('Save character error:', error);
-    throw error;
+    console.error('Save character error:', error)
+    throw error
   }
 }
 
-// ============================================
-// AUTO-SAVE
-// ============================================
+async function saveInventoryToSupabase() {
+  try {
+    const { data, error } = await dbClient.rpc('save_inventory', {
+      p_character_id: state.character_id,
+      p_inventory:    state.inventory,
+      p_equipped:     state.equipped,
+    });
+    if (error) throw error;
+    if (data && !data.success) throw new Error(data.error);
+    console.log('✅ Inventory saved');
+  } catch (err) {
+    console.error('Save inventory error:', err);
+  }
+}
 
 function startAutoSave() {
   if (autoSaveInterval) clearInterval(autoSaveInterval);

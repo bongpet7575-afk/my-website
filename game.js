@@ -1258,11 +1258,21 @@ async function chatWithNPC(npcId, messageType) {
   const dialogueBox = document.getElementById('npc-dialogue')
   if (!dialogueBox) return
 
-  // Loading state
+  // 1. Validate character ID before making the request
+  if (!state.character_id) {
+    console.error("No character ID found in state. Please ensure your character is created.");
+    dialogueBox.innerHTML = `<span style="color:#e67e22">*Error: Character data missing. Please refresh or create a character.*</span>`;
+    return;
+  }
+
   dialogueBox.innerHTML = `<span style="color:#555">...</span>`
 
   try {
     const { data: { session } } = await dbClient.auth.getSession()
+    
+    // Optional: Check if session is valid
+    if (!session) throw new Error("No active session");
+
     const res = await fetch('https://xagwrqrgcuuitwgroiwh.supabase.co/functions/v1/talk-to-npc', {
       method: 'POST',
       headers: {
@@ -1277,17 +1287,27 @@ async function chatWithNPC(npcId, messageType) {
     })
 
     const data = await res.json()
-    if (data.error) throw new Error(data.error)
+    
+    // 2. Handle specific server errors gracefully
+    if (data.error) {
+      // If the server says "Character not found", guide the user
+      if (data.error.includes("Character not found")) {
+         throw new Error("Character ID mismatch. Try refreshing the page to reload your character data.");
+      }
+      throw new Error(data.error)
+    }
 
-    // Typing animation
     await typeDialogue(data.response)
-
-    // Update rep badge
     updateRepBadge(data.relationship_score, data.mood)
 
   } catch (err) {
     console.error('NPC error:', err)
-    if (dialogueBox) dialogueBox.innerHTML = `<span style="color:#c0392b">*The NPC stares blankly. Something went wrong.*</span>`
+    // Only show the generic error if it's not our custom one
+    if (!err.message.includes("Character ID mismatch")) {
+       if (dialogueBox) dialogueBox.innerHTML = `<span style="color:#c0392b">*The NPC stares blankly. Something went wrong.*</span>`;
+    } else {
+       if (dialogueBox) dialogueBox.innerHTML = `<span style="color:#c0392b">*${err.message}</span>`;
+    }
   }
 }
 
@@ -1757,6 +1777,118 @@ const sta  = Math.floor((baseSta  + (state.equipSta||0) + (state.talentBonuses.b
   // ── Clamp HP/MP ──
   if(state.hp>state.maxHp) state.hp=state.maxHp;
   if(state.mp>state.maxMp) state.mp=state.maxMp;
+}
+
+function reapplyClassBonuses() {
+  if (!state.class || !CLASSES[state.class]) return;
+  const bonuses = CLASSES[state.class].bonuses;
+  // Reset first — prevent double-stacking on re-sync
+  state.classBonuses = {
+    strMult:0, agiMult:0, intMult:0, staMult:0,
+    hitMult:0, critMult:0, dodgeMult:0, hpRegenMult:0,
+    mpRegenMult:0, armorMult:0, mpMult:0, lifeStealMult:0,
+    attackPowerMult:0, maxHpMult:0,
+  };
+  Object.entries(bonuses).forEach(([k, v]) => {
+    if (state.classBonuses.hasOwnProperty(k)) {
+      state.classBonuses[k] = v;
+    }
+  });
+}
+
+function reapplyTalentBonuses() {
+  if (!state.class || !CLASSES[state.class]) return;
+  // Reset
+  state.talentBonuses = {
+    strMult:0, agiMult:0, intMult:0, staMult:0,
+    hitMult:0, critMult:0, dodgeMult:0, hpRegenMult:0,
+    mpRegenMult:0, armorMult:0, mpMult:0, lifeStealMult:0,
+    attackPowerMult:0, maxHpMult:0,
+  };
+  const unlockedTalents = state.unlockedTalents || [];
+  if (!unlockedTalents.length) return;
+
+  // Walk all talent trees and fire effect() for each unlocked rank
+  const trees = CLASSES[state.class].trees;
+  Object.values(trees).forEach(tree => {
+    tree.talents.forEach(talent => {
+      const ranks = unlockedTalents.filter(id => id === talent.id).length;
+      if (!ranks) return;
+      for (let i = 0; i < ranks; i++) {
+        if (typeof talent.effect === 'function') talent.effect();
+      }
+    });
+  });
+}
+
+function reapplyEquipBonuses() {
+  // Reset all equip bonus state
+  state.equipStr             = 0;
+  state.equipStrMult         = 0;
+  state.equipAgi             = 0;
+  state.equipAgiMult         = 0;
+  state.equipInt             = 0;
+  state.equipIntMult         = 0;
+  state.equipSta             = 0;
+  state.equipStaMult         = 0;
+  state.equipMaxHp           = 0;
+  state.equipMaxHpMult       = 0;
+  state.equipMaxMp           = 0;
+  state.equipMaxMpMult       = 0;
+  state.equipArmor           = 0;
+  state.equipArmorMult       = 0;
+  state.equipCrit            = 0;
+  state.equipDodge           = 0;
+  state.equipDodgeMult       = 0;
+  state.equipLifeSteal       = 0;
+  state.equipLifeStealMult   = 1.0;
+  state.equipAttackPower     = 0;
+  state.equipAttackPowerMult = 0;
+  state.equipHpRegen         = 0;
+  state.equipHpRegenMult     = 0;
+  state.equipMpRegen         = 0;
+  state.equipMpRegenMult     = 0;
+  state.equipHit             = 0;
+  state.equipHitMult         = 0;
+
+  // Walk equipped slots and accumulate bonuses
+  const equipped = state.equipped || {};
+  Object.values(equipped).forEach(item => {
+    if (!item || !item.stats) return;
+    const s = item.stats;
+    const enh = item.enh_level ?? item.enhLevel ?? 0;
+
+    // Enhancement multiplier — each +1 adds 8% to all stats on item
+    const enhMult = 1 + (enh * 0.08);
+
+    state.equipStr             += Math.floor((s.str          || 0) * enhMult);
+    state.equipStrMult         += (s.strMult         || 0);
+    state.equipAgi             += Math.floor((s.agi          || 0) * enhMult);
+    state.equipAgiMult         += (s.agiMult         || 0);
+    state.equipInt             += Math.floor((s.int          || 0) * enhMult);
+    state.equipIntMult         += (s.intMult         || 0);
+    state.equipSta             += Math.floor((s.sta          || 0) * enhMult);
+    state.equipStaMult         += (s.staMult         || 0);
+    state.equipMaxHp           += Math.floor((s.maxHp        || 0) * enhMult);
+    state.equipMaxHpMult       += (s.maxHpMult       || 0);
+    state.equipMaxMp           += Math.floor((s.maxMp        || 0) * enhMult);
+    state.equipMaxMpMult       += (s.maxMpMult       || 0);
+    state.equipArmor           += Math.floor((s.armor        || 0) * enhMult);
+    state.equipArmorMult       += (s.armorMult       || 0);
+    state.equipCrit            += (s.crit            || 0);
+    state.equipDodge           += Math.floor((s.dodge        || 0) * enhMult);
+    state.equipDodgeMult       += (s.dodgeMult       || 0);
+    state.equipLifeSteal       += (s.lifeSteal       || 0);
+    state.equipLifeStealMult   += (s.lifeStealMult   || 0);
+    state.equipAttackPower     += Math.floor((s.attackPower  || 0) * enhMult);
+    state.equipAttackPowerMult += (s.attackPowerMult || 0);
+    state.equipHpRegen         += Math.floor((s.hpRegen      || 0) * enhMult);
+    state.equipHpRegenMult     += (s.hpRegenMult     || 0);
+    state.equipMpRegen         += Math.floor((s.mpRegen      || 0) * enhMult);
+    state.equipMpRegenMult     += (s.mpRegenMult     || 0);
+    state.equipHit             += Math.floor((s.hit          || 0) * enhMult);
+    state.equipHitMult         += (s.hitMult         || 0);
+  });
 }
 
 
@@ -2479,16 +2611,7 @@ async function registerUser(){
       equipped:{weapon:null,armor:null,helmet:null,boots:null,ring:null,amulet:null},
       skills:[],skill_cooldowns:{},quests:state.quests,auto_sell:{normal:false,uncommon:false},
       active_debuffs:{maxHpReduction:0,webTrapped:0,rageTimer:0},
-      talent_unlocked_flags:{},
-      stats:{
-        baseStr:15,baseAgi:15,baseInt:15,baseSta:15,baseArmor:0,baseHit:2,baseCrit:0.1,
-        baseDodge:2,baseHpRegen:20,baseLifeSteal:0,baseAttackPower:10,
-        strMult:1.0,agiMult:1.0,intMult:1.0,staMult:1.0,armorMult:1.0,
-        maxHpMult:1.0,hpRegenMult:1.0,maxMpMult:1.0,mpMult:1.0,critMult:1.0,
-        dodgeMult:1.0,mpRegenMult:1.0,hitMult:1.0,lifeStealMult:1.0,attackPowerMult:1.0,
-        classBonuses:{strMult:0,agiMult:0,intMult:0,staMult:0,hitMult:0,critMult:0,dodgeMult:0,hpRegenMult:0,mpRegenMult:0,armorMult:0,mpMult:0,lifeStealMult:0,attackPowerMult:0,maxHpMult:0},
-        talentBonuses:{strMult:0,agiMult:0,intMult:0,staMult:0,hitMult:0,critMult:0,dodgeMult:0,hpRegenMult:0,mpRegenMult:0,armorMult:0,mpMult:0,lifeStealMult:0,attackPowerMult:0,maxHpMult:0},
-      }
+      talent_unlocked_flags:{},      
     }).select().single();
     if(charError)throw charError;
 
@@ -2672,15 +2795,20 @@ async function selectCharacterAndPlay(characterId) {
       return
     }
 
+    // Safety check — catch any sync failure before proceeding
+    if (!state.character_id || state.character_id === 'undefined') {
+      console.error('CRITICAL: character_id missing after sync', character)
+      notify('❌ Critical Error: Character data failed to load. Please refresh.', 'var(--red)')
+      document.getElementById('auth-screen').style.display = 'flex'
+      return
+    }
+
     await checkLoginReward()
 
     if (typeof initChat === 'function') await initChat()
 
     showGame()
-    // After showGame()
-    // In selectCharacterAndPlay after showGame()
-// Give the session token time to settle before watching
-setTimeout(() => startSessionWatcher(), 10000) // wait 10 seconds before starting
+    setTimeout(() => startSessionWatcher(), 10000)
     loadScene(state.currentScene || 'town')
 
     if (typeof initializeSupabaseSync === 'function') {
@@ -2887,7 +3015,8 @@ function showGame(){
   updatePlayerAvatar();
   document.getElementById('arena-player-label').textContent=state.name;
   loadAutoSellUI();calcStats();updateUI();renderShop();renderQuests();
-  renderInventory();renderSkillBar();renderEquipSlots();fetchLeaderboard();
+  renderInventory();
+  renderSkillBar();renderEquipSlots();fetchLeaderboard();
   setDifficulty(state.difficulty||'normal');
   renderSoulWeaponSlot(); // ← ADD THIS
   initSkillBarKeyHandler();
@@ -3464,15 +3593,20 @@ async function typeNPCPopupDialogue(elementId, text) {
 // INVENTORY SLOT INDICATOR
 // ============================================================
 function updateInventorySlotIndicator() {
-  const el = document.getElementById('inventory-slot-indicator')
-  if (!el) return
-  const rank = state.reputationTitle || 'citizen'
-  const slots = GAME_CONFIG.inventory_slots_by_rank?.[rank] || { equipment:20, consumable:20, material:20 }
-  const tab = state.invTab || 'equipment'
-  const limit = slots[tab] || 20
-  const current = state.inventory.filter(i => i.category === tab).length
-  el.textContent = `${current}/${limit} slots`
-  el.style.color = current >= limit ? 'var(--red)' : 'var(--text-dim)'
+  const el = document.getElementById('inventory-slot-indicator');
+  if (!el) return;
+
+  const rank = state.reputationTitle || 'citizen';
+  const slots = GAME_CONFIG.inventory_slots_by_rank?.[rank] || { equipment: 20, consumable: 20, material: 20 };
+  const tab = state.invTab || 'equipment';
+  const limit = slots[tab] || 20;
+
+  // ✅ FIX: Access the specific array for the tab first
+  const categoryArray = state.inventory[tab] || [];
+  const current = Array.isArray(categoryArray) ? categoryArray.length : 0;
+
+  el.textContent = `${current}/${limit} slots`;
+  el.style.color = current >= limit ? 'var(--red)' : 'var(--text-dim)';
 }
 
 // ============================================================
@@ -3704,6 +3838,11 @@ const SOUL_WEAPON_STAT_KEY_MAP = {
   maxMpMult:        'equipMaxMpMult',
   lifeStealMult:    'equipLifeStealMult',
 };
+function findInventoryItem(uid) {
+  return Object.values(state.inventory)
+    .flat()
+    .find(i => String(i.uid) === String(uid));
+}
 
 function getSoulWeaponEquipKey(statKey) {
   // Use explicit map if available, otherwise fall back to old builder
@@ -3712,7 +3851,7 @@ function getSoulWeaponEquipKey(statKey) {
 }
 
 async function equipSoulWeapon(uid) {
-  const item = state.inventory.find(i => String(i.uid) === String(uid));
+  const item = findInventoryItem(uid);
   if (!item || item.category !== 'soul_weapon') return;
 
   const classKey = state.class?.toLowerCase();
@@ -4465,7 +4604,7 @@ async function equipItem(uid) {
   equipCooldown = true
   setTimeout(() => equipCooldown = false, 2000) // 2 second cooldown
 
-  const item = state.inventory.find(i => String(i.uid) === String(uid))
+  const item = findInventoryItem(uid);
   if (!item || item.category !== 'equipment') return
 
   // rest of function unchanged
@@ -4532,12 +4671,14 @@ async function equipItem(uid) {
   renderEquipSlots()
   updateUI()
   renderQuests()
+  await saveInventoryToSupabase();
 }
-function unequipSlot(slot,silent=false){
+async function unequipSlot(slot,silent=false){
   const uid=state.equipped[slot];if(!uid)return;
-  const item=state.inventory.find(i=>String(i.uid)===String(uid));
+  const item = findInventoryItem(uid);
   if(item){Object.entries(item.stats||{}).forEach(([k,v])=>{const ek='equip'+k.charAt(0).toUpperCase()+k.slice(1);state[ek]=Math.max(0,(state[ek]||0)-v);});item.equipped=false;if(!silent)addLog(`Unequipped ${item.name}!`,'info');}
-  state.equipped[slot]=null;calcStats();renderInventory();renderEquipSlots();updateUI();
+  state.equipped[slot]=null;calcStats();renderInventory();renderEquipSlots();updateUI();await saveInventoryToSupabase();
+
 }
 function renderEquipSlots(){
   ['weapon','armor','helmet','boots','ring','amulet'].forEach(slot=>{
@@ -4561,9 +4702,9 @@ function renderEquipSlots(){
 
     const uid = state.equipped[slot]
     if(uid){
-      const item = state.inventory.find(i => i.uid === uid)
+      const item = findInventoryItem(uid)
       if(item){
-        const enh = item.enhLevel || 0
+        const enh = item.enh_level ?? item.enhLevel ?? 0;
         const shortName = item.name.replace(/^[^\s]+ /,'').substring(0,12)
 
         // Enhancement label
@@ -4621,60 +4762,98 @@ function getInvSlotLimit(category){
   return defaults[category]??60;
 }
 
-function countInvSlots(category){
-  return state.inventory.filter(i=>i.category===category&&!i.equipped).length;
+function countInvSlots(category) {
+  const categoryArray = state.inventory[category];
+  // If the category doesn't exist or isn't an array, return 0
+  if (!Array.isArray(categoryArray)) return 0;
+  
+  // Count items that are NOT equipped
+  return categoryArray.filter(i => !i.equipped).length;
 }
 
-function addToInventory(item){
-  if(item.stackable){
-    const existing=state.inventory.find(i=>i.name===item.name&&i.rarity===item.rarity&&i.stackable&&!i.equipped);
-    if(existing){existing.qty=(existing.qty||1)+(item.qty||1);renderInventory();return;}
+function addToInventory(item) {
+  const cat = item.category || 'equipment';
+
+  // Handle Soul Weapons separately (no limit, usually a single object or specific logic)
+  if (cat === 'soul_weapon') {
+    // Assuming soul weapons are stored directly or handled differently. 
+    // If they go in the object too:
+    if (!state.inventory.soul_weapon) state.inventory.soul_weapon = [];
+    state.inventory.soul_weapon.push({...item, uid: String(item.uid || genUid())});
+    renderInventory();
+    return;
   }
-  const cat=item.category||'equipment';
-  if(cat!=='soul_weapon'){
-    const limit=getInvSlotLimit(cat);
-    const current=countInvSlots(cat);
-    if(current>=limit){
-      const label=cat.charAt(0).toUpperCase()+cat.slice(1);
-      const sellPrice=item.sellPrice||0;
-      if(sellPrice>0){
-        addGold(sellPrice); // ✅ sanitized
-        addLog(`⚠️ ${label} bag full! ${item.name} auto-sold for ${formatNumber(sellPrice)}g.`,'bad');
-        notify(`⚠️ Bag full! ${item.name} sold for ${formatNumber(sellPrice)}g`,'var(--red)');
-      } else {
-        addLog(`⚠️ ${label} bag full! ${item.name} discarded.`,'bad');
-        notify(`⚠️ Bag full! ${item.name} discarded.`,'var(--red)');
-      }
-      if(!document.getElementById('bag-full-popup')){
-        const popup=document.createElement('div');
-        popup.id='bag-full-popup';
-        popup.style.cssText=`
-          position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-          background:#1a0a0a;border:1px solid var(--red);
-          padding:20px 24px;z-index:99999;text-align:center;
-          font-family:var(--font-title);max-width:280px;width:90%;
-          box-shadow:0 0 40px rgba(255,34,68,0.3);`;
-        popup.innerHTML=`
-          <div style="font-size:1.4em;margin-bottom:8px;">⚠️</div>
-          <div style="color:var(--red);font-size:.85em;letter-spacing:2px;margin-bottom:8px;">BAG FULL</div>
-          <div style="font-size:.72em;color:var(--text-dim);line-height:1.6;margin-bottom:14px;">
-            Your ${label} bag is full.<br>
-            Additional drops will be <span style="color:var(--gold)">auto-sold</span> for gold.<br>
-            Sell or drop items to make room.
-          </div>
-          <button onclick="document.getElementById('bag-full-popup').remove()"
-            style="background:rgba(255,34,68,0.15);border:1px solid var(--red);
-            color:var(--red);font-family:var(--font-title);font-size:.75em;
-            letter-spacing:2px;padding:8px 20px;cursor:pointer;width:100%;">
-            ✖ GOT IT
-          </button>`;
-        document.body.appendChild(popup);
-        setTimeout(()=>{const el=document.getElementById('bag-full-popup');if(el)el.remove();},5000);
-      }
+
+  // Stackable Logic
+  if (item.stackable) {
+    const categoryArray = state.inventory[cat] || [];
+    const existing = categoryArray.find(i => 
+      i.name === item.name && 
+      i.rarity === item.rarity && 
+      i.stackable && 
+      !i.equipped
+    );
+
+    if (existing) {
+      existing.qty = (existing.qty || 1) + (item.qty || 1);
+      renderInventory();
       return;
     }
   }
-  state.inventory.push({...item,uid:String(item.uid||genUid())});
+
+  // Check Slot Limit
+  const limit = getInvSlotLimit(cat);
+  const current = countInvSlots(cat);
+
+  if (current >= limit) {
+    const label = cat.charAt(0).toUpperCase() + cat.slice(1);
+    const sellPrice = item.sellPrice || 0;
+
+    if (sellPrice > 0) {
+      addGold(sellPrice);
+      addLog(`⚠️ ${label} bag full! ${item.name} auto-sold for ${formatNumber(sellPrice)}g.`, 'bad');
+      notify(`⚠️ Bag full! ${item.name} sold for ${formatNumber(sellPrice)}g`, 'var(--red)');
+    } else {
+      addLog(`⚠️ ${label} bag full! ${item.name} discarded.`, 'bad');
+      notify(`⚠️ Bag full! ${item.name} discarded.`, 'var(--red)');
+    }
+
+    // Show Popup (Existing logic remains the same)
+    if (!document.getElementById('bag-full-popup')) {
+      const popup = document.createElement('div');
+      popup.id = 'bag-full-popup';
+      popup.style.cssText = `
+        position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+        background:#1a0a0a;border:1px solid var(--red);
+        padding:20px 24px;z-index:99999;text-align:center;
+        font-family:var(--font-title);max-width:280px;width:90%;
+        box-shadow:0 0 40px rgba(255,34,68,0.3);`;
+      popup.innerHTML = `
+        <div style="font-size:1.4em;margin-bottom:8px;">⚠️</div>
+        <div style="color:var(--red);font-size:.85em;letter-spacing:2px;margin-bottom:8px;">BAG FULL</div>
+        <div style="font-size:.72em;color:var(--text-dim);line-height:1.6;margin-bottom:14px;">
+          Your ${label} bag is full.<br>
+          Additional drops will be <span style="color:var(--gold)">auto-sold</span> for gold.<br>
+          Sell or drop items to make room.
+        </div>
+        <button onclick="document.getElementById('bag-full-popup').remove()"
+          style="background:rgba(255,34,68,0.15);border:1px solid var(--red);
+          color:var(--red);font-family:var(--font-title);font-size:.75em;
+          letter-spacing:2px;padding:8px 20px;cursor:pointer;width:100%;">
+          ✖ GOT IT
+        </button>`;
+      document.body.appendChild(popup);
+      setTimeout(() => { const el = document.getElementById('bag-full-popup'); if (el) el.remove(); }, 5000);
+    }
+    return;
+  }
+
+  // Add Item to the specific category array
+  if (!state.inventory[cat]) {
+    state.inventory[cat] = [];
+  }
+  
+  state.inventory[cat].push({ ...item, uid: String(item.uid || genUid()) });
   renderInventory();
 }
 function switchInvTab(tab){
@@ -4690,40 +4869,42 @@ function formatNumber(num){if(num>=1000000)return(num/1000000).toFixed(1)+'M';if
 // ── ENHANCEMENT ──
 const ENHANCE_COST=[0,500,1000,2000,3500,5000,8000,12000,18000,25000,35000,50000,70000,100000,150000,200000];
 const ENHANCE_RATE=[0,100,95,85,75,65,55,45,35,25,25,25,25,25,25,25];
-function openEnhance(uid){
-  const item=state.inventory.find(i=>i.uid===uid);
-  if(!item||item.category!=='equipment')return;
-  document.getElementById('enhance-screen').style.display='block';
+function openEnhance(uid) {
+  const item = getItemByUid(uid);
+  if (!item || item.category !== 'equipment') return;
+  document.getElementById('enhance-screen').style.display = 'block';
   renderEnhanceScreen(uid);
 
-  if(window._enhanceKeyHandler)document.removeEventListener('keydown',window._enhanceKeyHandler);
-  window._enhanceKeyHandler=function(e){
-    if(document.getElementById('enhance-screen').style.display==='none')return;
-    const k=e.key.toLowerCase();
-    if(k==='escape'){closeEnhance();return;}
-    if(k==='enter'||k==='e'){
-      const btn=document.querySelector('.enhance-btn:not(.enhance-btn-disabled)');
-      if(btn)doEnhance(uid);
+  if (window._enhanceKeyHandler) document.removeEventListener('keydown', window._enhanceKeyHandler);
+  window._enhanceKeyHandler = function(e) {
+    if (document.getElementById('enhance-screen').style.display === 'none') return;
+    const k = e.key.toLowerCase();
+    if (k === 'escape') { closeEnhance(); return; }
+    if (k === 'enter' || k === 'e') {
+      const btn = document.querySelector('.enhance-btn:not(.enhance-btn-disabled)');
+      if (btn) doEnhance(uid);
     }
-    if(k==='o'){
-      const chk=document.getElementById('enhance-orb-toggle');
-      if(chk&&!chk.disabled){chk.checked=!chk.checked;updateEnhanceRateDisplay();}
+    if (k === 'o') {
+      const chk = document.getElementById('enhance-orb-toggle');
+      if (chk && !chk.disabled) { chk.checked = !chk.checked; updateEnhanceRateDisplay(); }
     }
   };
-  document.addEventListener('keydown',window._enhanceKeyHandler);
+  document.addEventListener('keydown', window._enhanceKeyHandler);
 }
 
-function closeEnhance(){
-  document.getElementById('enhance-screen').style.display='none';
-  if(window._enhanceKeyHandler){
-    document.removeEventListener('keydown',window._enhanceKeyHandler);
-    window._enhanceKeyHandler=null;
+function closeEnhance() {
+  document.getElementById('enhance-screen').style.display = 'none';
+  if (window._enhanceKeyHandler) {
+    document.removeEventListener('keydown', window._enhanceKeyHandler);
+    window._enhanceKeyHandler = null;
   }
-  savePlayerToSupabase();
+  // ← removed savePlayerToSupabase() — enhance_item RPC already saved to DB
 }
 
 function renderEnhanceScreen(uid){
-  const orbCount=state.inventory.filter(i=>i.name==='⚗️ Enhancement Orb'&&i.category==='material').reduce((sum,i)=>sum+(i.quantity||1),0);
+  const orbCount = (state.inventory.material || [])
+  .filter(i => i.name === '⚗️ Enhancement Orb')
+  .reduce((sum, i) => sum + (i.quantity || 1), 0);
   const orbHtml=`
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;
       padding:8px;background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.2);
@@ -4741,8 +4922,9 @@ function renderEnhanceScreen(uid){
         ${orbCount>0?`${orbCount} owned`:'None owned'}
       </div>
     </div>`;
-  const item=state.inventory.find(i=>i.uid===uid);if(!item)return;
-  const r=RARITY[item.rarity]||RARITY.normal,enh=item.enhLevel||0,maxed=enh>=15,cost=ENHANCE_COST[enh+1]||0,rate=ENHANCE_RATE[enh+1]||0;
+  const item = getItemByUid(uid);
+  if(!item)return;
+  const r=RARITY[item.rarity]||RARITY.normal,enh=item.enh_level??item.enhLevel??item.enhancement??0,maxed=enh>=15,cost=ENHANCE_COST[enh+1]||0,rate=ENHANCE_RATE[enh+1]||0;
   const pips=Array.from({length:15},(_,i)=>`<div class="enhance-pip ${i<enh?enh>=11?'pip-high':'pip-filled':'pip-empty'}"></div>`).join('');
   const statsHtml=Object.entries(item.stats||{}).map(([k,v])=>`<div class="enhance-stat-line">+${v<1?v.toFixed(3):v} ${k.toUpperCase()}</div>`).join('');
   const nextHtml=Object.entries(item.stats||{}).map(([k,v])=>{const n=v<1?Math.round(v*1.15*1000)/1000:Math.floor(v*1.15);return `<div class="enhance-stat-line" style="color:var(--green)">+${v<1?n.toFixed(3):n} ${k.toUpperCase()}</div>`;}).join('');
@@ -4770,6 +4952,7 @@ function renderEnhanceScreen(uid){
       </div>
       <div style="text-align:center;margin-top:12px;"><button class="start-btn" onclick="closeEnhance()">✅ Close <span style="color:#888;font-size:.8em;">[Esc]</span></button></div>
     </div>`;
+    
 }
 function updateEnhanceRateDisplay() {
   const toggle = document.getElementById('enhance-orb-toggle');
@@ -4784,112 +4967,144 @@ function updateEnhanceRateDisplay() {
   rateEl.style.color = rate >= 80 ? 'var(--green)' : rate >= 50 ? 'var(--gold)' : 'var(--red)';
 }
 async function doEnhance(uid) {
-  const item = state.inventory.find(i => i.uid === uid);
-  if (!item) return;
-  const enh = item.enhLevel || 0;
-  if (enh >= 15) { notify('Already max enhanced!', 'var(--gold)'); return; }
+  const useOrb = document.getElementById('enhance-orb-toggle')?.checked || false;
 
-  const cost = ENHANCE_COST[enh + 1];
-  let rate = ENHANCE_RATE[enh + 1];
-
-  if (state.gold < cost) { notify('Not enough gold!', 'var(--red)'); return; }
-
-  // Check if player wants to use an orb
-  const useOrb = document.getElementById('enhance-orb-toggle')?.checked;
-  const orbIdx = state.inventory.findIndex(i =>
-    i.name === '⚗️ Enhancement Orb' && i.category === 'material'
-  );
-  const hasOrb = orbIdx !== -1;
-
-  if (useOrb && !hasOrb) {
-    notify('No Enhancement Orbs in inventory!', 'var(--red)');
+  // Get item from bag to read current enh level for display
+  const item = getItemByUid(uid);
+console.log('enhance uid:', uid, typeof uid);
+console.log('equipment bag uids:', state.inventory.equipment.map(i => ({ uid: i.uid, type: typeof i.uid })));  // ← was missing
+  if (!item) {
+    notify('❌ Item not found!', 'var(--red)');
     return;
   }
 
-  addGold(-cost); // ✅ sanitized
+  const enh = item.enh_level ?? item.enhLevel ?? 0;
+  const displayCost = ENHANCE_COST[enh + 1] || 0;
+  if (state.gold < displayCost) {
+    notify('Not enough gold!', 'var(--red)');
+    return;
+  }
+  // ... rest unchanged
 
-  // Consume orb and boost rate
-  if (useOrb && hasOrb) {
-    rate = Math.min(95, rate + 20); // cap at 95% — never guaranteed
-    const orb = state.inventory[orbIdx];
-    if (orb.stackable && orb.quantity > 1) {
-      orb.quantity--;
-    } else {
-      state.inventory.splice(orbIdx, 1);
+  try {
+    const { data, error } = await dbClient.rpc('enhance_item', {
+      p_character_id: state.character_id,
+      p_item_uid:     uid,
+      p_use_orb:      useOrb,
+    });
+
+    if (error) throw error;
+    if (!data.success) {
+      notify(`❌ ${data.error}`, 'var(--red)');
+      return;
     }
-    addLog(`⚗️ Enhancement Orb used! Success rate boosted to ${rate.toFixed(1)}%`, 'gold');
-  }
 
-  const FLAT_STATS = new Set(['str','agi','int','sta','armor','maxHp','maxMp']);
+    // ── Apply server result to local state ──
+    state.gold = data.new_gold;
 
-  if (item.equipped) {
-    Object.entries(item.stats || {}).forEach(([k, v]) => {
-      const ek = 'equip' + k.charAt(0).toUpperCase() + k.slice(1);
-      state[ek] = Math.max(0, (state[ek] || 0) - v);
-    });
-  }
-
-  const success = Math.random() * 100 < rate;
-  if (success) {
-    Object.keys(item.stats || {}).forEach(k => {
-      if (!FLAT_STATS.has(k)) return;
-      item.stats[k] = Math.floor(item.stats[k] * 1.05);
-    });
-    item.enhLevel = enh + 1;
-    addLog(`⚒️ SUCCESS! ${item.name} is now +${item.enhLevel}!`, 'gold');
-    notify(`✨ SUCCESS! +${item.enhLevel}!`, 'var(--gold)');
-    playSound('snd-levelup');
-  } else {
-    if (enh > 0) {
-      Object.keys(item.stats || {}).forEach(k => {
-        if (!FLAT_STATS.has(k)) return;
-        item.stats[k] = Math.max(1, Math.floor(item.stats[k] / 1.05));
-      });
-      item.enhLevel = enh - 1;
-      addLog(`💔 FAILED! Dropped to +${item.enhLevel}!`, 'bad');
-      notify(`💔 FAILED! Dropped to +${item.enhLevel}!`, 'var(--red)');
-    } else {
-      addLog(`💔 FAILED! Nothing happened.`, 'bad');
-      notify('💔 FAILED!', 'var(--red)');
+    // Update item in equipment bag
+    const bag = state.inventory.equipment;
+    const idx = bag.findIndex(i => i.uid === uid);
+    if (idx !== -1) {
+      bag[idx].stats     = data.new_stats;
+      bag[idx].enh_level = data.enh_level;
+      // Clean up old field names
+      delete bag[idx].enhLevel;
+      delete bag[idx].enhancement;
     }
-    playSound('snd-death');
-  }
 
-  if (item.equipped) {
-    Object.entries(item.stats || {}).forEach(([k, v]) => {
-      const ek = 'equip' + k.charAt(0).toUpperCase() + k.slice(1);
-      state[ek] = (state[ek] || 0) + v;
+    // Update equipped slot if this item is equipped
+    Object.entries(state.equipped).forEach(([slot, item]) => {
+      if (item && String(item.uid || item) === uid) {
+        if (typeof item === 'object') {
+          item.stats     = data.new_stats;
+          item.enh_level = data.enh_level;
+          delete item.enhLevel;
+          delete item.enhancement;
+        }
+      }
     });
+
+    if (data.result === 'success') {
+      addLog(`⚒️ SUCCESS! Item is now +${data.enh_level}!`, 'gold');
+      notify(`✨ SUCCESS! +${data.enh_level}!`, 'var(--gold)');
+      playSound('snd-levelup');
+    } else {
+      if (data.enh_level < enh) {
+        addLog(`💔 FAILED! Dropped to +${data.enh_level}!`, 'bad');
+        notify(`💔 FAILED! Dropped to +${data.enh_level}!`, 'var(--red)');
+      } else {
+        addLog(`💔 FAILED! Nothing happened.`, 'bad');
+        notify('💔 FAILED!', 'var(--red)');
+      }
+      playSound('snd-death');
+    }
+
+    // Reapply equip bonuses since stats changed
+    reapplyEquipBonuses();
+    calcStats();
+    updateUI();
+    renderInventory();
+    renderEnhanceScreen(uid);
+
+  } catch (err) {
+    console.error('enhance_item error:', err);
+    notify('❌ Enhancement failed. Try again.', 'var(--red)');
   }
-  if (item.equipped) calcStats();
-  updateUI();
-  renderInventory();
-  renderEnhanceScreen(uid);
 }
 
-async function useItem(uid){
-  const idx = state.inventory.findIndex(i => String(i.uid) === String(uid));
-  if(idx === -1) return;
-  const item = state.inventory[idx];
-  if(item.effect === 'treasure'){
+
+function getItemByUid(uid) {
+  const inv = state.inventory;
+  return (
+    inv.equipment?.find(i => i.uid === uid) ||
+    inv.consumable?.find(i => i.uid === uid) ||
+    inv.material?.find(i => i.uid === uid) ||
+    null
+  );
+}
+
+async function useItem(uid) {
+  const bag = state.inventory.consumable || [];
+  const idx = bag.findIndex(i => String(i.uid) === String(uid));
+  if (idx === -1) return;
+  const item = bag[idx];
+
+  if (item.effect === 'treasure') {
     openTreasureBox(item);
-    state.inventory.splice(idx, 1);
+    bag.splice(idx, 1);
     renderInventory();
     updateUI();
-    await savePlayerToSupabase();
+    
+    await saveInventoryToSupabase();
     return;
   }
-  if(item.category === 'consumable'){
-    if(item.effect==='hp'||item.effect==='both'){state.hp=Math.min(state.maxHp,state.hp+(item.val||40));addLog(`Used ${item.name}: +${item.val} HP`,'good');playSound('snd-heal');spawnDmgFloat(`+${item.val}HP`,false,'heal-float');}
-    if(item.effect==='mp'||item.effect==='both'){state.mp=Math.min(state.maxMp,state.mp+(item.val||30));addLog(`Used ${item.name}: +${item.val} MP`,'info');spawnDmgFloat(`+${item.val}MP`,false,'mp-float');}
-    if(item.stackable&&item.qty>1)item.qty--;else state.inventory.splice(idx,1);
+
+  if (item.category === 'consumable') {
+    if (item.effect === 'hp' || item.effect === 'both') {
+      state.hp = Math.min(state.maxHp, state.hp + (item.val || 40));
+      addLog(`Used ${item.name}: +${item.val} HP`, 'good');
+      playSound('snd-heal');
+      spawnDmgFloat(`+${item.val}HP`, false, 'heal-float');
+    }
+    if (item.effect === 'mp' || item.effect === 'both') {
+      state.mp = Math.min(state.maxMp, state.mp + (item.val || 30));
+      addLog(`Used ${item.name}: +${item.val} MP`, 'info');
+      spawnDmgFloat(`+${item.val}MP`, false, 'mp-float');
+    }
+    if (item.stackable && item.qty > 1) item.qty--;
+    else bag.splice(idx, 1);
     renderInventory();
     updateUI();
-    await savePlayerToSupabase();
+    
+    await saveInventoryToSupabase();
   }
 }
 
 function showItemPopup(source,id){
+  console.log("source =", source);
+  console.log("id =", id);
+
   const r_=r=>RARITY[r]||RARITY.normal;
   let item,btns='',statsHtml='',reqLine='';
 
@@ -4906,7 +5121,17 @@ function showItemPopup(source,id){
     btns=`<button class="start-btn" onclick="buyShopItem('${item.id}');closeItemPopup()">💰 <u>B</u>uy (${item.price}g)</button>`;
 
   } else {
-    item=state.inventory.find(i=>String(i.uid)===String(id));if(!item)return;
+    console.log("inventory:", state.inventory);
+    console.log("type:", typeof state.inventory);
+    console.log("isArray:", Array.isArray(state.inventory));
+    item = Object.values(state.inventory)
+  .flat()
+  .find(i => String(i.uid) === String(id));
+
+if (!item) {
+  console.error("Item not found:", id);
+  return;
+}
     statsHtml=item.stats
       ?Object.entries(item.stats).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join('')
       :item.effect?`<div class="tooltip-stat">Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}</div>`:'';
@@ -5002,20 +5227,29 @@ function closeItemPopup(){
 }
 function closeItemPopup(){document.getElementById('item-popup').style.display='none';}
 
-function sellItem(uid){
-  const idx=state.inventory.findIndex(i=>String(i.uid)===String(uid));
-  if(idx===-1)return;
-  const item=state.inventory[idx];
-  if(item.equipped)return;
-  const qty=item.qty||item.quantity||1;
-  const total=(item.sellPrice||0)*(item.stackable?qty:1);
-  addGold(total); // ✅ sanitized
-  addLog(`Sold ${item.name} for ${formatNumber(total)}g`,'gold');
-  state.inventory.splice(idx,1);
+async function sellItem(uid) {
+  // Search all bags
+  let found = false;
+  for (const bagKey of ['equipment', 'consumable', 'material']) {
+    const bag = state.inventory[bagKey] || [];
+    const idx = bag.findIndex(i => String(i.uid) === String(uid));
+    if (idx === -1) continue;
+    const item = bag[idx];
+    if (item.equipped) return;
+    const qty = item.qty || item.quantity || 1;
+    const total = (item.sellPrice || 0) * (item.stackable ? qty : 1);
+    addGold(total);
+    addLog(`Sold ${item.name} for ${formatNumber(total)}g`, 'gold');
+    bag.splice(idx, 1);
+    found = true;
+    break;
+  }
+  if (!found) return;
   renderInventory();
   updateUI();
-  if(state.gold>=50)state.quests.gold50.done=true;
+  if (state.gold >= 50) state.quests.gold50.done = true;
   renderQuests();
+  await saveInventoryToSupabase();
 }
 
 // ══════════════════════════════════════════
@@ -5055,7 +5289,9 @@ function renderInventory() {
   migrateAutoSell();
 
   const list  = document.getElementById('inventory-list-merchant') || document.getElementById('inventory-list');
-  const items = state.inventory.filter(i => i.category === currentInvTab);
+  const categoryArray = state.inventory[currentInvTab];
+  const items = Array.isArray(categoryArray) ? categoryArray : [];
+
 
   // Soul tab has no slot limit
   const hasLimit = currentInvTab !== 'soul_weapon';
@@ -5107,10 +5343,10 @@ function renderInventory() {
     </div>` : '';
 
   // ── Item grid with empty slots ──
-  const filledSlots = items.map(item => {
+    const filledSlots = items.map(item => {
     const stackBadge    = item.stackable && item.qty > 1 ? `<div class="item-icon-stack">×${item.qty}</div>` : '';
     const equippedBadge = item.equipped ? `<div class="item-icon-equipped">E</div>` : '';
-    const enh           = item.enhLevel || 0;
+    const enh = item.enh_level ?? item.enhLevel ?? 0;
     const enhBadge      = enh > 0 ? `<div class="item-icon-stack" style="top:2px;left:3px;right:auto;color:${enh >= 7 ? 'var(--legendary)' : 'var(--gold)'}">+${enh}</div>` : '';
     const glowClass     = enh >= 15 ? 'enh-glow-15' : enh >= 7 ? 'enh-glow-7' : '';
     const isLocked      = item.levelReq && item.levelReq > state.level;
@@ -5256,7 +5492,15 @@ async function autoSellNow()   { await autoSellAfterCombat(); }
 // ── CRAFTING ──
 function openCrafting(){document.getElementById('craft-screen').style.display='block';renderCrafting();}
 function closeCrafting(){document.getElementById('craft-screen').style.display='none';}
-function getMaterialQty(name){const item=state.inventory.find(i=>i.name===name&&i.stackable);return item?item.qty:0;}
+function getMaterialQty(name) {
+  // ✅ FIX: Access the 'material' array directly from the object
+  const materials = state.inventory.material || [];
+  
+  // Now safely use .find() on the array
+  const item = materials.find(i => i.name === name && i.stackable);
+  
+  return item ? item.qty : 0;
+}
 function renderCrafting(){
   const grid=document.getElementById('craft-grid-merchant') || document.getElementById('craft-grid-town'),r_=r=>RARITY[r]||RARITY.normal;
   grid.innerHTML=CRAFTING.map(recipe=>{
@@ -5674,12 +5918,15 @@ function updateUI(){
   document.getElementById('mp-max').textContent=formatNumber(state.maxMp);
   document.getElementById('xp-val').textContent=formatNumber(state.xp);
   document.getElementById('xp-next').textContent=formatNumber(state.xpNext);
-  const goldEl = document.getElementById('gold-val')
-  const goldElM = document.getElementById('gold-val-merchant')
-  if (goldEl) goldEl.textContent = formatNumber(state.gold)
-  if (goldElM) goldElM.textContent = formatNumber(state.gold).textContent=formatNumber(state.gold);
-  const crystalEl = document.getElementById('soul-crystal-val');
-  if (crystalEl) crystalEl.textContent = formatNumber(state.soulCrystals || 0);
+  const goldEl = document.getElementById('gold-val');
+const goldElM = document.getElementById('gold-val-merchant');
+if (goldEl) goldEl.textContent = formatNumber(state.gold);
+if (goldElM) goldElM.textContent = formatNumber(state.gold);
+
+const crystalEl = document.getElementById('soul-crystal-val');
+const crystalElM = document.getElementById('soul-crystal-val-merchant');
+if (crystalEl) crystalEl.textContent = formatNumber(state.soulCrystals || 0);
+if (crystalElM) crystalElM.textContent = formatNumber(state.soulCrystals || 0);
   document.getElementById('str-val').textContent=formatNumber(state.str);
   document.getElementById('agi-val').textContent=formatNumber(state.agi);
   document.getElementById('int-val').textContent=formatNumber(state.int);

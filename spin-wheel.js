@@ -525,7 +525,7 @@ async function applySpinReward(prize, isPremium) {
       });
     } catch(e) { console.error('Chat announce failed:', e); }
   }
-  await savePlayerToSupabase();
+ await saveInventoryToSupabase();
   break;
 }
 
@@ -561,9 +561,23 @@ async function applySpinReward(prize, isPremium) {
           state.soulCrystals   = char.soul_crystals;
           state.goldMult       = char.gold_mult || 1;
           state.goldMultExpiry = char.gold_mult_expiry || null;
-          state.inventory      = (char.inventory || [])
-            .map(i => typeof i === 'string' ? JSON.parse(i) : i)
-            .map(i => ({ ...i, uid: String(i.uid) }));
+          const rawInv = char.inventory;
+if (rawInv && !Array.isArray(rawInv) && rawInv.equipment !== undefined) {
+  const norm = (bag) => (bag || []).map(i =>
+    typeof i === 'string' ? JSON.parse(i) : i
+  ).map(i => ({ ...i, uid: String(i.uid) }));
+  state.inventory = {
+    equipment:  norm(rawInv.equipment),
+    consumable: norm(rawInv.consumable),
+    material:   norm(rawInv.material),
+  };
+} else if (Array.isArray(rawInv)) {
+  const items = rawInv.map(i => typeof i === 'string' ? JSON.parse(i) : i)
+                      .map(i => ({ ...i, uid: String(i.uid) }));
+  state.inventory = { equipment: items, consumable: [], material: [] };
+} else {
+  state.inventory = { equipment: [], consumable: [], material: [] };
+}
 
           if (prize.type === 'gold') {
             const gained = char.gold - oldGold + (isPremium ? window.PREMIUM_SPIN_COST : window.NORMAL_SPIN_COST);

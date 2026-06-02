@@ -261,12 +261,12 @@ function openSkillComboPicker(tournament, tier, tierKey) {
 async function resumeStuckTournaments() {
   try {
     const { data: tournament } = await dbClient
-      .from('arena_tournaments')
-      .select('*')
-      .eq('status', 'in_progress')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+  .from('arena_tournaments')
+  .select('*')
+  .eq('status', 'in_progress')
+  .order('created_at', { ascending: false })
+  .limit(1)
+  .maybeSingle();
 
     if (!tournament) return;
 
@@ -1549,12 +1549,12 @@ async function createWeeklyTournamentsIfMissing() {
 
     for (const tier of TIERS) {
       const { data: existing } = await dbClient
-        .from('arena_tournaments')
-        .select('id')
-        .eq('min_level', tier.minLevel)
-        .in('status', ['open', 'in_progress'])
-        .gte('starts_at', nextFriday.toISOString())
-        .single();
+  .from('arena_tournaments')
+  .select('id')
+  .eq('min_level', tier.minLevel)
+  .in('status', ['open', 'in_progress'])
+  .gte('starts_at', nextFriday.toISOString())
+  .maybeSingle();
 
       if (existing) continue;
 
@@ -1596,10 +1596,10 @@ async function qualifyTopPlayersForGrandFinal(tierKey) {
 
     // Get current Supreme Champion for this tier
     const { data: supremeChamp } = await dbClient
-      .from('characters')
-      .select('id, name, level, class, stats, skills, skill_cooldowns, equipped')
-      .eq('supreme_tier', tierKey)
-      .single();
+  .from('characters')
+  .select('id, name, level, class, skills, skill_cooldowns, equipped')
+  .eq('supreme_tier', tierKey)
+  .maybeSingle();
 
     const qualifiedPlayers = [];
     const bracketPoints = []; // track which bracket has most points for 8th seed
@@ -1729,11 +1729,11 @@ async function startGrandFinal(tierKey) {
 
     // Check if grand final already exists for this tier
     const { data: existing } = await dbClient
-      .from('grand_finals')
-      .select('id, status')
-      .eq('tier', tierKey)
-      .in('status', ['pending', 'in_progress'])
-      .single();
+  .from('grand_finals')
+  .select('id, status')
+  .eq('tier', tierKey)
+  .in('status', ['pending', 'in_progress'])
+  .maybeSingle();
 
     if (existing) {
       if (existing.status === 'in_progress') {
@@ -1783,10 +1783,10 @@ async function startGrandFinal(tierKey) {
 
     // Get previous supreme champion
     const { data: prevChamp } = await dbClient
-      .from('characters')
-      .select('id')
-      .eq('supreme_tier', tierKey)
-      .single();
+  .from('characters')
+  .select('id')
+  .eq('supreme_tier', tierKey)
+  .maybeSingle();
 
     // Create grand final record
     const { data: grandFinal, error } = await dbClient
@@ -2124,12 +2124,12 @@ async function checkAndStartGrandFinals() {
 
       // Check if grand final already exists and is complete/in progress this week
       const { data: existingGF } = await dbClient
-        .from('grand_finals')
-        .select('id, status')
-        .eq('tier', tierKey)
-        .in('status', ['pending', 'in_progress', 'completed'])
-        .gte('created_at', weekAgo.toISOString())
-        .single();
+  .from('grand_finals')
+  .select('id, status')
+  .eq('tier', tierKey)
+  .in('status', ['pending', 'in_progress', 'completed'])
+  .gte('created_at', weekAgo.toISOString())
+  .maybeSingle();
 
       if (existingGF?.status === 'completed')   continue;
       if (existingGF?.status === 'in_progress') continue;
@@ -2198,13 +2198,13 @@ async function paySupremeChampionWeeklyBonus() {
 // ── VIEW GRAND FINAL BRACKET ──
 async function viewGrandFinalBracket(tierKey) {
   const { data: grandFinal } = await dbClient
-    .from('grand_finals')
-    .select('*')
-    .eq('tier', tierKey)
-    .in('status', ['in_progress', 'completed'])
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
+  .from('grand_finals')
+  .select('*')
+  .eq('tier', tierKey)
+  .in('status', ['in_progress', 'completed'])
+  .order('created_at', { ascending: false })
+  .limit(1)
+  .maybeSingle();
 
   if (!grandFinal) { notify('No Grand Final found!', 'var(--gold)'); return; }
 
@@ -3347,14 +3347,12 @@ async function viewBracketByTierAndNumber(tierKey, bracketNumber) {
   const minLevel = TIER_MIN[tierKey];
 
   const { data: tournament } = await dbClient
-    .from('arena_tournaments')
-    .select('*')
-    .in('status', ['open', 'in_progress', 'completed'])
-    .eq('min_level', minLevel)
-    .eq('bracket_number', bracketNumber)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
+  .from('arena_tournaments')
+  .select('*')
+  .eq('status', 'in_progress')
+  .order('created_at', { ascending: false })
+  .limit(1)
+  .single();
 
   if (!tournament) { notify('No bracket found!', 'var(--gold)'); return; }
 

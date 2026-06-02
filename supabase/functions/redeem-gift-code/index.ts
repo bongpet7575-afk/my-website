@@ -56,18 +56,18 @@ function makeStarterItem(slot: string, level: number) {
   }
 
   return {
-    uid: genUid(),
-    name: `${icons[slot]} Supporter's ${names[slot]}`,
-    category: 'equipment',
-    slot,
-    rarity: 'uncommon',
-    enhancement: 0,
-    stats,
-    equipped: false,
-    levelReq: 1,
-    sellPrice: 5000,
-    starterPackItem: true,
-  }
+  uid:            genUid(),
+  name:           `${icons[slot]} Supporter's ${names[slot]}`,
+  category:       'equipment',
+  slot,
+  rarity:         'uncommon',
+  enh_level:      0,        // ← was enhancement: 0
+  stats,
+  equipped:       false,
+  levelReq:       1,
+  sellPrice:      5000,
+  starterPackItem: true,
+}
 }
 
 Deno.serve(async (req) => {
@@ -150,19 +150,40 @@ Deno.serve(async (req) => {
     let starterItems: any[] = []
 
     if (giftCode.tier === 'starter_pack') {
-      // Generate 6 uncommon starter items
-      const slots = ['weapon', 'armor', 'helmet', 'boots', 'ring', 'amulet']
-      const charLevel = character.level || 1
-      starterItems = slots.map(slot => makeStarterItem(slot, charLevel))
+  const slots = ['weapon', 'armor', 'helmet', 'boots', 'ring', 'amulet']
+  starterItems = slots.map(slot => makeStarterItem(slot, 1))
 
-      const currentInventory = (character.inventory || []).map((item: any) =>
-  typeof item === 'string' ? JSON.parse(item) : item
-)
-      updatePayload.starter_pack_redeemed = true
-      updatePayload.supporter_title = '🎖️ Supporter'
-      updatePayload.chat_color = '#22c55e'
-      updatePayload.is_supporter = true  // ✅ ADD THIS
-    }
+  // Load existing 3-bag inventory, normalize if old flat array
+  let existingInv = character.inventory
+  let equipmentBag: any[] = []
+  let consumableBag: any[] = []
+  let materialBag: any[] = []
+
+  if (existingInv && !Array.isArray(existingInv) && existingInv.equipment !== undefined) {
+    // Already 3-bag structure
+    equipmentBag  = (existingInv.equipment  || []).map((i: any) => typeof i === 'string' ? JSON.parse(i) : i)
+    consumableBag = (existingInv.consumable || []).map((i: any) => typeof i === 'string' ? JSON.parse(i) : i)
+    materialBag   = (existingInv.material   || []).map((i: any) => typeof i === 'string' ? JSON.parse(i) : i)
+  } else if (Array.isArray(existingInv)) {
+    // Legacy flat array — migrate into equipment bag
+    equipmentBag = existingInv.map((i: any) => typeof i === 'string' ? JSON.parse(i) : i)
+  }
+
+  // Add starter items to equipment bag (max 20 slots)
+  for (const item of starterItems) {
+    if (equipmentBag.length < 20) equipmentBag.push(item)
+  }
+
+  updatePayload.inventory = {
+    equipment:  equipmentBag,
+    consumable: consumableBag,
+    material:   materialBag,
+  }
+  updatePayload.starter_pack_redeemed = true
+  updatePayload.supporter_title       = '🎖️ Supporter'
+  updatePayload.chat_color            = '#22c55e'
+  updatePayload.is_supporter          = true
+}
 
     const { error: rewardError } = await supabase
       .from('characters')
