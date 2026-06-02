@@ -21,8 +21,18 @@ async function startCombat(stageId) {
 
 async function requestCombatSession(stageId) {
   try {
-    const { data: { session } } = await dbClient.auth.getSession()
-    console.log(session)
+    // 1. Get the session
+    const { data: { session } } = await dbClient.auth.getSession();
+    
+    if (!session) {
+      console.error("Combat Error: No active session found. User is not logged in.");
+      notify('⚠️ Please log in to start combat!', 'var(--red)');
+      return null;
+    }
+
+    console.log("Requesting combat session for stage:", stageId);
+
+    // 2. Perform the fetch
     const res = await fetch(`${SUPABASE_URL}/functions/v1/combat-start`, {
       method: 'POST',
       headers: {
@@ -33,14 +43,30 @@ async function requestCombatSession(stageId) {
         character_id: state.character_id,
         stage_id: stageId
       })
-    })
-    const data = await res.json()
-    if (!data.success) return null
-    return data // includes session_id and session stats
-  } catch {
-    return null
+    });
+
+    // 3. Check if the HTTP response is actually OK (200-299)
+    if (!res.ok) {
+      const errorText = await res.text(); // Get the raw error message from the server
+      console.error(`Combat Server Error (${res.status}):`, errorText);
+      return null;
+    }
+
+    const data = await res.json();
+    
+    if (!data.success) {
+      console.error("Combat Function Logic Error:", data.message || "Unknown server error");
+      return null;
+    }
+
+    return data; // includes session_id and session stats
+  } catch (err) {
+    // This now logs the actual JavaScript error (Network error, Syntax error, etc.)
+    console.error("Critical Combat Request Exception:", err);
+    return null;
   }
 }
+
 
 function renderPlayerStatPanel() {
   const el = document.getElementById('player-stats')
@@ -188,6 +214,11 @@ async function enterDungeon(stageId) {
 }
 function applyServerStats(session) {
   if (!session) return
+
+  console.log("--- SERVER STATS RECEIVED ---");
+  console.log("Equip Strength:", session.equipStr);
+  console.log("Equip Armor:", session.equipArmor);
+  console.log("Full Session Data:", session);
 
   // Equipment bonuses from server ONLY
   // Never overwrite base stats — those belong to the player

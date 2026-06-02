@@ -1541,11 +1541,16 @@ padding:8px 16px;background:rgba(200,168,75,0.1);border:1px solid var(--border-b
 
 <!-- hidden bridge input for registerUser() -->
 <input type="hidden" id="name-input" value=""/>
+<!-- ═══════════════════════════════════════ SCRIPTS ═══════════════════════════════════════ -->
 
-<!-- ═══════════════════════════════════════ SCRIPTS ═══ -->
+<!-- 1. THE CORE: Must be first because it defines the 'state' object -->
+<script src="game.js"></script>
+
+<!-- 2. CORE SYSTEMS: These depend on the state defined in game.js -->
 <script src="supabase-sync.js"></script>
 <script src="combat.js"></script>
-<script src="game.js"></script>
+
+<!-- 3. FEATURE MODULES: These can load in any order as they add onto the core -->
 <script src="chat-module.js"></script>
 <script src="adventurer_quest_system.js"></script>
 <script src="auction.js"></script>
@@ -1555,7 +1560,6 @@ padding:8px 16px;background:rgba(200,168,75,0.1);border:1px solid var(--border-b
 <script src="tournament.js"></script>
 
 <script>
-
 // ── AUTH TAB SWITCHER ──
 function switchAuthTab(tab, btn) {
   document.querySelectorAll('.auth-tab').forEach(b => b.classList.remove('active'));
@@ -1566,16 +1570,10 @@ function switchAuthTab(tab, btn) {
 }
 
 // ── REGISTER BRIDGE ──
-// BUG FIX #10: doRegister now passes values directly to registerUser()
-// instead of stuffing them into login form fields first (which could bleed
-// previously-typed login values into the registration call).
 function doRegister() {
-  const name  = document.getElementById('reg-name')?.value.trim()  || '';
-  const email = document.getElementById('reg-email')?.value.trim() || '';
-  const pass  = document.getElementById('reg-pass')?.value.trim()  || '';
-  document.getElementById('name-input').value = name;
-  // Pass directly — don't touch the login form fields
-  registerUser(email, pass);
+  // We just call registerUser(). 
+  // The function in game.js reads the inputs directly, so we don't need to pass arguments.
+  registerUser();
 }
 
 // ── TOWN PANEL SWITCHER ──
@@ -1590,13 +1588,12 @@ async function switchTownPanel(panel, btn) {
 
   if (panel === 'shop')       renderShop();
   if (panel === 'craft')      renderCrafting();
-  if (panel === 'auction') fetchAuctions(currentAuctionSource || 'auction')
+  if (panel === 'auction')    fetchAuctions(currentAuctionSource || 'auction');
   if (panel === 'tournament') renderTournament();
-  if (panel === 'quests') renderAdventurerBoard();
+  if (panel === 'quests')     renderAdventurerBoard();
 }
 
 // ── QR TOGGLE ──
-// BUG FIX #6: explicitly sets display:'flex' so flex-direction:column works
 function toggleQR() {
   const el = document.getElementById('qr-overlay');
   if (!el) return;
@@ -1612,7 +1609,6 @@ window.showGame = async function() {
   if (charSel) charSel.remove();
 
   await loadGameConfig();
-
   _origShowGame();
 
   document.getElementById('game-wrapper').style.display = 'flex';
@@ -1634,23 +1630,16 @@ window.switchMainScene = async function(scene) {
   if (activeBtn) activeBtn.classList.add('active');
 
   if (scene === 'adv') {
-  switchAdvTab('dungeons', document.getElementById('adv-tab-dungeons'))
-  loadScene(state.currentScene || 'town')
-}
-if (scene === 'town') {
-  await loadGameConfig()
-  switchTownPanel('tournament', document.querySelector('#main-scene-town .town-tab'))
-}
+    switchAdvTab('dungeons', document.getElementById('adv-tab-dungeons'));
+    loadScene(state.currentScene || 'town');
+  }
+  if (scene === 'town') {
+    await loadGameConfig();
+    switchTownPanel('tournament', document.querySelector('#main-scene-town .town-tab'));
+  }
   if (scene === 'char') renderStatPoints();
 };
-
-
-
-// BUG FIX #3: Removed the dangerous document.getElementById override.
-// It was globally patching the browser API which could break Supabase's
-// internal calls. The 'arena-player' element now directly serves as the
-// player avatar — no alias needed.
-
 </script>
+
 </body>
 </html>

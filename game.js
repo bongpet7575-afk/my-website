@@ -1822,45 +1822,42 @@ function reapplyTalentBonuses() {
 }
 
 function reapplyEquipBonuses() {
-  // Reset all equip bonus state
-  state.equipStr             = 0;
-  state.equipStrMult         = 0;
-  state.equipAgi             = 0;
-  state.equipAgiMult         = 0;
-  state.equipInt             = 0;
-  state.equipIntMult         = 0;
-  state.equipSta             = 0;
-  state.equipStaMult         = 0;
-  state.equipMaxHp           = 0;
-  state.equipMaxHpMult       = 0;
-  state.equipMaxMp           = 0;
-  state.equipMaxMpMult       = 0;
-  state.equipArmor           = 0;
-  state.equipArmorMult       = 0;
-  state.equipCrit            = 0;
-  state.equipDodge           = 0;
-  state.equipDodgeMult       = 0;
-  state.equipLifeSteal       = 0;
-  state.equipLifeStealMult   = 1.0;
-  state.equipAttackPower     = 0;
-  state.equipAttackPowerMult = 0;
-  state.equipHpRegen         = 0;
-  state.equipHpRegenMult     = 0;
-  state.equipMpRegen         = 0;
-  state.equipMpRegenMult     = 0;
-  state.equipHit             = 0;
-  state.equipHitMult         = 0;
+  // 1. Reset all equip bonus state
+  state.equipStr             = 0; state.equipStrMult         = 0;
+  state.equipAgi             = 0; state.equipAgiMult         = 0;
+  state.equipInt             = 0; state.equipIntMult         = 0;
+  state.equipSta             = 0; state.equipStaMult         = 0;
+  state.equipMaxHp           = 0; state.equipMaxHpMult       = 0;
+  state.equipMaxMp           = 0; state.equipMaxMpMult       = 0;
+  state.equipArmor           = 0; state.equipArmorMult       = 0;
+  state.equipCrit            = 0; 
+  state.equipDodge           = 0; state.equipDodgeMult       = 0;
+  state.equipLifeSteal       = 0; state.equipLifeStealMult   = 1.0;
+  state.equipAttackPower     = 0; state.equipAttackPowerMult = 0;
+  state.equipHpRegen         = 0; state.equipHpRegenMult     = 0;
+  state.equipMpRegen         = 0; state.equipMpRegenMult     = 0;
+  state.equipHit             = 0; state.equipHitMult         = 0;
 
-  // Walk equipped slots and accumulate bonuses
-  const equipped = state.equipped || {};
-  Object.values(equipped).forEach(item => {
+  const equippedSlots = state.equipped || {};
+  
+  // Flatten the categorized inventory to make searching easier
+  // We look in 'equipment' bag specifically
+  const allEquipItems = state.inventory?.equipment || [];
+
+  // 2. Iterate through equipped slots (weapon, armor, etc.)
+  Object.values(equippedSlots).forEach(itemId => {
+    if (!itemId) return;
+
+    // IMPORTANT: Find the actual item object in the inventory using the ID
+    const item = allEquipItems.find(i => String(i.uid) === String(itemId));
+    
     if (!item || !item.stats) return;
+
     const s = item.stats;
     const enh = item.enh_level ?? item.enhLevel ?? 0;
-
-    // Enhancement multiplier — each +1 adds 8% to all stats on item
     const enhMult = 1 + (enh * 0.08);
 
+    // Apply Enhanced Stats
     state.equipStr             += Math.floor((s.str          || 0) * enhMult);
     state.equipStrMult         += (s.strMult         || 0);
     state.equipAgi             += Math.floor((s.agi          || 0) * enhMult);
@@ -1890,6 +1887,7 @@ function reapplyEquipBonuses() {
     state.equipHitMult         += (s.hitMult         || 0);
   });
 }
+
 
 
 // ── CLASSES ──
@@ -2723,7 +2721,7 @@ function showCharacterSelect(characters) {
 
 async function selectCharacterAndPlay(characterId) {
   try {
-    // Check if session is already active
+    // 1. SESSION VALIDATION
     const { data: charCheck } = await dbClient
       .from('characters')
       .select('active_session, session_started_at, name')
@@ -2746,7 +2744,7 @@ async function selectCharacterAndPlay(characterId) {
       }
     }
 
-    // Claim the session
+    // 2. CLAIM SESSION
     const sessionToken = `${characterId}_${Date.now()}`
     await dbClient
       .from('characters')
@@ -2758,65 +2756,64 @@ async function selectCharacterAndPlay(characterId) {
 
     state.sessionToken = sessionToken
 
+    // Start rewards/tournaments in background (don't await them, just let them run)
     setTimeout(() => collectArenaRewards(), 2000)
     setTimeout(() => resumeStuckTournaments(), 3000)
 
     const screen = document.getElementById('char-select-screen')
     if (screen) screen.remove()
 
+    // 3. LOAD CHARACTER DATA
     const { data: character, error } = await dbClient
       .from('characters')
       .select('*')
       .eq('id', characterId)
       .single()
 
-    if (error) {
-      console.error('Supabase error:', error)
-      notify('❌ Failed to load character: ' + error.message, 'var(--red)')
-      return
-    }
-
-    if (!character) {
-      notify('❌ Character not found', 'var(--red)')
-      return
+    if (error || !character) {
+      throw new Error(error?.message || 'Character not found');
     }
 
     if (!character.id || !character.name) {
-      console.error('Invalid character data:', character)
-      notify('❌ Character data is corrupted', 'var(--red)')
-      return
+      throw new Error('Character data is corrupted');
     }
 
+    // 4. SYNC DATA TO STATE
     if (typeof syncCharacterToState === 'function') {
       await syncCharacterToState(character)
     } else {
-      console.warn('syncCharacterToState not loaded yet')
-      notify('❌ Game initialization failed', 'var(--red)')
-      return
+      throw new Error('syncCharacterToState not loaded yet');
     }
 
-    // Safety check — catch any sync failure before proceeding
+    // Safety check
     if (!state.character_id || state.character_id === 'undefined') {
-      console.error('CRITICAL: character_id missing after sync', character)
-      notify('❌ Critical Error: Character data failed to load. Please refresh.', 'var(--red)')
-      document.getElementById('auth-screen').style.display = 'flex'
-      return
+      throw new Error('Character ID missing after sync');
     }
 
-    await checkLoginReward()
-
-    if (typeof initChat === 'function') await initChat()
-
-    showGame()
-    setTimeout(() => startSessionWatcher(), 10000)
-    loadScene(state.currentScene || 'town')
-
+    // 5. INITIALIZE THE "PIPES" (CRITICAL FIX)
+    // We start the sync/realtime system BEFORE showing the game.
+    // This prevents the "flicker" and "weirdness" on load.
     if (typeof initializeSupabaseSync === 'function') {
-      initializeSupabaseSync()
+      initializeSupabaseSync();
     }
 
-    checkAndSettleAuctions()
-    addLog(`☁️ Welcome back ${state.name}! (Lv.${state.level})`, 'gold')
+    // 6. PROCESS LOGIN LOGIC
+    await checkLoginReward();
+
+    if (typeof initChat === 'function') {
+      await initChat();
+    }
+
+    // 7. REVEAL THE GAME
+    // Only once everything above is finished do we show the UI.
+    showGame();
+    loadScene(state.currentScene || 'town');
+
+    // 8. BACKGROUND TASKS
+    setTimeout(() => startSessionWatcher(), 10000);
+    checkAndSettleAuctions();
+    
+    addLog(`☁️ Welcome back ${state.name}! (Lv.${state.level})`, 'gold');
 
     setTimeout(() => {
       if (window._pendingLoginReward) {
@@ -2827,10 +2824,15 @@ async function selectCharacterAndPlay(characterId) {
     }, 500)
 
   } catch (e) {
-    console.error('Character load error:', e)
-    notify('❌ Load failed: ' + e.message, 'var(--red)')
+    console.error('Character load error:', e);
+    notify('❌ Load failed: ' + e.message, 'var(--red)');
+    // If load fails, go back to auth screen so they aren't stuck
+    if(document.getElementById('auth-screen')) {
+        document.getElementById('auth-screen').style.display = 'flex';
+    }
   }
 }
+
 let sessionWatcherInterval = null
 
 function startSessionWatcher() {
@@ -4485,8 +4487,14 @@ function showClassSelection(){
   document.getElementById('class-screen').style.display='block';
 }
 function selectClass(classId){
-  const c=CLASSES[classId];state.class=classId;state.quests.class.done=true;
-  Object.entries(c.bonuses).forEach(([k,v])=>{state.classBonuses[k]=v;state[k]=(state[k]||1)+v;});
+  const c=CLASSES[classId]; state.class=classId; state.quests.class.done=true;
+  
+  // ONLY set the bonuses in the bonus object. 
+  // Do NOT add them to state[k] here, because calcStats() does that automatically.
+  Object.entries(c.bonuses).forEach(([k,v])=>{
+    state.classBonuses[k]=v;
+  });
+
   state.skills=c.skills;
   autoSkillSlots=[null,null,null,null,null,null];
   autoSkillIndex=0;
@@ -4494,12 +4502,20 @@ function selectClass(classId){
   updatePlayerAvatar();
   document.getElementById('class-screen').style.display='none';
   document.getElementById('talent-btn').style.display='inline-block';
-  Object.entries(c.trees).forEach(([treeId,tree])=>{tree.talents.forEach(talent=>{state.talentUnlockedFlags[`${classId}_${talent.id}`]=false;});});
-  addLog(`🎉 You are now a ${c.name}!`,'purple');playSound('snd-levelup');
-  updateUI();renderSkillBar();renderQuests();
+  Object.entries(c.trees).forEach(([treeId,tree])=>{
+    tree.talents.forEach(talent=>{
+      state.talentUnlockedFlags[`${classId}_${talent.id}`]=false;
+    });
+  });
+  addLog(`🎉 You are now a ${c.name}!`,'purple');
+  playSound('snd-levelup');
+  updateUI();
+  renderSkillBar();
+  renderQuests();
   rebuildSkills();
   savePlayerToSupabase();
 }
+
 
 // ── TALENTS ──
 function openTalents(){

@@ -24,8 +24,13 @@ async function checkLoginReward() {
       const newTotalDays = (state.totalLoginDays || 0) + 1;
       const reward = loginRewards.find(r => r.day === newStreak) || loginRewards[0];
 
+      // 1. Give Soul Crystals
       state.soulCrystals = (state.soulCrystals || 0) + (reward.crystals || 0);
-      if (reward.gold) state.gold += reward.gold;
+      
+      // 2. Give Gold
+      if (reward.gold) {
+        addGold(reward.gold); // Use addGold for consistency
+      }
 
       let rewardItem = null;
       if (reward.item_rarity) {
@@ -33,14 +38,19 @@ async function checkLoginReward() {
         const slot = reward.item_slot || slots[Math.floor(Math.random() * slots.length)];
         const stageId = reward.item_rarity === 'legendary' ? 10
                       : reward.item_rarity === 'epic'      ? 7 : 5;
+        
         rewardItem = mkEquipDrop(slot, reward.item_rarity, stageId);
-        state.inventory.push(rewardItem);
+        
+        // ✅ FIXED: Use the proper system function instead of .push()
+        // This handles the categorized bag (equipment: []) and bag limits
+        addToInventory(rewardItem); 
       }
 
       state.loginStreak    = newStreak;
       state.lastLoginDate  = today;
       state.totalLoginDays = newTotalDays;
 
+      // Save immediately so the reward isn't lost if they crash/close
       await savePlayerToSupabase();
       updateUI();
 
@@ -56,6 +66,7 @@ async function checkLoginReward() {
     console.error('Login reward error:', e);
   }
 }
+
 
 function showLoginRewardPopup(reward, day, item, alreadyClaimed = false) {
   const existing = document.getElementById('login-reward-overlay');
