@@ -4340,10 +4340,11 @@ function openTreasureBox(box){
     let rarity=rollTreasureRarity(table.tier);
     const slot=slots[Math.floor(Math.random()*slots.length)];
     const item=mkEquipDrop(slot,rarity,stageId);
-    const before=state.inventory.length;
+    const before=(state.inventory.equipment||[]).length;
     addToInventory(item);
-    const added=state.inventory.length>before||
-      (item.stackable&&state.inventory.find(i=>i.name===item.name));
+    const after=(state.inventory.equipment||[]).length;
+    const added=after>before||
+      (item.stackable&&(state.inventory.equipment||[]).find(i=>i.name===item.name));
     if(added){
       items.push(item);
       if(item.rarity==='legendary')state.quests.legendary.done=true;
@@ -4360,7 +4361,7 @@ function openTreasureBox(box){
   for(let i=0;i<matCount;i++)rollMatDrop(stageId,false);
 
   const bonusGold=Math.floor(1000*stageId*diff.goldMult);
-  addGold(bonusGold); // ✅ sanitized
+  addGold(bonusGold);
 
   const bossName=box.sourceBossName||`Stage ${stageId} Boss`;
   notify(`📦 ${bossName}'s chest opened! ${items.length} items found!`,'var(--gold)');
@@ -4371,7 +4372,6 @@ function openTreasureBox(box){
   playSound('snd-levelup');
   spawnParticles(window.innerWidth/2,window.innerHeight/2,'#f0c040',20);
 
-  // Track drops in Supabase
   if(state.character_id&&items.length>0){
     const drops=items.map(item=>({name:item.name,rarity:item.rarity}));
     dbClient.rpc('record_monster_kill',{
@@ -5413,74 +5413,79 @@ async function saveTabAutoSell(tab) {
 }
 
 // ── AUTO-SELL NOW FOR A SPECIFIC TAB ──
-async function autoSellTab(tab){
+async function autoSellTab(tab) {
   migrateAutoSell();
-  const tabSell=state.autoSell[tab];
-  if(!tabSell)return;
-  if(!tabSell.normal&&!tabSell.uncommon&&!tabSell.rare&&!tabSell.epic){
-    notify('No rarities selected to auto-sell!','var(--gold)');return;
+  const tabSell = state.autoSell[tab];
+  if (!tabSell) return;
+  if (!tabSell.normal && !tabSell.uncommon && !tabSell.rare && !tabSell.epic) {
+    notify('No rarities selected to auto-sell!', 'var(--gold)'); return;
   }
 
-  let totalGold=0,count=0;
-  const toSell=state.inventory.filter(i=>{
-    if(i.equipped)return false;
-    if(i.category!==tab)return false;
-    return (tabSell.normal&&i.rarity==='normal')||
-           (tabSell.uncommon&&i.rarity==='uncommon')||
-           (tabSell.rare&&i.rarity==='rare')||
-           (tabSell.epic&&i.rarity==='epic');
+  const bag = state.inventory[tab] || [];
+  let totalGold = 0, count = 0;
+
+  const toSell = bag.filter(i => {
+    if (i.equipped) return false;
+    return (tabSell.normal   && i.rarity === 'normal')   ||
+           (tabSell.uncommon && i.rarity === 'uncommon') ||
+           (tabSell.rare     && i.rarity === 'rare')     ||
+           (tabSell.epic     && i.rarity === 'epic');
   });
 
-  toSell.forEach(item=>{
-    totalGold+=Math.floor(Number(item.sellPrice||0))*(item.stackable?item.qty:1);
+  toSell.forEach(item => {
+    totalGold += Math.floor(Number(item.sellPrice || 0)) * (item.stackable ? item.qty : 1);
     count++;
-    const idx=state.inventory.findIndex(i=>i.uid===item.uid);
-    if(idx!==-1)state.inventory.splice(idx,1);
   });
 
-  if(count>0){
-    addGold(totalGold); // ✅ sanitized
-    addLog(`🗑️ Auto-sold ${count} ${tab} items for ${formatNumber(totalGold)}g!`,'gold');
-    notify(`🗑️ Sold ${count} items for ${formatNumber(totalGold)}g`,'var(--gold)');
-    renderInventory();updateUI();
-    await savePlayerToSupabase();
+  // Remove sold items from bag
+  state.inventory[tab] = bag.filter(i => !toSell.find(s => s.uid === i.uid));
+
+  if (count > 0) {
+    addGold(totalGold);
+    addLog(`🗑️ Auto-sold ${count} ${tab} items for ${formatNumber(totalGold)}g!`, 'gold');
+    notify(`🗑️ Sold ${count} items for ${formatNumber(totalGold)}g`, 'var(--gold)');
+    renderInventory();
+    updateUI();
+    await saveInventoryToSupabase();
   } else {
-    notify('No items to sell in this tab!','var(--text-dim)');
+    notify('No items to sell in this tab!', 'var(--text-dim)');
   }
 }
 
-async function autoSellAfterCombat(){
+async function autoSellAfterCombat() {
   migrateAutoSell();
-  let totalGold=0,count=0;
+  let totalGold = 0, count = 0;
 
-  ['equipment','consumable','material'].forEach(tab=>{
-    const tabSell=state.autoSell[tab];
-    if(!tabSell)return;
-    if(!tabSell.normal&&!tabSell.uncommon&&!tabSell.rare&&!tabSell.epic)return;
+  ['equipment', 'consumable', 'material'].forEach(tab => {
+    const tabSell = state.autoSell[tab];
+    if (!tabSell) return;
+    if (!tabSell.normal && !tabSell.uncommon && !tabSell.rare && !tabSell.epic) return;
 
-    const toSell=state.inventory.filter(i=>{
-      if(i.equipped)return false;
-      if(i.category!==tab)return false;
-      return (tabSell.normal&&i.rarity==='normal')||
-             (tabSell.uncommon&&i.rarity==='uncommon')||
-             (tabSell.rare&&i.rarity==='rare')||
-             (tabSell.epic&&i.rarity==='epic');
+    const bag = state.inventory[tab] || [];
+
+    const toSell = bag.filter(i => {
+      if (i.equipped) return false;
+      return (tabSell.normal   && i.rarity === 'normal')   ||
+             (tabSell.uncommon && i.rarity === 'uncommon') ||
+             (tabSell.rare     && i.rarity === 'rare')     ||
+             (tabSell.epic     && i.rarity === 'epic');
     });
 
-    toSell.forEach(item=>{
-      totalGold+=Math.floor(Number(item.sellPrice||0))*(item.stackable?item.qty:1);
+    toSell.forEach(item => {
+      totalGold += Math.floor(Number(item.sellPrice || 0)) * (item.stackable ? item.qty : 1);
       count++;
-      const idx=state.inventory.findIndex(i=>i.uid===item.uid);
-      if(idx!==-1)state.inventory.splice(idx,1);
     });
+
+    state.inventory[tab] = bag.filter(i => !toSell.find(s => s.uid === i.uid));
   });
 
-  if(count>0){
-    addGold(totalGold); // ✅ sanitized
-    addLog(`🗑️ Auto-sold ${count} items for ${formatNumber(totalGold)}g!`,'gold');
-    notify(`🗑️ Auto-sold ${count} items for ${formatNumber(totalGold)}g`,'var(--gold)');
-    renderInventory();updateUI();
-    await savePlayerToSupabase();
+  if (count > 0) {
+    addGold(totalGold);
+    addLog(`🗑️ Auto-sold ${count} items for ${formatNumber(totalGold)}g!`, 'gold');
+    notify(`🗑️ Auto-sold ${count} items for ${formatNumber(totalGold)}g`, 'var(--gold)');
+    renderInventory();
+    updateUI();
+    await saveInventoryToSupabase();
   }
 }
 
@@ -5525,28 +5530,54 @@ function renderCrafting(){
     return`<div class="craft-card"><div class="craft-result" style="color:${rColor}">${result.name||result.slot} — <span style="color:${rColor}">${r_(result.rarity).label}</span></div><div style="font-size:.78em;color:#888;margin-bottom:5px;">${recipe.desc}</div><div class="craft-req">${reqHtml}</div><button class="craft-btn" onclick="craftItem('${recipe.id}')" ${canCraft?'':'disabled'}>⚗️ Craft</button></div>`;
   }).join('');
 }
-async function craftItem(recipeId){
-  const recipe=CRAFTING.find(r=>r.id===recipeId);if(!recipe)return;
-  if(!recipe.req.every(r=>getMaterialQty(r.name)>=r.qty)){notify('Missing materials!','var(--red)');return;}
-  recipe.req.forEach(req=>{let need=req.qty;state.inventory.forEach(item=>{if(item.name===req.name&&item.stackable&&need>0){const take=Math.min(item.qty,need);item.qty-=take;need-=take;}});state.inventory=state.inventory.filter(i=>!i.stackable||(i.qty||0)>0);});
-  const result={...recipe.result,uid:genUid(),sellPrice:Math.round((RARITY[recipe.result.rarity]?.mult||1)*15*state.level*.5)};
-  if(result.stackable)result.qty=1;if(result.category==='equipment')result.equipped=false;
-  addToInventory(result);state.quests.craft.done=true;
-trackQuestCraft(result.name);
+async function craftItem(recipeId) {
+  const recipe = CRAFTING.find(r => r.id === recipeId);
+  if (!recipe) return;
+  if (!recipe.req.every(r => getMaterialQty(r.name) >= r.qty)) {
+    notify('Missing materials!', 'var(--red)'); return;
+  }
 
-  if(result.category==='soul_weapon'){
+  // Deduct materials from material bag
+  recipe.req.forEach(req => {
+    let need = req.qty;
+    const matBag = state.inventory.material || [];
+    matBag.forEach(item => {
+      if (item.name === req.name && item.stackable && need > 0) {
+        const take = Math.min(item.qty, need);
+        item.qty -= take;
+        need -= take;
+      }
+    });
+    state.inventory.material = matBag.filter(i => !i.stackable || (i.qty || 0) > 0);
+  });
+
+  const result = {
+    ...recipe.result,
+    uid: genUid(),
+    sellPrice: Math.round((RARITY[recipe.result.rarity]?.mult || 1) * 15 * state.level * 0.5)
+  };
+  if (result.stackable) result.qty = 1;
+  if (result.category === 'equipment') result.equipped = false;
+
+  addToInventory(result);
+  state.quests.craft.done = true;
+  trackQuestCraft(result.name);
+
+  if (result.category === 'soul_weapon') {
     await equipSoulWeapon(result.uid);
-    addLog(`⚗️ Crafted & bound: ${result.name}!`,'legendary');
-    notify(`✨ Soul Weapon bound!`,'var(--legendary)');
+    addLog(`⚗️ Crafted & bound: ${result.name}!`, 'legendary');
+    notify(`✨ Soul Weapon bound!`, 'var(--legendary)');
     playSound('snd-craft');
-    console.log('result.category:', result.category);
-    renderCrafting();renderInventory();renderQuests();
+    renderCrafting(); renderInventory(); renderQuests();
+    await saveInventoryToSupabase();
     return;
   }
 
-  addLog(`⚗️ Crafted: ${result.name}!`,result.rarity==='legendary'?'legendary':'purple');
-  notify(`⚗️ Crafted ${result.name}!`,'var(--purple)');
-  playSound('snd-craft');renderCrafting();renderInventory();renderQuests();await savePlayerToSupabase();
+  addLog(`⚗️ Crafted: ${result.name}!`, result.rarity === 'legendary' ? 'legendary' : 'purple');
+  notify(`⚗️ Crafted ${result.name}!`, 'var(--purple)');
+  playSound('snd-craft');
+  renderCrafting(); renderInventory(); renderQuests();
+  await saveInventoryToSupabase();
 }
 
 function renderSoulWeaponSlot(){

@@ -599,24 +599,26 @@ async function submitQuestMaterials(adventurerQuestId) {
     if (aq.completed) { notify('Already completed!', 'var(--gold)'); return; }
 
     const matName = aq.req_target;
-    const needed = aq.req_qty - aq.progress;
-    const mats = state.inventory.filter(i =>
-      i.category === 'material' && i.name.includes(matName)
-    );
-    const totalHave = mats.reduce((sum, i) => sum + (i.qty || 1), 0);
+    const needed  = aq.req_qty - aq.progress;
+
+    const matBag   = state.inventory.material || [];
+    const totalHave = matBag
+      .filter(i => i.name.includes(matName))
+      .reduce((sum, i) => sum + (i.qty || 1), 0);
 
     if (totalHave <= 0) {
       notify(`❌ No ${matName} in inventory!`, 'var(--red)');
       return;
     }
 
-    const toSubmit = Math.min(totalHave, needed);
-    let remaining = toSubmit;
+    const toSubmit  = Math.min(totalHave, needed);
+    let remaining   = toSubmit;
 
-    state.inventory = state.inventory.map(i => {
-      if (i.category === 'material' && i.name.includes(matName) && remaining > 0) {
-        const take = Math.min(i.qty || 1, remaining);
-        remaining -= take;
+    // Deduct from material bag
+    state.inventory.material = matBag.map(i => {
+      if (i.name.includes(matName) && remaining > 0) {
+        const take   = Math.min(i.qty || 1, remaining);
+        remaining   -= take;
         const newQty = (i.qty || 1) - take;
         return newQty <= 0 ? null : { ...i, qty: newQty };
       }
@@ -624,7 +626,7 @@ async function submitQuestMaterials(adventurerQuestId) {
     }).filter(Boolean);
 
     const newProgress = aq.progress + toSubmit;
-    const completed = newProgress >= aq.req_qty;
+    const completed   = newProgress >= aq.req_qty;
 
     await dbClient
       .from('adventurer_quests')
@@ -639,7 +641,7 @@ async function submitQuestMaterials(adventurerQuestId) {
       notify(`✅ ${aq.title} complete!`, 'var(--gold)');
     }
 
-    savePlayerToSupabase();
+    await saveInventoryToSupabase();
     renderInventory();
     renderAdventurerBoard();
 

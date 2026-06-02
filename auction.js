@@ -326,7 +326,7 @@ fetchAuctions(currentAuctionSource || 'auction')
 // ============================================
 
 async function listItemForAuction(uid) {
-  const item = state.inventory.find(i => i.uid === uid)
+  const item = getItemByUid(uid);
   if (!item) { notify('❌ Item not found!', 'var(--red)'); return; }
   if (item.equipped) { notify('❌ Unequip item first!', 'var(--red)'); return; }
   if (!state.character_id) { notify('❌ Must be logged in!', 'var(--red)'); return; }
@@ -361,11 +361,11 @@ async function listItemForAuction(uid) {
     const data = await res.json()
     if (data.error) throw new Error(data.error)
 
-    // Remove item from local inventory only after server confirms
-    const idx = state.inventory.findIndex(i => i.uid === uid)
-    if (idx !== -1) state.inventory.splice(idx, 1)
+    // Remove from equipment bag after server confirms
+    state.inventory.equipment = (state.inventory.equipment || [])
+      .filter(i => i.uid !== uid);
 
-    await savePlayerToSupabase()
+    await saveInventoryToSupabase()
     addLog(`🏛️ ${item.name} listed! Starts at ${formatNumber(startPrice)}g`, 'gold')
     notify(`🏛️ Item listed for auction!`, 'var(--gold)')
     renderInventory()
