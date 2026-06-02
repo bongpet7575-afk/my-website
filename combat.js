@@ -33,11 +33,12 @@ async function requestCombatSession(stageId) {
     console.log("Requesting combat session for stage:", stageId);
 
     // 2. Perform the fetch
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/combat-start`, {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/smooth-processor`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY, // Use the global variable instead of hardcoded string
+        'Authorization': `Bearer ${session?.access_token}`
       },
       body: JSON.stringify({
         character_id: state.character_id,

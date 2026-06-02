@@ -184,7 +184,7 @@ async function redeemGiftCode() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhZ3dycXJnY3V1aXR3Z3JvaXdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU5MzI3NTMsImV4cCI6MjA2MTUwODc1M30.3RnkFS-aRJMBMEVTMWOV-HolOvGn4Y4pF7tPAKMhjRM',
+        'apikey': SUPABASE_KEY, // Use the global variable instead of hardcoded string
         'Authorization': `Bearer ${session?.access_token}`
       },
       body: JSON.stringify({
@@ -201,33 +201,34 @@ async function redeemGiftCode() {
       return;
     }
 
-    // Update local display state — server already wrote to DB
-    state.gold         = (state.gold         || 0) + data.rewards.gold;
-    state.soulCrystals = (state.soulCrystals || 0) + data.rewards.diamonds;
-    state.premiumSpins = (state.premiumSpins || 0) + data.rewards.spins;
+    // 1. Update Currency
+    state.gold = (state.gold || 0) + (data.rewards.gold || 0);
+    state.soulCrystals = (state.soulCrystals || 0) + (data.rewards.diamonds || 0);
+    state.premiumSpins = (state.premiumSpins || 0) + (data.rewards.spins || 0);
 
-    if (data.rewards.starterItems) {
+    // 2. Process Items
+    if (data.rewards.starterItems && Array.isArray(data.rewards.starterItems)) {
       data.rewards.starterItems.forEach(item => {
-        // Add to equipment bag directly
-        if (state.inventory.equipment.length < 20) {
-          state.inventory.equipment.push(item);
-        }
+        // ✅ FIX: Use the global system. 
+        // This handles categories, UIDs, and "Bag Full" warnings.
+        addToInventory(item); 
       });
-      await saveInventoryToSupabase();
       renderInventory();
     }
 
+    // 3. Update Cosmetics
     if (data.rewards.supporterTitle) state.supporterTitle = data.rewards.supporterTitle;
     if (data.rewards.chatColor)      state.chatColor      = data.rewards.chatColor;
 
-    // Save only UI cosmetics — NOT gold/crystals/spins (already in DB from edge fn)
-    //await savePlayerToSupabase();
-
+    // 4. Finalize
     updateUI();
     msg.style.color = '#44aa44';
     msg.textContent = `✅ Redeemed! +${data.rewards.diamonds} 💎 +${data.rewards.gold.toLocaleString()} 🪙 +${data.rewards.spins} 🎰`;
     input.value = '';
     addLog(`🎁 Gift code redeemed! Tier: ${data.rewards.tier.toUpperCase()}`, 'gold');
+
+    // Note: We don't call savePlayerToSupabase() here because the Edge 
+    // function already updated the DB. We only update local state.
 
   } catch (err) {
     msg.style.color = '#cc4444';

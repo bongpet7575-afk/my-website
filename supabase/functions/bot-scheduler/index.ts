@@ -191,7 +191,6 @@ function genBotItemStats(slot: string, stageId: number, rarity: string): Record<
 
 // ── ACTION 1: BOT DUNGEON RUN ──
 async function botDungeonRun(bot: any) {
-  // Load stage config from game_config
   const { data: configs } = await supabase
     .from('game_config')
     .select('key, value')
@@ -204,66 +203,72 @@ async function botDungeonRun(bot: any) {
   const xpMults = configMap['monster_xp_mult'] || {}
   const goldMults = configMap['monster_gold_mult'] || {}
 
-  // Pick highest stage bot can do
   const STAGE_LEVEL_REQ: Record<number, number> = {
     1:1, 2:10, 3:20, 4:30, 5:40, 6:50, 7:60, 8:70, 9:80, 10:90
   }
 
-  const availableStages = Object.entries(STAGE_LEVEL_REQ)
-    .filter(([_, req]) => bot.level >= req)
-    .map(([id]) => Number(id))
-
-  if (!availableStages.length) return
-
-  const stageId = availableStages[availableStages.length - 1]
-  const bossKey = `stage_boss_${stageId}`
-  const stageKey = `stage_${stageId}`
-
-  // Use same gold ranges as real players
-  const bossGoldRange = bossGoldRanges[bossKey] || [50, 150]
-  const goldMult = goldMults[stageKey] || 1
-  const xpMult = xpMults[stageKey] || 1
-
-  // Boss XP values matching STAGE_BOSSES
   const BOSS_XP: Record<number, number> = {
-    1:4000, 2:8000, 3:16000, 4:21000, 5:42000,
+    1:4000,  2:8000,  3:16000, 4:21000,  5:42000,
     6:80000, 7:160000, 8:300000, 9:600000, 10:1000000
   }
 
-  const baseXp = BOSS_XP[stageId] || 100
-  const xpGained = Math.floor(baseXp * xpMult)
-  const goldGained = Math.floor(
-    (Math.random() * (bossGoldRange[1] - bossGoldRange[0]) + bossGoldRange[0]) * goldMult
-  )
+  // Simulate 10 clears per scheduler run
+  const CLEARS_PER_RUN = 10
 
-  const newExp = (bot.exp || 0) + xpGained
-  const newGold = (bot.gold || 0) + goldGained
+  let currentLevel = bot.level
+  let currentExp = bot.exp || 0
+  let totalGold = bot.gold || 0
+  let totalXp = 0
 
-  // Level up check
-  let newLevel = bot.level
-  let remainingExp = newExp
-  while (remainingExp >= newLevel * 100 * 20 && newLevel < 100) {
-    remainingExp -= newLevel * 100 * 20
-    newLevel++
+  for (let i = 0; i < CLEARS_PER_RUN; i++) {
+    // Recalculate available stages each clear in case bot leveled mid-run
+    const availableStages = Object.entries(STAGE_LEVEL_REQ)
+      .filter(([_, req]) => currentLevel >= req)
+      .map(([id]) => Number(id))
+
+    if (!availableStages.length) break
+
+    const stageId = availableStages[availableStages.length - 1]
+    const bossKey = `stage_boss_${stageId}`
+    const stageKey = `stage_${stageId}`
+
+    const bossGoldRange = bossGoldRanges[bossKey] || [50, 150]
+    const goldMult = goldMults[stageKey] || 1
+    const xpMult = xpMults[stageKey] || 1
+
+    const xpGained = Math.floor((BOSS_XP[stageId] || 100) * xpMult)
+    const goldGained = Math.floor(
+      (Math.random() * (bossGoldRange[1] - bossGoldRange[0]) + bossGoldRange[0]) * goldMult
+    )
+
+    currentExp += xpGained
+    totalGold += goldGained
+    totalXp += xpGained
+
+    // Level up mid-run so next clear picks the right stage
+    while (currentExp >= currentLevel * 100 * 50 && currentLevel < 100) {
+      currentExp -= currentLevel * 100 * 50
+      currentLevel++
+    }
   }
 
   await supabase.from('characters').update({
-    exp: remainingExp,
-    gold: newGold,
-    level: newLevel,
+    exp: currentExp,
+    gold: totalGold,
+    level: currentLevel,
     updated_at: new Date().toISOString(),
   }).eq('id', bot.id)
 
   await supabase.from('leaderboard').upsert({
     player_id: bot.id,
     user_id: BOT_USER_ID,
-    level: newLevel,
-    gold: newGold,
+    level: currentLevel,
+    gold: totalGold,
     class: bot.class,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'player_id' })
 
-  console.log(`🤖 ${bot.name} completed stage ${stageId} — +${xpGained}xp +${goldGained}g`)
+  console.log(`🤖 ${bot.name} completed ${CLEARS_PER_RUN} clears — +${totalXp}xp, now level ${currentLevel}`)
 }
 // ── ACTION 2: BOT PLACE BID ──
 async function botPlaceBid(bot: any) {
