@@ -4870,7 +4870,7 @@ function formatNumber(num){if(num>=1000000)return(num/1000000).toFixed(1)+'M';if
 const ENHANCE_COST=[0,500,1000,2000,3500,5000,8000,12000,18000,25000,35000,50000,70000,100000,150000,200000];
 const ENHANCE_RATE=[0,100,95,85,75,65,55,45,35,25,25,25,25,25,25,25];
 function openEnhance(uid) {
-  const item = getItemByUid(uid);
+  const item = findInventoryItem(uid);
   if (!item || item.category !== 'equipment') return;
   document.getElementById('enhance-screen').style.display = 'block';
   renderEnhanceScreen(uid);
@@ -4922,7 +4922,7 @@ function renderEnhanceScreen(uid){
         ${orbCount>0?`${orbCount} owned`:'None owned'}
       </div>
     </div>`;
-  const item = getItemByUid(uid);
+  const item = findInventoryItem(uid);
   if(!item)return;
   const r=RARITY[item.rarity]||RARITY.normal,enh=item.enh_level??item.enhLevel??item.enhancement??0,maxed=enh>=15,cost=ENHANCE_COST[enh+1]||0,rate=ENHANCE_RATE[enh+1]||0;
   const pips=Array.from({length:15},(_,i)=>`<div class="enhance-pip ${i<enh?enh>=11?'pip-high':'pip-filled':'pip-empty'}"></div>`).join('');
@@ -4970,7 +4970,7 @@ async function doEnhance(uid) {
   const useOrb = document.getElementById('enhance-orb-toggle')?.checked || false;
 
   // Get item from bag to read current enh level for display
-  const item = getItemByUid(uid);
+  const item = findInventoryItem(uid);
 console.log('enhance uid:', uid, typeof uid);
 console.log('equipment bag uids:', state.inventory.equipment.map(i => ({ uid: i.uid, type: typeof i.uid })));  // ← was missing
   if (!item) {
@@ -5054,7 +5054,7 @@ console.log('equipment bag uids:', state.inventory.equipment.map(i => ({ uid: i.
 }
 
 
-function getItemByUid(uid) {
+function findInventoryItem(uid) {
   const inv = state.inventory;
   return (
     inv.equipment?.find(i => i.uid === uid) ||

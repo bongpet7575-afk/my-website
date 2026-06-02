@@ -22,7 +22,8 @@ async function startCombat(stageId) {
 async function requestCombatSession(stageId) {
   try {
     const { data: { session } } = await dbClient.auth.getSession()
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/smooth-processor`, {
+    console.log(session)
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/combat-start`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${session.access_token}`,

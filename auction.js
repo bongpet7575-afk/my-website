@@ -326,7 +326,7 @@ fetchAuctions(currentAuctionSource || 'auction')
 // ============================================
 
 async function listItemForAuction(uid) {
-  const item = getItemByUid(uid);
+  const item = findInventoryItem(uid);
   if (!item) { notify('❌ Item not found!', 'var(--red)'); return; }
   if (item.equipped) { notify('❌ Unequip item first!', 'var(--red)'); return; }
   if (!state.character_id) { notify('❌ Must be logged in!', 'var(--red)'); return; }
