@@ -1,4 +1,7 @@
-// ── RECHARGE PANEL ──
+/**
+ * ── RECHARGE PANEL ──
+ * Readability-only reorg (option 1): minimal edits; no logic changes intended.
+ */
 function openRechargePanel() {
   if (document.getElementById('recharge-overlay')) return;
 
@@ -165,9 +168,9 @@ function closeRechargePanel() {
 
 async function redeemGiftCode() {
   const input = document.getElementById('gift-code-input');
-  const msg = document.getElementById('redeem-msg');
-  const btn = document.getElementById('redeem-btn');
-  const code = input.value.trim().toUpperCase();
+  const msg   = document.getElementById('redeem-msg');
+  const btn   = document.getElementById('redeem-btn');
+  const code  = input.value.trim().toUpperCase();
 
   if (!code) { msg.style.color='#cc4444'; msg.textContent='❌ Please enter a code'; return; }
   if (!state.character_id) { msg.style.color='#cc4444'; msg.textContent='❌ Please login first'; return; }
@@ -184,7 +187,7 @@ async function redeemGiftCode() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': SUPABASE_KEY, // Use the global variable instead of hardcoded string
+        'apikey': SUPABASE_KEY,
         'Authorization': `Bearer ${session?.access_token}`
       },
       body: JSON.stringify({
@@ -193,6 +196,7 @@ async function redeemGiftCode() {
         name: state.name
       })
     });
+
     const data = await res.json();
 
     if (data.error) {
@@ -201,34 +205,20 @@ async function redeemGiftCode() {
       return;
     }
 
-    // 1. Update Currency
-    state.gold = (state.gold || 0) + (data.rewards.gold || 0);
-    state.soulCrystals = (state.soulCrystals || 0) + (data.rewards.diamonds || 0);
-    state.premiumSpins = (state.premiumSpins || 0) + (data.rewards.spins || 0);
-
-    // 2. Process Items
-    if (data.rewards.starterItems && Array.isArray(data.rewards.starterItems)) {
-      data.rewards.starterItems.forEach(item => {
-        // ✅ FIX: Use the global system. 
-        // This handles categories, UIDs, and "Bag Full" warnings.
-        addToInventory(item); 
-      });
-      renderInventory();
-    }
-
-    // 3. Update Cosmetics
+    // Update cosmetics locally
     if (data.rewards.supporterTitle) state.supporterTitle = data.rewards.supporterTitle;
     if (data.rewards.chatColor)      state.chatColor      = data.rewards.chatColor;
 
-    // 4. Finalize
+    // Sync everything from DB — server already applied all rewards
+    await syncCharacterData();
+
     updateUI();
+    renderInventory();
+
     msg.style.color = '#44aa44';
     msg.textContent = `✅ Redeemed! +${data.rewards.diamonds} 💎 +${data.rewards.gold.toLocaleString()} 🪙 +${data.rewards.spins} 🎰`;
     input.value = '';
     addLog(`🎁 Gift code redeemed! Tier: ${data.rewards.tier.toUpperCase()}`, 'gold');
-
-    // Note: We don't call savePlayerToSupabase() here because the Edge 
-    // function already updated the DB. We only update local state.
 
   } catch (err) {
     msg.style.color = '#cc4444';

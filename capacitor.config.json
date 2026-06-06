@@ -1,7 +1,7 @@
 {
   "appId": "com.rotana.rpg",
   "appName": "Rotana RPG",
-  "webDir": "www",
+  "webDir": ".",
   "server": {
     "url": "https://my-website-sage-one-51.vercel.app",
     "cleartext": false

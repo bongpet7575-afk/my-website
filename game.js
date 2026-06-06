@@ -1,3 +1,4 @@
+
 // ── DEV MODE — set to false before going public! ──
 const DEV_MODE = false;
 window.addEventListener('beforeunload', (e) => {
@@ -51,6 +52,11 @@ function applyGameConfig() {
     ENHANCE_COST.splice(0, ENHANCE_COST.length, ...GAME_CONFIG.enhance_costs);
   }
 
+  // Inside applyGameConfig()
+if (GAME_CONFIG.reputation_titles) {
+  REPUTATION_TITLES.length = 0;
+  REPUTATION_TITLES.push(...GAME_CONFIG.reputation_titles);
+}
 
   // ── Apply enhance rates ──
   if (GAME_CONFIG.enhance_rates) {
@@ -209,14 +215,7 @@ function buildTalentEffect(talentId, className, cfg) {
   };
 }
 
-function addGold(amount){
-  const safe = Math.floor(Number(amount));
-  if(isNaN(safe)||safe===undefined){
-    console.warn('addGold received NaN:', amount);
-    return;
-  }
-  state.gold = Math.max(0, (state.gold||0) + safe);
-}
+
 
 // ── BUILD SKILL USE FROM CONFIG ──
 function buildSkillUse(skillId, m) {
@@ -623,7 +622,7 @@ async function spendStatPoint(statKey, amount) {
   notify(`+${amount} ${statNames[statKey]}!`, 'var(--gold)');
   updateUI();
   renderStatPoints();
-  await savePlayerToSupabase();
+  //await savePlayerToSupabase();
 }
 
 // BUG FIX #13: CLASSES[state.class] could be undefined if class key is invalid,
@@ -871,7 +870,7 @@ async function learnLegacySkill(skillId) {
   updateUI();
   renderStatPoints();
   renderSkillBar();
-  await savePlayerToSupabase();
+  //await savePlayerToSupabase();
 }
 
 // ── UPGRADE LEGACY SKILL ──
@@ -1144,13 +1143,7 @@ const state={
 
 
 // ── REPUTATION ──
-const REPUTATION_TITLES = [
-  { id:'baron',    label:'Baron',    req:1000,  boost:0.10, soulTier:1 },
-  { id:'chief',    label:'Chief',    req:5000,  boost:0.20, soulTier:2 },
-  { id:'mayor',    label:'Mayor',    req:15000, boost:0.35, soulTier:3 },
-  { id:'viscount', label:'Viscount', req:35000, boost:0.50, soulTier:4 },
-  { id:'count',    label:'Count',    req:75000, boost:0.75, soulTier:5 },
-];
+const REPUTATION_TITLES = [];
 
 const NPC_LIST = {
   // Class Trainers
@@ -1404,12 +1397,15 @@ function updateRepBar() {
   repTitle.textContent = current ? `${current.label} → ${next.label}` : `→${next.label}`;
 }
 
+function getReputationTitles() {
+  return GAME_CONFIG.reputation_titles || [];
+}
+
 async function addReputation(points) {
   state.reputation = (state.reputation || 0) + points;
   const current = getCurrentTitle();
   const prev = state.reputationTitle;
 
-  // Check for title upgrade
   if (current && current.id !== prev) {
     state.reputationTitle = current.id;
     notify(`👑 New Title: ${current.label}!`, 'var(--purple)');
@@ -1418,7 +1414,15 @@ async function addReputation(points) {
   }
 
   updateRepBar();
-  await savePlayerToSupabase();
+
+  // Save reputation and rank to DB
+  await dbClient
+    .from('characters')
+    .update({
+      reputation:      state.reputation,
+      reputation_rank: state.reputationTitle || 'citizen',
+    })
+    .eq('id', state.character_id);
 }
 
 
@@ -1673,110 +1677,76 @@ function setDifficulty(diff){
 //        GAME_CONFIG.combat_speed values are now actually used
 // #12 — lifeSteal operator precedence fixed
 // #15 — maxHpMult and equipMaxHpMult are now applied in the maxHp formula
-function calcStats(){
-  // ── Gold multiplier expiry check ──
-  if(state.goldMultExpiry&&new Date()>new Date(state.goldMultExpiry)){
-    state.goldMult=1.0;state.goldMultExpiry=null;
-  }
+// Helper to sum layers cleanly
+const sum = (...args) => args.reduce((acc, val) => acc + (Number(val) || 0), 0);
 
-  // ── Sanitize base stats ──
-  const baseStr=Math.max(0,Number(state.baseStr)||1);
-  const baseAgi=Math.max(0,Number(state.baseAgi)||1);
-  const baseInt=Math.max(0,Number(state.baseInt)||1);
-  const baseSta=Math.max(0,Number(state.baseSta)||1);
+function calcStats() {
+    // 1. Expiry Check (Using timestamp to avoid Date object overhead)
+    if (state.goldMultExpiry && Date.now() > state.goldMultExpiry) {
+        state.goldMult = 1.0;
+        state.goldMultExpiry = null;
+    }
 
-  // ── Aggregate multipliers ──
-  const strMult  = (state.strMult||1)  + (state.classBonuses.strMult||0)  + (state.talentBonuses.strMult||0)  + (state.equipStrMult||0)  + (state.combatBuffStr||0);
-  const agiMult     = (state.agiMult||1)     + (state.classBonuses.agiMult||0)         + (state.talentBonuses.agiMult||0)         + (state.equipAgiMult||0);
-  const intMult     = (state.intMult||1)     + (state.classBonuses.intMult||0)         + (state.talentBonuses.intMult||0)         + (state.equipIntMult||0);
-  const staMult     = (state.staMult||1)     + (state.classBonuses.staMult||0)         + (state.talentBonuses.staMult||0)         + (state.equipStaMult||0);
-  const atkpMult = (state.attackPowerMult||1) + (state.classBonuses.attackPowerMult||0) + (state.talentBonuses.attackPowerMult||0) + (state.equipAttackPowerMult||0) + (state.combatBuffAtkp||0);
-  const armorMult = (state.armorMult||1) + (state.classBonuses.armorMult||0) + (state.talentBonuses.armorMult||0) + (state.equipArmorMult||0) + (state.combatBuffArmor||0);
-  const maxHpMult   = (state.maxHpMult||1)   + (state.classBonuses.maxHpMult||0)       + (state.talentBonuses.maxHpMult||0)       + (state.equipMaxHpMult||0);
-  const critMult    = (state.critMult||1)    + (state.classBonuses.critMult||0)        + (state.talentBonuses.critMult||0);
-  const dodgeMult   = (state.dodgeMult||1)   + (state.classBonuses.dodgeMult||0)       + (state.talentBonuses.dodgeMult||0)       + (state.equipDodgeMult||0);
-  const hitMult  = (state.hitMult||1)  + (state.classBonuses.hitMult||0)  + (state.talentBonuses.hitMult||0)  + (state.equipHitMult||0)  + (state.combatBuffHit||0);
-  const mpMult      = (state.mpMult||1)      + (state.classBonuses.mpMult||0)          + (state.talentBonuses.mpMult||0)          + (state.equipMpMult||0);
-  const hpRegenMult = (state.hpRegenMult||1) + (state.classBonuses.hpRegenMult||0)     + (state.talentBonuses.hpRegenMult||0)     + (state.equipHpRegenMult||0);
-  const mpRegenMult = (state.mpRegenMult||1) + (state.classBonuses.mpRegenMult||0)     + (state.talentBonuses.mpRegenMult||0)     + (state.equipMpRegenMult||0);
+    // 2. Helper to sum up layers
+    const sum = (...args) => args.reduce((acc, val) => acc + (Number(val) || 0), 0);
 
-  // ── Primary stats (local variables — no state mutation yet) ──
-const str  = Math.floor((baseStr  + (state.equipStr||0) + (state.talentBonuses.baseStr||0))  * strMult);
-const agi  = Math.floor((baseAgi  + (state.equipAgi||0) + (state.talentBonuses.baseAgi||0))  * agiMult);
-const int_ = Math.floor((baseInt  + (state.equipInt||0) + (state.talentBonuses.baseInt||0))  * intMult);
-const sta  = Math.floor((baseSta  + (state.equipSta||0) + (state.talentBonuses.baseSta||0))  * staMult);
+    // 3. Multiplier Aggregation
+    const m = {
+        str: sum(state.strMult, state.classBonuses.strMult, state.talentBonuses.strMult, state.equipStrMult, state.combatBuffStr),
+        agi: sum(state.agiMult, state.classBonuses.agiMult, state.talentBonuses.agiMult, state.equipAgiMult),
+        int: sum(state.intMult, state.classBonuses.intMult, state.talentBonuses.intMult, state.equipIntMult),
+        sta: sum(state.staMult, state.classBonuses.staMult, state.talentBonuses.staMult, state.equipStaMult),
+        atkp: sum(state.attackPowerMult, state.classBonuses.attackPowerMult, state.talentBonuses.attackPowerMult, state.equipAttackPowerMult, state.combatBuffAtkp),
+        armor: sum(state.armorMult, state.classBonuses.armorMult, state.talentBonuses.armorMult, state.equipArmorMult, state.combatBuffArmor),
+        hp: sum(state.maxHpMult, state.classBonuses.maxHpMult, state.talentBonuses.maxHpMult, state.equipMaxHpMult),
+        crit: sum(state.critMult, state.classBonuses.critMult, state.talentBonuses.critMult),
+        dodge: sum(state.dodgeMult, state.classBonuses.dodgeMult, state.talentBonuses.dodgeMult, state.equipDodgeMult),
+        hit: sum(state.hitMult, state.classBonuses.hitMult, state.talentBonuses.hitMult, state.equipHitMult, state.combatBuffHit),
+        mp: sum(state.mpMult, state.classBonuses.mpMult, state.talentBonuses.mpMult, state.equipMpMult),
+        hpR: sum(state.hpRegenMult, state.classBonuses.hpRegenMult, state.talentBonuses.hpRegenMult, state.equipHpRegenMult),
+        mpR: sum(state.mpRegenMult, state.classBonuses.mpRegenMult, state.talentBonuses.mpRegenMult, state.equipMpRegenMult)
+    };
 
-  // ── Derived stats (all local) ──
-  const attackPower = Math.floor(
-    (str*4 + int_*3 + state.level*15) * atkpMult
-  ) + (state.equipAttackPower||0) + (state.talentBonuses.baseAttackPower||0);
+    // 4. Primary Stats
+    const b = (v) => Math.max(0, Number(v) || 1);
+    state.str = Math.floor((b(state.baseStr) + (state.equipStr||0) + (state.talentBonuses.baseStr||0)) * (m.str || 1));
+    state.agi = Math.floor((b(state.baseAgi) + (state.equipAgi||0) + (state.talentBonuses.baseAgi||0)) * (m.agi || 1));
+    state.int = Math.floor((b(state.baseInt) + (state.equipInt||0) + (state.talentBonuses.baseInt||0)) * (m.int || 1));
+    state.sta = Math.floor((b(state.baseSta) + (state.equipSta||0) + (state.talentBonuses.baseSta||0)) * (m.sta || 1));
 
-  const maxHp = Math.floor(
-    (100 + str*20 + sta*30 + state.level*80) * maxHpMult
-  ) + (state.equipMaxHp||0);
+    // 5. Reputation Boost
+    const repBoost = (typeof getCurrentTitle === 'function' && getCurrentTitle()) ? (1 + getCurrentTitle().boost) : 1;
 
-  const armor = Math.floor(
-    (agi*8 + (state.baseArmor||0) + state.level*10 + (state.talentBonuses.baseArmor||0)) * armorMult
-  ) + (state.equipArmor||0);
+    // 6. Derived Stats
+    state.attackPower = Math.floor(((state.str * 4 + state.int * 3 + state.level * 15) * (m.atkp || 1) + (state.equipAttackPower||0) + (state.talentBonuses.baseAttackPower||0)) * repBoost);
+    state.maxHp       = Math.floor(((100 + state.str * 20 + state.sta * 30 + state.level * 80) * (m.hp || 1) + (state.equipMaxHp||0)) * repBoost);
+    state.armor       = Math.floor(((state.agi * 8 + (state.baseArmor||0) + state.level * 10 + (state.talentBonuses.baseArmor||0)) * (m.armor || 1) + (state.equipArmor||0)) * repBoost);
+    state.crit        = Math.floor(((state.agi * 0.0005 + (state.baseCrit||0)) * (m.crit || 1)) + (state.equipCrit||0) + (state.talentBonuses.baseCrit||0));
+    state.dodge       = Math.floor(((state.agi * 1.9 + (state.baseDodge||0)) * (m.dodge || 1)) + (state.equipDodge||0) + (state.talentBonuses.baseDodge||0));
+    state.hit         = Math.floor(((state.agi * 5.3 + (state.baseHit||0)) * (m.hit || 1)) + (state.equipHit||0) + (state.talentBonuses.baseHit||0));
+    state.maxMp       = Math.floor(((50 + state.int * 3) * (m.mp || 1)) + (state.equipMaxMp||0));
+    state.manaRegen   = Math.floor(((0.5 + state.int * 1.5) * (m.mpR || 1)) + (state.equipMpRegen||0));
+    state.hpRegen     = Math.floor(((state.sta * 0.5 + (state.baseHpRegen||0) + (state.talentBonuses.baseHpRegen||0)) * (m.hpR || 1)) + (state.equipHpRegen||0));
+    state.lifeSteal   = (state.baseLifeSteal || 0) + (state.talentBonuses.baseLifeSteal || 0) + (state.equipLifeSteal || 0);
 
-  const crit      = Math.floor((agi*0.0005 + (state.baseCrit||0))  * critMult)  + (state.equipCrit||0)  + (state.talentBonuses.baseCrit||0);
-  const dodge     = Math.floor((agi*1.9    + (state.baseDodge||0)) * dodgeMult) + (state.equipDodge||0) + (state.talentBonuses.baseDodge||0);
-  const hit       = Math.floor((agi*5.3    + (state.baseHit||0))   * hitMult)   + (state.equipHit||0)   + (state.talentBonuses.baseHit||0);
-  const maxMp     = Math.floor((50 + int_*3) * mpMult) + (state.equipMaxMp||0);
-  const manaRegen = Math.floor((0.5 + int_*1.5) * mpRegenMult) + (state.equipMpRegen||0);
-  const hpRegen   = Math.floor((sta*0.5 + (state.baseHpRegen||0) + (state.talentBonuses.baseHpRegen||0)) * hpRegenMult) + (state.equipHpRegen||0);
-  const lifeSteal = ((state.baseLifeSteal||0) + (state.talentBonuses.baseLifeSteal||0)) + (state.equipLifeSteal||0);
+    // 7. Speed Stats (Using your config)
+    const cfg = GAME_CONFIG.combat_speed || {};
+    state.attackSpeed = Math.min(cfg.max_attack_speed || 800, Math.floor(state.agi * (cfg.attack_speed_per_agi || 0.5)));
+    state.castSpeed   = Math.min(cfg.max_cast_speed || 100, Math.floor(state.int * (cfg.cast_speed_per_int || 0.3)));
+    state.attackInterval = Math.max(cfg.min_attack_interval_ms || 400, (cfg.max_attack_interval_ms || 2000) - (state.attackSpeed * 2));
+    state.cdr = Math.min(cfg.max_cdr || 0.5, state.castSpeed / 200);
 
-  // ── Speed stats ──
-  const speedCfg      = GAME_CONFIG.combat_speed||{};
-  const atkSpdPerAgi  = speedCfg.attack_speed_per_agi   || 0.5;
-  const castSpdPerInt = speedCfg.cast_speed_per_int     || 0.3;
-  const minInterval   = speedCfg.min_attack_interval_ms || 400;
-  const maxInterval   = speedCfg.max_attack_interval_ms || 2000;
-  const maxAtkSpd     = speedCfg.max_attack_speed       || 800;
-  const maxCastSpd    = speedCfg.max_cast_speed         || 100;
-  const maxCdr        = speedCfg.max_cdr                || 0.50;
+    // 8. Talents
+    state.magicPen = (CLASSES[state.class]?.bonuses?.magicPen || 0) + (state.talentBonuses.magicPen || 0);
+    state.spellPowerMult = state.talentBonuses.spellPowerMult || 0;
+    state.healPowerMult = state.talentBonuses.healPowerMult || 0;
+    state.dmgReduction = state.talentBonuses.dmgReduction || 0;
+    state.dmgReflect = state.talentBonuses.dmgReflect || 0;
+    state.chainLightningChance = state.talentBonuses.chainChance || 0;
 
-  const attackSpeed    = Math.min(maxAtkSpd,  Math.floor(agi*atkSpdPerAgi));
-  const castSpeed      = Math.min(maxCastSpd, Math.floor(int_*castSpdPerInt));
-  const attackInterval = Math.max(minInterval, maxInterval-(attackSpeed*2));
-  const cdr            = Math.min(maxCdr, castSpeed/200);
-
-  // ── Reputation boost (applied to local vars, not state) ──
-  const repTitle = getCurrentTitle();
-  const repBoost = repTitle ? (1+repTitle.boost) : 1;
-
-  // ── Write to state ONCE at the end ──
-  state.str          = str;
-  state.agi          = agi;
-  state.int          = int_;
-  state.sta          = sta;
-  state.attackPower  = Math.floor(attackPower * repBoost);
-  state.maxHp        = Math.floor(maxHp       * repBoost);
-  state.armor        = Math.floor(armor       * repBoost);
-  state.crit         = crit;
-  state.dodge        = dodge;
-  state.hit          = hit;
-  state.maxMp        = maxMp;
-  state.manaRegen    = manaRegen;
-  state.hpRegen      = hpRegen;
-  state.lifeSteal    = lifeSteal;
-  state.attackSpeed  = attackSpeed;
-  state.castSpeed    = castSpeed;
-  state.attackInterval = attackInterval;
-  state.cdr          = cdr;
-
-  // ── Talent modifiers ──
-  state.magicPen           = (CLASSES[state.class]?.bonuses?.magicPen||0) + (state.talentBonuses.magicPen||0);
-  state.spellPowerMult     = state.talentBonuses.spellPowerMult||0;
-  state.healPowerMult      = state.talentBonuses.healPowerMult||0;
-  state.dmgReduction       = state.talentBonuses.dmgReduction||0;
-  state.dmgReflect         = state.talentBonuses.dmgReflect||0;
-  state.chainLightningChance = state.talentBonuses.chainChance||0;
-
-  // ── Clamp HP/MP ──
-  if(state.hp>state.maxHp) state.hp=state.maxHp;
-  if(state.mp>state.maxMp) state.mp=state.maxMp;
+    // 9. Clamping
+    if (state.hp > state.maxHp) state.hp = state.maxHp;
+    if (state.mp > state.maxMp) state.mp = state.maxMp;
 }
 
 function reapplyClassBonuses() {
@@ -2463,7 +2433,9 @@ function scaleMonster(templateId,stageLevel){
     ability: isPhase2 ? null : tmpl.ability,
     xp:    Math.floor(tmpl.xp*diff.xpMult),
     gold:  [Math.floor(tmpl.gold[0]*diff.goldMult),Math.floor(tmpl.gold[1]*diff.goldMult)],
-    poisoned:0,frozen:false,boss:false,_xpMult:1,_goldMult:1
+    poisoned:0,frozen:false,boss:false,
+    _xpMult:  tmpl._xpMult  || 1,
+    _goldMult: tmpl._goldMult || 1
   };
 }
 
@@ -2533,6 +2505,22 @@ const SHOP_CONS=[
 
 let currentInvTab='equipment',currentShopTab='equipment';
 
+async function loadShopItems() {
+    try {
+        const { data, error } = await dbClient
+            .from('shop_items')
+            .select('*')
+            .order('price', { ascending: true });
+
+        if (error) throw error;
+        
+        // Store the server items in the state
+        state.serverShopItems = data; 
+        console.log("Shop items loaded from server");
+    } catch (err) {
+        console.error("Failed to load shop items:", err);
+    }
+}
 
 // ── ANIMATIONS ──
 function animateAttack(isPlayer, dmg, isCrit) {
@@ -2585,72 +2573,102 @@ function spawnDmgFloat(text, onEnemy, cls='') {
 }
 
 // ── AUTH: REGISTER ──
-async function registerUser(){
-  const email    = (document.getElementById('reg-email')?.value || document.getElementById('auth-email')?.value || '').trim();
-  const password = (document.getElementById('reg-pass')?.value  || document.getElementById('auth-password')?.value || '').trim();
-  const name     = (document.getElementById('reg-name')?.value  || document.getElementById('name-input')?.value || '').trim();
-  const msg=document.getElementById('auth-msg');
-  if(!email||!password||!name){msg.textContent='Please fill in all fields!';return;}
+async function registerUser() {
+  const email    = (document.getElementById('reg-email')?.value    || document.getElementById('auth-email')?.value    || '').trim();
+  const password = (document.getElementById('reg-pass')?.value     || document.getElementById('auth-password')?.value || '').trim();
+  const name     = (document.getElementById('reg-name')?.value     || document.getElementById('name-input')?.value    || '').trim();
+  const msg      = document.getElementById('auth-msg');
+
+  if (!email || !password || !name) {
+    msg.textContent = 'Please fill in all fields!';
+    return;
+  }
 
   try {
-    const{data:authData,error:authError}=await dbClient.auth.signUp({email,password});
-    if(authError){msg.textContent='❌ '+authError.message;return;}
+    // 1. Create auth account
+    const { data: authData, error: authError } = await dbClient.auth.signUp({ email, password });
+    if (authError) { msg.textContent = '❌ ' + authError.message; return; }
 
-    const{data:signInData,error:signInError}=await dbClient.auth.signInWithPassword({email,password});
-    if(signInError){msg.textContent='❌ '+signInError.message;return;}
+    // 2. Sign in immediately
+    const { data: signInData, error: signInError } = await dbClient.auth.signInWithPassword({ email, password });
+    if (signInError) { msg.textContent = '❌ ' + signInError.message; return; }
 
-    const userId=signInData.user.id;
+    // 3. Create character server-side — no client values trusted
+    const { data: result, error: charError } = await dbClient.rpc('create_character', {
+      p_user_id: signInData.user.id,
+      p_name:    name
+    });
 
-    const{data:character,error:charError}=await dbClient.from('characters').insert({
-      user_id:userId,name,level:1,exp:0,gold:1550,class:null,
-      health:100,max_health:100,mana:50,max_mana:50,
-      inventory:[],current_scene:'town',unlocked_talents:[],talent_points:0,
-      difficulty:'normal',inv_tab:'equipment',shop_tab:'equipment',
-      equipped:{weapon:null,armor:null,helmet:null,boots:null,ring:null,amulet:null},
-      skills:[],skill_cooldowns:{},quests:state.quests,auto_sell:{normal:false,uncommon:false},
-      active_debuffs:{maxHpReduction:0,webTrapped:0,rageTimer:0},
-      talent_unlocked_flags:{},      
-    }).select().single();
-    if(charError)throw charError;
+    if (charError || !result?.success) {
+      throw new Error(charError?.message || result?.error || 'Character creation failed');
+    }
 
-    // Sync to state via supabase-sync.js (loaded after game.js)
-    if(typeof syncCharacterToState==='function') syncCharacterToState(character);
-    addLog('💰 You start with 1550g! Reach level 10 to choose your class.','gold');
-    msg.style.color='#44ff44';msg.textContent='✅ Registered! Starting game...';
-    setTimeout(()=>{ showGame(); loadScene('town'); if(typeof initializeSupabaseSync==='function') initializeSupabaseSync(); },1000);
+    // 4. Fetch created character to sync state
+    const { data: character, error: fetchError } = await dbClient
+      .from('characters')
+      .select('*')
+      .eq('id', result.character_id)
+      .single();
 
-  } catch(error){ msg.textContent='❌ Registration failed: '+error.message; console.error('Register error:',error); }
+    if (fetchError || !character) throw new Error('Failed to load character');
+
+    if (typeof syncCharacterToState === 'function') syncCharacterToState(character);
+
+    addLog('💰 You start with 1550g! Reach level 10 to choose your class.', 'gold');
+    msg.style.color = '#44ff44';
+    msg.textContent = '✅ Registered! Starting game...';
+    setTimeout(async () => {
+  await loadGameConfig();
+  showGame();
+  loadScene('town');
+  if (typeof initializeSupabaseSync === 'function') initializeSupabaseSync();
+}, 1000);
+
+  } catch (err) {
+    msg.textContent = '❌ Registration failed: ' + err.message;
+    console.error('Register error:', err);
+  }
 }
 
 // ── AUTH: LOGIN ──
-async function loginUser(){
-  const email=document.getElementById('auth-email').value.trim();
-  const password=document.getElementById('auth-password').value.trim();
-  const msg=document.getElementById('auth-msg');
-  if(!email||!password){msg.textContent='Please enter email and password!';return;}
+async function loginUser() {
+  const email    = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value.trim();
+  const msg      = document.getElementById('auth-msg');
+
+  if (!email || !password) { msg.textContent = 'Please enter email and password!'; return; }
 
   try {
-    const{data,error}=await dbClient.auth.signInWithPassword({email,password});
-    if(error){msg.textContent='❌ '+error.message;return;}
+    const { data: authData, error: authError } = await dbClient.auth.signInWithPassword({ email, password });
+    if (authError) { msg.textContent = '❌ ' + authError.message; return; }
 
-    msg.textContent='⠋ Loading characters...';
+    msg.textContent = '⠋ Loading characters...';
 
-    // Fetch ALL characters for this user → show select screen
-    const{data:characters,error:charError}=await dbClient
-      .from('characters').select('*').eq('user_id',data.user.id)
-      .order('updated_at',{ascending:false});
+    const { data: characters, error: charError } = await dbClient
+      .from('characters')
+      .select('*')
+      .eq('user_id', authData.user.id)
+      .order('updated_at', { ascending: false });
 
-    if(charError||!characters||!characters.length){
-      msg.textContent='❌ No character found. Please register first.';
-      await dbClient.auth.signOut();return;
-      
+    if (charError || !characters || !characters.length) {
+      msg.textContent = '❌ No character found. Please register first.';
+      await dbClient.auth.signOut();
+      return;
     }
 
-    msg.style.color='#44ff44';msg.textContent='✅ Logged in! Choose your character.';
-    showCharacterSelect(characters);
-    
+    msg.style.color = '#44ff44';
+    msg.textContent = '✅ Logged in! Choose your character.';
+    console.log('about to show character select, count:', characters.length);
+try {
+  showCharacterSelect(characters);
+} catch(e) {
+  console.error('showCharacterSelect crashed:', e);
+}
 
-  } catch(error){ msg.textContent='❌ Login failed: '+error.message; console.error('Login error:',error); }
+  } catch (err) {
+    msg.textContent = '❌ Login failed: ' + err.message;
+    console.error('Login error:', err);
+  }
 }
 
 // ── CHARACTER SELECT ──
@@ -2664,24 +2682,58 @@ function showCharacterSelect(characters) {
     screen.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:1000;background:rgba(0,0,0,0.85);';
     document.body.appendChild(screen);
   }
-
+console.log('character cards:', characters.map(c => c.id));
   const characterCards = characters.map(c => {
+    // === DEBUGGING START ===
+    // This will print the character data to your console (F12)
+    // Look for "DEBUG CHARACTER DATA" in the console to see the real names of the properties
+    console.log("DEBUG CHARACTER DATA for " + c.name, c);
+    // === DEBUGGING END ===
+
     const cls = c.class
-  ? ({
-      warrior:     '⚔️ Warrior',
-      mage:        '🔮 Mage',
-      rogue:       '🗡️ Rogue',
-      hunter:      '🏹 Hunter',
-      paladin:     '🛡️ Paladin',
-      necromancer: '💀 Necromancer',
-      shaman:      '⚡ Shaman',
-      berserker:   '🐉 Berserker',
-    }[c.class] || c.class)
-  : 'No Class';
-    const inv = (c.inventory || []).length;
+      ? ({
+          warrior:     '⚔️ Warrior',
+          mage:        '🔮 Mage',
+          rogue:       '🗡️ Rogue',
+          hunter:      '🏹 Hunter',
+          paladin:     '🛡️ Paladin',
+          necromancer: '💀 Necromancer',
+          shaman:      '⚡ Shaman',
+          berserker:   '🐉 Berserker',
+        }[c.class] || c.class)
+      : 'No Class';
+
+    // --- ROBUST COUNTING LOGIC ---
+    let totalItems = 0;
+    
+    // Try both 'items' AND 'inventory' just in case the name differs
+    const itemData = c.items || c.inventory;
+
+    if (itemData) {
+      let parsedData = itemData;
+      
+      // If the data is a string (JSON), parse it into an object
+      if (typeof itemData === 'string') {
+        try { parsedData = JSON.parse(itemData); } catch(e) { parsedData = {}; }
+      }
+
+      if (typeof parsedData === 'object' && parsedData !== null) {
+        totalItems = Object.values(parsedData).reduce((sum, category) => {
+          if (Array.isArray(category)) {
+            return sum + category.length;
+          } else if (typeof category === 'object' && category !== null) {
+            return sum + Object.keys(category).length;
+          }
+          return sum + 1; // Count single items as 1
+        }, 0);
+      }
+    }
+    
+    const inv = totalItems;
+    // --- END ROBUST LOGIC ---
+
     const lastSeen = c.updated_at ? new Date(c.updated_at).toLocaleDateString() : '—';
 
-    // ✅ Template literal — c.id is properly interpolated
     return `
       <div 
         onclick="selectCharacterAndPlay('${c.id}')"
@@ -2718,6 +2770,8 @@ function showCharacterSelect(characters) {
       </div>
     </div>`;
 }
+
+
 
 async function selectCharacterAndPlay(characterId) {
   try {
@@ -2806,6 +2860,7 @@ async function selectCharacterAndPlay(characterId) {
 
     // 7. REVEAL THE GAME
     // Only once everything above is finished do we show the UI.
+    await loadGameConfig();
     showGame();
     loadScene(state.currentScene || 'town');
 
@@ -2874,7 +2929,7 @@ async function forceLogout() {
   autoFightOn = false
 
   try {
-    await savePlayerToSupabase()
+    // await savePlayerToSupabase()
   } catch (e) {
     console.warn('Emergency save failed:', e)
   }
@@ -2885,91 +2940,49 @@ async function forceLogout() {
   location.reload()
 }
 
-async function respecClass(){
-  if(!state.class){
-    notify('No class to respec!','var(--red)');return;
-  }
+async function respecClass() {
+  if (!state.class) return;
+  
+  // 1. Calculate and validate cost/confirmation first
   const cost = 50000 * (state.respecCount + 1);
-  if(state.gold < cost){
-    notify(`❌ Need ${formatNumber(cost)}g to respec!`,'var(--red)');return;
-  }
-  const soulWarning = state.soulWeapon ? `\n\n⚠️ WARNING: Your Soul Weapon "${state.soulWeapon.name}" will be DESTROYED FOREVER!` : '';
-if(!confirm(`Respec class for ${formatNumber(cost)}g?${soulWarning}\nAll talents will be reset and talent points refunded.`))return;
+  if (state.gold < cost) { notify('❌ Not enough gold!', 'var(--red)'); return; }
+  
+  if (!confirm(`Respec for ${formatNumber(cost)}g? All talents and class bonuses will be wiped.`)) return;
 
-// Destroy soul weapon
-if (state.soulWeapon) {
-  const old = SOUL_WEAPONS[state.soulWeapon.classId]?.tiers.find(t => t.tier === state.soulWeapon.tier);
-  if (old) Object.entries(old.stats).forEach(([k,v]) => {
-    const ek = 'equip' + k.charAt(0).toUpperCase() + k.slice(1);
-    state[ek] = (state[ek] || 0) - v;
-  });
-  addLog(`💔 Soul Weapon "${state.soulWeapon.name}" destroyed on respec!`, 'bad');
-  state.soulWeapon = null;
-  state.craftedSoulTiers = {};
-}
+  // 2. Destroy Soul Weapon (Your existing logic)
+  destroySoulWeapon(); 
 
-  addGold(-cost); // ✅ sanitized
+  // 3. Refund logic (Cleaned up)
+  const c = CLASSES[state.class];
+  const refunded = state.unlockedTalents.reduce((acc, id) => {
+    const talent = Object.values(c.trees).flatMap(t => t.talents).find(t => t.id === id);
+    return acc + (talent ? talent.cost : 0);
+  }, 0);
+
+  state.talentPoints += refunded;
+  addGold(-cost);
   state.respecCount++;
 
-  // Refund all talent points — count only spent ranks
-const c = CLASSES[state.class];
-// Count only manually spent ranks
-let refunded = 0;
-const rankCounts = {};
-state.unlockedTalents.forEach(id => {
-  rankCounts[id] = (rankCounts[id] || 0) + 1;
-});
-Object.values(c.trees).forEach(tree => {
-  tree.talents.forEach(talent => {
-    const ranks = rankCounts[talent.id] || 0;
-    refunded += ranks * talent.cost;
+  // 4. THE POLISH: "Wipe" the state safely
+  // Instead of setting 20 variables to 0, use a factory reset approach
+  const resetKeys = [
+    'talentBonuses', 'classBonuses', 'unlockedTalents', 'talentUnlockedFlags',
+    'strMult', 'agiMult', 'intMult', 'staMult', 'armorMult', 'critMult', 
+    'dodgeMult', 'hpRegenMult', 'mpRegenMult', 'hitMult', 'mpMult', 'attackPowerMult'
+  ];
+
+  resetKeys.forEach(key => {
+    if (typeof state[key] === 'object') {
+      state[key] = {}; // Reset objects to empty
+    } else {
+      state[key] = (key.includes('Mult')) ? 1.0 : 0; // Reset multipliers to 1, others to 0
+    }
   });
-});
-state.talentPoints += refunded;
 
-  // Reset talent bonuses
-  state.talentBonuses = {
-    strMult:0,agiMult:0,intMult:0,staMult:0,
-    hitMult:0,critMult:0,dodgeMult:0,hpRegenMult:0,
-    mpRegenMult:0,armorMult:0,mpMult:0,lifeStealMult:0,
-    attackPowerMult:0,maxHpMult:0,hpMult:0,
-  };
-
-  // Reset class bonuses
-  state.classBonuses = {
-    strMult:0,agiMult:0,intMult:0,staMult:0,
-    hitMult:0,critMult:0,dodgeMult:0,hpRegenMult:0,
-    mpRegenMult:0,armorMult:0,mpMult:0,lifeStealMult:0,
-    attackPowerMult:0,maxHpMult:0,hpMult:0,
-  };
-
-  // Reset talents and flags
-  state.unlockedTalents = [];
-  state.talentUnlockedFlags = {};
   state.class = null;
-  autoSkillSlots = [null,null,null,null,null,null];
-  autoSkillIndex = 0;
-  // Reset portrait to placeholder
-const portraitEl = document.getElementById('char-portrait-img');
-if (portraitEl) portraitEl.src = 'images/classes/warrior.jpeg';
-document.getElementById('char-class').textContent = 'No Class';
-  await rebuildSkills();
-
-  // Reset stat multipliers
-  state.strMult=1.0;state.agiMult=1.0;state.intMult=1.0;state.staMult=1.0;
-  state.armorMult=1.0;state.critMult=1.0;state.dodgeMult=1.0;
-  state.hpRegenMult=1.0;state.mpRegenMult=1.0;state.hitMult=1.0;
-  state.mpMult=1.0;state.attackPowerMult=1.0;
-  calcStats();
-  addLog(`🔄 Respec complete! ${refunded} talent points refunded. Cost: ${formatNumber(cost)}g`,'gold');
-  notify(`🔄 Class reset! Choose a new class.`,'var(--gold)');
-  updateClassDisplay();  
-  updateAutoSlotHighlight();
-  showClassSelection();
-  updatePlayerAvatar(); // 👈 add this
-  renderSkillBar();
-  renderQuests();
-  updateUI();
+  // ... rest of your UI calls
+  
+  calcStats(); // Recalculate with the fresh wipe
   savePlayerToSupabase();
 }
 
@@ -2987,7 +3000,7 @@ async function logoutUser() {
   }
 
   try {
-    await savePlayerToSupabase()
+   // await savePlayerToSupabase()
   } catch(e) { console.warn('Save on logout failed:', e) }
 
   if (state.character_id) {
@@ -3003,12 +3016,15 @@ async function logoutUser() {
 }
 
 // ── SHOW GAME ──
-function startGame(){
+async function startGame(){
   const n=document.getElementById('name-input').value.trim();
   if(!n){alert('Please enter your name!');return;}
-  state.name=n;showGame();loadScene('town');addLog(`${n} begins their adventure!`,'info');fetchLeaderboard();
+  
+  state.name=n;await loadGameConfig();
+  showGame();loadScene('town');addLog(`${n} begins their adventure!`,'info');fetchLeaderboard();
 }
 function showGame(){
+  
   document.getElementById('name-screen').style.display='none';
   document.getElementById('game-wrapper').style.display='block';
   document.getElementById('bottom-nav').style.display='flex';
@@ -3051,7 +3067,7 @@ document.querySelectorAll('.choice-btn').forEach(btn => {
   }  
   });   
   });
-  updateUI();updateAutoFightBtn();
+  updateUI();
 }
 function showCombatMode() {
   document.getElementById('arena').style.display = 'flex';
@@ -3522,58 +3538,60 @@ async function openMirelaPopup() {
   document.body.appendChild(popup)
 
   // Fetch Mirela dialogue
-  try {
-    const { data: { session } } = await dbClient.auth.getSession()
-    const res = await fetch('https://xagwrqrgcuuitwgroiwh.supabase.co/functions/v1/talk-to-npc', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({ npc_id: 'mirela', message_type: 'greet', character_id: state.character_id })
+try {
+  const res = await fetch('https://freellmapi-kl6p.onrender.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer freellmapi-4cd1e3c7f225ac48335df90355debaaee39c61fc27127d75`
+    },
+    body: JSON.stringify({
+      model: 'mistral-large-latest',
+      max_tokens: 150,
+      messages: [
+        { role: 'system', content: `You are Mirela, a Merchant Guild representative NPC in God Domain. Cold, professional, ledger-focused. Reputation rank scales warmth: citizen=cold, baron=professional, chief=engaged, mayor=VIP, viscount=secret deals, count=private meeting. Reference gold naturally. Under 3 sentences. Never break character.` },
+        { role: 'user', content: `Player: ${state.name}, Rank: ${state.reputationTitle || 'citizen'}, Gold: ${(state.gold || 0).toLocaleString()}. Message: greet. IMPORTANT: Respond ONLY with in-character dialogue. No bullet points. No meta commentary. Under 3 sentences.` }
+      ]
     })
-    const data = await res.json()
-    await typeNPCPopupDialogue('mirela-popup-dialogue', data.response || '...')
-  } catch(err) {
-    document.getElementById('mirela-popup-dialogue').textContent = '*Mirela looks up from her ledger*'
-  }
+  })
+  const data = await res.json()
+  await typeNPCPopupDialogue('mirela-popup-dialogue', data.choices?.[0]?.message?.content?.trim() || '...')
+} catch(err) {
+  document.getElementById('mirela-popup-dialogue').textContent = '*Mirela looks up from her ledger*'
+}
 }
 
 // ============================================================
 // MIRELA INN HANDLER
 // ============================================================
 async function handleMirelaInn() {
-  const rank = state.reputationTitle || 'citizen'
-  const INN_DISCOUNTS = {
-    citizen:1.00, baron:0.90, chief:0.75, mayor:0.50, viscount:0.20, count:0.00
+  const { data, error } = await dbClient.rpc('rest_inn', {
+    p_character_id: state.character_id
+  })
+
+  if (error || !data.success) {
+    notify(`🛏️ Need ${formatNumber(data?.inn_cost || 0)}g to rest!`, 'var(--red)')
+    await typeNPCPopupDialogue('mirela-popup-dialogue',
+      `You cannot afford to rest here. ${formatNumber(data?.inn_cost || 0)}g required.`)
+    return
   }
-  const baseCost = GAME_CONFIG.inn_cost || 10000
-  const innCost = Math.floor(baseCost * (INN_DISCOUNTS[rank] ?? 1.00))
 
-  if (state.gold >= innCost || innCost === 0) {
-    if (innCost > 0) addGold(-innCost)
-    const hh = Math.floor(state.maxHp * 0.5)
-    const mh = Math.floor(state.maxMp * 0.5)
-    state.hp = Math.min(state.maxHp, state.hp + hh)
-    state.mp = Math.min(state.maxMp, state.mp + mh)
-    addLog(`Rested: +${formatNumber(hh)} HP +${formatNumber(mh)} MP. Cost ${formatNumber(innCost)}g.`, 'good')
-    notify(`🛏️ Rested! +${formatNumber(hh)} HP +${formatNumber(mh)} MP`, 'var(--green)')
-    updateUI()
-    savePlayerToSupabase()
+  await syncCharacterData()
+  addLog(`Rested: +${formatNumber(data.heal_hp)} HP +${formatNumber(data.heal_mp)} MP. Cost ${formatNumber(data.inn_cost)}g.`, 'good')
+  notify(`🛏️ Rested! +${formatNumber(data.heal_hp)} HP +${formatNumber(data.heal_mp)} MP`, 'var(--green)')
+  updateUI()
 
-    // Fetch inn response from Edge Function
-    try {
-      const { data: { session } } = await dbClient.auth.getSession()
-      const res = await fetch('https://xagwrqrgcuuitwgroiwh.supabase.co/functions/v1/talk-to-npc', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({ npc_id: 'mirela', message_type: 'inn', character_id: state.character_id })
-      })
-      const data = await res.json()
-      await typeNPCPopupDialogue('mirela-popup-dialogue', data.response || '...')
-    } catch(err) {
-      document.getElementById('mirela-popup-dialogue').textContent = '*Mirela nods as you head upstairs*'
-    }
-  } else {
-    notify(`🛏️ Need ${formatNumber(innCost)}g to rest!`, 'var(--red)')
-    await typeNPCPopupDialogue('mirela-popup-dialogue', `You cannot afford to rest here. ${formatNumber(innCost)}g required. Come back when you have the gold.`)
+  try {
+    const { data: { session } } = await dbClient.auth.getSession()
+    const res = await fetch('https://xagwrqrgcuuitwgroiwh.supabase.co/functions/v1/talk-to-npc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ npc_id: 'mirela', message_type: 'inn', character_id: state.character_id })
+    })
+    const npcData = await res.json()
+    await typeNPCPopupDialogue('mirela-popup-dialogue', npcData.response || '...')
+  } catch(err) {
+    document.getElementById('mirela-popup-dialogue').textContent = '*Mirela nods as you head upstairs*'
   }
 }
 
@@ -3760,53 +3778,22 @@ const STAGE_MATS = {
 };
 
 // Drop chance: common 25%, rare 8%. Boss: common 100%, rare 50%.
-function rollMatDrop(stageId, isBoss=false) {
-  const mats = STAGE_MATS[stageId]; if (!mats) return;
-  if (isBoss || Math.random() < 0.25) {
-    const mat = mkMat(mats.common.name, mats.common.rarity, 50 * stageId);
-    addToInventory(mat);
-    addLog(`🧪 ${mat.name} dropped!`, 'info');
-  }
-  if (isBoss ? Math.random() < 0.50 : Math.random() < 0.08) {
-    const mat = mkMat(mats.rare.name, mats.rare.rarity, 200 * stageId);
-    addToInventory(mat);
-    addLog(`🧪 ${mat.name} dropped!`, 'gold');
-  }
-  // Soul weapon material drops from bosses only
-  if (isBoss) {
-    const SOUL_MAT_DROPS = {
-      3:  { warrior:'⚔️ Warlord Soul',   shaman:'⚡ Storm Crystal' },
-      4:  { paladin:'✨ Holy Relic' },
-      5:  { warrior:'⚔️ Warlord Soul',   berserker:'🩸 Rage Stone' },
-      6:  { rogue:'🗡️ Shadow Shard' },
-      7:  { hunter:'🏹 Eagle Eye' },
-      8:  { necromancer:'💀 Soul Gem' },
-      9:  { mage:'🔮 Arcane Core' },
-      10: { berserker:'🩸 Rage Stone',   mage:'🔮 Arcane Core' },
-    };
-    const drops = SOUL_MAT_DROPS[stageId];
-    if (drops && state.class) {
-      const classKey = state.class.toLowerCase();
-      const matName = drops[classKey];
-      if (matName) {
-        const qty = Math.floor(Math.random() * 3) + 1;
-        const mat = mkMat(matName, 'epic', qty);
-        addToInventory(mat);
-        addLog(`✨ ${matName} x${qty} dropped! (Soul Weapon material)`, 'legendary');
-        notify(`✨ Soul material dropped!`, 'var(--legendary)');
-      }
-    }
-  }
-}
+async function rollMatDrop(stageId, isBoss = false) {
+  const { data, error } = await dbClient.rpc('roll_mat_drop', {
+    p_character_id: state.character_id,
+    p_stage_id:     stageId,
+    p_is_boss:      isBoss
+  });
 
-// BUG FIX #9: The old key builder did:
-//   'equip' + k.charAt(0).toUpperCase() + k.slice(1)
-// This works for flat stats:  str     → equipStr      ✅
-// But breaks for multipliers: strMult → equipStrmult  ❌ (lowercase 'm')
-// The correct key is equipStrMult (capital M).
-//
-// Fix: map known multiplier stat keys to their correct equip field names
-// explicitly, and fall back to the old builder only for flat stats.
+  if (error) { console.warn('roll_mat_drop error:', error.message); return; }
+  if (!data.success) { console.warn('roll_mat_drop failed:', data.error); return; }
+
+  data.dropped.forEach(item => {
+    addLog(`🧪 ${item.name} dropped!`, item.rarity === 'epic' ? 'epic' : 'gold');
+  });
+
+  await syncCharacterData();
+}
 
 const SOUL_WEAPON_STAT_KEY_MAP = {
   // flat stats — old builder works fine for these
@@ -3889,7 +3876,7 @@ async function equipSoulWeapon(uid) {
   renderSoulWeaponSlot();
   renderSkillBar();
   updateUI();
-  await savePlayerToSupabase();
+  //await savePlayerToSupabase();
 }
 
 // ── CRAFTING ──
@@ -4295,98 +4282,121 @@ function rollTreasureRarity(tier) {
     default:          return 'normal';
   }
 }
-function dropTreasureBox(stageId){
-  const bossNames={
-    1:'Wolf King',2:'Spider Queen',3:'Goblin Warlord',4:'Skeleton Lord',5:'Orc Chieftain',
-    6:'Vampire Lord',7:'Troll King',8:'Demon Prince',9:'Shadow Emperor',10:'Eternal King'
+async function dropTreasureBox(stageId) {
+  const bossNames = {
+    1:'Wolf King', 2:'Spider Queen', 3:'Goblin Warlord', 4:'Skeleton Lord', 5:'Orc Chieftain',
+    6:'Vampire Lord', 7:'Troll King', 8:'Demon Prince', 9:'Shadow Emperor', 10:'Eternal King'
   };
-  const chestNames={
-    1:'📦 Worn Chest',2:'📦 Wooden Chest',3:'📦 Iron Chest',4:'📦 Steel Chest',
-    5:'📦 Golden Chest',6:'📦 Enchanted Chest',7:'📦 Ancient Chest',
-    8:'📦 Demonic Chest',9:'📦 Shadow Chest',10:'📦 Eternal Chest'
+  const chestNames = {
+    1:'📦 Worn Chest', 2:'📦 Wooden Chest', 3:'📦 Iron Chest', 4:'📦 Steel Chest',
+    5:'📦 Golden Chest', 6:'📦 Enchanted Chest', 7:'📦 Ancient Chest',
+    8:'📦 Demonic Chest', 9:'📦 Shadow Chest', 10:'📦 Eternal Chest'
   };
-  const bossName=bossNames[stageId]||'Unknown Boss';
-  const chestName=chestNames[stageId]||'📦 Mystery Chest';
-  const box={
-  uid:genUid(),
-  name:chestName,                          // short — for inventory grid
-  displayName:`${bossName}'s ${chestName}`, // full — for popup
-  
-    category:'consumable',
-    rarity:stageId<=2?'normal':stageId<=4?'uncommon':stageId<=6?'rare':stageId<=8?'epic':'legendary',
-    effect:'treasure',
-    stageId,
-    sourceMonster:`stage_boss_${stageId}`,
-    sourceBossName:bossName,
-    difficulty:state.difficulty||'normal',
-    droppedAt:new Date().toISOString(),
-    stackable:false,
-    qty:1,
-    sellPrice:1000*stageId
+
+  const bossName  = bossNames[stageId]  || 'Unknown Boss';
+  const chestName = chestNames[stageId] || '📦 Mystery Chest';
+
+  const box = {
+    uid:           genUid(),
+    name:          chestName,
+    displayName:   `${bossName}'s ${chestName}`,
+    category:      'consumable',
+    rarity:        stageId<=2?'normal':stageId<=4?'uncommon':stageId<=6?'rare':stageId<=8?'epic':'legendary',
+    effect:        'treasure',
+    stageId:       stageId,
+    sourceMonster: `stage_boss_${stageId}`,
+    sourceBossName: bossName,
+    difficulty:    state.difficulty || 'normal',
+    droppedAt:     new Date().toISOString(),
+    stackable:     false,
+    qty:           1,
+    sellPrice:     1000 * stageId
   };
-  addToInventory(box);
-  addLog(`📦 ${bossName}'s ${chestName} added to inventory!`,'legendary');
-  notify(`📦 ${bossName}'s ${chestName} dropped!`,'var(--gold)');
+
+  // Save to DB directly
+  const { data, error } = await dbClient.rpc('add_consumable_item', {
+    p_character_id: state.character_id,
+    p_item:         box
+  });
+
+  if (error || !data?.success) {
+    console.warn('dropTreasureBox save failed:', error?.message || data?.error);
+    return;
+  }
+
+  addLog(`📦 ${bossName}'s ${chestName} added to inventory!`, 'legendary');
+  notify(`📦 ${bossName}'s ${chestName} dropped!`, 'var(--gold)');
   playSound('snd-levelup');
 }
-function openTreasureBox(box){
-  const MAX_STAGE=10;
-  const stageId=Math.min(MAX_STAGE,Math.max(1,currentStage?.id||box.stageId||1));
-  const difficulty=state.difficulty||'normal';
-  const diff=DIFFICULTY[difficulty];
-  const table=TREASURE_TABLES[stageId];if(!table)return;
-  const slots=['weapon','armor','helmet','boots','ring','amulet'];
-  const items=[];
+async function openTreasureBox(box) {
+  const MAX_STAGE = 10;
+  const stageId = Math.min(MAX_STAGE, Math.max(1, currentStage?.id || box.stageId || 1));
 
-  for(let i=0;i<table.rolls;i++){
-    let rarity=rollTreasureRarity(table.tier);
-    const slot=slots[Math.floor(Math.random()*slots.length)];
-    const item=mkEquipDrop(slot,rarity,stageId);
-    const before=(state.inventory.equipment||[]).length;
-    addToInventory(item);
-    const after=(state.inventory.equipment||[]).length;
-    const added=after>before||
-      (item.stackable&&(state.inventory.equipment||[]).find(i=>i.name===item.name));
-    if(added){
-      items.push(item);
-      if(item.rarity==='legendary')state.quests.legendary.done=true;
+  try {
+    const { data, error } = await dbClient.rpc('open_treasure_box', {
+      p_character_id: state.character_id,
+      p_stage_id:     stageId,
+      p_difficulty:   state.difficulty || 'normal'
+    });
+
+    if (error) throw error;
+    if (!data.success) {
+      notify(`❌ ${data.error}`, 'var(--red)');
+      return;
     }
+
+    // Sync fresh state from DB
+    await syncCharacterData();
+
+    // Notify
+    const bossName = box.sourceBossName || `Stage ${stageId} Boss`;
+    notify(`📦 ${bossName}'s chest opened! ${data.items.length} items found!`, 'var(--gold)');
+    addLog(`📦 ${box.displayName || box.name} opened!`, 'legendary');
+
+    data.items.forEach(item => {
+      const r = RARITY[item.rarity] || RARITY.normal;
+      addLog(`  ${item.name} [${r.label}]`,
+        item.rarity === 'legendary' ? 'legendary' : item.rarity === 'epic' ? 'epic' : 'gold');
+    });
+
+    addLog(`💰 +${formatNumber(data.bonus_gold)} Gold!`, 'gold');
+    state.gold = data.new_gold;
+
+    playSound('snd-levelup');
+    spawnParticles(window.innerWidth / 2, window.innerHeight / 2, '#f0c040', 20);
+
+    renderInventory();
+    updateUI();
+    renderQuests();
+
+  } catch (err) {
+    console.error('openTreasureBox error:', err);
+    notify('❌ Failed to open chest. Try again.', 'var(--red)');
   }
-
-  if(items.length<table.rolls){
-    const lost=table.rolls-items.length;
-    notify(`⚠️ ${lost} item(s) lost — bag full! Sell items before opening chests.`,'var(--red)');
-    addLog(`⚠️ ${lost} chest item(s) discarded due to full bag.`,'bad');
-  }
-
-  const matCount=2+Math.floor(Math.random()*2);
-  for(let i=0;i<matCount;i++)rollMatDrop(stageId,false);
-
-  const bonusGold=Math.floor(1000*stageId*diff.goldMult);
-  addGold(bonusGold);
-
-  const bossName=box.sourceBossName||`Stage ${stageId} Boss`;
-  notify(`📦 ${bossName}'s chest opened! ${items.length} items found!`,'var(--gold)');
-  addLog(`📦 ${box.displayName||box.name} opened!`,'legendary');
-  items.forEach(item=>addLog(`  ${item.name} [${(RARITY[item.rarity]||RARITY.normal).label}]`,
-    item.rarity==='legendary'?'legendary':item.rarity==='epic'?'epic':'gold'));
-  addLog(`💰 +${formatNumber(bonusGold)} Gold!`,'gold');
-  playSound('snd-levelup');
-  spawnParticles(window.innerWidth/2,window.innerHeight/2,'#f0c040',20);
-
-  if(state.character_id&&items.length>0){
-    const drops=items.map(item=>({name:item.name,rarity:item.rarity}));
-    dbClient.rpc('record_monster_kill',{
-      p_monster_id:box.sourceMonster||`stage_boss_${stageId}`,
-      p_character_id:state.character_id,
-      p_stage_id:stageId,
-      p_drops:drops,
-      p_difficulty:difficulty
-    }).then(({error})=>{if(error)console.warn('treasure drop tracking failed:',error.message);});
-  }
-
-  renderInventory();updateUI();renderQuests();
 }
+
+
+async function handleBossLoot(slot, rarity, stageId) {
+    // 1. Tell server to generate and save the item
+    const { data, error } = await dbClient.rpc('generate_equipment', {
+        p_character_id: state.character_id,
+        p_slot: slot,
+        p_rarity: rarity,
+        p_stage_id: stageId
+    });
+
+    if (error) {
+        console.error("Loot error:", error);
+        return;
+    }
+
+    // 2. Notify player
+    addLog(`✨ Found ${data.item_name}!`, 'gold');
+
+    // 3. Sync local state so the item appears in the bag
+    await syncCharacterData();
+}
+
 
 // ── LEVEL UP ──
 function checkLevelUp(){
@@ -4486,34 +4496,44 @@ function showClassSelection(){
   }).join('');
   document.getElementById('class-screen').style.display='block';
 }
-function selectClass(classId){
-  const c=CLASSES[classId]; state.class=classId; state.quests.class.done=true;
-  
-  // ONLY set the bonuses in the bonus object. 
-  // Do NOT add them to state[k] here, because calcStats() does that automatically.
-  Object.entries(c.bonuses).forEach(([k,v])=>{
-    state.classBonuses[k]=v;
-  });
+async function selectClass(classId) {
+  const { data, error } = await dbClient.rpc('select_class', {
+    p_character_id: state.character_id,
+    p_class_id:     classId
+  })
 
-  state.skills=c.skills;
-  autoSkillSlots=[null,null,null,null,null,null];
-  autoSkillIndex=0;
-  updateClassDisplay();
-  updatePlayerAvatar();
-  document.getElementById('class-screen').style.display='none';
-  document.getElementById('talent-btn').style.display='inline-block';
-  Object.entries(c.trees).forEach(([treeId,tree])=>{
-    tree.talents.forEach(talent=>{
-      state.talentUnlockedFlags[`${classId}_${talent.id}`]=false;
-    });
-  });
-  addLog(`🎉 You are now a ${c.name}!`,'purple');
-  playSound('snd-levelup');
-  updateUI();
-  renderSkillBar();
-  renderQuests();
-  rebuildSkills();
-  savePlayerToSupabase();
+  if (error || !data.success) {
+    notify(`❌ ${data?.error || error?.message}`, 'var(--red)')
+    return
+  }
+
+  const c = CLASSES[classId]
+  state.class = classId
+  state.quests.class.done = true
+  Object.entries(c.bonuses).forEach(([k, v]) => { state.classBonuses[k] = v })
+  state.skills = c.skills
+  autoSkillSlots = [null, null, null, null, null, null]
+  autoSkillIndex = 0
+
+  // Reset talent flags client-side
+  Object.entries(c.trees).forEach(([treeId, tree]) => {
+    tree.talents.forEach(talent => {
+      state.talentUnlockedFlags[`${classId}_${talent.id}`] = false
+    })
+  })
+
+  await syncCharacterData()
+  updateClassDisplay()
+  updatePlayerAvatar()
+  document.getElementById('class-screen').style.display = 'none'
+  document.getElementById('talent-btn').style.display = 'inline-block'
+  addLog(`🎉 You are now a ${c.name}!`, 'purple')
+  if (data.respec_cost > 0) addLog(`Respec cost: ${formatNumber(data.respec_cost)}g`, 'gold')
+  playSound('snd-levelup')
+  updateUI()
+  renderSkillBar()
+  renderQuests()
+  rebuildSkills()
 }
 
 
@@ -4550,30 +4570,20 @@ function openTalents(){
   document.getElementById('talent-screen').style.display='block';
 }
 
-function resetTalents() {
-  if (!state.class) return;
-  if (!confirm('Reset all talents? Points will be fully refunded.')) return;
-  const c = CLASSES[state.class];
+async function resetTalents() {
+  if (!state.class) return
+  if (!confirm('Reset all talents? Points will be fully refunded.')) return
 
-  // Count only manually spent ranks
-  let refunded = 0;
-  const rankCounts = {};
-  state.unlockedTalents.forEach(id => {
-    rankCounts[id] = (rankCounts[id] || 0) + 1;
-  });
-  Object.values(c.trees).forEach(tree => {
-    tree.talents.forEach(talent => {
-      const ranks = rankCounts[talent.id] || 0;
-      refunded += ranks * talent.cost;
-    });
-  });
+  const { data, error } = await dbClient.rpc('reset_talents', {
+    p_character_id: state.character_id
+  })
 
-  state.talentPoints += refunded;
+  if (error || !data.success) {
+    notify(`❌ ${data?.error || error?.message}`, 'var(--red)')
+    return
+  }
 
-  // Clear spent ranks but keep flags so talents stay visible
-  state.unlockedTalents = [];
-
-  // Reset talent bonuses
+  // Reset talent bonuses client-side
   state.talentBonuses = {
     strMult:0, agiMult:0, intMult:0, staMult:0,
     hitMult:0, critMult:0, dodgeMult:0, hpRegenMult:0,
@@ -4582,24 +4592,47 @@ function resetTalents() {
     spellPowerMult:0, healPowerMult:0, dmgReduction:0,
     dmgReflect:0, chainChance:0, bonusAttackChance:0,
     baseLifeSteal:0, baseCrit:0,
-  };
+  }
 
-  calcStats();
-  addLog(`↺ Talents reset! ${refunded} points refunded.`, 'gold');
-  notify(`↺ Talents reset! ${refunded} pts refunded.`, 'var(--gold)');
-  updateUI(); updateTalentBtn();
-  openTalents();
+  await syncCharacterData()
+  calcStats()
+  addLog(`↺ Talents reset! ${data.refunded} points refunded.`, 'gold')
+  notify(`↺ Talents reset! ${data.refunded} pts refunded.`, 'var(--gold)')
+  updateUI()
+  updateTalentBtn()
+  openTalents()
 }
-function unlockTalent(talentId,treeId){
-  const c=CLASSES[state.class],tree=c.trees[treeId],talent=tree.talents.find(t=>t.id===talentId);if(!talent)return;
-  const rank=state.unlockedTalents.filter(u=>u===talentId).length;
-  if(rank>=talent.ranks){addLog(`${talent.name} already maxed!`,'bad');return;}
-  if(state.talentPoints<talent.cost){addLog('Not enough talent points!','bad');return;}
-  state.talentPoints-=talent.cost;state.unlockedTalents.push(talentId);
-  state.talentUnlockedFlags[`${state.class}_${talentId}`]=true;
-  talent.effect();state.quests.talent.done=true;
-  addLog(`🌟 Unlocked: ${talent.name}!`,'purple');playSound('snd-magic');
-  openTalents();updateUI();renderQuests();updateTalentBtn();
+async function unlockTalent(talentId, treeId) {
+  const c      = CLASSES[state.class]
+  const tree   = c.trees[treeId]
+  const talent = tree.talents.find(t => t.id === talentId)
+  if (!talent) return
+
+  const rank = state.unlockedTalents.filter(u => u === talentId).length
+  if (rank >= talent.ranks) { addLog(`${talent.name} already maxed!`, 'bad'); return }
+  if (state.talentPoints < talent.cost) { addLog('Not enough talent points!', 'bad'); return }
+
+  const { data, error } = await dbClient.rpc('unlock_talent', {
+    p_character_id: state.character_id,
+    p_talent_id:    talentId,
+    p_class_id:     state.class
+  })
+
+  if (error || !data.success) {
+    notify(`❌ ${data?.error || error?.message}`, 'var(--red)')
+    return
+  }
+
+  // Apply talent effect client-side (stat bonuses etc)
+  talent.effect()
+  state.quests.talent.done = true
+  await syncCharacterData()
+  addLog(`🌟 Unlocked: ${talent.name}!`, 'purple')
+  playSound('snd-magic')
+  openTalents()
+  updateUI()
+  renderQuests()
+  updateTalentBtn()
 }
 function closeTalents(){document.getElementById('talent-screen').style.display='none';}
 function updateTalentBtn(){
@@ -4618,83 +4651,67 @@ async function equipItem(uid) {
     return
   }
   equipCooldown = true
-  setTimeout(() => equipCooldown = false, 2000) // 2 second cooldown
+  setTimeout(() => equipCooldown = false, 2000)
 
-  const item = findInventoryItem(uid);
-  if (!item || item.category !== 'equipment') return
-
-  // rest of function unchanged
-
-  // Check tournament item expiry
-  if (item.tournamentReward && item.expiresAt) {
-    if (new Date() > new Date(item.expiresAt)) {
-      notify(`❌ This tournament item has expired!`, 'var(--red)')
-      addLog(`❌ ${item.name} has expired and cannot be equipped!`, 'bad')
-      state.inventory = state.inventory.filter(i => i.uid !== uid)
-      renderInventory()
-      return
-    }
+  // Optimistic update — show immediately
+  const item = findInventoryItem(uid)
+  if (item) {
+    item.equipped = true
+    state.equipped[item.slot] = uid
+    reapplyEquipBonuses()
+    calcStats()
+    renderInventory()
+    renderEquipSlots()
+    updateUI()
   }
 
-  // Server side validation — read actual values from database
-  const { data: character, error } = await dbClient
-    .from('characters')
-    .select('level, reputation_rank')
-    .eq('id', state.character_id)
-    .single()
-
-  if (error || !character) {
-    notify('❌ Failed to validate equipment requirements.', 'var(--red)')
-    return
-  }
-
-  // Level check against real database value
-  const req = item.levelReq || 0
-  if (character.level < req) {
-    notify(`❌ Need Level ${req} to equip ${item.name}!`, 'var(--red)')
-    addLog(`❌ Need Level ${req} to equip ${item.name}!`, 'bad')
-    return
-  }
-
-  // Reputation check against real database value
-  const REP_REQ = { rare: 'baron', epic: 'chief', legendary: 'mayor' }
-  const repNeeded = REP_REQ[item.rarity]
-  if (repNeeded) {
-    const repTiers = REPUTATION_TITLES.map(r => r.id)
-    const playerRepIndex = repTiers.indexOf(character.reputation_rank || '')
-    const reqRepIndex = repTiers.indexOf(repNeeded)
-    if (playerRepIndex < reqRepIndex) {
-      const repLabel = REPUTATION_TITLES.find(r => r.id === repNeeded)?.label
-      notify(`❌ Need ${repLabel} reputation to equip ${item.name}!`, 'var(--red)')
-      addLog(`❌ Need ${repLabel} reputation to equip ${item.name}!`, 'bad')
-      return
-    }
-  }
-
-  // All checks passed — equip the item
-  if (state.equipped[item.slot]) unequipSlot(item.slot, true)
-  Object.entries(item.stats || {}).forEach(([k, v]) => {
-    const ek = 'equip' + k.charAt(0).toUpperCase() + k.slice(1)
-    state[ek] = (state[ek] || 0) + v
+  const { data, error } = await dbClient.rpc('equip_item', {
+    p_character_id: state.character_id,
+    p_item_uid:     uid
   })
-  item.equipped = true
-  state.equipped[item.slot] = uid
-  state.quests.equip.done = true
+
+  if (error || !data.success) {
+    // Revert on failure
+    notify(`❌ ${data?.error || error?.message}`, 'var(--red)')
+    await syncCharacterData()
+    reapplyEquipBonuses()
+    calcStats()
+    renderInventory()
+    renderEquipSlots()
+    updateUI()
+    return
+  }
+
+  // Confirm with real DB state
+  await syncCharacterData()
+  reapplyEquipBonuses()
   calcStats()
-  addLog(`Equipped ${item.name}!`, 'good')
+  notify(`✅ Equipped!`, 'var(--gold)')
+  addLog(`Equipped ${item?.name}!`, 'good')
   playSound('snd-craft')
   renderInventory()
   renderEquipSlots()
   updateUI()
   renderQuests()
-  await saveInventoryToSupabase();
 }
-async function unequipSlot(slot,silent=false){
-  const uid=state.equipped[slot];if(!uid)return;
-  const item = findInventoryItem(uid);
-  if(item){Object.entries(item.stats||{}).forEach(([k,v])=>{const ek='equip'+k.charAt(0).toUpperCase()+k.slice(1);state[ek]=Math.max(0,(state[ek]||0)-v);});item.equipped=false;if(!silent)addLog(`Unequipped ${item.name}!`,'info');}
-  state.equipped[slot]=null;calcStats();renderInventory();renderEquipSlots();updateUI();await saveInventoryToSupabase();
+async function unequipSlot(slot, silent = false) {
+  const { data, error } = await dbClient.rpc('unequip_item', {
+    p_character_id: state.character_id,
+    p_slot:         slot
+  })
 
+  if (error || !data.success) {
+    notify(`❌ ${data?.error || error?.message}`, 'var(--red)')
+    return
+  }
+
+  await syncCharacterData()
+  reapplyEquipBonuses()
+  calcStats()
+  if (!silent) addLog(`Unequipped ${data.item_name}!`, 'info')
+  renderInventory()
+  renderEquipSlots()
+  updateUI()
 }
 function renderEquipSlots(){
   ['weapon','armor','helmet','boots','ring','amulet'].forEach(slot=>{
@@ -5016,7 +5033,8 @@ console.log('equipment bag uids:', state.inventory.equipment.map(i => ({ uid: i.
     }
 
     // ── Apply server result to local state ──
-    state.gold = data.new_gold;
+    // ── Sync from DB — server is source of truth ──
+await syncCharacterData();
 
     // Update item in equipment bag
     const bag = state.inventory.equipment;
@@ -5056,12 +5074,7 @@ console.log('equipment bag uids:', state.inventory.equipment.map(i => ({ uid: i.
       playSound('snd-death');
     }
 
-    // Reapply equip bonuses since stats changed
-    reapplyEquipBonuses();
-    calcStats();
-    updateUI();
-    renderInventory();
-    renderEnhanceScreen(uid);
+   
 
   } catch (err) {
     console.error('enhance_item error:', err);
@@ -5132,8 +5145,9 @@ function showItemPopup(source,id){
     statsHtml=item.stats
       ?Object.entries(item.stats).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join('')
       :item.effect?`<div class="tooltip-stat">Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}</div>`:'';
-    reqLine=(item.levelReq&&item.levelReq>0)
-      ?`<div style="font-size:.78em;margin-bottom:6px;color:${state.level>=item.levelReq?'var(--green)':'var(--red)'};">${state.level>=item.levelReq?'✅':'🔒'} Level ${item.levelReq} Required</div>`:'';
+    const _reqLv = item.level_req || item.levelReq || 0;
+reqLine = _reqLv > 0
+  ? `<div style="font-size:.78em;margin-bottom:6px;color:${state.level>=_reqLv?'var(--green)':'var(--red)'};">${state.level>=_reqLv?'✅':'🔒'} Level ${_reqLv} Required</div>` : '';
     btns=`<button class="start-btn" onclick="buyShopItem('${item.id}');closeItemPopup()">💰 <u>B</u>uy (${item.price}g)</button>`;
 
   } else {
@@ -5151,8 +5165,9 @@ if (!item) {
     statsHtml=item.stats
       ?Object.entries(item.stats).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join('')
       :item.effect?`<div class="tooltip-stat">Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}</div>`:'';
-    reqLine=(item.levelReq&&item.levelReq>0)
-      ?`<div style="font-size:.78em;margin-bottom:6px;color:${state.level>=item.levelReq?'var(--green)':'var(--red)'};">${state.level>=item.levelReq?'✅':'🔒'} Level ${item.levelReq} Required</div>`:'';
+    const _reqLv = item.level_req || item.levelReq || 0;
+reqLine = _reqLv > 0
+  ? `<div style="font-size:.78em;margin-bottom:6px;color:${state.level>=_reqLv?'var(--green)':'var(--red)'};">${state.level>=_reqLv?'✅':'🔒'} Level ${_reqLv} Required</div>` : '';
 
     // Treasure box info
     if(item.effect==='treasure'){
@@ -5203,12 +5218,32 @@ if (!item) {
 }
 
 function showPopup(item,statsHtml,btns,source,id){
-  const r=RARITY[item.rarity]||RARITY.normal;
+  // Safety check: If item is missing, don't try to render the popup
+  if (!item) {
+    console.error("showPopup called without an item object");
+    return;
+  }
+
+  const r = RARITY[item.rarity] || RARITY.normal;
+  
+  // FIXED: Safe emoji extraction
+  const itemEmoji = item.name ? item.name.split(' ')[0] : '❓';
+  // FIXED: Safe name display
+  const itemName = item.displayName || item.name || 'Unknown Item';
+
   document.getElementById('item-popup-content').innerHTML=`
-    <div style="text-align:center;margin-bottom:10px;"><div style="font-size:2.5em;">${item.name.split(' ')[0]}</div><div style="color:${r.color};font-family:'Cinzel',serif;font-size:1em;font-weight:600;">${item.displayName||item.name}</div><div style="color:${r.color};font-size:.78em;">${r.label}</div></div>
-    <div style="margin:10px 0;">${statsHtml}</div><div style="color:#888;font-size:.75em;margin-bottom:12px;">Sell: ${formatNumber(item.sellPrice||0)}g</div>
+    <div style="text-align:center;margin-bottom:10px;">
+      <div style="font-size:2.5em;">${itemEmoji}</div>
+      <div style="color:${r.color};font-family:'Cinzel',serif;font-size:1em;font-weight:600;">${itemName}</div>
+      <div style="color:${r.color};font-size:.78em;">${r.label}</div>
+    </div>
+    <div style="margin:10px 0;">${statsHtml}</div>
+    <div style="color:#888;font-size:.75em;margin-bottom:12px;">Sell: ${formatNumber(item.sellPrice||0)}g</div>
     <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">${btns}</div>
-    <div style="margin-top:8px;text-align:center;"><button class="start-btn" style="background:rgba(255,255,255,.1);color:#aaa;" onclick="closeItemPopup()">✖ Close</button></div>`;
+    <div style="margin-top:8px;text-align:center;">
+      <button class="start-btn" style="background:rgba(255,255,255,.1);color:#aaa;" onclick="closeItemPopup()">✖ Close</button>
+    </div>`;
+    
   document.getElementById('item-popup').style.display='flex';
 
   // keyboard shortcuts
@@ -5234,6 +5269,7 @@ function showPopup(item,statsHtml,btns,source,id){
   document.addEventListener('keydown',window._itemPopupKeyHandler);
 }
 
+
 function closeItemPopup(){
   document.getElementById('item-popup').style.display='none';
   if(window._itemPopupKeyHandler){
@@ -5244,28 +5280,23 @@ function closeItemPopup(){
 function closeItemPopup(){document.getElementById('item-popup').style.display='none';}
 
 async function sellItem(uid) {
-  // Search all bags
-  let found = false;
-  for (const bagKey of ['equipment', 'consumable', 'material']) {
-    const bag = state.inventory[bagKey] || [];
-    const idx = bag.findIndex(i => String(i.uid) === String(uid));
-    if (idx === -1) continue;
-    const item = bag[idx];
-    if (item.equipped) return;
-    const qty = item.qty || item.quantity || 1;
-    const total = (item.sellPrice || 0) * (item.stackable ? qty : 1);
-    addGold(total);
-    addLog(`Sold ${item.name} for ${formatNumber(total)}g`, 'gold');
-    bag.splice(idx, 1);
-    found = true;
-    break;
+  const { data, error } = await dbClient.rpc('sell_item', {
+    p_character_id: state.character_id,
+    p_item_uid:     uid
+  })
+
+  if (error || !data.success) {
+    notify(`❌ ${data?.error || error?.message}`, 'var(--red)')
+    return
   }
-  if (!found) return;
-  renderInventory();
-  updateUI();
-  if (state.gold >= 50) state.quests.gold50.done = true;
-  renderQuests();
-  await saveInventoryToSupabase();
+
+  await syncCharacterData()
+  addLog(`Sold ${data.item_name} for ${formatNumber(data.total)}g`, 'gold')
+  notify(`💰 Sold for ${formatNumber(data.total)}g`, 'var(--gold)')
+  if (state.gold >= 50) state.quests.gold50.done = true
+  renderInventory()
+  updateUI()
+  renderQuests()
 }
 
 // ══════════════════════════════════════════
@@ -5365,8 +5396,9 @@ function renderInventory() {
     const enh = item.enh_level ?? item.enhLevel ?? 0;
     const enhBadge      = enh > 0 ? `<div class="item-icon-stack" style="top:2px;left:3px;right:auto;color:${enh >= 7 ? 'var(--legendary)' : 'var(--gold)'}">+${enh}</div>` : '';
     const glowClass     = enh >= 15 ? 'enh-glow-15' : enh >= 7 ? 'enh-glow-7' : '';
-    const isLocked      = item.levelReq && item.levelReq > state.level;
-    const lockBadge     = isLocked ? `<div style="position:absolute;top:2px;left:3px;font-size:.6em;color:var(--red);">🔒${item.levelReq}</div>` : '';
+    const reqLevel = item.level_req || item.levelReq || 0;
+    const isLocked = reqLevel > 0 && reqLevel > state.level;
+    const lockBadge = isLocked ? `<div style="position:absolute;top:2px;left:3px;font-size:.6em;color:var(--red);">🔒${reqLevel}</div>` : '';
 
     // Reputation lock
     const REP_REQ = { rare:'baron', epic:'chief', legendary:'mayor' };
@@ -5383,7 +5415,7 @@ function renderInventory() {
     return `<div class="item-icon-box ${item.rarity} ${glowClass}"
       onclick="showItemPopup('inv','${item.uid}')" title="${item.name}"
       style="${isAnyLocked ? 'opacity:0.5;' : ''}">
-      <div class="item-icon-emoji">${item.name.split(' ')[0]}</div>
+      <div class="item-icon-emoji">${item.name ? item.name.split(' ')[0] : '❓'}</div>
       ${stackBadge}${equippedBadge}${enhBadge}${lockBadge}${repLockBadge}
     </div>`;
   });
@@ -5425,7 +5457,13 @@ async function saveTabAutoSell(tab) {
   state.autoSell[tab].uncommon = document.getElementById(`as-${tab}-uncommon`)?.checked || false;
   state.autoSell[tab].rare     = document.getElementById(`as-${tab}-rare`)?.checked     || false;
   state.autoSell[tab].epic     = document.getElementById(`as-${tab}-epic`)?.checked     || false;
-  await savePlayerToSupabase();
+
+  const { error } = await dbClient
+    .from('characters')
+    .update({ auto_sell: state.autoSell })
+    .eq('id', state.character_id);
+
+  if (error) console.error('Failed to save auto-sell settings:', error);
 }
 
 // ── AUTO-SELL NOW FOR A SPECIFIC TAB ──
@@ -5646,7 +5684,8 @@ async function renderShop() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`
+    'apikey': SUPABASE_KEY, // Use the global variable instead of hardcoded string
+        'Authorization': `Bearer ${session?.access_token}`
       },
       body: JSON.stringify({
         character_id: state.character_id,
@@ -5671,7 +5710,6 @@ async function renderShop() {
       </div>`
 
     if (currentShopTab === 'equipment') {
-      // Group visible items by rep tier
       const tiers = [
         { key: null,       label: '🏪 Basic Stock',              color: 'var(--text-dim)' },
         { key: 'baron',    label: '📦 Back Shelf — Baron+',      color: 'var(--rare)' },
@@ -5682,7 +5720,12 @@ async function renderShop() {
       ]
 
       tiers.forEach(tier => {
-        const tierItems = items.filter(i => (i.repReq || null) === tier.key)
+        // Use rep_req from DB
+        const tierItems = items.filter(i => {
+    const itemReq = i.rep_req || 'citizen';
+    const tierReq = tier.key || 'citizen';
+    return itemReq === tierReq;
+});
         if (!tierItems.length) return
 
         html += `
@@ -5694,7 +5737,10 @@ async function renderShop() {
 
         tierItems.forEach(item => {
           const cantAfford = playerGold < item.price
-          const levelLocked = playerLevel < (item.levelReq || 0)
+          // FIXED: Check both levelReq and level_req to be safe
+          const reqLevel = item.level_req || item.levelReq || 0
+          const levelLocked = playerLevel < reqLevel
+          
           html += `
             <div class="item-icon-box ${item.rarity}"
               onclick="showItemPopup('shop','${item.id}')"
@@ -5704,14 +5750,13 @@ async function renderShop() {
               <div class="item-icon-price" style="color:${cantAfford ? 'var(--red)' : 'var(--gold)'};">
                 💰${formatNumber(item.price)}
               </div>
-              ${levelLocked ? `<div style="position:absolute;top:2px;left:2px;font-size:.5em;color:var(--red);">Lv${item.levelReq}</div>` : ''}
+              ${levelLocked ? `<div style="position:absolute;top:2px;left:2px;font-size:.5em;color:var(--red);">Lv${reqLevel}</div>` : ''}
             </div>`
         })
 
         html += `</div>`
       })
 
-      // Locked silhouettes — psychological torture 💀
       if (lockedCount > 0) {
         const nextLabel = nextLockedRank
           ? nextLockedRank.charAt(0).toUpperCase() + nextLockedRank.slice(1)
@@ -5744,7 +5789,7 @@ async function renderShop() {
       }
 
     } else {
-      // Consumables
+      // Consumables logic (Mirroring the Equipment tiers)
       const tiers = [
         { key: null,       label: '🏪 Basic Potions',      color: 'var(--text-dim)' },
         { key: 'baron',    label: '📦 Baron Potions',      color: 'var(--rare)' },
@@ -5755,7 +5800,7 @@ async function renderShop() {
       ]
 
       tiers.forEach(tier => {
-        const tierItems = items.filter(i => (i.repReq || null) === tier.key)
+        const tierItems = items.filter(i => (i.rep_req || i.repReq || null) === tier.key)
         if (!tierItems.length) return
 
         html += `
@@ -5782,7 +5827,7 @@ async function renderShop() {
         html += `</div>`
       })
 
-      // Locked silhouettes
+      // Locked silhouettes for potions
       if (lockedCount > 0) {
         const nextLabel = nextLockedRank
           ? nextLockedRank.charAt(0).toUpperCase() + nextLockedRank.slice(1)
@@ -5805,7 +5850,7 @@ async function renderShop() {
         html += `</div>`
       }
 
-      // Legacy Skill Tomes — unchanged
+      // Legacy Skill Tomes - Keeping these since they use a separate config
       const skillBooks = GAME_CONFIG.skill_books || []
       const defs = getLegacySkillDefs()
       const learned = getLearnedLegacySkills()
@@ -5863,7 +5908,6 @@ async function renderShop() {
 
     container.innerHTML = html
 
-    // Also update SHOP_EQUIP/SHOP_CONS in memory for buyItem() to work
     if (currentShopTab === 'equipment') {
       window._shopEquipCache = items
     } else {
@@ -5875,6 +5919,7 @@ async function renderShop() {
     container.innerHTML = `<div style="text-align:center;color:var(--red);padding:20px;">Failed to load shop. Check connection.</div>`
   }
 }
+
 
 // ── BUY SKILL BOOK FROM SHOP ──
 async function buySkillBook(bookId, skillId) {
@@ -5936,18 +5981,44 @@ async function buySkillBook(bookId, skillId) {
   renderStatPoints();
   renderSkillBar();
   renderShop();
-  await savePlayerToSupabase();
+  //await savePlayerToSupabase();
 }
 
-function buyShopItem(itemId){
-  const all=[...SHOP_EQUIP,...SHOP_CONS],item=all.find(i=>i.id===itemId);if(!item)return;
-  if(state.gold<item.price){addLog('Not enough gold!','bad');return;}
-  state.gold-=item.price;
-  if(item.slot){addToInventory({uid:genUid(),name:item.name,category:'equipment',slot:item.slot,rarity:item.rarity||'normal',stats:{...item.stats},equipped:false,levelReq:item.levelReq||0,sellPrice:Math.floor(item.price*.5)});}
-  else{addToInventory({uid:genUid(),name:item.name,category:'consumable',rarity:item.rarity||'normal',effect:item.effect,val:item.val,sellPrice:Math.floor(item.price*.4),stackable:true,qty:1});}
-  addLog(`Bought ${item.name} for ${item.price}g!`,'gold');updateUI();
-  if(state.gold>=50)state.quests.gold50.done=true;renderQuests();
+async function buyShopItem(itemId) {
+  try {
+    // 1. Call the Secure RPC we created in Supabase
+    const { data, error } = await dbClient.rpc('purchase_shop_item', {
+      p_character_id: state.character_id,
+      p_item_id: itemId
+    });
+
+    if (error) throw error;
+    if (!data.success) {
+      // This handles "Not enough gold" or "Item not found"
+      notify(data.error, 'var(--red)');
+      return;
+    }
+
+    // 2. Success! Notify the player
+    notify("Purchase successful!", "var(--gold)");
+    addLog(`Bought item ${itemId}!`, 'gold');
+
+    // 3. CRITICAL: Sync the data from the server
+    // We don't manually subtract gold here; we ask the server for the new total.
+    await syncCharacterData(); 
+    
+    // 4. Update the UI and close the popup
+    updateUI();
+    // If you have a function to close the popup, call it here. e.g.:
+    // closeItemPopup(); 
+
+  } catch (err) {
+    console.error("Purchase error:", err);
+    notify("Transaction failed. Please try again.", "var(--red)");
+  }
 }
+
+
 
 // ── QUESTS ──
 function renderQuests(){document.getElementById('quest-list').innerHTML=Object.values(state.quests).map(q=>`<div class="quest-item ${q.done?'quest-done':''}">${q.done?'✅':''} ${q.text}</div>`).join('');}

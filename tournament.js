@@ -39,7 +39,7 @@ async function collectArenaRewards() {
 
     updateUI();
     renderInventory();
-    await savePlayerToSupabase();
+    //await savePlayerToSupabase();
   } catch(e){ console.error('Collect arena rewards error:', e); }
 }
 

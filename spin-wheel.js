@@ -1,10 +1,20 @@
 // ── SPINNING WHEEL SYSTEM ──
+// ── SPINNING WHEEL SYSTEM ──
+
+
+
+let spinMode = 'normal';
+let isSpinning = false;
 
 const WHEEL_PRIZES = [
 ];
 
 const PREMIUM_WHEEL_PRIZES = [
 ];
+
+// Active wheel mode — 'normal' or 'premium'
+
+
 
 function getWeightedPrize(prizes) {
   const totalWeight = prizes.reduce((sum, p) => sum + p.weight, 0);
@@ -16,62 +26,69 @@ function getWeightedPrize(prizes) {
   return prizes[0];
 }
 
-// Active wheel mode — 'normal' or 'premium'
-let spinMode = 'normal';
+
 
 
 // Load prizes from spin_rewards table — single source of truth
 async function loadSpinPrizes() {
-  const { data, error } = await dbClient
-    .from('spin_rewards')
-    .select('prize_id, type, value, label, color, weight, mode')
-    .eq('active', true)
-    .order('mode')
-    .order('weight', { ascending: false });
+  const [prizesResult, configResult] = await Promise.all([
+    dbClient
+      .from('spin_rewards')
+      .select('prize_id, type, value, label, color, weight, mode')
+      .eq('active', true)
+      .order('mode')
+      .order('weight', { ascending: false }),
+    dbClient
+  .from('game_config')
+  .select('value')
+  .eq('key', 'spin_config')
+  .maybeSingle()
+  ]);
 
-  if (error || !data) {
-    console.error('Failed to load spin prizes:', error);
+  if (prizesResult.error || !prizesResult.data) {
+    console.error('Failed to load spin prizes:', prizesResult.error);
     return;
   }
 
-  window.WHEEL_PRIZES = data
-    .filter(p => p.mode === 'normal')
-    .map(p => ({
-      id:     p.prize_id,
-      type:   p.type,
-      value:  p.value,
-      label:  p.label,
-      color:  p.color,
-      weight: p.weight,
-    }));
+  // Set costs from DB
+  if (configResult.data?.value) {
+    console.log('spin_config raw:', JSON.stringify(configResult.data?.value));
+  const cfg = typeof configResult.data.value === 'string' 
+    ? JSON.parse(configResult.data.value) 
+    : configResult.data.value;
+  window.NORMAL_SPIN_COST  = cfg.normal_cost_gold      || 500000;
+  window.PREMIUM_SPIN_COST = cfg.premium_cost_crystals || 200;
+}
 
-  window.PREMIUM_WHEEL_PRIZES = data
+  window.WHEEL_PRIZES = prizesResult.data
+    .filter(p => p.mode === 'normal')
+    .map(p => ({ id: p.prize_id, type: p.type, value: p.value, label: p.label, color: p.color, weight: p.weight }));
+
+  window.PREMIUM_WHEEL_PRIZES = prizesResult.data
     .filter(p => p.mode === 'premium')
-    .map(p => ({
-      id:     p.prize_id,
-      type:   p.type,
-      value:  p.value,
-      label:  p.label,
-      color:  p.color,
-      weight: p.weight,
-    }));
+    .map(p => ({ id: p.prize_id, type: p.type, value: p.value, label: p.label, color: p.color, weight: p.weight }));
 
   console.log(`✅ Spin prizes loaded: ${window.WHEEL_PRIZES.length} normal, ${window.PREMIUM_WHEEL_PRIZES.length} premium`);
+  console.log(`✅ Spin costs: ${window.NORMAL_SPIN_COST}g / ${window.PREMIUM_SPIN_COST} crystals`);
 }
+
+
 
 async function openSpinWheel() {
   if (document.getElementById('spin-overlay')) return;
   spinMode = 'normal';
 
-  // Stop autosave while wheel is open to prevent race conditions
   if (typeof stopAutoSave === 'function') stopAutoSave();
-
-  // Load prizes from DB before opening
   await loadSpinPrizes();
+  const normalCost  = window.NORMAL_SPIN_COST;
+  const premiumCost = window.PREMIUM_SPIN_COST;
 
-  // Use loaded prizes or empty fallback
   const normalPrizes = window.WHEEL_PRIZES || [];
-  const premiumPrizes = window.PREMIUM_WHEEL_PRIZES || [];
+
+  if (!normalCost || !premiumCost) {
+  notify('❌ Failed to load spin config. Try again.', 'var(--red)');
+  return;
+}
 
   if (!normalPrizes.length) {
     notify('❌ Failed to load spin prizes. Try again.', 'var(--red)');
@@ -118,12 +135,12 @@ async function openSpinWheel() {
             flex:1;padding:10px;font-family:'Cinzel',serif;font-size:11px;
             letter-spacing:2px;cursor:pointer;border:none;transition:all .2s;
             background:linear-gradient(135deg,#8a6a1a,#c9a84c);color:#0a0806;font-weight:900;
-          ">⚔️ NORMAL<br><span style="font-size:9px;opacity:.8;">${formatNumber(NORMAL_SPIN_COST)} GOLD</span></button>
+          ">⚔️ NORMAL<br><span style="font-size:9px;opacity:.8;">${formatNumber(normalCost)} GOLD</span></button>
           <button id="tab-premium" onclick="switchSpinMode('premium')" style="
             flex:1;padding:10px;font-family:'Cinzel',serif;font-size:11px;
             letter-spacing:2px;cursor:pointer;border:none;transition:all .2s;
             background:#0d0a06;color:#a855f7;border-left:1px solid #3a2a0a;
-          ">💎 PREMIUM<br><span style="font-size:9px;opacity:.8;">${PREMIUM_SPIN_COST} CRYSTALS</span></button>
+          ">💎 PREMIUM<br><span style="font-size:9px;opacity:.8;">${premiumCost} CRYSTALS</span></button>
         </div>
 
         <!-- Currency display -->
@@ -177,7 +194,7 @@ async function openSpinWheel() {
           border:none;color:#0a0806;
           font-family:'Cinzel',serif;font-size:14px;font-weight:900;
           letter-spacing:4px;padding:14px;cursor:pointer;transition:all 0.2s;
-        ">⚡ SPIN — ${formatNumber(NORMAL_SPIN_COST)}g</button>
+        ">⚡ SPIN — ${formatNumber(normalCost)}g</button>
 
         <!-- Prize list -->
         <div id="prize-list" style="margin-top:14px;text-align:left;">
@@ -191,6 +208,7 @@ async function openSpinWheel() {
   document.body.appendChild(overlay);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeSpinWheel(); });
   drawWheel(0, window.WHEEL_PRIZES || []);
+  switchSpinMode('normal'); // ← trigger affordability check on open
 }
 
 
@@ -213,8 +231,8 @@ window.switchSpinMode = function(mode) {
   spinMode = mode;
   const isPremium = mode === 'premium';
   const cost = isPremium
-  ? (window.PREMIUM_SPIN_COST || 0)
-  : (window.NORMAL_SPIN_COST  || 0);
+  ? (window.PREMIUM_SPIN_COST || 200)
+  : (window.NORMAL_SPIN_COST  || 500000);
 
 const prizes = isPremium
   ? (window.PREMIUM_WHEEL_PRIZES || PREMIUM_WHEEL_PRIZES)
@@ -360,18 +378,25 @@ function drawWheel(rotation, prizes) {
   ctx.stroke();
 }
 
-let isSpinning = false;
 
 async function doSpin() {
+
   if (isSpinning) return;
-  
-  // Pause autosave during spin to prevent race condition
+
   if (typeof stopAutoSave === 'function') stopAutoSave();
 
-  const isPremium = spinMode === 'premium';
-  const cost = isPremium ? PREMIUM_SPIN_COST : NORMAL_SPIN_COST;
 
-  // Client-side pre-check (UX only — server validates too)
+  const normalCost  = window.NORMAL_SPIN_COST;
+  const premiumCost = window.PREMIUM_SPIN_COST;
+
+  const isPremium = spinMode === 'premium';
+  const cost = isPremium ? premiumCost : normalCost;
+
+  if (!normalCost || !premiumCost) {
+  notify('❌ Failed to load spin config. Try again.', 'var(--red)');
+  return;
+}
+
   if (isPremium && (state.soulCrystals || 0) < cost) {
     notify(`❌ Not enough crystals! Need ${cost}.`, 'var(--red)');
     return;
@@ -385,7 +410,7 @@ async function doSpin() {
   const btn = document.getElementById('spin-btn');
   btn.disabled = true;
   btn.textContent = '⏳ SPINNING...';
-  // Call RPC — server deducts cost AND rolls the prize
+
   const { data, error } = await dbClient.rpc('process_spin', {
     character_id: state.character_id,
     spin_mode: spinMode,
@@ -399,21 +424,18 @@ async function doSpin() {
     return;
   }
 
-  // Deduct from local state to match server
   if (isPremium) {
     state.soulCrystals = Math.max(0, (state.soulCrystals || 0) - cost);
   } else {
     state.gold = Math.max(0, (state.gold || 0) - cost);
   }
 
-  // Update currency display
   const valEl = document.getElementById('spin-currency-val');
   if (valEl) valEl.textContent = isPremium ? formatNumber(state.soulCrystals) : formatNumber(state.gold);
 
-  // Build prize from server response — client array only used for animation position
   const prizes = isPremium
-    ? (window.PREMIUM_WHEEL_PRIZES || PREMIUM_WHEEL_PRIZES)
-    : (window.WHEEL_PRIZES || WHEEL_PRIZES);
+    ? (window.PREMIUM_WHEEL_PRIZES || [])
+    : (window.WHEEL_PRIZES || []);
 
   const prize = {
     id:    data.prize_id,
@@ -426,7 +448,6 @@ async function doSpin() {
   const prizeIndex = Math.max(0, prizes.findIndex(p => p.id === data.prize_id));
   const sliceAngle = (2 * Math.PI) / prizes.length;
 
-  // Animate wheel to land on server-determined prize
   const targetSlice = prizeIndex * sliceAngle + sliceAngle / 2;
   const extraSpins = (5 + Math.floor(Math.random() * 5)) * 2 * Math.PI;
   const targetAngle = extraSpins + (2 * Math.PI - targetSlice) - Math.PI / 2;
@@ -441,7 +462,6 @@ async function doSpin() {
     if (progress < 1) {
       requestAnimationFrame(animate);
     } else {
-      // Can't await here — call async function without await
       showSpinResult(prize, isPremium);
       applySpinReward(prize, isPremium).finally(() => {
         isSpinning = false;
@@ -454,6 +474,7 @@ async function doSpin() {
 }
 
 function showSpinResult(prize, isPremium) {
+  console.log('SPIN COSTS:', window.NORMAL_SPIN_COST, window.PREMIUM_SPIN_COST);
   const resultEl = document.getElementById('spin-result');
   if (!resultEl) return;
 
@@ -476,7 +497,7 @@ function showSpinResult(prize, isPremium) {
   // Re-enable button
   const btn = document.getElementById('spin-btn');
   const isPrem = spinMode === 'premium';
-  const cost = isPrem ? PREMIUM_SPIN_COST : NORMAL_SPIN_COST;
+  const cost = isPrem ? (window.PREMIUM_SPIN_COST || 200) : (window.NORMAL_SPIN_COST || 500000);
   const canAfford = isPrem
     ? (state.soulCrystals || 0) >= cost
     : (state.gold || 0) >= cost;
@@ -537,7 +558,7 @@ async function applySpinReward(prize, isPremium) {
         state.luckyTitle = '🍀 Fortune\'s Chosen';
         addLog(`🎰 Fortune Wheel: Won the title "Fortune's Chosen"!`, 'gold');
       }
-      await savePlayerToSupabase();
+     // await savePlayerToSupabase();
       break;
 
     // All server-side prizes — reload from DB instead of saving

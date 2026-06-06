@@ -51,7 +51,7 @@ async function checkLoginReward() {
       state.totalLoginDays = newTotalDays;
 
       // Save immediately so the reward isn't lost if they crash/close
-      await savePlayerToSupabase();
+      // await savePlayerToSupabase();
       updateUI();
 
       window._pendingLoginReward = { reward, day: newStreak, item: rewardItem, alreadyClaimed: false };

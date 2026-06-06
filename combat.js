@@ -105,6 +105,7 @@ function renderPlayerStatPanel() {
 // ── START COMBAT WITH (enemy object) ──
 function startCombatWith(enemy){
   autoSkillIndex=0;
+  state.combatTurnsPassed = 0;
   document.getElementById('enemy-hp-val').textContent=formatNumber(enemy.hp);
   document.getElementById('enemy-hp-max').textContent=formatNumber(enemy.maxHp);
   const el=document.getElementById('arena-enemy');
@@ -126,30 +127,82 @@ function startCombatWith(enemy){
     <p><strong style="color:var(--red)">${enemy.name}</strong> appears!${enemy.boss?'<span style="color:var(--gold);margin-left:6px;">⚠️ BOSS BATTLE!</span>':''}</p>`;
 
   updatePlayerAvatar();
-  updateAutoFightBtn();
   renderPlayerStatPanel()
 }
 
 // ── COMBAT ACTION (manual) ──
+// ── UPGRADED COMBAT ACTION (Step-by-step for custom skills) ──
 function combatAction(action) {
   if (!currentEnemy) return;
 
-  // Player action handling
-  if (action === 'attack') {
-    showTutorialHint('firstCombat');
-    handlePlayerAttack();
-  } else if (action === 'magic') {
-    showTutorialHint('firstMagic');
-    handlePlayerMagic();
-  } else if (action === 'defend') {
-    showTutorialHint('firstDefend');
-    state.defending = true;
-    addCombatLog('🛡️ Bracing for impact!', 'info');
-  } else if (action === 'flee') {
-    showTutorialHint('firstFlee');
-    handleFlee();
+  // 1. Check the Cooldown/Global Cooldown timer before acting
+  const now = Date.now();
+  if (now - lastSkillUseTime < SKILL_GCD_MS) {
+    notify('⏳ Ability is on cooldown!', 'var(--red)');
+    return;
   }
 
+  // ── ADDED FOR CUSTOM SKILLS ──
+  // Check if the action clicked is a custom skill from your GAME_CONFIG definitions
+  const skillDef = GAME_CONFIG.skill_definitions ? GAME_CONFIG.skill_definitions[action] : null;
+
+  if (skillDef) {
+    // A. Check if the player has enough mana
+    const currentManaCost = skillDef.mana_cost || 0;
+    if (state.mp < currentManaCost) {
+      notify('💧 Not enough mana!', 'var(--red)');
+      return; 
+    }
+
+    // B. Deduct the mana cost securely on the client
+    state.mp -= currentManaCost;
+
+    // C. Calculate the damage using your own sophisticated stat variables!
+    // Example: Damage = (Attack Power * Skill Multiplier)
+    const skillMultiplier = skillDef.base_multiplier || 1.0;
+    let skillDamage = Math.floor((state.attackPower || 10) * skillMultiplier);
+
+    // D. Roll for critical strike using your existing state.crit decimal percentage (e.g., 0.1 for 10%)
+    let isCritical = false;
+    if (Math.random() < (state.crit || 0)) {
+      isCritical = true;
+      skillDamage = Math.floor(skillDamage * 2.0); // Crits deal double damage
+    }
+
+    // E. Reduce damage based on enemy armor (simulating your math layers)
+    const enemyArmor = currentEnemy.base_armor || 0;
+    skillDamage = Math.max(1, skillDamage - Math.floor(enemyArmor * 0.5));
+
+    // F. Subtract health from the monster object inside your current loop
+    currentEnemy.hp -= skillDamage;
+    lastSkillUseTime = now; // Reset global cooldown timer
+
+    // G. Write the result to your beautiful visual log panel
+    if (isCritical) {
+      addCombatLog(`💥 CRITICAL STRIKE! You cast ${skillDef.skill_name} and dealt ${formatNumber(skillDamage)} damage!`, 'var(--deep-gold)');
+    } else {
+      addCombatLog(`✨ You cast ${skillDef.skill_name} and dealt ${formatNumber(skillDamage)} damage!`, 'info');
+    }
+
+  } else {
+    // ── YOUR ORIGINAL ACTIONS (Kept exactly intact) ──
+    if (action === 'attack') {
+      showTutorialHint('firstCombat');
+      handlePlayerAttack();
+    } else if (action === 'magic') {
+      showTutorialHint('firstMagic');
+      handlePlayerMagic();
+    } else if (action === 'defend') {
+      showTutorialHint('firstDefend');
+      state.defending = true;
+      addCombatLog('🛡️ Bracing for impact!', 'info');
+    } else if (action === 'flee') {
+      showTutorialHint('firstFlee');
+      handleFlee();
+    }
+  }
+
+  // ── YOUR ORIGINAL TURN CLEANUP (Kept exactly intact) ──
   // Check if enemy is dead
   if (currentEnemy && currentEnemy.hp <= 0) {
     currentEnemy.hp = 0;
@@ -179,8 +232,10 @@ function combatAction(action) {
   updateUI();
 }
 
+
 // ── DUNGEON FLOW ──
 async function enterDungeon(stageId) {
+  autoFightOn = true
   const stage = STAGES.find(s => s.id === stageId)
   if (!stage) return
   if (state.level < stage.levelReq) {
@@ -309,140 +364,128 @@ function startBossFight(){
 }
 function startStageBossFight(){
   document.getElementById('boss-cutscene').style.display='none';
-  if(!pendingBossId)return;
-  const boss=STAGE_BOSSES[pendingBossId];if(!boss)return;
-  const diff=DIFFICULTY[state.difficulty||'normal'];
-  const stageLevel=currentStage?currentStage.id:1;
-  const stageScale=1+(stageLevel-1)*0.4;
-  const prefix=state.difficulty==='hell'?'💀 Hell ':state.difficulty==='hard'?'🔥 Hard ':'';
-  const isPhase1 = (state.worldPhase || 1) < 2
-const isPhase2 = (state.worldPhase || 1) < 3
-currentEnemy = {
-  ...boss,
-  name:    prefix + boss.name,
-  hp:      Math.floor(boss.hp * stageScale * diff.hpMult),
-  maxHp:   Math.floor(boss.hp * stageScale * diff.hpMult),
-  atk:     Math.floor(boss.atk * stageScale * diff.atkMult),
-  armor:   Math.floor(boss.armor * stageScale),
-  hit:     isPhase1 ? 0 : Math.floor(boss.hit * stageScale),
-  dodge:   isPhase1 ? 0 : Math.floor(boss.dodge * stageScale),
-  crit:    isPhase1 ? 0 : (boss.base_crit || 0),
-  ability: isPhase2 ? null : boss.ability,
-  xp:      Math.floor(boss.xp * diff.xpMult),
-  gold:    [Math.floor(boss.gold[0] * diff.goldMult), Math.floor(boss.gold[1] * diff.goldMult)],
-  poisoned: 0, frozen: false, boss: true, abilityTurn: 0, _xpMult: 1, _goldMult: 1
-}
-  startCombatWith(currentEnemy)
-clearInterval(autoFightTimer)
-autoFightTimer = setInterval(() => {
-  if (!currentEnemy) { clearInterval(autoFightTimer); return; }
-  autoFightStep()
-}, currentEnemy.attackInterval || 1000);
+  if(!pendingBossId) return;
+
+  const boss = STAGE_BOSSES[pendingBossId];
+  if(!boss) return;
+
+  const diff = DIFFICULTY[state.difficulty || 'normal'];
+  const stageLevel = currentStage ? currentStage.id : 1;
+  const stageScale = 1 + (stageLevel - 1) * 0.4;
+  const prefix = state.difficulty === 'hell'
+    ? '💀 Hell '
+    : state.difficulty === 'hard'
+      ? '🔥 Hard '
+      : '';
+
+  const isPhase1 = (state.worldPhase || 1) < 2;
+  const isPhase2 = (state.worldPhase || 1) < 3;
+
+  currentEnemy = {
+    ...boss,
+    name: prefix + boss.name,
+    hp: Math.floor(boss.hp * stageScale * diff.hpMult),
+    maxHp: Math.floor(boss.hp * stageScale * diff.hpMult),
+    atk: Math.floor(boss.atk * stageScale * diff.atkMult),
+    armor: Math.floor(boss.armor * stageScale),
+    hit: isPhase1 ? 0 : Math.floor(boss.hit * stageScale),
+    dodge: isPhase1 ? 0 : Math.floor(boss.dodge * stageScale),
+    crit: isPhase1 ? 0 : (boss.base_crit || 0),
+    ability: isPhase2 ? null : boss.ability,
+    xp: Math.floor(boss.xp * diff.xpMult),
+    gold: [
+      Math.floor(boss.gold[0] * diff.goldMult),
+      Math.floor(boss.gold[1] * diff.goldMult)
+    ],
+    poisoned: 0,
+    frozen: false,
+    boss: true,
+    abilityTurn: 0,
+    _xpMult: 1,
+    _goldMult: 1
+  };
+
+  startCombatWith(currentEnemy);
+
+  clearInterval(autoFightTimer);
+  autoFightTimer = setInterval(() => {
+    if (!currentEnemy) { clearInterval(autoFightTimer); return; }
+    autoFightStep();
+  }, currentEnemy.attackInterval || 1000);
 }
 // BUG FIX #10: was 15ms (effectively instant) — player never saw rewards.
 // Now waits 3 seconds so the treasure box notification is visible.
 async function dungeonComplete() {
-  // Send to combat-end for validation
   if (state.currentCombatSessionId) {
-    await fetch(`${SUPABASE_URL}/functions/v1/rapid-function`, {
+    const rapidRes = await fetch(`${SUPABASE_URL}/functions/v1/rapid-function`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${(await dbClient.auth.getSession()).data.session.access_token}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        session_id: state.currentCombatSessionId,
-        character_id: state.character_id,
-        gold_earned: state.sessionGoldEarned || 0,
-        xp_earned: state.sessionXpEarned || 0,
-        kills: state.sessionKills || 0,
+        session_id:    state.currentCombatSessionId,
+        character_id:  state.character_id,
+        gold_earned:   state.sessionGoldEarned  || 0,
+        xp_earned:     state.sessionXpEarned    || 0,
+        kills:         state.sessionKills        || 0,
         boss_defeated: state.sessionBossDefeated || false,
-        stage_id: currentStage.id
+        stage_id:      currentStage.id
       })
     })
-    // Reset session trackers
+    const rapidData = await rapidRes.json()
+
     state.currentCombatSessionId = null
-    state.sessionGoldEarned = 0
-    state.sessionXpEarned = 0
-    state.sessionKills = 0
+    state.sessionGoldEarned  = 0
+    state.sessionXpEarned    = 0
+    state.sessionKills       = 0
     state.sessionBossDefeated = false
+
+    if (rapidData.levels_gained > 0) {
+      await syncCharacterData()
+      for (let i = 0; i < rapidData.levels_gained; i++) {
+        playSound('snd-levelup')
+        showLevelUpEffect()
+        notify(`🎉 Level Up! Now Level ${rapidData.new_level}!`, 'var(--gold)')
+        addLog(`🎉 LEVEL UP! Level ${rapidData.new_level}! +5 Talent Points, +${rapidData.free_stat_pts} Free Stat Points`, 'gold')
+      }
+      if (rapidData.new_level >= 10 && !state.class) showClassSelection()
+      updateTalentBtn()
+    }
   }
-  const stageId        = currentStage.id;
-  const completedStage = currentStage;
-  currentStage  = null;
-  dungeonWave   = 0;
-  dungeonQueue  = [];
-  addLog('🏆 Dungeon Complete! Next run starting in 3s...', 'legendary');
-  notify('🏆 Dungeon Complete!', 'var(--gold)');
-  dropTreasureBox(stageId);
-  updateUI();
-  renderInventory();
-  loadScene(town);
-  await savePlayerToSupabase();  
+
+  const stageId = currentStage.id
+  currentStage  = null
+  dungeonWave   = 0
+  dungeonQueue  = []
+
+  await dropTreasureBox(stageId)
+  await syncCharacterData()
+  autoFightOn = false
+
+  addLog('🏆 Dungeon Complete!', 'legendary')
+  notify('🏆 Dungeon Complete!', 'var(--gold)')
+  playSound('snd-levelup')
+  spawnParticles(window.innerWidth / 2, window.innerHeight / 2, '#f0c040', 20)
+  updateUI()
+  renderInventory()
+  loadScene('town')
 }
 
 
 // ── PLAYER ATTACK ──
 function handlePlayerAttack() {
-  // Check dodge
-  const enemyDodgeChance = state.worldPhase >= 2 
-  ? calculateDodgeChance(currentEnemy.dodge, state.hit) 
-  : 0
-  if (Math.random() < enemyDodgeChance) {
-    addCombatLog(`💨 ${currentEnemy.name} dodged!`, 'bad');
-    playSound('snd-attack');
-    state.defending = false;
-    return;
-  }
-  
-
-  // Calculate base damage
-  let damage = calculateAttackDamage(state.attackPower, currentEnemy.armor);
-
-  // Apply tutorial bonus
-  const tutBonus = getTutorialDamageBonus();
-  damage = Math.floor(damage * tutBonus);
-
-  // Apply berserker talent (low HP bonus)
-  if (state.unlockedTalents.includes('berserker') && state.hp < state.maxHp * 0.5) {
-    damage = Math.floor(damage * 1.35);
-  }
-
-  // Check for critical hit
-  // Check for critical hit — Phase 2+
-  // Check for critical hit
-  let isCrit = false;
-  if (Math.random() < state.crit / 100) {
-    damage = Math.floor(damage * 2);
-    isCrit = true;
-    showCritEffect();
-  }
-
-  // Apply death mark talent
-  if (state.unlockedTalents.includes('death_mark')) {
-    damage = Math.floor(damage * 1.5);
-  }
-
-  // Apply venom talent
-  if (state.unlockedTalents.includes('venom')) {
-    currentEnemy.poisoned = (currentEnemy.poisoned || 0) + 1;
-  }
-
-  // Deal damage to enemy
-  currentEnemy.hp -= damage;
-
-  // Apply life steal
-  applyLifeSteal(damage);
-
-  // Log and animate
-  addCombatLog(
-    `⚔️ ${isCrit ? '💥CRIT! ' : ''}You hit for ${damage}!`,
-    isCrit ? 'gold' : 'good'
-  );
-  playSound('snd-attack');
-  animateAttack(true, damage, isCrit);
-
-  state.defending = false;
+    // ... logic for crit/dodge ...
+    
+    // 1. Calculate raw
+    let rawDamage = state.attackPower + Math.floor(Math.random() * state.attackPower * 0.1);
+    
+    // 2. Resolve (Replaces the old manual subtraction)
+    const dealt = resolveDamage(state, currentEnemy, rawDamage, 'physical');
+    
+    // 3. Log (The only thing the function needs to do now)
+    addCombatLog(`⚔️ You hit for ${dealt} damage!`, 'good');
+    animateAttack(true, dealt, false);
 }
 
 // ── PLAYER MAGIC ──
@@ -729,6 +772,7 @@ state.skillCooldowns[skillId] = Math.max(1, Math.floor(sk.cd * (1 - cdr)));sk.us
   Object.keys(state.skillCooldowns).forEach(k=>{if(k!==skillId&&state.skillCooldowns[k]>0)state.skillCooldowns[k]--;});
   if(currentEnemy&&currentEnemy.hp<=0){currentEnemy.hp=0;updateEnemyBar();clearInterval(autoFightTimer);autoFightTimer=null;endCombat(true);return;}
   if(currentEnemy && currentEnemy.hp > 0){
+    state.combatTurnsPassed = (state.combatTurnsPassed || 0) + 1; // ── ADD THIS: Advance count
     handleEnemyTurn();
     if(state.hp <= 0){state.hp=0;updateUI();endCombat(false);return;}
   }
@@ -769,157 +813,190 @@ function useSoulSkill(){
 }
 
 // ── END COMBAT ──
-async function endCombat(won){
-  const es=document.getElementById('enemy-stats');if(es)es.style.display='none';
-  if(!currentEnemy)return;
+async function endCombat(won) {
+  const es = document.getElementById('enemy-stats');
+  if (es) es.style.display = 'none';
+  if (!currentEnemy) return;
 
-  state.arcaneSurgeActive=false;state.arcaneSurgeTurns=0;state.arcaneSurgeMult=1;state.soulBarrierAbsorb=0;
-  state.earthTotemTurns=0;state.earthTotemReduction=0;state.bonusAttacks=0;state.manaShieldAbsorb=0;
+  // ── Reset combat buffs ──
+  state.arcaneSurgeActive = false; state.arcaneSurgeTurns = 0; state.arcaneSurgeMult = 1; state.soulBarrierAbsorb = 0;
+  state.earthTotemTurns = 0; state.earthTotemReduction = 0; state.bonusAttacks = 0; state.manaShieldAbsorb = 0;
 
-  if(state.activeDebuffs.maxHpReduction>0){state.equipMaxHp=(state.equipMaxHp||0)+state.activeDebuffs.maxHpReduction;state.activeDebuffs.maxHpReduction=0;}
-  state.activeDebuffs.webTrapped=0;state.activeDebuffs.rageTimer=0;state.webTrapped=0;
-  if(currentEnemy.rageTimer>0)currentEnemy.atk=Math.floor(currentEnemy.atk/2);
+  if (state.activeDebuffs.maxHpReduction > 0) {
+    state.equipMaxHp = (state.equipMaxHp || 0) + state.activeDebuffs.maxHpReduction;
+    state.activeDebuffs.maxHpReduction = 0;
+  }
+  state.activeDebuffs.webTrapped = 0; state.activeDebuffs.rageTimer = 0; state.webTrapped = 0;
+  if (currentEnemy.rageTimer > 0) currentEnemy.atk = Math.floor(currentEnemy.atk / 2);
 
-  state.usedUndying=false;state.skillCooldowns={};state.battleCryActive=false;
+  state.usedUndying = false; state.skillCooldowns = {}; state.battleCryActive = false;
 
-  state.strMult=1.0;state.agiMult=1.0;state.intMult=1.0;state.staMult=1.0;
-  state.armorMult=1.0;state.critMult=1.0;state.dodgeMult=1.0;state.hpRegenMult=1.0;
-  state.mpRegenMult=1.0;state.hitMult=1.0;state.mpMult=1.0;state.attackPowerMult=1.0;state.lifeStealMult=1.0;state.maxHpMult=1.0;
-  state.combatBuffStr=0;
-  state.combatBuffAtkp=0;
-  state.combatBuffHit=0;
-  state.combatBuffArmor=0;
-  
+  state.strMult = 1.0; state.agiMult = 1.0; state.intMult = 1.0; state.staMult = 1.0;
+  state.armorMult = 1.0; state.critMult = 1.0; state.dodgeMult = 1.0; state.hpRegenMult = 1.0;
+  state.mpRegenMult = 1.0; state.hitMult = 1.0; state.mpMult = 1.0; state.attackPowerMult = 1.0;
+  state.lifeStealMult = 1.0; state.maxHpMult = 1.0;
+  state.combatBuffStr = 0; state.combatBuffAtkp = 0; state.combatBuffHit = 0; state.combatBuffArmor = 0;
 
-  
   calcStats();
 
-  const wasBoss=currentEnemy.boss;
-  const defeatedId=currentEnemy.id;
+  const wasBoss    = currentEnemy.boss;
+  const defeatedId = currentEnemy.id;
 
-  if(won){
-     
-  if (wasBoss) state.sessionBossDefeated = true
-    if(defeatedId&&!wasBoss)autoFightEnemyId=defeatedId;
+  if (won) {
+    if (wasBoss) state.sessionBossDefeated = true;
+    if (defeatedId && !wasBoss) autoFightEnemyId = defeatedId;
 
-    const baseGold=currentEnemy.gold&&Array.isArray(currentEnemy.gold)?currentEnemy.gold:[50,150];
-    const goldMult=Number(currentEnemy._goldMult)||1;
-    const xpMult=Number(currentEnemy._xpMult)||1;
+    // Calculate gold and XP (display only — server applies real values at dungeon end)
+    const baseGold = currentEnemy.gold && Array.isArray(currentEnemy.gold) ? currentEnemy.gold : [50, 150];
+    const goldMult = Number(currentEnemy._goldMult) || 1;
+    const xpMult   = Number(currentEnemy._xpMult)   || 1;
 
-    let spinGoldMult=1;
-    if(state.goldMult&&state.goldMult>1&&state.goldMultExpiry){
-      if(new Date()<new Date(state.goldMultExpiry)){
-        spinGoldMult=state.goldMult;
+    let spinGoldMult = 1;
+    if (state.goldMult && state.goldMult > 1 && state.goldMultExpiry) {
+      if (new Date() < new Date(state.goldMultExpiry)) {
+        spinGoldMult = state.goldMult;
       } else {
-        state.goldMult=1;state.goldMultExpiry=null;
+        state.goldMult = 1; state.goldMultExpiry = null;
       }
     }
 
-    const g=Math.floor((Math.random()*(baseGold[1]-baseGold[0])+baseGold[0])*goldMult*spinGoldMult);
-    const xp=Math.floor(currentEnemy.xp*xpMult);
-    // Track cumulative rewards for combat-end validation
-  state.sessionGoldEarned = (state.sessionGoldEarned || 0) + g
-  state.sessionXpEarned = (state.sessionXpEarned || 0) + xp
-  state.sessionKills = (state.sessionKills || 0) + 1
-    addGold(g); // ✅ sanitized
-    state.xp+=xp;
-    addLog(`Defeated ${currentEnemy.name}! +${xp} XP, +${g} Gold`,'good');
+    const g  = Math.floor((Math.random() * (baseGold[1] - baseGold[0]) + baseGold[0]) * goldMult * spinGoldMult);
+    const xp = Math.floor(currentEnemy.xp * xpMult);
 
-    if(currentEnemy.loot){
-      currentEnemy.loot().forEach(item=>{
-        addToInventory(item);
-        addLog(`Loot: ${item.name} [${RARITY[item.rarity]?.label||'Normal'}]`,item.rarity==='legendary'?'legendary':item.rarity==='epic'?'epic':'gold');
-        if(item.rarity==='legendary')state.quests.legendary.done=true;
+    // Track session totals for server-side validation at dungeon end
+    state.sessionGoldEarned = (state.sessionGoldEarned || 0) + g;
+    state.sessionXpEarned   = (state.sessionXpEarned   || 0) + xp;
+    state.sessionKills      = (state.sessionKills       || 0) + 1;
+
+    // Display only — real persistence happens server-side at dungeon end
+    state.xp += xp;
+    addLog(`Defeated ${currentEnemy.name}! +${xp} XP, +${g} Gold`, 'good');
+
+    // Quests
+    if (wasBoss) state.quests.boss.done = true;
+    state.quests.kill1.done = true;
+    if (state.gold >= 50) state.quests.gold50.done = true;
+
+    autoSellAfterCombat();
+
+    // Mat drop — server-side RPC
+    if (currentStage) await rollMatDrop(currentStage.id, wasBoss);
+
+    // Record kill to Supabase
+    if (defeatedId && state.character_id) {
+      dbClient.rpc('record_monster_kill', {
+        p_monster_id:   defeatedId,
+        p_character_id: state.character_id,
+        p_stage_id:     currentStage?.id || 1,
+        p_drops:        [],
+        p_difficulty:   state.difficulty || 'normal'
+      }).then(({ error }) => {
+        if (error) console.warn('record_monster_kill failed:', error.message);
       });
     }
 
-    if(wasBoss)state.quests.boss.done=true;
-    state.quests.kill1.done=true;
-    if(state.gold>=50)state.quests.gold50.done=true;
-    autoSellAfterCombat();
-    if(currentStage)rollMatDrop(currentStage.id,wasBoss);
-    checkLevelUp();
-    if(!autoFightOn && !currentStage) savePlayerToSupabase();
     renderQuests();
+    trackQuestKill(defeatedId, wasBoss, currentStage?.id || null, g);
 
-    trackQuestKill(defeatedId,wasBoss,currentStage?.id||null,g);
+    currentEnemy = null;
 
-    // Record kill to Supabase
-    if(defeatedId&&state.character_id){
-  const drops=(currentEnemy?.loot?currentEnemy.loot():[]).map(item=>({name:item.name,rarity:item.rarity}));
-  dbClient.rpc('record_monster_kill',{
-    p_monster_id:defeatedId,
-    p_character_id:state.character_id,
-    p_stage_id:currentStage?.id||1,
-    p_drops:drops,
-    p_difficulty:state.difficulty||'normal'
-  }).then(({error})=>{if(error)console.warn('record_monster_kill failed:',error.message);});
-}
-
-    currentEnemy=null;
+    // Save HP/MP after combat win (non-dungeon only — dungeon saves at end via combat-end edge function)
+    if (!currentStage) {
+      await dbClient
+        .from('characters')
+        .update({
+          health:     state.hp,
+          mana:       state.mp,
+          skill_cooldowns: state.skillCooldowns,
+        })
+        .eq('id', state.character_id);
+    }
 
     // Dungeon flow
-    if(currentStage){
-      if(wasBoss){dungeonComplete();}
-      else if(dungeonQueue.length>0){setTimeout(()=>spawnNextDungeonMonster(),1200);}
-      else{setTimeout(()=>startNextWave(),1500);}
-    } else if(autoFightOn){
-      // Stay in combat UI, restart next fight
-      setTimeout(()=>{
-        if(autoFightOn&&autoFightEnemyId)startCombat(autoFightEnemyId,false);
-      },1000);
+    if (currentStage) {
+      if (wasBoss) { dungeonComplete(); }
+      else if (dungeonQueue.length > 0) { setTimeout(() => spawnNextDungeonMonster(), 1200); }
+      else { setTimeout(() => startNextWave(), 1500); }
     } else {
       showChoicesMode();
     }
 
   } else {
-    currentEnemy=null;
+    // ── Player died ──
+    currentEnemy = null;
+
+    // Respawn at 15% HP, 50% MP
+    state.hp = Math.max(1, Math.floor(state.maxHp * 0.15));
+    state.mp = Math.floor(state.maxMp * 0.50);
+
+    // Save death state to DB
+    await dbClient
+      .from('characters')
+      .update({
+        health:          state.hp,
+        mana:            state.mp,
+        skill_cooldowns: {},
+      })
+      .eq('id', state.character_id);
+
+    addLog(`💀 You were defeated and returned to town.`, 'bad');
+    notify(`💀 Defeated! Respawned at 15% HP.`, 'var(--red)');
+
     showCombatMode();
-    loadScene('town'); return;
+    loadScene('town');
+    return;
   }
 
-  updateUI();renderSkillBar();updateAutoFightBtn();
+  updateUI();
+  renderSkillBar();
 }
 
+async function sendCombatResultsToServer() {
+  if (!state.currentCombatSessionId) return;
 
-// ── AUTO FIGHT ──
-function toggleAutoFight() {
-  if (currentStage) {
-    autoFightOn = false; clearInterval(autoFightTimer); autoFightTimer = null;
-    currentStage = null; dungeonWave = 0; dungeonQueue = []; currentEnemy = null;
-    showChoicesMode();
-    stopAutoFight();
-    addLog('⏹️ Left the dungeon!', 'info');
-    notify('⏹️ Dungeon abandoned!', '#888');
-    loadScene('town'); return;
-  }
-  if (!autoFightEnemyId) { notify('⚠️ Defeat an enemy first!', 'var(--red)'); return; }
-  autoFightOn = !autoFightOn; updateAutoFightBtn();
-  if (autoFightOn) {
-    addLog('⚡ Auto Fight ON!', 'gold');
-    notify('⚡ Auto Fight activated!', 'var(--gold)');
-    startAutoFight();
+  const { data: { session } } = await dbClient.auth.getSession();
+
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/verify-combat-end`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${session?.access_token}`
+    },
+    body: JSON.stringify({
+      session_id: state.currentCombatSessionId,
+      character_id: state.character_id,
+      total_turns: state.combatTurnsPassed || 1, // Pass the total turns it took to finish
+      enemy_died: true
+    })
+  });
+
+  const result = await response.json();
+  if (result.success) {
+    notify('🎁 Loot dropped! Check your inventory.', 'var(--gold)');
+    // Display rewards panel...
   } else {
-    stopAutoFight();
-    addLog('⏹️ Auto Fight OFF.', 'info');
-    notify('⏹️ Auto Fight stopped.', '#888');
-    showChoicesMode();
+    notify('⚠️ Verification Failed: Action recorded as anomalous.', 'var(--red)');
   }
 }
 
-function updateAutoFightBtn() {
-  const btn = document.getElementById('auto-fight-btn'); if (!btn) return;
-  if (currentStage) {
-    btn.textContent = '🚪 Leave Dungeon';
-    btn.style.background = 'linear-gradient(135deg,#6a0000,#aa2222)';
-    btn.style.display = 'inline-block'; return;
-  }
-  btn.textContent = autoFightOn ? '⏹️ Stop Auto' : '⚡ Auto Fight';
-  btn.style.background = autoFightOn
-    ? 'linear-gradient(135deg,#6a0000,#aa2222)'
-    : 'linear-gradient(135deg,#005500,#00aa44)';
-  btn.style.display = (autoFightEnemyId && !currentEnemy) ? 'inline-block' : 'none';
+// The "Source of Truth" for all damage in your game
+function resolveDamage(source, target, baseDamage, type = 'physical') {
+    // 1. Calculate Mitigation (Armor/Resist)
+    // We use the formula from your old functions, but now it's centralized.
+    const reduction = type === 'physical' 
+        ? Math.min(0.85, (target.armor || 0) / ((target.armor || 0) + 80000)) 
+        : 0; // Add magic resist logic later here
+
+    const finalDamage = Math.max(1, Math.floor(baseDamage * (1 - reduction)));
+
+    // 2. Apply the damage
+    target.hp = Math.max(0, target.hp - finalDamage);
+
+    return finalDamage;
 }
+// ── AUTO FIGHT ──
+
 
 function startAutoFight() {
   if (!autoFightOn || !autoFightEnemyId) return;
@@ -938,7 +1015,7 @@ async function stopAutoFight() {
   clearInterval(autoFightTimer);
   autoFightTimer = null;
   updateAutoFightBtn();
-  await savePlayerToSupabase();
+  //await savePlayerToSupabase();
 }
 
 async function autoFightStep() {
@@ -1095,25 +1172,20 @@ state.skillCooldowns[skillId] = Math.max(1, Math.floor(sk.cd * (1 - cdr)));sk.us
 
 // ── AUTO SLOT HELPERS ──
 function dropSkillToSlot(event,slotIndex){const skillId=event.dataTransfer.getData('skillId');if(!skillId||!SKILLS[skillId])return;autoSkillSlots[slotIndex]=skillId;renderAutoSlots();}
-function clearSlot(slotIndex){autoSkillSlots[slotIndex]=null;renderAutoSlots();}
-function renderAutoSlots(){
-  autoSkillSlots.forEach((skillId,i)=>{
-    const content=document.getElementById(`auto-slot-content-${i}`);const slot=document.getElementById(`auto-slot-${i}`);if(!content||!slot)return;
-    if(skillId&&SKILLS[skillId]){const sk=SKILLS[skillId];content.innerHTML=sk.icon;content.style.borderColor='var(--gold)';slot.querySelector('.skill-lbl').textContent=sk.name;}
-    else{content.innerHTML='➕';content.style.borderColor='';slot.querySelector('.skill-lbl').textContent=`Slot ${i+1}`;}
-  });
-}
-
-function clearSlot(slotIndex) {
-  autoSkillSlots[slotIndex] = null;
+function clearSlot(slotIndex){
+  autoSkillSlots[slotIndex]=null;
   renderAutoSlots();
 }
 
 function renderAutoSlots() {
+  const SLOT_COUNT = 6;
   autoSkillSlots.forEach((skillId, i) => {
+    if (i >= SLOT_COUNT) return;
+
     const content = document.getElementById(`auto-slot-content-${i}`);
     const slot = document.getElementById(`auto-slot-${i}`);
     if (!content || !slot) return;
+
     if (skillId && SKILLS[skillId]) {
       const sk = SKILLS[skillId];
       content.innerHTML = sk.icon;

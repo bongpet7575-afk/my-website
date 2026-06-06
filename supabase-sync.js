@@ -96,7 +96,7 @@ async function syncCharacterToState(character) {
   state.mp    = character.mana       || 50;
   state.maxMp = character.max_mana   || 50;
 
-  // ── Base stats — now flat columns, NOT stats JSONB ──
+  // ── Base stats ──
   state.baseStr         = character.base_str          || 5;
   state.baseAgi         = character.base_agi          || 5;
   state.baseInt         = character.base_int          || 5;
@@ -109,105 +109,63 @@ async function syncCharacterToState(character) {
   state.baseLifeSteal   = character.base_life_steal   || 0;
   state.baseAttackPower = character.base_attack_power || 10;
 
-  // ── Multipliers — always reset to 1.0, recalculated by calcStats() ──
-  // Never loaded from DB — these are derived, not stored
-  state.strMult         = 1.0;
-  state.agiMult         = 1.0;
-  state.intMult         = 1.0;
-  state.staMult         = 1.0;
-  state.armorMult       = 1.0;
-  state.maxHpMult       = 1.0;
-  state.hpRegenMult     = 1.0;
-  state.maxMpMult       = 1.0;
-  state.mpMult          = 1.0;
-  state.critMult        = 1.0;
-  state.dodgeMult       = 1.0;
-  state.mpRegenMult     = 1.0;
-  state.hitMult         = 1.0;
-  state.lifeStealMult   = 1.0;
-  state.attackPowerMult = 1.0;
+  // ── Multipliers — reset to 1.0 ──
+  state.strMult = 1.0; state.agiMult = 1.0; state.intMult = 1.0; state.staMult = 1.0;
+  state.armorMult = 1.0; state.maxHpMult = 1.0; state.hpRegenMult = 1.0; state.maxMpMult = 1.0;
+  state.mpMult = 1.0; state.critMult = 1.0; state.dodgeMult = 1.0; state.mpRegenMult = 1.0;
+  state.hitMult = 1.0; state.lifeStealMult = 1.0; state.attackPowerMult = 1.0;
 
-  // ── Class bonuses — reset, reapplied by calcStats() from class definition ──
-  state.classBonuses = {
-    strMult:0, agiMult:0, intMult:0, staMult:0,
-    hitMult:0, critMult:0, dodgeMult:0, hpRegenMult:0,
-    mpRegenMult:0, armorMult:0, mpMult:0, lifeStealMult:0,
-    attackPowerMult:0, maxHpMult:0,
-  };
+  state.classBonuses = { strMult:0, agiMult:0, intMult:0, staMult:0, hitMult:0, critMult:0, dodgeMult:0, hpRegenMult:0, mpRegenMult:0, armorMult:0, mpMult:0, lifeStealMult:0, attackPowerMult:0, maxHpMult:0 };
+  state.talentBonuses = { strMult:0, agiMult:0, intMult:0, staMult:0, hitMult:0, critMult:0, dodgeMult:0, hpRegenMult:0, mpRegenMult:0, armorMult:0, mpMult:0, lifeStealMult:0, attackPowerMult:0, maxHpMult:0 };
 
-  // ── Talent bonuses — reset, reapplied by calcStats() from unlocked talents ──
-  state.talentBonuses = {
-    strMult:0, agiMult:0, intMult:0, staMult:0,
-    hitMult:0, critMult:0, dodgeMult:0, hpRegenMult:0,
-    mpRegenMult:0, armorMult:0, mpMult:0, lifeStealMult:0,
-    attackPowerMult:0, maxHpMult:0,
-  };
+  state.equipStr = 0; state.equipStrMult = 0; state.equipAgi = 0; state.equipAgiMult = 0;
+  state.equipInt = 0; state.equipIntMult = 0; state.equipSta = 0; state.equipStaMult = 0;
+  state.equipMaxHp = 0; state.equipMaxHpMult = 0; state.equipMaxMp = 0; state.equipMaxMpMult = 0;
+  state.equipArmor = 0; state.equipArmorMult = 0; state.equipCrit = 0; state.equipDodge = 0;
+  state.equipDodgeMult = 0; state.equipLifeSteal = 0; state.equipLifeStealMult = 1.0;
+  state.equipAttackPower = 0; state.equipAttackPowerMult = 0; state.equipHpRegen = 0; state.equipHpRegenMult = 0;
+  state.equipMpRegen = 0; state.equipMpRegenMult = 0; state.equipHit = 0; state.equipHitMult = 0;
 
-  // ── Equipment bonuses — reset, reapplied by calcStats() from equipped items ──
-  state.equipStr             = 0;
-  state.equipStrMult         = 0;
-  state.equipAgi             = 0;
-  state.equipAgiMult         = 0;
-  state.equipInt             = 0;
-  state.equipIntMult         = 0;
-  state.equipSta             = 0;
-  state.equipStaMult         = 0;
-  state.equipMaxHp           = 0;
-  state.equipMaxHpMult       = 0;
-  state.equipMaxMp           = 0;
-  state.equipMaxMpMult       = 0;
-  state.equipArmor           = 0;
-  state.equipArmorMult       = 0;
-  state.equipCrit            = 0;
-  state.equipDodge           = 0;
-  state.equipDodgeMult       = 0;
-  state.equipLifeSteal       = 0;
-  state.equipLifeStealMult   = 1.0;
-  state.equipAttackPower     = 0;
-  state.equipAttackPowerMult = 0;
-  state.equipHpRegen         = 0;
-  state.equipHpRegenMult     = 0;
-  state.equipMpRegen         = 0;
-  state.equipMpRegenMult     = 0;
-  state.equipHit             = 0;
-  state.equipHitMult         = 0;
-
-  // ── Inventory — handle both 3-bag structure and legacy flat array ──
+  // ── FIXED Inventory Sync ──
   const rawInventory = character.inventory;
-  if (rawInventory && !Array.isArray(rawInventory) && rawInventory.equipment !== undefined) {
-    // New 3-bag structure
-    const normalizeBag = (bag) => (bag || []).map(item =>
-      typeof item === 'string' ? JSON.parse(item) : item
-    ).map(item => ({ ...item, uid: String(item.uid) }));
+  
+  // The secure normalize function: handles BOTH Arrays and Objects
+  const normalizeBag = (bag) => {
+    if (!bag) return [];
+    // If it's an object {uid: item}, convert to array [item]
+    const itemsList = Array.isArray(bag) ? bag : Object.values(bag);
+    
+    return itemsList.map(item => {
+      if (!item) return null;
+      const parsed = typeof item === 'string' ? JSON.parse(item) : item;
+      return { ...parsed, uid: String(parsed.uid || 'unknown') };
+    }).filter(i => i !== null);
+  };
 
+  if (rawInventory && !Array.isArray(rawInventory) && (rawInventory.equipment !== undefined || rawInventory.consumable !== undefined)) {
+    // New Secure 3-bag structure
     state.inventory = {
       equipment:  normalizeBag(rawInventory.equipment),
       consumable: normalizeBag(rawInventory.consumable),
       material:   normalizeBag(rawInventory.material),
     };
   } else if (Array.isArray(rawInventory)) {
-    // Legacy flat array — migrate into equipment bag
-    const items = rawInventory.map(item =>
-      typeof item === 'string' ? JSON.parse(item) : item
-    ).map(item => ({ ...item, uid: String(item.uid) }));
-    state.inventory = { equipment: items, consumable: [], material: [] };
+    // Legacy flat array
+    state.inventory = { 
+        equipment: normalizeBag(rawInventory), 
+        consumable: [], 
+        material: [] 
+    };
   } else {
     state.inventory = { equipment: [], consumable: [], material: [] };
   }
 
-  // ── Equipped ──
-  state.equipped = character.equipped || {
-    weapon:null, armor:null, helmet:null,
-    boots:null,  ring:null,  amulet:null,
-  };
-
-  // ── Talents & Skills ──
-  state.talentPoints        = character.talent_points         || 0;
-  state.unlockedTalents     = character.unlocked_talents      || [];
+  state.equipped = character.equipped || { weapon:null, armor:null, helmet:null, boots:null, ring:null, amulet:null };
+  state.talentPoints = character.talent_points || 0;
+  state.unlockedTalents = character.unlocked_talents || [];
   state.talentUnlockedFlags = character.talent_unlocked_flags || {};
-  state.skillCooldowns      = character.skill_cooldowns       || {};
+  state.skillCooldowns = character.skill_cooldowns || {};
 
-  // ── Quests ──
   const loadedQuests = character.quests || {};
   state.quests = {
     kill1:     loadedQuests.kill1     || { text:'🗡️ Defeat your first enemy', done:false },
@@ -215,62 +173,51 @@ async function syncCharacterToState(character) {
     level5:    loadedQuests.level5    || { text:'⭐ Reach Level 5',           done:false },
     level10:   loadedQuests.level10   || { text:'🏆 Reach Level 10',          done:false },
     boss:      loadedQuests.boss      || { text:'🐉 Defeat a Boss',           done:false },
-    class:     loadedQuests.class     || { text:'✨ Choose a Class',          done:false },
+    class:     loadedQuests.class     || { text:'✨ Choose a Class',           done:false },
     talent:    loadedQuests.talent    || { text:'🌟 Unlock a Talent',         done:false },
     equip:     loadedQuests.equip     || { text:'🛡️ Equip an item',           done:false },
     legendary: loadedQuests.legendary || { text:'🔱 Find a Legendary item',  done:false },
     craft:     loadedQuests.craft     || { text:'⚗️ Craft an item',           done:false },
-    level50:   loadedQuests.level50   || { text:'👑 Reach Level 50',          done:false },
+    level50:   loadedQuests.level50   || { text:'👑 Reach Level 50',           done:false },
     level100:  loadedQuests.level100  || { text:'🌟 Reach Max Level 100',     done:false },
   };
 
-  // ── Active debuffs ──
-  state.activeDebuffs = character.active_debuffs || {
-    maxHpReduction:0, webTrapped:0, rageTimer:0,
-  };
-
-  // ── UI state ──
+  state.activeDebuffs = character.active_debuffs || { maxHpReduction:0, webTrapped:0, rageTimer:0 };
   state.difficulty = character.difficulty || 'normal';
-  state.invTab     = character.inv_tab    || 'equipment';
-  state.shopTab    = character.shop_tab   || 'equipment';
-  state.autoSell   = character.auto_sell  || {
-    normal:false, uncommon:false, rare:false, epic:false,
-  };
+  state.invTab = character.inv_tab || 'equipment';
+  state.shopTab = character.shop_tab || 'equipment';
+  state.autoSell = character.auto_sell || { normal:false, uncommon:false, rare:false, epic:false };
 
-  // ── Tournament rewards ──
-  state.tournamentTitle           = character.tournament_title             || null;
-  state.tournamentBuff            = character.tournament_buff              || null;
-  state.tournamentItem            = character.tournament_item              || null;
+  state.tournamentTitle = character.tournament_title || null;
+  state.tournamentBuff = character.tournament_buff || null;
+  state.tournamentItem = character.tournament_item || null;
   state.tournamentRewardsExpireAt = character.tournament_rewards_expire_at || null;
 
-  // ── World phase ──
-  const { data: worldState } = await dbClient
-    .from('world_state')
-    .select('phase')
-    .eq('id', 1)
-    .single();
+  const { data: worldState } = await dbClient.from('world_state').select('phase').eq('id', 1).single();
   state.worldPhase = worldState?.phase || 1;
-  console.log('🌍 World Phase:', state.worldPhase);
 
-  // ── Rebuild skills AFTER all state is loaded ──
   await rebuildSkills();
-
-  // ── Talent unlocks (needs class + level set first) ──
   if (state.class && state.level >= 10) {
     if (typeof checkTalentUnlocks === 'function') checkTalentUnlocks();
   }
 
-  // ── Reapply all derived bonuses before calcStats ──
   reapplyClassBonuses();
-  reapplyTalentBonuses();
-  reapplyEquipBonuses();
+reapplyTalentBonuses();
+reapplyEquipBonuses();
+if (typeof calcStats === 'function') calcStats();
 
-  // ── World phase ──
-  
-
-  // ── calcStats ONCE at the very end ──
-  if (typeof calcStats === 'function') calcStats();
+// Write calculated stats back to DB so server-side RPCs use correct values
+await dbClient
+  .from('characters')
+  .update({
+    max_health: state.maxHp,
+    max_mana:   state.maxMp,
+    health:     Math.min(state.hp, state.maxHp),
+    mana:       Math.min(state.mp, state.maxMp),
+  })
+  .eq('id', state.character_id);
 }
+
 
 // ============================================
 // REALTIME SUBSCRIPTION
@@ -321,70 +268,7 @@ function stopRealtimeSync() {
 // SAVE PLAYER TO SUPABASE
 // ============================================
 
-async function savePlayerToSupabase() {
-  try {
-    const { data: { user } } = await dbClient.auth.getUser()
-    if (!user) throw new Error('Not authenticated')
-    if (!state.character_id) throw new Error('No character ID')
 
-    const { data, error } = await dbClient.rpc('update_character_safe', {
-      p_character_id:          state.character_id,
-
-      // UI / session state
-      p_current_scene:         state.currentScene,
-      p_difficulty:            state.difficulty,
-      p_inv_tab:               state.invTab,
-      p_shop_tab:              state.shopTab,
-      p_auto_sell:             state.autoSell,
-
-      // Combat runtime
-      p_hp:                    state.hp,
-      p_mp:                    state.mp,
-      p_skill_cooldowns:       state.skillCooldowns,
-      p_active_debuffs:        state.activeDebuffs,
-
-      // Talents
-      p_talent_points:         state.talentPoints,
-      p_unlocked_talents:      state.unlockedTalents,
-      p_talent_unlocked_flags: state.talentUnlockedFlags,
-
-      // Quests
-      p_quests:                state.quests,
-
-      // Cosmetics
-      p_supporter_title:       state.supporterTitle || null,
-      p_chat_color:            state.chatColor      || null,
-      p_lucky_title:           state.luckyTitle     || null,
-
-      // Login tracking
-      p_login_streak:          state.loginStreak    || 0,
-      p_last_login_date:       state.lastLoginDate
-        ? new Date(state.lastLoginDate).toISOString().split('T')[0]
-        : null,
-      p_total_login_days:      state.totalLoginDays || 0,
-
-      // Soul weapon
-      p_soul_weapon:           state.soulWeapon          || null,
-      p_crafted_soul_tiers:    state.craftedSoulTiers     || {},
-    })
-
-    if (error) throw error
-    if (data && !data.success) throw new Error(data.error)
-
-    // Session heartbeat via RPC (no more direct .update())
-    if (state.sessionToken) {
-      await dbClient.rpc('heartbeat_session', {
-        p_character_id:  state.character_id,
-        p_session_token: state.sessionToken,
-      })
-    }
-
-    console.log('✅ Character saved (locked down)')
-  } catch (error) {
-    console.error('Save character error:', error)
-    throw error
-  }
-}
 
 async function saveInventoryToSupabase() {
   try {
@@ -401,40 +285,78 @@ async function saveInventoryToSupabase() {
   }
 }
 
-function startAutoSave() {
-  if (autoSaveInterval) clearInterval(autoSaveInterval);
-  autoSaveInterval = setInterval(async () => {
-    try {
-      await savePlayerToSupabase();
-      console.log('💾 Auto-saved');
-    } catch (error) {
-      console.warn('Auto-save failed:', error);
+async function syncCharacterData() {
+  try {
+    const { data, error } = await dbClient
+      .from('characters')
+      .select('gold, inventory, level, xp, xp_next, base_str, base_agi, base_int, base_sta, talent_points, free_stat_points, legacy_points, equipped, auto_sell, health, mana, max_health, max_mana')
+      .eq('id', state.character_id)
+      .single();
+
+    if (error) throw error;
+
+    if (data) {
+      state.hp    = data.health;
+      state.mp    = data.mana;
+      state.maxHp = data.max_health;
+      state.maxMp = data.max_mana;
+      state.gold           = data.gold;
+      state.level          = data.level;
+      state.xp             = data.xp || 0;
+      state.xpNext         = data.xp_next || 5000;
+      state.baseStr        = data.base_str;
+      state.baseAgi        = data.base_agi;
+      state.baseInt        = data.base_int;
+      state.baseSta        = data.base_sta;
+      state.talentPoints   = data.talent_points || 0;
+      state.freeStatPoints = data.free_stat_points || 0;
+      state.legacyPoints   = data.legacy_points || 0;
+      state.equipped       = data.equipped || {weapon:null,armor:null,helmet:null,boots:null,ring:null,amulet:null};
+      state.autoSell = data.auto_sell || {
+  equipment:  { normal: false, uncommon: false, rare: false, epic: false },
+  consumable: { normal: false, uncommon: false, rare: false, epic: false },
+  material:   { normal: false, uncommon: false, rare: false, epic: false },
+};
+
+      // inventory sync unchanged
+      const dbInventory = data.inventory || {};
+      const syncedInventory = {};
+
+      Object.keys(dbInventory).forEach(category => {
+        const categoryData = dbInventory[category];
+        if (!categoryData) { syncedInventory[category] = []; return; }
+
+        let itemsArray = Array.isArray(categoryData)
+          ? categoryData
+          : Object.values(categoryData);
+
+        syncedInventory[category] = itemsArray.map(item => {
+          if (!item || typeof item !== 'object') return null;
+          const keys = Object.keys(item);
+          if (keys.length === 1 && item[keys[0]] && typeof item[keys[0]] === 'object') {
+            return item[keys[0]];
+          }
+          return item;
+        }).filter(item => item && item.name);
+      });
+
+      state.inventory = syncedInventory;
     }
-  }, 60000); // every 1 minute
-}
-
-function stopAutoSave() {
-  if (autoSaveInterval) {
-    clearInterval(autoSaveInterval);
-    autoSaveInterval = null;
+  } catch (err) {
+    console.error("Sync error:", err);
   }
-}
-
-function setupAutoSaveOnUnload() {
-  window.addEventListener('beforeunload', async () => {
-    try { await savePlayerToSupabase(); } catch (e) { console.error('Save on unload failed:', e); }
-  });
+  updateUI()
 }
 
 function initializeSupabaseSync() {
-  startAutoSave();
-  setupAutoSaveOnUnload();
+  // startAutoSave();
+  // setupAutoSaveOnUnload();
   startRealtimeSync();
   console.log('🔄 Supabase sync initialized');
 }
 
 function cleanupSupabaseSync() {
-  stopAutoSave();
+  // stopAutoSave();
   stopRealtimeSync();
   console.log('🔄 Supabase sync stopped');
 }

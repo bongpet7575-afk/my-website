@@ -151,6 +151,36 @@ kbd {
   50%{box-shadow:0 4px 30px rgba(255,140,0,0.8);}
 }
 
+/* Replaced inline onmouseover/onmouseout with CSS :hover */
+.spin-wheel-btn{
+  background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.3);
+  border-radius:8px;padding:12px 16px;cursor:pointer;
+  display:flex;align-items:center;gap:10px;
+  transition:all 0.2s;margin-top:8px;
+}
+.spin-wheel-btn:hover{background:rgba(168,85,247,0.2);}
+
+.recharge-btn{
+  font-size:.65em;padding:4px 10px;
+  background:rgba(168,85,247,0.2);border:1px solid rgba(168,85,247,0.5);
+  border-radius:20px;color:#a855f7;font-family:'Cinzel',serif;letter-spacing:1px;
+  cursor:pointer;transition:all 0.2s;
+}
+.recharge-btn:hover{background:rgba(168,85,247,0.35);}
+
+.kofi-btn{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  margin:8px 10px;padding:12px;
+  background:linear-gradient(135deg,#ff5f5f,#ff8c00);
+  border-radius:var(--radius);color:#fff;
+  font-family:var(--font-title);font-size:.85em;
+  letter-spacing:2px;text-decoration:none;
+  box-shadow:0 4px 20px rgba(255,95,95,0.4);
+  animation:kofiPulse 2s ease-in-out infinite;
+  transition:transform 0.2s;
+}
+.kofi-btn:hover{transform:translateY(-2px);}
+
 .top-name-class{display:flex;flex-direction:column;}
 #char-name{font-family:var(--font-title);font-size:.85em;color:var(--gold);letter-spacing:1px;}
 #char-level{font-family:var(--font-title);font-size:.72em;color:var(--deep-gold);}
@@ -778,6 +808,13 @@ padding:8px 16px;background:rgba(200,168,75,0.1);border:1px solid var(--border-b
 </head>
 <body>
 
+<!-- =========================================================
+     GOD DOMAIN KH — PAGE ROOT
+     Debug tips:
+     - Major UI sections: LOADER / AUTH / NAME SCREEN / GAME WRAPPER / OVERLAYS
+     - Core layout: #top-bar, #scenes-wrap, #bottom-nav
+     - JS init order: game.js -> supabase-sync.js -> combat.js -> feature modules
+========================================================= -->
 <!-- ═══════════════════════════════════════ LOADER ═══ -->
 <div id="loader">
   <div class="load-title">⚔ GOD DOMAIN KH</div>
@@ -788,14 +825,14 @@ padding:8px 16px;background:rgba(200,168,75,0.1);border:1px solid var(--border-b
 <div id="notification"></div>
 
 <!-- ═══════════════════════════════════════ AUDIO ═══ -->
-<audio id="snd-attack"  src="sounds/attack.mp3"  preload="none"></audio>
-<audio id="snd-magic"   src="sounds/magic.mp3"   preload="none"></audio>
-<audio id="snd-heal"    src="sounds/heal.mp3"    preload="none"></audio>
-<audio id="snd-levelup" src="sounds/levelup.mp3" preload="none"></audio>
-<audio id="snd-death"   src="sounds/death.mp3"   preload="none"></audio>
-<audio id="snd-craft"   src="sounds/craft.mp3"   preload="none"></audio>
-<audio id="snd-boss"    src="sounds/boss.mp3"    preload="none"></audio>
-<audio id="clickSound"  src="sounds/click.mp3"   preload="none"></audio>
+<audio id="snd-attack"  src="sounds/attack.mp3"  preload="auto"></audio>
+<audio id="snd-magic"   src="sounds/magic.mp3"   preload="auto"></audio>
+<audio id="snd-heal"    src="sounds/heal.mp3"    preload="auto"></audio>
+<audio id="snd-levelup" src="sounds/levelup.mp3" preload="auto"></audio>
+<audio id="snd-death"   src="sounds/death.mp3"   preload="auto"></audio>
+<audio id="snd-craft"   src="sounds/craft.mp3"   preload="auto"></audio>
+<audio id="snd-boss"    src="sounds/boss.mp3"    preload="auto"></audio>
+<audio id="clickSound"  src="sounds/click.mp3"   preload="auto"></audio>
 
 <!-- ═══════════════════════════════════════ AUTH SCREEN ═══ -->
 <div id="auth-screen">
@@ -860,8 +897,8 @@ padding:8px 16px;background:rgba(200,168,75,0.1);border:1px solid var(--border-b
 
     <!-- Class portrait -->
     <div class="top-name-class" >
-      <div id="char-name" class="top-bars">Hero</div>
-      <div id="char-level" class="top-bars">Level 1 / 100</div>
+      <div id="char-name">Hero</div>
+      <div id="char-level">Level 1 / 100</div>
       
     </div>
 
@@ -988,13 +1025,7 @@ padding:8px 16px;background:rgba(200,168,75,0.1);border:1px solid var(--border-b
         <div id="legacy-points-content"></div>
         <button id="talent-btn" class="top-btn" style="display:none;" onclick="openTalents()">🌟 Talents</button>
       </div>
-      <div onclick="openSpinWheel()" style="
-             background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.3);
-             border-radius:8px;padding:12px 16px;cursor:pointer;
-             display:flex;align-items:center;gap:10px;
-             transition:all 0.2s;margin-top:8px;
-             " onmouseover="this.style.background='rgba(168,85,247,0.2)'"
-             onmouseout="this.style.background='rgba(168,85,247,0.1)'">
+      <div class="spin-wheel-btn" onclick="openSpinWheel()">
             <span style="font-size:24px;">🎰SPINNING WHEEL🎰</span>
         </div>
         <!-- Active Buffs & Titles -->
@@ -1300,13 +1331,7 @@ padding:8px 16px;background:rgba(200,168,75,0.1);border:1px solid var(--border-b
     border-radius:20px;color:var(--purple);font-family:'Cinzel',serif;letter-spacing:1px;">
     💠 <span id="soul-crystal-val">0</span>
   </div>
-  <div onclick="if(typeof openRechargePanel==='function')openRechargePanel()" style="
-    font-size:.65em;padding:4px 10px;
-    background:rgba(168,85,247,0.2);border:1px solid rgba(168,85,247,0.5);
-    border-radius:20px;color:#a855f7;font-family:'Cinzel',serif;letter-spacing:1px;
-    cursor:pointer;transition:all 0.2s;"
-    onmouseover="this.style.background='rgba(168,85,247,0.35)'"
-    onmouseout="this.style.background='rgba(168,85,247,0.2)'">
+  <div class="recharge-btn" onclick="if(typeof openRechargePanel==='function')openRechargePanel()">
     ＋ RECHARGE
   </div>
 </div>
@@ -1461,17 +1486,7 @@ padding:8px 16px;background:rgba(200,168,75,0.1);border:1px solid var(--border-b
   </div>
 
   <!-- Ko-fi button -->
-  <a href="https://ko-fi.com/goddomaindevs" target="_blank"
-    style="display:flex;align-items:center;justify-content:center;gap:8px;
-    margin:8px 10px;padding:12px;
-    background:linear-gradient(135deg,#ff5f5f,#ff8c00);
-    border-radius:var(--radius);color:#fff;
-    font-family:var(--font-title);font-size:.85em;
-    letter-spacing:2px;text-decoration:none;
-    box-shadow:0 4px 20px rgba(255,95,95,0.4);
-    animation:kofiPulse 2s ease-in-out infinite;"
-    onmouseover="this.style.transform='translateY(-2px)'"
-    onmouseout="this.style.transform='translateY(0)'">
+  <a class="kofi-btn" href="https://ko-fi.com/goddomaindevs" target="_blank">
     ☕ Support the Dev — Buy me a Coffee!
   </a>
 
