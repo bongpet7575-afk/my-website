@@ -1206,8 +1206,15 @@ async function openNPCPanel(npcId) {
             cursor:pointer;padding:4px 8px;">✕</button>
         </div>
 
-        <!-- DIALOGUE BOX -->
-        <div style="padding:20px;flex:1;overflow-y:auto;">
+       <!-- PORTRAIT -->
+<div id="npc-portrait" style="
+  width:100%;max-height:280px;overflow:hidden;
+  border-bottom:1px solid #3a2f1a;
+  display:none;">
+</div>
+
+<!-- DIALOGUE BOX -->
+<div style="padding:20px;flex:1;overflow-y:auto;">
           <div id="npc-dialogue" style="
             background:#0f0a02;border:1px solid #3a2f1a;border-radius:8px;
             padding:16px;min-height:80px;color:#e8d5a0;font-size:15px;
@@ -1242,6 +1249,10 @@ async function openNPCPanel(npcId) {
     </div>
   `
   document.body.appendChild(panel)
+setTimeout(() => {
+  console.log('portrait div:', document.getElementById('npc-portrait'))
+  if (typeof showNPCPortrait === 'function') showNPCPortrait(npcId)
+}, 100)
 
   // Auto greet on open
   await chatWithNPC(npcId, 'greet')
@@ -1351,6 +1362,7 @@ function getNPCEmoji(npcId) {
 function closeNPCPanel() {
   const panel = document.getElementById('npc-panel')
   if (panel) panel.remove()
+    if (typeof hideNPCPortrait === 'function') hideNPCPortrait()
 }
 function getCurrentTitle() {
   let current = null;
@@ -3486,6 +3498,13 @@ async function openMirelaPopup() {
           style="background:none;border:none;color:#888;font-size:18px;cursor:pointer;">✕</button>
       </div>
 
+      <!-- PORTRAIT -->
+<div id="npc-portrait" style="
+  width:100%;max-height:280px;overflow:hidden;
+  border-bottom:1px solid #3a2f1a;
+  display:none;">
+</div>
+
       <!-- Dialogue -->
       <div style="padding:16px;flex:1;overflow-y:auto;">
         <div id="mirela-popup-dialogue" style="
@@ -3536,6 +3555,9 @@ async function openMirelaPopup() {
     display:flex;align-items:center;justify-content:center;`
   popup.onclick = () => popup.remove()
   document.body.appendChild(popup)
+setTimeout(() => {
+  if (typeof showNPCPortrait === 'function') showNPCPortrait('mirela')
+}, 50)
 
   // Fetch Mirela dialogue
 try {
