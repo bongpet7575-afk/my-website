@@ -2,3 +2,7 @@ node_modules/
 android/
 .DS_Store
 .env
+supabase/.temp/
+.vscode/
+.vercel/
+*.rar

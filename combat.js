@@ -104,6 +104,7 @@ function renderPlayerStatPanel() {
 
 // ── START COMBAT WITH (enemy object) ──
 function startCombatWith(enemy){
+  resetCombatWeaponState() 
   autoSkillIndex=0;
   state.combatTurnsPassed = 0;
   document.getElementById('enemy-hp-val').textContent=formatNumber(enemy.hp);
@@ -243,21 +244,19 @@ async function enterDungeon(stageId) {
     return
   }
 
-  // Request combat session from server
   const combatData = await requestCombatSession(stageId)
   if (!combatData) {
     notify('⚠️ Failed to start dungeon. Check connection.', 'var(--red)')
     return
   }
 
-  // Store session_id for combat-end validation later
   state.currentCombatSessionId = combatData.session_id
 
-  // Apply server authoritative stats
+  // ── Apply server-verified session stats ──
   applyServerStats(combatData.session)
 
   currentStage = stage
-  dungeonWave = 0
+  dungeonWave  = 0
   dungeonQueue = []
   addLog(`⚔️ Entering ${stage.name}!`, 'gold')
   notify(`⚔️ ${stage.name} — Prepare!`, 'var(--gold)')
@@ -268,42 +267,67 @@ async function enterDungeon(stageId) {
     <p style="color:var(--gold);margin-top:8px;">⚔️ Wave 1 incoming!</p>`
   startNextWave()
 }
+
+// ── SERVER STATS APPLICATION ──
+// Called once per dungeon session — server is source of truth for all combat values
 function applyServerStats(session) {
   if (!session) return
 
-  console.log("--- SERVER STATS RECEIVED ---");
-  console.log("Equip Strength:", session.equipStr);
-  console.log("Equip Armor:", session.equipArmor);
-  console.log("Full Session Data:", session);
+  // ── equip bonuses ──
+  state.equipStr         = session.equipStr         || 0
+  state.equipStrMult     = session.equipStrMult     || 0
+  state.equipAgi         = session.equipAgi         || 0
+  state.equipAgiMult     = session.equipAgiMult     || 0
+  state.equipInt         = session.equipInt         || 0
+  state.equipIntMult     = session.equipIntMult     || 0
+  state.equipSta         = session.equipSta         || 0
+  state.equipStaMult     = session.equipStaMult     || 0
+  state.equipMaxHp       = session.equipMaxHp       || 0
+  state.equipMaxHpMult   = session.equipMaxHpMult   || 0
+  state.equipMaxMp       = session.equipMaxMp       || 0
+  state.equipMaxMpMult   = session.equipMaxMpMult   || 0
+  state.equipArmor       = session.equipArmor       || 0
+  state.equipArmorMult   = session.equipArmorMult   || 0
+  state.equipCrit        = session.equipCrit        || 0
+  state.equipDodge       = session.equipDodge       || 0
+  state.equipDodgeMult   = session.equipDodgeMult   || 0
+  state.equipHit         = session.equipHit         || 0
+  state.equipHitMult     = session.equipHitMult     || 0
+  state.equipLifeSteal   = session.equipLifeSteal   || 0
+  state.equipAttackPower = session.equipAttackPower || 0
+  state.equipHpRegen     = session.equipHpRegen     || 0
+  state.equipMpRegen     = session.equipMpRegen     || 0
 
-  // Equipment bonuses from server ONLY
-  // Never overwrite base stats — those belong to the player
-  state.equipStr = session.equipStr
-  state.equipAgi = session.equipAgi
-  state.equipInt = session.equipInt
-  state.equipSta = session.equipSta
-  state.equipArmor = session.equipArmor
-  state.equipMaxHp = session.equipMaxHp
-  state.equipMaxMp = session.equipMaxMp
-  state.equipCrit = session.equipCrit
-  state.equipDodge = session.equipDodge
-  state.equipHit = session.equipHit
-  state.equipHpRegen = session.equipHpRegen
-  state.equipAttackPower = session.equipAttackPower
-  state.equipLifeSteal = session.equipLifeSteal
-  state.equipStrMult = session.equipStrMult
-  state.equipAgiMult = session.equipAgiMult
-  state.equipIntMult = session.equipIntMult
-  state.equipStaMult = session.equipStaMult
-  state.equipArmorMult = session.equipArmorMult
-  state.equipMaxHpMult = session.equipMaxHpMult
-  state.equipDodgeMult = session.equipDodgeMult
-  state.equipHitMult = session.equipHitMult
-
-  // Class bonuses from server config
+  // ── weapon identity — server verified ──
+  state.weapon1Type          = session.weapon1Type          || null
+  state.weapon1Ultimate      = session.weapon1Ultimate      || null
+  state.weapon1Passive       = session.weapon1Passive       || null
+  state.weapon1AttackSpeed   = session.weapon1AttackSpeed   || null
+  state.weapon1BuffPersistMs = session.weapon1BuffPersistMs ?? 2500
+  state.weapon1DmgBuff       = session.weapon1DmgBuff       ?? 0
+  state.weapon1ComboMult     = session.weapon1ComboMult     ?? 1.0
+  state.weapon1SpellPower    = session.weapon1SpellPower    ?? 0
+  state.weapon1StunChance    = session.weapon1StunChance    ?? 0
+  state.weapon1Unblockable   = session.weapon1Unblockable   ?? false
+  state.weapon2Type          = session.weapon2Type          || null
+  state.weapon2Ultimate      = session.weapon2Ultimate      || null
+  state.weapon2Passive       = session.weapon2Passive       || null
+  state.weapon2AttackSpeed   = session.weapon2AttackSpeed   || null
+  state.weapon2BuffPersistMs = session.weapon2BuffPersistMs ?? 2500
+  state.weapon2DmgBuff       = session.weapon2DmgBuff       ?? 0
+  state.weapon2ComboMult     = session.weapon2ComboMult     ?? 1.0
+  state.weapon2SpellPower    = session.weapon2SpellPower    ?? 0
+  state.weapon2StunChance    = session.weapon2StunChance    ?? 0
+  state.weapon2Unblockable   = session.weapon2Unblockable   ?? false
+  state.serverSkills = session.skillPayload || {}
+  // ── class bonuses ──
   state.classBonuses = session.classBonuses || {}
 
-  // Recalculate with server verified equipment values
+
+
+  // ── recalculate everything with server values ──
+  reapplyClassBonuses()
+  reapplyTalentBonuses()
   calcStats()
 }
 function showWaveAnnouncement(text,color){
@@ -1021,45 +1045,133 @@ async function stopAutoFight() {
 async function autoFightStep() {
   if (!currentEnemy) return
 
-  // Calculate how many times player attacks this tick
-  const tickMs = currentEnemy.attackInterval || 1000
-  const rawHits = Math.floor(tickMs / (state.attackInterval || 1000))
-  const playerHits = Math.min(3, Math.max(1, rawHits)) // cap at 3 hits max
+  const tickMs      = currentEnemy.attackInterval || 1000
+  const rawHits     = Math.floor(tickMs / (state.attackInterval || 1000))
+  const playerHits  = Math.min(3, Math.max(1, rawHits))
 
-  // Player attacks (multiple hits if fast enough)
+  // ── Weapon identity resolved once per tick ──
+  // Active weapon = weapon1 by default, switches to weapon2 if buff window active
+  const now = Date.now()
+  const buffActive = state.weapon1BuffExpiry && now < state.weapon1BuffExpiry
+  const activeWeaponNum  = buffActive ? 2 : 1
+  const activeType       = buffActive ? state.weapon2Type       : state.weapon1Type
+  const activeUltimate   = buffActive ? state.weapon2Ultimate   : state.weapon1Ultimate
+  const activeUnblockable= buffActive ? state.weapon2Unblockable: state.weapon1Unblockable
+  const activeComboMult  = buffActive ? state.weapon2ComboMult  : state.weapon1ComboMult  || 1.0
+
+  // ── Rage buff — weapon1 hammer passive ──
+  // Activates once per combat, sets buff expiry window for combo trigger
+  if (state.weapon1Type === 'hammer' && !state.rageBuffUsed && !state.rageBuffActive) {
+    state.rageBuffActive  = true
+    state.rageBuffUsed    = true
+    state.rageBuffMult    = 1 + (state.weapon1DmgBuff || 0.3)
+    state.rageBuffExpiry  = now + 8000  // 8 second buff window
+    // switching to weapon2 buff window starts when rage is active
+    state.weapon1BuffExpiry = state.rageBuffExpiry
+    addCombatLog(`🔥 Rage Buff activated! +${Math.round((state.weapon1DmgBuff||0.3)*100)}% damage!`, 'gold')
+    spawnAbilityFloat('🔥 RAGE!', '#ff6600')
+  }
+
+  // tick down rage buff
+  if (state.rageBuffActive && now > (state.rageBuffExpiry || 0)) {
+    state.rageBuffActive = false
+    state.rageBuffMult   = 1
+    addCombatLog(`🔥 Rage Buff faded!`, 'info')
+  }
+
+  // ── Spear passive — first strike bonus (first hit of combat only) ──
+  const firstStrikeBonus = (state.weapon1Type === 'spear' || state.weapon2Type === 'spear')
+    && !state.firstStrikeUsed ? 1.25 : 1.0
+
+  // ── Track combo sequence for sword finisher ──
+  if (!state.comboSequence) state.comboSequence = []
+
   for (let i = 0; i < playerHits; i++) {
     if (!currentEnemy || currentEnemy.hp <= 0) break
 
-    const eDodge = Math.max(0, (currentEnemy.dodge || 0) - state.hit) / 100
+    // ── Dodge check — unblockable ultimates skip dodge ──
+    const eDodge = activeUnblockable ? 0 : Math.max(0, (currentEnemy.dodge || 0) - state.hit) / 100
     if (Math.random() < eDodge) {
       addCombatLog(`💨 ${currentEnemy.name} dodged!`, 'bad')
-    } else {
-      let dmg = calculateAttackDamage(state.attackPower, currentEnemy.armor)
-      let isCrit = false
-      if (Math.random() < state.crit / 100) { dmg = Math.floor(dmg * 2); isCrit = true }
-      if (state.unlockedTalents.includes('berserker') && state.hp < state.maxHp * .5) dmg = Math.floor(dmg * 1.35)
-      if (state.unlockedTalents.includes('death_mark')) dmg = Math.floor(dmg * 1.5)
-      if (isCrit) showCritEffect()
-      currentEnemy.hp -= dmg
+      continue
+    }
 
-      const ls = state.lifeSteal || 0
-      if (ls > 0) {
-        const h = Math.floor(dmg * ls)
-        if (h > 0) {
-          state.hp = Math.min(state.maxHp, state.hp + h)
-          addCombatLog(`🩸 Life Steal +${h} HP!`, 'good')
-          spawnDmgFloat(`🩸+${h}`, false, 'heal-float')
-        }
+    // ── Base damage ──
+    let dmg = calculateAttackDamage(state.attackPower, currentEnemy.armor)
+
+    // ── Crit ──
+    let isCrit = false
+    if (Math.random() < state.crit / 100) { dmg = Math.floor(dmg * 2); isCrit = true }
+
+    // ── Talent bonuses ──
+    if (state.unlockedTalents.includes('berserker') && state.hp < state.maxHp * .5) dmg = Math.floor(dmg * 1.35)
+    if (state.unlockedTalents.includes('death_mark')) dmg = Math.floor(dmg * 1.5)
+
+    // ── Weapon identity modifiers ──
+    // Rage buff mult (hammer)
+    if (state.rageBuffActive) dmg = Math.floor(dmg * (state.rageBuffMult || 1))
+
+    // First strike (spear)
+    if (i === 0 && firstStrikeBonus > 1.0 && !state.firstStrikeUsed) {
+      dmg = Math.floor(dmg * firstStrikeBonus)
+      state.firstStrikeUsed = true
+      addCombatLog(`🏹 First Strike! +25% damage!`, 'good')
+    }
+
+    // Staff spell power bonus
+    if (state.weapon1Type === 'staff' || state.weapon2Type === 'staff') {
+      const sp = (state.weapon1SpellPower || 0) + (state.weapon2SpellPower || 0)
+      if (sp > 0) dmg = Math.floor(dmg + sp * (state.equipInt || 1) * 0.01)
+    }
+
+    // Sword combo mult — applies when buff window active (mid-combo)
+    if (activeType === 'sword' && activeComboMult > 1.0) {
+      dmg = Math.floor(dmg * activeComboMult)
+    }
+
+    // Track hit for sword finisher
+    state.comboSequence.push(dmg)
+
+    // ── Stun chance (spear impale) ──
+    const stunChance = (state.weapon1StunChance || 0) + (state.weapon2StunChance || 0)
+    if (stunChance > 0 && Math.random() < stunChance && !currentEnemy.frozen) {
+      currentEnemy.frozen = true
+      addCombatLog(`💫 Impale! ${currentEnemy.name} stunned!`, 'gold')
+      spawnAbilityFloat('💫 STUN!', '#aaaaff')
+    }
+
+    if (isCrit) showCritEffect()
+    currentEnemy.hp -= dmg
+
+    // ── Life steal ──
+    const ls = state.lifeSteal || 0
+    if (ls > 0) {
+      const h = Math.floor(dmg * ls)
+      if (h > 0) {
+        state.hp = Math.min(state.maxHp, state.hp + h)
+        addCombatLog(`🩸 Life Steal +${h} HP!`, 'good')
+        spawnDmgFloat(`🩸+${h}`, false, 'heal-float')
       }
+    }
 
-      // Only use auto skill on first hit
-      if (i === 0) useNextAutoSkill(currentEnemy)
+    if (i === 0) useNextAutoSkill(currentEnemy)
 
-      const hitLabel = playerHits > 1 ? ` (${i + 1}/${playerHits})` : ''
-      addCombatLog(`⚔️ ${isCrit ? '💥CRIT! ' : ''}Auto${hitLabel}: ${dmg} dmg!`, isCrit ? 'gold' : 'good')
-      animateAttack(true, dmg, isCrit)
+    const hitLabel = playerHits > 1 ? ` (${i + 1}/${playerHits})` : ''
+    addCombatLog(`⚔️ ${isCrit ? '💥CRIT! ' : ''}Auto${hitLabel}: ${formatNumber(dmg)} dmg!`, isCrit ? 'gold' : 'good')
+    animateAttack(true, dmg, isCrit)
+  }
+
+  // ── Ultimate skill trigger — once per combat on first tick ──
+  if (!state.ultimateUsed && currentEnemy && currentEnemy.hp > 0) {
+    const ultWeapon = state.weapon1Ultimate ? 'weapon1' : state.weapon2Ultimate ? 'weapon2' : null
+    const ultType   = ultWeapon === 'weapon1' ? state.weapon1Ultimate : state.weapon2Ultimate
+
+    if (ultType && !state.ultimateCooldown) {
+      triggerUltimateSkill(ultType, ultWeapon)
+      state.ultimateCooldown = 8  // 8 tick cooldown between ultimates
     }
   }
+  if (state.ultimateCooldown > 0) state.ultimateCooldown--
 
   if (currentEnemy && currentEnemy.hp <= 0) {
     currentEnemy.hp = 0
@@ -1068,29 +1180,27 @@ async function autoFightStep() {
     return
   }
 
-  // Skill cooldowns tick once per step regardless of hits
+  // ── Cooldowns ──
   Object.keys(state.skillCooldowns).forEach(k => {
     if (state.skillCooldowns[k] > 0) state.skillCooldowns[k]--
   })
   if (state.soulSkillCd > 0) state.soulSkillCd--
 
-  // Tick down Arcane Surge
+  // ── Arcane surge tick ──
   if (state.arcaneSurgeActive && state.arcaneSurgeTurns > 0) {
     state.arcaneSurgeTurns--
     if (state.arcaneSurgeTurns <= 0) {
       state.arcaneSurgeActive = false
       const m = state.arcaneSurgeMult || 1
-      state.strMult /= m
-      state.agiMult /= m
-      state.intMult /= m
-      state.staMult /= m
+      state.strMult /= m; state.agiMult /= m
+      state.intMult /= m; state.staMult /= m
       state.arcaneSurgeMult = 1
       calcStats()
       addCombatLog(`💫 Arcane Surge fades!`, 'info')
     }
   }
 
-  // HP and mana regen
+  // ── HP / MP regen ──
   if (state.hpRegen > 0) {
     const r = Math.floor(state.hpRegen)
     if (r > 0 && state.hp < state.maxHp) {
@@ -1106,17 +1216,17 @@ async function autoFightStep() {
     }
   }
 
-  // Boss ability
-  if(state.worldPhase >= 3 && currentEnemy.boss && currentEnemy.ability){
-  currentEnemy.abilityTurn=(currentEnemy.abilityTurn||0)+1;
-  const triggerEvery = currentEnemy.abilityTriggerEvery || currentEnemy.ability.triggerEvery || 3;
-  if(currentEnemy.abilityTurn>=triggerEvery){
-    currentEnemy.abilityTurn=0;
-    currentEnemy.ability.effect(currentEnemy);
+  // ── Boss ability ──
+  if (state.worldPhase >= 3 && currentEnemy.boss && currentEnemy.ability) {
+    currentEnemy.abilityTurn = (currentEnemy.abilityTurn || 0) + 1
+    const triggerEvery = currentEnemy.abilityTriggerEvery || currentEnemy.ability.triggerEvery || 3
+    if (currentEnemy.abilityTurn >= triggerEvery) {
+      currentEnemy.abilityTurn = 0
+      currentEnemy.ability.effect(currentEnemy)
+    }
   }
-}
 
-  // Enemy attacks once per tick
+  // ── Enemy turn ──
   handleEnemyTurn()
 
   if (currentEnemy && currentEnemy.rageTimer > 0) {
@@ -1127,7 +1237,7 @@ async function autoFightStep() {
     }
   }
 
-  // Poison tick
+  // ── Poison tick ──
   if (currentEnemy && currentEnemy.poisoned > 0) {
     const pd = currentEnemy.poisonDmg || Math.floor(state.agi * 0.8 + state.attackPower * 0.3)
     currentEnemy.hp -= pd
@@ -1141,18 +1251,114 @@ async function autoFightStep() {
     updateUI()
     clearInterval(autoFightTimer)
     autoFightTimer = null
-    currentStage = null
-    dungeonWave = 0
-    dungeonQueue = []
+    currentStage  = null
+    dungeonWave   = 0
+    dungeonQueue  = []
     addLog('💀 You died!', 'bad')
     notify('💀 You died!', 'var(--red)')
     endCombat(false)
-    if (state.currentCombatSessionId) state.currentCombatSessionId = null    
-    openMirelaPopup();
+    if (state.currentCombatSessionId) state.currentCombatSessionId = null
+    openMirelaPopup()
   }
 
   updateEnemyBar()
   updateUI()
+}
+
+// ── ULTIMATE SKILL TRIGGERS ──
+function triggerUltimateSkill(ultType, weaponKey) {
+  if (!currentEnemy || currentEnemy.hp <= 0) return
+
+  const weaponState = weaponKey === 'weapon1'
+    ? { dmgBuff: state.weapon1DmgBuff, comboMult: state.weapon1ComboMult, spellPower: state.weapon1SpellPower, stunChance: state.weapon1StunChance }
+    : { dmgBuff: state.weapon2DmgBuff, comboMult: state.weapon2ComboMult, spellPower: state.weapon2SpellPower, stunChance: state.weapon2StunChance }
+
+  switch (ultType) {
+
+    case 'rage_buff':
+      // Already handled passively — ultimate version is a manual burst
+      state.rageBuffActive  = true
+      state.rageBuffMult    = 1 + (weaponState.dmgBuff || 0.3) * 1.5  // 1.5x stronger than passive
+      state.rageBuffExpiry  = Date.now() + 5000
+      state.weapon1BuffExpiry = state.rageBuffExpiry
+      addCombatLog(`🔥 RAGE BURST! Massive damage buff!`, 'gold')
+      spawnAbilityFloat('🔥 RAGE BURST!', '#ff4400')
+      break
+
+    case 'piercing_strike': {
+      // Undodgeable — skip dodge, deal 2x damage
+      const dmg = Math.floor(calculateAttackDamage(state.attackPower, currentEnemy.armor) * 2)
+      currentEnemy.hp -= dmg
+      addCombatLog(`🗡️ PIERCING STRIKE! ${formatNumber(dmg)} undodgeable damage!`, 'gold')
+      spawnAbilityFloat('🗡️ PIERCE!', '#ff2255')
+      animateAttack(true, dmg, true)
+      break
+    }
+
+    case 'flurry': {
+      // Undodgeable multi-hit — 4 rapid strikes
+      let total = 0
+      for (let f = 0; f < 4; f++) {
+        if (currentEnemy.hp <= 0) break
+        const fd = Math.floor(calculateAttackDamage(state.attackPower, currentEnemy.armor) * 0.6)
+        currentEnemy.hp -= fd
+        total += fd
+      }
+      addCombatLog(`🥊 FLURRY! 4 hits for ${formatNumber(total)} total damage!`, 'gold')
+      spawnAbilityFloat('🥊 FLURRY!', '#ffaa00')
+      animateAttack(true, total, false)
+      break
+    }
+
+    case 'combo_finisher': {
+      // Sword finisher — calculates all hits in the sequence
+      const seqTotal = (state.comboSequence || []).reduce((a, b) => a + b, 0)
+      const finisherDmg = Math.floor(seqTotal * (weaponState.comboMult || 1.2))
+      currentEnemy.hp -= finisherDmg
+      state.comboSequence = []  // reset sequence
+      addCombatLog(`⚔️ COMBO FINISHER! ${formatNumber(finisherDmg)} damage from full sequence!`, 'gold')
+      spawnAbilityFloat('⚔️ FINISH!', '#ffdd00')
+      animateAttack(true, finisherDmg, true)
+      break
+    }
+
+    case 'arcane_surge': {
+      // Staff AoE burst — scales with INT + spell power
+      const sp   = weaponState.spellPower || 0
+      const dmg  = Math.floor((state.equipInt || state.int || 50) * 3 + sp * 0.5)
+      currentEnemy.hp -= dmg
+      addCombatLog(`✨ ARCANE SURGE! ${formatNumber(dmg)} magic damage!`, 'gold')
+      spawnAbilityFloat('✨ SURGE!', '#aa44ff')
+      animateAttack(true, dmg, false)
+      break
+    }
+
+    case 'impale': {
+      // Spear — stun + bleed damage
+      const dmg = Math.floor(calculateAttackDamage(state.attackPower, currentEnemy.armor) * 1.5)
+      currentEnemy.hp    -= dmg
+      currentEnemy.frozen = true
+      currentEnemy.poisoned    = (currentEnemy.poisoned || 0) + 3
+      currentEnemy.poisonDmg   = Math.floor(state.attackPower * 0.2)
+      addCombatLog(`🏹 IMPALE! ${formatNumber(dmg)} damage + stun + bleed!`, 'gold')
+      spawnAbilityFloat('🏹 IMPALE!', '#44ffaa')
+      animateAttack(true, dmg, true)
+      break
+    }
+  }
+}
+
+// ── RESET COMBAT STATE — call at start of each new fight ──
+function resetCombatWeaponState() {
+  state.rageBuffActive    = false
+  state.rageBuffMult      = 1
+  state.rageBuffExpiry    = null
+  state.rageBuffUsed      = false
+  state.weapon1BuffExpiry = null
+  state.ultimateUsed      = false
+  state.ultimateCooldown  = 0
+  state.comboSequence     = []
+  state.firstStrikeUsed   = false
 }
 
 

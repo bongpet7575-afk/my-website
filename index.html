@@ -84,7 +84,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .auth-logo{font-family:var(--font-title);font-size:1.9em;font-weight:900;color:var(--gold);text-align:center;letter-spacing:5px;text-shadow:0 0 24px rgba(200,168,75,0.4);margin-bottom:4px;}
 .auth-tagline{font-family:var(--font-body);font-style:italic;text-align:center;color:var(--text-dim);font-size:.9em;margin-bottom:28px;}
 .auth-tabs{display:flex;gap:8px;margin-bottom:22px;}
-.auth-tab{flex:1;padding:8px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text-dim);font-family:var(--font-title);font-size:.72em;letter-spacing:2px;cursor:pointer;transition:all .2s;}
+.auth-tab{flex:1;padding:8px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text-dim);font-family:var(--font-title);font-size:.72em;letter-spacing:2px;cursor:pointer;transition:border-color .2s,color .2s,background .2s;}
 .auth-tab.active,.auth-tab:hover{border-color:var(--gold);color:var(--gold);background:rgba(200,168,75,0.07);}
 .auth-form{display:flex;flex-direction:column;gap:12px;}
 .auth-form label{font-family:var(--font-title);font-size:.68em;letter-spacing:2px;color:var(--text-dim);display:block;margin-bottom:4px;}
@@ -100,7 +100,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   background:linear-gradient(135deg,rgba(200,168,75,0.18),rgba(139,105,20,0.25));
   border:1px solid var(--gold);border-radius:var(--radius);
   color:var(--gold);font-family:var(--font-title);font-size:.8em;font-weight:700;
-  letter-spacing:3px;cursor:pointer;transition:all .2s;
+  letter-spacing:3px;cursor:pointer;transition:background .2s,box-shadow .2s,transform .2s;
 }
 .btn-auth:hover{background:linear-gradient(135deg,rgba(200,168,75,0.28),rgba(139,105,20,0.38));box-shadow:0 0 20px rgba(200,168,75,0.2);transform:translateY(-1px);}
 
@@ -139,12 +139,6 @@ kbd {
   border-bottom:1px solid var(--border);flex-shrink:0;gap:8px;
   min-height:52px;
 }
-#merchant-bar{
-  display:none;align-items:center;justify-content:space-between;
-  padding:6px 12px;background:rgba(8,8,18,0.97);
-  border-bottom:1px solid var(--border);flex-shrink:0;gap:8px;
-  min-height:52px;
-}
 
 @keyframes kofiPulse{
   0%,100%{box-shadow:0 4px 20px rgba(255,95,95,0.4);}
@@ -156,15 +150,15 @@ kbd {
   background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.3);
   border-radius:8px;padding:12px 16px;cursor:pointer;
   display:flex;align-items:center;gap:10px;
-  transition:all 0.2s;margin-top:8px;
+  transition:background 0.2s,border-color 0.2s;margin-top:8px;
 }
 .spin-wheel-btn:hover{background:rgba(168,85,247,0.2);}
 
 .recharge-btn{
   font-size:.65em;padding:4px 10px;
   background:rgba(168,85,247,0.2);border:1px solid rgba(168,85,247,0.5);
-  border-radius:20px;color:#a855f7;font-family:'Cinzel',serif;letter-spacing:1px;
-  cursor:pointer;transition:all 0.2s;
+  border-radius:20px;color:#a855f7;font-family:var(--font-title);letter-spacing:1px;
+  cursor:pointer;transition:background 0.2s;
 }
 .recharge-btn:hover{background:rgba(168,85,247,0.35);}
 
@@ -407,7 +401,10 @@ padding:8px 16px;background:rgba(200,168,75,0.1);border:1px solid var(--border-b
   width:100%;
   max-width:520px;
   margin:0 auto;
+  position:relative;
+  z-index:2;
 }
+#story-content{position:relative;z-index:1;}
 .arena-avatar{
   width:56px;height:56px;background:var(--bg3);border:2px solid var(--border-bright);
   border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.6em;overflow:hidden;
@@ -1087,7 +1084,9 @@ padding:8px 16px;background:rgba(200,168,75,0.1);border:1px solid var(--border-b
   <!-- DUNGEONS PANEL -->
   <div id="adv-panel-dungeons" class="town-panel active" style="display:flex;flex-direction:column;flex:1;overflow:hidden;padding:0;">
     <!-- Arena — only shows during combat -->
-      <div id="arena" style="display:none;">
+     <!-- Arena — only shows during combat -->
+      <div id="arena" style="display:none;position:relative;overflow:hidden;">
+  <div id="stage-background" style="position:absolute;inset:0;z-index:-1;opacity:0.85;pointer-events:none;width:100%;height:100%;"></div>
 
   <!-- PLAYER STATS — left side -->
   <div class="arena-side">
@@ -1222,10 +1221,10 @@ padding:8px 16px;background:rgba(200,168,75,0.1);border:1px solid var(--border-b
     <!-- INVENTORY PANEL -->
     <div id="merchant-panel-inventory" style="display:none;flex-direction:column;flex:1;overflow-y:auto;padding:12px;">
       <div class="inv-tab-row">
-        <button class="inv-tab active" id="inv-tab-equipment"   onclick="switchInvTab('equipment')">Equipment</button>
-        <button class="inv-tab"        id="inv-tab-consumable"  onclick="switchInvTab('consumable')">Consumable</button>
-        <button class="inv-tab"        id="inv-tab-material"    onclick="switchInvTab('material')">Materials</button>
-        <button class="inv-tab"        id="inv-tab-soul_weapon" onclick="switchInvTab('soul_weapon')">✨ Soul</button>
+        <button class="inv-tab active" onclick="switchInvTab('equipment', this)">Equipment</button>
+        <button class="inv-tab"        onclick="switchInvTab('consumable', this)">Consumable</button>
+        <button class="inv-tab"        onclick="switchInvTab('material', this)">Materials</button>
+        <button class="inv-tab"        onclick="switchInvTab('soul_weapon', this)">✨ Soul</button>
       </div>
       <div id="top-btns-merchant" style="display:flex;align-items:center;gap:6px;flex-shrink:0;margin-bottom:8px;">
         <div style="font-size:.65em;padding:4px 10px;
@@ -1262,8 +1261,8 @@ padding:8px 16px;background:rgba(200,168,75,0.1);border:1px solid var(--border-b
     <!-- SHOP PANEL -->
     <div id="merchant-panel-shop" style="display:none;flex-direction:column;flex:1;overflow-y:auto;padding:12px;">
       <div class="shop-tab-row">
-        <button class="shop-tab active" id="shop-tab-equipment"  onclick="switchShopTab('equipment')">Equipment</button>
-        <button class="shop-tab"        id="shop-tab-consumable" onclick="switchShopTab('consumable')">Potions</button>
+        <button class="shop-tab active" onclick="switchShopTab('equipment', this)">Equipment</button>
+        <button class="shop-tab"        onclick="switchShopTab('consumable', this)">Potions</button>
       </div>
       <div id="shop-content-merchant"></div>
     </div>
@@ -1283,7 +1282,7 @@ padding:8px 16px;background:rgba(200,168,75,0.1);border:1px solid var(--border-b
 <!-- BLACK WING PANEL -->
 <div id="merchant-panel-blackwing" style="display:none;flex:1;overflow-y:auto;padding:12px;flex-direction:column;">
   <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap;flex-shrink:0;">
-    <button class="shop-tab active" onclick="fetchAuctions('blackwing')">🖤 Black Wing Items</button>
+    <button class="shop-tab active" id="market-tab-blackwing" onclick="fetchAuctions('blackwing')">🖤 Black Wing Items</button>
     <button class="start-btn" style="margin-left:auto;padding:6px 12px;" onclick="fetchAuctions('blackwing')">↻ Refresh</button>
   </div>
   <div id="blackwing-list-merchant">
@@ -1313,10 +1312,10 @@ padding:8px 16px;background:rgba(200,168,75,0.1);border:1px solid var(--border-b
         <div id="town-panel-inventory" class="town-panel">
           
           <div class="inv-tab-row">
-            <button class="inv-tab active" onclick="switchInvTab('equipment')">Equipment</button>
-            <button class="inv-tab"        onclick="switchInvTab('consumable')">Consumable</button>
-            <button class="inv-tab"        onclick="switchInvTab('material')">Materials</button>
-            <button class="inv-tab"        onclick="switchInvTab('soul_weapon')">✨ Soul</button>
+            <button class="inv-tab active" onclick="switchInvTab('equipment', this)">Equipment</button>
+            <button class="inv-tab"        onclick="switchInvTab('consumable', this)">Consumable</button>
+            <button class="inv-tab"        onclick="switchInvTab('material', this)">Materials</button>
+            <button class="inv-tab"        onclick="switchInvTab('soul_weapon', this)">✨ Soul</button>
           </div>
           
    <!-- Gold + Buttons -->
@@ -1356,8 +1355,8 @@ padding:8px 16px;background:rgba(200,168,75,0.1);border:1px solid var(--border-b
         <!-- SHOP -->
         <div id="town-panel-shop" class="town-panel">
           <div class="shop-tab-row">
-            <button class="shop-tab active" id="shop-tab-equipment"  onclick="switchShopTab('equipment')">Equipment</button>
-            <button class="shop-tab"        id="shop-tab-consumable" onclick="switchShopTab('consumable')">Potions</button>
+            <button class="shop-tab active" id="shop-tab-equipment"  onclick="switchShopTab('equipment', this)">Equipment</button>
+            <button class="shop-tab"        id="shop-tab-consumable" onclick="switchShopTab('consumable', this)">Potions</button>
           </div>
           <div id="shop-content"></div>
         </div>
@@ -1592,14 +1591,12 @@ function doRegister() {
 }
 
 // ── TOWN PANEL SWITCHER ──
-async function switchTownPanel(panel, btn) {
+function switchTownPanel(panel, btn) {
   document.querySelectorAll('.town-tab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   document.querySelectorAll('.town-panel').forEach(p => p.style.display = 'none');
   const el = document.getElementById('town-panel-' + panel);
   if (el) el.style.display = 'block';
-
-  await loadGameConfig();
 
   if (panel === 'shop')       renderShop();
   if (panel === 'craft')      renderCrafting();
@@ -1637,7 +1634,7 @@ window.switchMainScene = async function(scene) {
   document.querySelectorAll('.main-scene').forEach(s => s.style.display = 'none');
   const el = document.getElementById('main-scene-' + scene);
   if (el) el.style.display = 'flex';
-  ['char','adv','town'].forEach(s => {
+  ['char','adv','town','settings'].forEach(s => {
     const b = document.getElementById('nav-' + s);
     if (b) b.classList.remove('active');
   });

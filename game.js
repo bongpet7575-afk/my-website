@@ -24,7 +24,8 @@ function notify(msg,color='var(--gold)'){
 }
 // ── GAME CONFIG ──
 let GAME_CONFIG = {};
-
+let ENHANCE_COST = [0,500,1000,2000,3500,5000,8000,12000,18000,25000,35000,50000,70000,100000,150000,200000];
+let ENHANCE_RATE  = [0,100,95,85,75,65,55,45,35,25,25,25,25,25,25,25];
 async function loadGameConfig() {
   try {
     const { data, error } = await dbClient
@@ -32,17 +33,15 @@ async function loadGameConfig() {
       .select('key, value');
     if (error) throw error;
 
-    // Build config map
     data.forEach(row => {
       GAME_CONFIG[row.key] = row.value;
     });
 
-    // Apply to game constants
     applyGameConfig();
+    window._gameConfigLoaded = true; // ← add this
     console.log('✅ Game config loaded');
   } catch(e) {
     console.error('Failed to load game config:', e);
-    // Falls back to hardcoded values if DB fails
   }
 }
 
@@ -755,39 +754,43 @@ function buildLegacySkillUse(skillId, rank) {
 // Fix: made rebuildSkills async, awaits loadGameConfig() before registering
 // legacy skills. Also added a re-render of the skill bar after registration.
 async function rebuildSkills() {
-  // Step 1: Start fresh
-  state.skills = [];
+  state.skills = []
 
-  // Step 2: Add class skills
+  // class skills
   if (state.class && CLASSES[state.class]) {
-    state.skills = [...CLASSES[state.class].skills];
+    state.skills = [...CLASSES[state.class].skills]
   }
 
-  // Step 3: Ensure GAME_CONFIG is loaded before registering legacy skills
-  // This is the key fix — legacy skill defs live in GAME_CONFIG.skill_definitions
-  if (typeof loadGameConfig === 'function') {
-    await loadGameConfig();
+  if (typeof loadGameConfig === 'function' && !window._gameConfigLoaded) {
+    await loadGameConfig()
   }
 
-  // Step 4: Register legacy skills into SKILLS object
   if (typeof registerLegacySkills === 'function') {
-    registerLegacySkills();
+    registerLegacySkills()
   }
 
-  // Step 5: Add legacy skill IDs that player has learned
-  const learned = state.legacySkills || {};
+  // legacy skills
+  const learned = state.legacySkills || {}
   Object.keys(learned).forEach(skillId => {
     if (learned[skillId] && !state.skills.includes(skillId)) {
-      state.skills.push(skillId);
+      state.skills.push(skillId)
     }
-  });
+  })
 
-  // Step 6: Re-render skill bar now that SKILLS object is fully populated
-  if (typeof renderSkillBar === 'function') {
-    renderSkillBar();
+  // ── weapon ultimate skills ──
+  const w1uid = state.equipped?.weapon1
+  const w2uid = state.equipped?.weapon2
+  const w1item = w1uid ? findInventoryItem(w1uid) : null
+  const w2item = w2uid ? findInventoryItem(w2uid) : null
+  if (w1item?.ultimateSkill && !state.skills.includes(w1item.ultimateSkill)) {
+    state.skills.push(w1item.ultimateSkill)
   }
-}
+  if (w2item?.ultimateSkill && !state.skills.includes(w2item.ultimateSkill)) {
+    state.skills.push(w2item.ultimateSkill)
+  }
 
+  if (typeof renderSkillBar === 'function') renderSkillBar()
+}
 // ── REGISTER LEGACY SKILLS INTO SKILLS OBJECT ──
 // No changes needed here — just needs GAME_CONFIG to be loaded first (done above)
 function registerLegacySkills() {
@@ -1733,7 +1736,11 @@ function calcStats() {
     state.attackPower = Math.floor(((state.str * 4 + state.int * 3 + state.level * 15) * (m.atkp || 1) + (state.equipAttackPower||0) + (state.talentBonuses.baseAttackPower||0)) * repBoost);
     state.maxHp       = Math.floor(((100 + state.str * 20 + state.sta * 30 + state.level * 80) * (m.hp || 1) + (state.equipMaxHp||0)) * repBoost);
     state.armor       = Math.floor(((state.agi * 8 + (state.baseArmor||0) + state.level * 10 + (state.talentBonuses.baseArmor||0)) * (m.armor || 1) + (state.equipArmor||0)) * repBoost);
-    state.crit        = Math.floor(((state.agi * 0.0005 + (state.baseCrit||0)) * (m.crit || 1)) + (state.equipCrit||0) + (state.talentBonuses.baseCrit||0));
+    state.crit = Math.floor((
+  ((state.baseCrit||0)) * (m.crit || 1)
+  + (state.equipCrit||0)
+  + (state.talentBonuses.baseCrit||0)
+) * 100);
     state.dodge       = Math.floor(((state.agi * 1.9 + (state.baseDodge||0)) * (m.dodge || 1)) + (state.equipDodge||0) + (state.talentBonuses.baseDodge||0));
     state.hit         = Math.floor(((state.agi * 5.3 + (state.baseHit||0)) * (m.hit || 1)) + (state.equipHit||0) + (state.talentBonuses.baseHit||0));
     state.maxMp       = Math.floor(((50 + state.int * 3) * (m.mp || 1)) + (state.equipMaxMp||0));
@@ -1867,6 +1874,109 @@ function reapplyEquipBonuses() {
     state.equipMpRegenMult     += (s.mpRegenMult     || 0);
     state.equipHit             += Math.floor((s.hit          || 0) * enhMult);
     state.equipHitMult         += (s.hitMult         || 0);
+  });
+}function reapplyEquipBonuses() {
+  // 1. Reset all equip bonus state
+  state.equipStr             = 0; state.equipStrMult         = 0;
+  state.equipAgi             = 0; state.equipAgiMult         = 0;
+  state.equipInt             = 0; state.equipIntMult         = 0;
+  state.equipSta             = 0; state.equipStaMult         = 0;
+  state.equipMaxHp           = 0; state.equipMaxHpMult       = 0;
+  state.equipMaxMp           = 0; state.equipMaxMpMult       = 0;
+  state.equipArmor           = 0; state.equipArmorMult       = 0;
+  state.equipCrit            = 0;
+  state.equipDodge           = 0; state.equipDodgeMult       = 0;
+  state.equipLifeSteal       = 0; state.equipLifeStealMult   = 1.0;
+  state.equipAttackPower     = 0; state.equipAttackPowerMult = 0;
+  state.equipHpRegen         = 0; state.equipHpRegenMult     = 0;
+  state.equipMpRegen         = 0; state.equipMpRegenMult     = 0;
+  state.equipHit             = 0; state.equipHitMult         = 0;
+
+  // ── weapon identity state — reset each recalc ──
+  state.weapon1Type          = null;
+  state.weapon1Ultimate      = null;
+  state.weapon1Passive       = null;
+  state.weapon1AttackSpeed   = null;
+  state.weapon1BuffPersistMs = 2500;
+  state.weapon2Type          = null;
+  state.weapon2Ultimate      = null;
+  state.weapon2Passive       = null;
+  state.weapon2AttackSpeed   = null;
+  state.weapon2BuffPersistMs = 2500;
+
+  // ── identity-only fields — never add to stats ──
+  const SKIP = new Set([
+    'weaponType','ultimateSkill','passiveBonus','attackSpeed','buffPersistMs',
+    'unblockable','dmgBuff','comboMult','spellPower','stunChance',
+    'armorPath','pathBonus'
+  ]);
+
+  const equippedSlots  = state.equipped || {};
+  const allEquipItems  = state.inventory?.equipment || [];
+
+  Object.entries(equippedSlots).forEach(([slotKey, itemId]) => {
+    if (!itemId) return;
+
+    const item = allEquipItems.find(i => String(i.uid) === String(itemId));
+    if (!item || !item.stats) return;
+
+    const s       = item.stats;
+    const enh     = item.enh_level ?? item.enhLevel ?? 0;
+    const enhMult = 1 + (enh * 0.08);
+
+    // ── armor path identity multiplier ──
+    // path bonus is already baked into the stat value at drop time,
+    // but we re-apply enhMult on top correctly by reading the raw stat
+    // no extra multiplier needed here — path mult was applied at mkArmorDrop
+
+    // ── capture weapon identity into state for combat use ──
+    if (slotKey === 'weapon1' && item.weaponType) {
+      state.weapon1Type          = item.weaponType;
+      state.weapon1Ultimate      = item.ultimateSkill;
+      state.weapon1Passive       = item.passiveBonus;
+      state.weapon1AttackSpeed   = item.attackSpeed;
+      state.weapon1BuffPersistMs = item.buffPersistMs ?? 2500;
+      // type-specific combat flags
+      state.weapon1DmgBuff       = s.dmgBuff    || 0;
+      state.weapon1ComboMult     = s.comboMult  || 1.0;
+      state.weapon1SpellPower    = s.spellPower || 0;
+      state.weapon1StunChance    = s.stunChance || 0;
+      state.weapon1Unblockable   = s.unblockable || false;
+    }
+    if (slotKey === 'weapon2' && item.weaponType) {
+      state.weapon2Type          = item.weaponType;
+      state.weapon2Ultimate      = item.ultimateSkill;
+      state.weapon2Passive       = item.passiveBonus;
+      state.weapon2AttackSpeed   = item.attackSpeed;
+      state.weapon2BuffPersistMs = item.buffPersistMs ?? 2500;
+      state.weapon2DmgBuff       = s.dmgBuff    || 0;
+      state.weapon2ComboMult     = s.comboMult  || 1.0;
+      state.weapon2SpellPower    = s.spellPower || 0;
+      state.weapon2StunChance    = s.stunChance || 0;
+      state.weapon2Unblockable   = s.unblockable || false;
+    }
+
+    // ── apply numeric stats — skip identity fields ──
+    Object.entries(s).forEach(([k, v]) => {
+      if (SKIP.has(k)) return;
+      if (typeof v !== 'number') return;
+
+      // flat stats scaled by enhancement
+      const flatKeys = new Set(['str','agi','int','sta','maxHp','maxMp','armor',
+        'dodge','attackPower','hpRegen','mpRegen','hit']);
+      // mult/rate stats not scaled by enhancement
+      const multKeys = new Set(['strMult','agiMult','intMult','staMult',
+        'maxHpMult','maxMpMult','armorMult','dodgeMult','lifeStealMult',
+        'attackPowerMult','hpRegenMult','mpRegenMult','hitMult']);
+
+      if (flatKeys.has(k)) {
+        state['equip' + k.charAt(0).toUpperCase() + k.slice(1)] += Math.floor(v * enhMult);
+      } else if (multKeys.has(k)) {
+        state['equip' + k.charAt(0).toUpperCase() + k.slice(1)] += v;
+      } else if (k === 'crit' || k === 'lifeSteal') {
+        state['equip' + k.charAt(0).toUpperCase() + k.slice(1)] += v;
+      }
+    });
   });
 }
 
@@ -3087,6 +3197,22 @@ function showCombatMode() {
   document.getElementById('combat-log').style.display = 'block';
   document.getElementById('choices-box').style.display = 'none';
   document.getElementById('choices-box').innerHTML = '';
+  if (typeof showStageBackground === 'function') {
+    const stageMap = {
+      1: 'wolf_den',
+      2: 'spider_cavern',
+      3: 'goblin_warren',
+      4: 'skeleton_crypt',
+      5: 'orc_stronghold',
+      6: 'vampire_castle',
+      7: 'troll_caves',
+      8: 'demon_realm',
+      9: 'shadow_realm',
+      10: 'god_domain'
+    }
+    const bgKey = stageMap[currentStage?.id] || 'wolf_den'
+    showStageBackground(bgKey)
+  }
 }
 
 function showChoicesMode() {
@@ -3565,7 +3691,7 @@ try {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer freellmapi-4cd1e3c7f225ac48335df90355debaaee39c61fc27127d75`
+      'Authorization': `Bearer freellmapi-d796b970393181ddba2631853dafa3cfd5456b5279e2ded1`
     },
     body: JSON.stringify({
       model: 'mistral-large-latest',
@@ -3733,56 +3859,335 @@ function hideEnemyStats() {
 
 
 // ── ITEM HELPERS ──
-const SLOT_ICONS={weapon:'⚔️',armor:'🛡️',helmet:'⛑️',boots:'👢',ring:'💍',amulet:'📿'};
-const EQUIP_PREFIXES={legendary:['Divine','Mythic','Godforged','Ancient','Eternal','Celestial'],epic:['Heroic','Valiant','Exalted','Magnificent','Radiant'],rare:['Polished','Reinforced','Enchanted','Gleaming'],uncommon:['Sturdy','Sharpened','Improved','Sturdy'],normal:['Iron','Wooden','Basic','Simple']};
-const EQUIP_NAMES={weapon:['Blade','Sword','Axe','Spear','Dagger','Staff','Bow'],armor:['Plate','Chainmail','Robe','Leather','Cuirass'],helmet:['Helm','Crown','Hood','Circlet','Visor'],boots:['Greaves','Sabatons','Boots','Treads'],ring:['Band','Seal','Loop','Signet'],amulet:['Pendant','Amulet','Talisman','Necklace']};
-const EQUIP_STATS={weapon:{str:[35,55],strMult:[0.1,0.5],lifeSteal:[0.01,0.09],crit:[2,5],hit:[80,120],hitMult:[0.1,0.5]},armor:{armor:[5000,10000],sta:[35,55],staMult:[0.1,0.5],maxHp:[2000,3000],maxHpMult:[0.1,0.5],hpRegen:[25,750],hpRegenMult:[0.1,0.5],dodge:[30,700],dodgeMult:[0.1,0.5]},helmet:{armor:[5000,10000],int:[35,55],intMult:[0.05,0.09]},boots:{armor:[5000,10000],agi:[35,55],agiMult:[0.1,0.5]},ring:{str:[35,55],int:[35,55],agi:[35,55],sta:[35,55]},amulet:{strMult:[0.05,0.09],agiMult:[0.05,0.09],intMult:[0.05,0.09],staMult:[0.05,0.09]}};
 
+const SLOT_ICONS = {
+  weapon: '⚔️', armor: '🛡️', helmet: '⛑️',
+  boots: '👢', ring: '💍', amulet: '📿'
+};
+
+// ── WEAPON TYPES ── each grants a different ultimate skill identity
+const WEAPON_TYPES = {
+  hammer: {
+    icon: '🔨',
+    names: ['Hammer', 'Maul', 'Warhammer', 'Mace', 'Crusher'],
+    ultimateSkill: 'rage_buff',        // damage buff, can be blocked
+    passiveBonus: 'heavy_strike',      // +% damage on slow attacks
+    attackSpeed: 'slow',
+  },
+  dagger: {
+    icon: '🗡️',
+    names: ['Dagger', 'Blade', 'Fang', 'Shiv', 'Stiletto'],
+    ultimateSkill: 'piercing_strike',  // undodgeable
+    passiveBonus: 'swift_cut',         // higher attack rate
+    attackSpeed: 'fast',
+  },
+  sword: {
+    icon: '⚔️',
+    names: ['Sword', 'Saber', 'Longsword', 'Claymore', 'Falchion'],
+    ultimateSkill: 'combo_finisher',   // calculates all hits in sequence
+    passiveBonus: 'balanced_form',     // moderate atk + moderate speed
+    attackSpeed: 'normal',
+  },
+  gloves: {
+    icon: '🥊',
+    names: ['Gauntlets', 'Fists', 'Knuckles', 'Claws', 'Grips'],
+    ultimateSkill: 'flurry',           // undodgeable multi-hit
+    passiveBonus: 'rapid_assault',     // highest attack rate
+    attackSpeed: 'very_fast',
+  },
+  staff: {
+    icon: '🪄',
+    names: ['Staff', 'Rod', 'Scepter', 'Wand', 'Catalyst'],
+    ultimateSkill: 'arcane_surge',     // AoE burst, scales with INT
+    passiveBonus: 'spell_echo',        // chance to cast twice
+    attackSpeed: 'normal',
+  },
+  spear: {
+    icon: '🏹',
+    names: ['Spear', 'Lance', 'Halberd', 'Pike', 'Glaive'],
+    ultimateSkill: 'impale',           // stun + bleed
+    passiveBonus: 'reach',             // first strike bonus
+    attackSpeed: 'normal',
+  },
+};
+
+// ── ARMOR PATHS ── identity is locked into item on generation
+const ARMOR_PATHS = {
+  fighter: {
+    label: 'Fighter',
+    icon: '🔴',
+    bonusStat: 'maxHp',
+    bonusMult: 1.35,        // +35% HP pool bonus on top of base
+    flavorSuffix: ['of the Iron Wall', 'of Endurance', 'of the Bulwark', 'of Fortitude'],
+  },
+  ninja: {
+    label: 'Ninja',
+    icon: '🟣',
+    bonusStat: 'dodge',
+    bonusMult: 1.5,         // +50% dodge on top of base
+    flavorSuffix: ['of the Shadow', 'of Swift Wind', 'of Evasion', 'of the Phantom'],
+  },
+  warrior: {
+    label: 'Warrior',
+    icon: '🟡',
+    bonusStat: 'armor',
+    bonusMult: 1.4,         // +40% armor on top of base
+    flavorSuffix: ['of the Warlord', 'of Steel', 'of the Vanguard', 'of Conquest'],
+  },
+};
+
+const EQUIP_PREFIXES = {
+  legendary: ['Divine','Mythic','Godforged','Ancient','Eternal','Celestial'],
+  epic:      ['Heroic','Valiant','Exalted','Magnificent','Radiant'],
+  rare:      ['Polished','Reinforced','Enchanted','Gleaming'],
+  uncommon:  ['Sturdy','Sharpened','Improved','Durable'],
+  normal:    ['Iron','Wooden','Basic','Simple'],
+};
+
+// ── STAT RANGES BY SLOT ──
 function getEquipStats(slot, stageId) {
   const s = stageId || 1;
-  const base = s * 12; // linear scaling — stage 1=12, stage 5=60, stage 10=120
-
-  const statSets = {
+  const base = s * 12;
+  return {
     weapon:  { str:[base*0.8,base*1.4], strMult:[0.01*s,0.03*s], lifeSteal:[0.01,0.02*s], crit:[s*0.5,s*1.5], hit:[base*0.3,base*0.6], hitMult:[0.01*s,0.03*s] },
     armor:   { armor:[base*2,base*5], sta:[base*0.5,base*1.0], staMult:[0.01*s,0.03*s], maxHp:[base*3,base*8], maxHpMult:[0.01*s,0.03*s], hpRegen:[base*0.5,base*1.5], dodgeMult:[0.01*s,0.03*s], dodge:[base*0.5,base*2] },
     helmet:  { armor:[base*1.5,base*3], int:[base*0.5,base*1.0], intMult:[0.01*s,0.03*s], attackPower:[base*1,base*3] },
     boots:   { armor:[base*1.5,base*3], agi:[base*0.5,base*1.0], agiMult:[0.01*s,0.03*s] },
     ring:    { str:[base*0.4,base*0.8], int:[base*0.4,base*0.8], agi:[base*0.4,base*0.8], sta:[base*0.4,base*0.8] },
     amulet:  { strMult:[0.01*s,0.03*s], agiMult:[0.01*s,0.03*s], intMult:[0.01*s,0.03*s], staMult:[0.01*s,0.03*s] },
-  };
-  return statSets[slot];
+  }[slot];
 }
 
-function mkEquipDrop(slot, rarity, stageId = 1) {
+// ── WEAPON DROP ──
+function mkWeaponDrop(rarity, stageId = 1, weaponTypeKey = null) {
   rarity = applyRarityBonus(rarity);
   const mult = RARITY[rarity].mult;
-  const base = Math.pow(stageId, 2.2) * 8;
+
+  // pick weapon type — biased by rarity (higher rarity = rarer weapon types)
+  const typeKeys = Object.keys(WEAPON_TYPES);
+  const wTypeKey = weaponTypeKey || typeKeys[Math.floor(Math.random() * typeKeys.length)];
+  const wType = WEAPON_TYPES[wTypeKey];
+
   const prefix = EQUIP_PREFIXES[rarity][Math.floor(Math.random() * EQUIP_PREFIXES[rarity].length)];
-  const suffix = EQUIP_NAMES[slot][Math.floor(Math.random() * EQUIP_NAMES[slot].length)];
+  const baseName = wType.names[Math.floor(Math.random() * wType.names.length)];
+
+  const stats = {};
+  const statRanges = getEquipStats('weapon', stageId);
+  Object.entries(statRanges).forEach(([k, [mn, mx]]) => {
+    const raw = (Math.random() * (mx - mn) + mn) * mult;
+    stats[k] = mx < 1 ? Math.round(raw * 1000) / 1000 : Math.round(raw);
+  });
+
+  // weapon type passive baked into stats
+  if (wTypeKey === 'hammer') stats.dmgBuff = parseFloat((0.3 + Math.random() * 0.2).toFixed(2)); // rage buff potency
+  if (wTypeKey === 'dagger' || wTypeKey === 'gloves') stats.unblockable = true;
+  if (wTypeKey === 'sword')  stats.comboMult = parseFloat((1.1 + Math.random() * 0.4 * mult).toFixed(2));
+  if (wTypeKey === 'staff')  stats.spellPower = Math.round(stageId * 8 * mult);
+  if (wTypeKey === 'spear')  stats.stunChance = parseFloat((0.05 + Math.random() * 0.1 * mult).toFixed(2));
+
+  return {
+    uid: genUid(),
+    name: `${wType.icon} ${prefix} ${baseName}`,
+    category: 'equipment',
+    slot: 'weapon',
+    weaponType: wTypeKey,             // hammer | dagger | sword | gloves | staff | spear
+    ultimateSkill: wType.ultimateSkill,
+    passiveBonus: wType.passiveBonus,
+    attackSpeed: wType.attackSpeed,
+    rarity,
+    stats,
+    equipped: false,
+    weaponSlot: null,                 // null | 1 | 2 | 3 — assigned on equip
+    buffPersistMs: 2500,              // ms buff lingers after weapon switch (tunable)
+    levelReq: (stageId - 1) * 10,
+    sellPrice: Math.round(stageId * 12 * mult * 500),
+  };
+}
+
+// ── ARMOR DROP ── path baked in on generation
+function mkArmorDrop(slot, rarity, stageId = 1, armorPathKey = null) {
+  rarity = applyRarityBonus(rarity);
+  const mult = RARITY[rarity].mult;
+
+  // random path if not forced
+  const pathKeys = Object.keys(ARMOR_PATHS);
+  const pKey = armorPathKey || pathKeys[Math.floor(Math.random() * pathKeys.length)];
+  const path = ARMOR_PATHS[pKey];
+
+  const prefix = EQUIP_PREFIXES[rarity][Math.floor(Math.random() * EQUIP_PREFIXES[rarity].length)];
+  const baseName = {
+    armor:   ['Plate','Chainmail','Robe','Leather','Cuirass'],
+    helmet:  ['Helm','Crown','Hood','Circlet','Visor'],
+    boots:   ['Greaves','Sabatons','Boots','Treads'],
+  }[slot]?.[Math.floor(Math.random() * 5)] ?? 'Armor';
+
+  const flavorSuffix = path.flavorSuffix[Math.floor(Math.random() * path.flavorSuffix.length)];
+
   const stats = {};
   const statRanges = getEquipStats(slot, stageId);
   Object.entries(statRanges).forEach(([k, [mn, mx]]) => {
     const raw = (Math.random() * (mx - mn) + mn) * mult;
     stats[k] = mx < 1 ? Math.round(raw * 1000) / 1000 : Math.round(raw);
   });
+
+  // apply path identity bonus on top of base roll
+  if (stats[path.bonusStat] != null) {
+    stats[path.bonusStat] = Math.round(stats[path.bonusStat] * path.bonusMult);
+  }
+
+  return {
+    uid: genUid(),
+    name: `${path.icon} ${prefix} ${baseName} ${flavorSuffix}`,
+    category: 'equipment',
+    slot,
+    armorPath: pKey,                  // fighter | ninja | warrior
+    pathBonus: path.bonusStat,        // which stat gets the identity multiplier
+    rarity,
+    stats,
+    equipped: false,
+    levelReq: (stageId - 1) * 10,
+    sellPrice: Math.round(stageId * 12 * mult * 500),
+  };
+}
+
+// ── UNIFIED DROP ENTRY POINT ──
+function mkEquipDrop(slot, rarity, stageId = 1) {
+  if (slot === 'weapon') return mkWeaponDrop(rarity, stageId);
+  if (['armor','helmet','boots'].includes(slot)) return mkArmorDrop(slot, rarity, stageId);
+
+  // ring / amulet — no path, no weapon type, unchanged logic
+  rarity = applyRarityBonus(rarity);
+  const mult = RARITY[rarity].mult;
+  const prefix = EQUIP_PREFIXES[rarity][Math.floor(Math.random() * EQUIP_PREFIXES[rarity].length)];
+  const suffix = { ring:['Band','Seal','Loop','Signet'], amulet:['Pendant','Amulet','Talisman','Necklace'] }[slot][Math.floor(Math.random()*4)];
+  const stats = {};
+  Object.entries(getEquipStats(slot, stageId)).forEach(([k,[mn,mx]])=>{
+    const raw=(Math.random()*(mx-mn)+mn)*mult;
+    stats[k]=mx<1?Math.round(raw*1000)/1000:Math.round(raw);
+  });
   return {
     uid: genUid(),
     name: `${SLOT_ICONS[slot]} ${prefix} ${suffix}`,
     category: 'equipment',
     slot, rarity, stats, equipped: false,
-    levelReq: (stageId - 1) * 10,
-    sellPrice: Math.round(stageId * 12 * mult * 500),
+    levelReq: (stageId-1)*10,
+    sellPrice: Math.round(stageId*12*mult*500),
   };
 }
-function mkMat(name,rarity,sellPrice){return{uid:genUid(),name,category:'material',rarity,sellPrice,stackable:true,qty:1};}
-function mkCons(name,rarity,sellPrice,hpVal){return{uid:genUid(),name,category:'consumable',rarity,sellPrice,stackable:true,qty:1,effect:'hp',val:hpVal};}
+
+function mkMat(name, rarity, sellPrice) {
+  return { uid:genUid(), name, category:'material', rarity, sellPrice, stackable:true, qty:1 };
+}
+function mkCons(name, rarity, sellPrice, hpVal) {
+  return { uid:genUid(), name, category:'consumable', rarity, sellPrice, stackable:true, qty:1, effect:'hp', val:hpVal };
+}
 function genUid() {
   return 'item_' + Date.now() + '_' + Math.floor(Math.random() * 1000000);
 }
-function applyRarityBonus(rarity){
-  const order=['normal','uncommon','rare','epic','legendary'];
-  const bonus=(DIFFICULTY[state.difficulty||'normal'].rarityBonus)||0;
-  return order[Math.min(order.length-1,order.indexOf(rarity)+bonus)];
+function applyRarityBonus(rarity) {
+  const order = ['normal','uncommon','rare','epic','legendary'];
+  const bonus = (DIFFICULTY[state.difficulty||'normal'].rarityBonus) || 0;
+  return order[Math.min(order.length-1, order.indexOf(rarity)+bonus)];
+}
+
+// ══════════════════════════════════════════
+// INVENTORY & EQUIPMENT POPUP RENDERING
+// ══════════════════════════════════════════
+
+// ── IDENTITY HELPERS ──
+function getWeaponIdentityHtml(item) {
+  if (item.slot !== 'weapon' || !item.weaponType) return '';
+  const wt = WEAPON_TYPES[item.weaponType];
+  if (!wt) return '';
+  const speedColor = { slow:'var(--red)', normal:'var(--gold)', fast:'var(--green)', very_fast:'var(--epic)' }[wt.attackSpeed] || 'var(--text-dim)';
+  const skillLabel = item.ultimateSkill?.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) || '—';
+  const passiveLabel = item.passiveBonus?.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) || '—';
+  return `
+    <div style="margin:8px 0;padding:8px;background:rgba(255,200,50,0.05);border:1px solid rgba(255,200,50,0.2);border-radius:6px;">
+      <div style="font-family:var(--font-title);font-size:.62em;color:var(--text-dim);letter-spacing:1px;margin-bottom:6px;">WEAPON IDENTITY</div>
+      <div style="font-size:.75em;margin-bottom:3px;">
+        ${wt.icon} <span style="color:var(--gold);font-weight:600;">${item.weaponType.toUpperCase()}</span>
+      </div>
+      <div style="font-size:.72em;color:#ccc;margin-bottom:2px;">⚡ Ultimate: <span style="color:var(--legendary);">${skillLabel}</span>
+        ${item.stats?.unblockable ? '<span style="color:var(--red);font-size:.85em;"> (Undodgeable)</span>' : ''}
+      </div>
+      <div style="font-size:.72em;color:#ccc;margin-bottom:2px;">🔷 Passive: <span style="color:var(--epic);">${passiveLabel}</span></div>
+      <div style="font-size:.72em;color:#ccc;">⚡ Speed: <span style="color:${speedColor};">${wt.attackSpeed.replace('_',' ').toUpperCase()}</span></div>
+      ${item.stats?.dmgBuff     ? `<div style="font-size:.7em;color:var(--gold);margin-top:3px;">🔥 Rage Buff Potency: +${Math.round(item.stats.dmgBuff*100)}%</div>` : ''}
+      ${item.stats?.comboMult   ? `<div style="font-size:.7em;color:var(--gold);margin-top:3px;">🔗 Combo Multiplier: ×${item.stats.comboMult}</div>` : ''}
+      ${item.stats?.spellPower  ? `<div style="font-size:.7em;color:var(--gold);margin-top:3px;">✨ Spell Power: +${item.stats.spellPower}</div>` : ''}
+      ${item.stats?.stunChance  ? `<div style="font-size:.7em;color:var(--gold);margin-top:3px;">💫 Stun Chance: ${Math.round(item.stats.stunChance*100)}%</div>` : ''}
+      ${item.buffPersistMs      ? `<div style="font-size:.7em;color:var(--text-dim);margin-top:3px;">⏱ Buff Window: ${item.buffPersistMs}ms after switch</div>` : ''}
+    </div>`;
+}
+
+function getArmorPathHtml(item) {
+  if (!['armor','helmet','boots'].includes(item.slot) || !item.armorPath) return '';
+  const path = ARMOR_PATHS[item.armorPath];
+  if (!path) return '';
+  const pathColor = { fighter:'var(--red)', ninja:'#b44fff', warrior:'var(--gold)' }[item.armorPath] || 'var(--text-dim)';
+  const bonusLabel = item.pathBonus?.toUpperCase() || '—';
+  return `
+    <div style="margin:8px 0;padding:8px;background:rgba(180,100,255,0.05);border:1px solid rgba(180,100,255,0.2);border-radius:6px;">
+      <div style="font-family:var(--font-title);font-size:.62em;color:var(--text-dim);letter-spacing:1px;margin-bottom:6px;">ARMOR PATH</div>
+      <div style="font-size:.78em;font-weight:600;color:${pathColor};">${path.icon} ${path.label.toUpperCase()} PATH</div>
+      <div style="font-size:.72em;color:#ccc;margin-top:3px;">
+        🎯 Identity Bonus: <span style="color:${pathColor};">+${bonusLabel}</span>
+        <span style="font-size:.85em;color:var(--text-dim);"> (×${path.bonusMult} multiplier)</span>
+      </div>
+    </div>`;
+}
+
+function getWeaponSlotStatusHtml(item) {
+  if (item.slot !== 'weapon') return '';
+  const slot1 = state.equipped?.weapon1;
+  const slot2 = state.equipped?.weapon2;
+  const inSlot1 = slot1?.uid === item.uid;
+  const inSlot2 = slot2?.uid === item.uid;
+  if (!inSlot1 && !inSlot2) return '';
+  const slotNum = inSlot1 ? 1 : 2;
+  return `<div style="font-size:.72em;color:var(--green);margin-bottom:4px;">✅ Equipped in Weapon Slot ${slotNum}</div>`;
+}
+
+// ── STATS HTML — strips identity-only fields ──
+function buildStatsHtml(item) {
+  if (!item.stats) return '';
+  const skip = new Set(['unblockable','dmgBuff','comboMult','spellPower','stunChance',
+    'weaponType','ultimateSkill','passiveBonus','attackSpeed','buffPersistMs',
+    'armorPath','pathBonus']);
+  return Object.entries(item.stats)
+    .filter(([k]) => !skip.has(k))
+    .map(([k,v]) => {
+      const label = k.replace(/([A-Z])/g,' $1').replace(/Mult$/,' %').toUpperCase().trim();
+      const display = k.endsWith('Mult') || k === 'lifeSteal' || k === 'crit'
+        ? `+${(v * 100).toFixed(1)}%`
+        : `+${typeof v === 'number' ? formatNumber(v) : v}`;
+      return `<div class="tooltip-stat">${display} ${label}</div>`;
+    }).join('');
+}
+// ── EQUIP BUTTONS FOR WEAPONS (dual slot) ──
+function buildWeaponEquipBtns(item) {
+  if (item.slot !== 'weapon') return null;
+
+  const slot1uid = state.equipped?.weapon1;
+  const slot2uid = state.equipped?.weapon2;
+  const slot1 = slot1uid ? findInventoryItem(slot1uid) : null;
+  const slot2 = slot2uid ? findInventoryItem(slot2uid) : null;
+
+  const inSlot1 = slot1uid === item.uid;
+  const inSlot2 = slot2uid === item.uid;
+
+  if (inSlot1 || inSlot2) {
+    const slotNum = inSlot1 ? 1 : 2;
+    return `<button class="start-btn red-btn" onclick="unequipWeaponSlot(${slotNum});closeItemPopup()"><u>U</u>nequip Slot ${slotNum}</button>`;
+  }
+
+  const s1Label = slot1?.name ? `🔁 Slot 1 (replace ${slot1.name.split(' ').slice(1,3).join(' ')})` : `⚔️ Equip Slot 1`;
+  const s2Label = slot2?.name ? `🔁 Slot 2 (replace ${slot2.name.split(' ').slice(1,3).join(' ')})` : `⚔️ Equip Slot 2`;
+
+  return `
+    <button class="start-btn blue-btn" onclick="equipWeaponToSlot('${item.uid}',1);closeItemPopup()">${s1Label}</button>
+    <button class="start-btn blue-btn" onclick="equipWeaponToSlot('${item.uid}',2);closeItemPopup()" style="background:linear-gradient(135deg,#1a4a6e,#1a6e5a);">${s2Label}</button>`;
 }
 
 // ── MAT TABLES (2 mats per stage: common + rare) ──
@@ -4735,78 +5140,235 @@ async function unequipSlot(slot, silent = false) {
   renderEquipSlots()
   updateUI()
 }
-function renderEquipSlots(){
-  ['weapon','armor','helmet','boots','ring','amulet'].forEach(slot=>{
-    // Target both main and merchant slot elements
+
+
+async function equipWeaponToSlot(uid, slotNum) {
+  if (equipCooldown) {
+    notify('⏳ Please wait before equipping again!', 'var(--gold)')
+    return
+  }
+  equipCooldown = true
+  setTimeout(() => equipCooldown = false, 2000)
+
+  const item = findInventoryItem(uid)
+  if (!item || item.slot !== 'weapon') return
+
+  const slotKey = `weapon${slotNum}` // 'weapon1' or 'weapon2'
+
+  // ── Optimistic update ──
+  // If replacing, clear old item's weaponSlot flag
+  const prevUid = state.equipped[slotKey]
+  if (prevUid) {
+    const prevItem = findInventoryItem(prevUid)
+    if (prevItem) {
+      prevItem.equipped  = false
+      prevItem.weaponSlot = null
+    }
+  }
+  item.equipped   = true
+  item.weaponSlot = slotNum
+  state.equipped[slotKey] = uid
+
+  reapplyEquipBonuses()
+  calcStats()
+  renderInventory()
+  renderEquipSlots()
+  updateUI()
+
+  // ── RPC call — reuse equip_item with slot override ──
+  // Pass weapon1 / weapon2 as the slot so the DB knows which slot
+  const { data, error } = await dbClient.rpc('equip_item', {
+    p_character_id: state.character_id,
+    p_item_uid:     uid,
+    p_slot_override: slotKey   // 'weapon1' or 'weapon2'
+  })
+
+  if (error || !data?.success) {
+    notify(`❌ ${data?.error || error?.message}`, 'var(--red)')
+    await syncCharacterData()
+    reapplyEquipBonuses()
+    calcStats()
+    renderInventory()
+    renderEquipSlots()
+    updateUI()
+    return
+  }
+
+  await syncCharacterData()
+  reapplyEquipBonuses()
+  calcStats()
+  notify(`✅ Equipped to Slot ${slotNum}!`, 'var(--gold)')
+  addLog(`Equipped ${item.name} → Slot ${slotNum}`, 'good')
+  playSound('snd-craft')
+  renderInventory()
+  renderEquipSlots()
+  updateUI()
+  renderQuests()
+}
+
+async function unequipWeaponSlot(slotNum) {
+  const slotKey = `weapon${slotNum}`
+  const uid = state.equipped[slotKey]
+  if (!uid) {
+    notify(`Slot ${slotNum} is already empty`, 'var(--text-dim)')
+    return
+  }
+
+  const { data, error } = await dbClient.rpc('unequip_item', {
+    p_character_id: state.character_id,
+    p_slot:         slotKey   // 'weapon1' or 'weapon2'
+  })
+
+  if (error || !data?.success) {
+    notify(`❌ ${data?.error || error?.message}`, 'var(--red)')
+    return
+  }
+
+  await syncCharacterData()
+  reapplyEquipBonuses()
+  calcStats()
+  addLog(`Unequipped Weapon Slot ${slotNum}`, 'info')
+  renderInventory()
+  renderEquipSlots()
+  updateUI()
+}
+function renderEquipSlots() {
+  // Non-weapon slots unchanged
+  ['armor','helmet','boots','ring','amulet'].forEach(slot => {
     const slotEl  = document.getElementById(`slot-${slot}`)
     const nameEl  = document.getElementById(`slot-${slot}-name`)
     const slotElM = document.getElementById(`slot-${slot}-m`)
     const nameElM = document.getElementById(`slot-${slot}-name-m`)
 
-    // Reset both
-    if(slotEl)  slotEl.className  = 'equip-slot'
-    if(slotElM) slotElM.className = 'equip-slot'
+    if (slotEl)  slotEl.className  = 'equip-slot'
+    if (slotElM) slotElM.className = 'equip-slot'
 
     ;[slotEl, slotElM].forEach(el => {
-      if(!el) return
-      const existing = el.querySelector('.equip-tooltip')
-      if(existing) existing.remove()
-      const enhLabelEl = el.querySelector('.slot-enh-label')
-      if(enhLabelEl) enhLabelEl.remove()
+      if (!el) return
+      el.querySelector('.equip-tooltip')?.remove()
+      el.querySelector('.slot-enh-label')?.remove()
     })
 
     const uid = state.equipped[slot]
-    if(uid){
+    if (uid) {
       const item = findInventoryItem(uid)
-      if(item){
-        const enh = item.enh_level ?? item.enhLevel ?? 0;
-        const shortName = item.name.replace(/^[^\s]+ /,'').substring(0,12)
-
-        // Enhancement label
-        const makeEnhEl = () => {
-          const enhEl = document.createElement('div')
-          enhEl.className = 'slot-enh-label'
-          enhEl.textContent = enh > 0 ? `+${enh}` : ''
-          enhEl.style.color = enh >= 15 ? 'var(--legendary)' : enh >= 7 ? 'var(--gold)' : '#aaa'
-          return enhEl
-        }
-
-        // Tooltip HTML
-        const statsHtml = Object.entries(item.stats||{}).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join('')
-        const rarity = RARITY[item.rarity] || RARITY.normal
-        const enh_label = enh > 0 ? `<div style="color:${enh>=7?'var(--legendary)':'var(--gold)'};font-size:0.75em;">+${enh} Enhanced</div>` : ''
-        const tooltipHtml = `<div class="equip-tooltip" style="display:none;">
-          <div style="color:${rarity.color};font-weight:600;">${item.name}</div>
-          <div style="color:${rarity.color};font-size:0.8em;margin:3px 0;">${rarity.label}</div>
-          ${enh_label}${statsHtml}
-          <div style="color:#888;font-size:0.75em;margin-top:4px;">Sell: ${item.sellPrice}g</div>
-        </div>`
-
-        // Apply to main slot
-        if(slotEl && nameEl){
-          nameEl.textContent = shortName
-          slotEl.appendChild(makeEnhEl())
-          slotEl.classList.add('has-item', item.rarity)
-          if(enh >= 15) slotEl.classList.add('enh-glow-15')
-          else if(enh >= 7) slotEl.classList.add('enh-glow-7')
-          slotEl.insertAdjacentHTML('beforeend', tooltipHtml)
-        }
-
-        // Mirror to merchant slot
-        if(slotElM && nameElM){
-          nameElM.textContent = shortName
-          slotElM.appendChild(makeEnhEl())
-          slotElM.classList.add('has-item', item.rarity)
-          if(enh >= 15) slotElM.classList.add('enh-glow-15')
-          else if(enh >= 7) slotElM.classList.add('enh-glow-7')
-          slotElM.insertAdjacentHTML('beforeend', tooltipHtml)
-        }
-      }
+      if (item) _applyItemToSlotEl(item, slotEl, nameEl, slotElM, nameElM)
     } else {
-      if(nameEl)  nameEl.textContent  = 'Empty'
-      if(nameElM) nameElM.textContent = 'Empty'
+      if (nameEl)  nameEl.textContent  = 'Empty'
+      if (nameElM) nameElM.textContent = 'Empty'
     }
   })
+
+  // Weapon slots 1 and 2
+  ;[1, 2].forEach(slotNum => {
+    const slotKey = `weapon${slotNum}`
+    const slotEl  = document.getElementById(`slot-${slotKey}`)
+    const nameEl  = document.getElementById(`slot-${slotKey}-name`)
+    const slotElM = document.getElementById(`slot-${slotKey}-m`)
+    const nameElM = document.getElementById(`slot-${slotKey}-name-m`)
+
+    if (slotEl)  slotEl.className  = 'equip-slot'
+    if (slotElM) slotElM.className = 'equip-slot'
+
+    ;[slotEl, slotElM].forEach(el => {
+      if (!el) return
+      el.querySelector('.equip-tooltip')?.remove()
+      el.querySelector('.slot-enh-label')?.remove()
+      el.querySelector('.slot-weapon-identity')?.remove()
+    })
+
+    const uid = state.equipped[slotKey]
+    if (uid) {
+      const item = findInventoryItem(uid)
+      if (item) {
+        _applyItemToSlotEl(item, slotEl, nameEl, slotElM, nameElM, slotNum)
+      }
+    } else {
+      if (nameEl)  nameEl.textContent  = `Slot ${slotNum} — Empty`
+      if (nameElM) nameElM.textContent = `Slot ${slotNum} — Empty`
+    }
+  })
+}
+
+// ── shared helper — applies item visuals to a slot element pair ──
+function _applyItemToSlotEl(item, slotEl, nameEl, slotElM, nameElM, weaponSlotNum = null) {
+  const enh       = item.enh_level ?? item.enhLevel ?? 0
+  const rarity    = RARITY[item.rarity] || RARITY.normal
+  const shortName = item.name.replace(/^[^\s]+ /, '').substring(0, 12)
+
+  // Enhancement label element
+  const makeEnhEl = () => {
+    const el = document.createElement('div')
+    el.className    = 'slot-enh-label'
+    el.textContent  = enh > 0 ? `+${enh}` : ''
+    el.style.color  = enh >= 15 ? 'var(--legendary)' : enh >= 7 ? 'var(--gold)' : '#aaa'
+    return el
+  }
+
+  // Weapon identity line for tooltip
+  const identityLine = (() => {
+    if (item.slot !== 'weapon' || !item.weaponType || !WEAPON_TYPES[item.weaponType]) return ''
+    const wt = WEAPON_TYPES[item.weaponType]
+    const skillLabel = item.ultimateSkill?.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) || '—'
+    return `
+      <div style="margin-top:5px;padding-top:5px;border-top:1px solid rgba(255,255,255,0.1);">
+        <div style="font-size:0.72em;color:var(--gold);">${wt.icon} ${item.weaponType.toUpperCase()}</div>
+        <div style="font-size:0.7em;color:var(--legendary);">⚡ ${skillLabel}</div>
+        ${weaponSlotNum ? `<div style="font-size:0.7em;color:var(--green);">Slot ${weaponSlotNum}</div>` : ''}
+      </div>`
+  })()
+
+  // Armor path line for tooltip
+  const pathLine = (() => {
+    if (!['armor','helmet','boots'].includes(item.slot) || !item.armorPath || !ARMOR_PATHS[item.armorPath]) return ''
+    const path = ARMOR_PATHS[item.armorPath]
+    const pathColor = { fighter:'var(--red)', ninja:'#b44fff', warrior:'var(--gold)' }[item.armorPath]
+    return `<div style="font-size:0.72em;color:${pathColor};margin-top:4px;">${path.icon} ${path.label} Path</div>`
+  })()
+
+  // Filter identity-only stat keys from tooltip
+  const skip = new Set(['unblockable','dmgBuff','comboMult','spellPower','stunChance'])
+  const statsHtml = Object.entries(item.stats || {})
+    .filter(([k]) => !skip.has(k))
+    .map(([k,v]) => `<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`)
+    .join('')
+
+  const enhLabel = enh > 0
+    ? `<div style="color:${enh>=7?'var(--legendary)':'var(--gold)'};font-size:0.75em;">+${enh} Enhanced</div>`
+    : ''
+
+  const tooltipHtml = `<div class="equip-tooltip" style="display:none;">
+    <div style="color:${rarity.color};font-weight:600;">${item.name}</div>
+    <div style="color:${rarity.color};font-size:0.8em;margin:3px 0;">${rarity.label}</div>
+    ${enhLabel}${statsHtml}${identityLine}${pathLine}
+    <div style="color:#888;font-size:0.75em;margin-top:4px;">Sell: ${item.sellPrice}g</div>
+  </div>`
+
+  // Determine display icon
+  let displayIcon = item.name.split(' ')[0]
+  if (item.slot === 'weapon' && item.weaponType && WEAPON_TYPES[item.weaponType]) {
+    displayIcon = WEAPON_TYPES[item.weaponType].icon
+  } else if (['armor','helmet','boots'].includes(item.slot) && item.armorPath && ARMOR_PATHS[item.armorPath]) {
+    displayIcon = ARMOR_PATHS[item.armorPath].icon
+  }
+
+  const applyToEl = (el, nameEl) => {
+    if (!el) return
+    el.appendChild(makeEnhEl())
+    el.classList.add('has-item', item.rarity)
+    if (enh >= 15) el.classList.add('enh-glow-15')
+    else if (enh >= 7) el.classList.add('enh-glow-7')
+    el.insertAdjacentHTML('beforeend', tooltipHtml)
+
+    // swap icon inside slot if element has one
+    const iconEl = el.querySelector('.slot-icon')
+    if (iconEl) iconEl.textContent = displayIcon
+
+    if (nameEl) nameEl.textContent = shortName
+  }
+
+  applyToEl(slotEl, nameEl)
+  applyToEl(slotElM, nameElM)
 }
 
 // ── INVENTORY ──
@@ -4911,19 +5473,30 @@ function addToInventory(item) {
   state.inventory[cat].push({ ...item, uid: String(item.uid || genUid()) });
   renderInventory();
 }
-function switchInvTab(tab){
-  currentInvTab=tab;state.invTab=tab;
-  document.querySelectorAll('.inv-tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById(`inv-tab-${tab}`).classList.add('active');renderInventory();
+function switchInvTab(tab, btn){
+  currentInvTab = tab; state.invTab = tab;
+  const container = btn?.closest('.inv-tab-row') || document;
+  container.querySelectorAll('.inv-tab').forEach(t => t.classList.remove('active'));
+  if (btn) {
+    btn.classList.add('active');
+  } else {
+    document.getElementById(`inv-tab-${tab}`)?.classList.add('active');
+  }
+  renderInventory();
 }
 
 function formatNumber(num){if(num>=1000000)return(num/1000000).toFixed(1)+'M';if(num>=1000)return(num/1000).toFixed(1)+'K';return num;}
 
 
 
-// ── ENHANCEMENT ──
-const ENHANCE_COST=[0,500,1000,2000,3500,5000,8000,12000,18000,25000,35000,50000,70000,100000,150000,200000];
-const ENHANCE_RATE=[0,100,95,85,75,65,55,45,35,25,25,25,25,25,25,25];
+function formatStatLine(k, v) {
+  const isPct = k.endsWith('Mult') || k === 'lifeSteal' || k === 'crit' || k === 'dodge';
+  const label = k.replace(/([A-Z])/g,' $1').replace(/Mult$/,' %').toUpperCase().trim();
+  const display = isPct ? `+${(v * 100).toFixed(1)}%` : `+${typeof v === 'number' ? formatNumber(v) : v}`;
+  return `<div class="enhance-stat-line">${display} ${label}</div>`;
+}
+
+
 function openEnhance(uid) {
   const item = findInventoryItem(uid);
   if (!item || item.category !== 'equipment') return;
@@ -4956,6 +5529,15 @@ function closeEnhance() {
   // ← removed savePlayerToSupabase() — enhance_item RPC already saved to DB
 }
 
+function formatEnhanceStatLine(k, v, colorStyle) {
+  const isPct = k.endsWith('Mult') || k === 'lifeSteal' || k === 'crit';
+  const display = isPct ? `+${(v * 100).toFixed(1)}%` : `+${typeof v === 'number' ? formatNumber(v) : v}`;
+  const style = colorStyle ? ` style="${colorStyle}"` : '';
+  return `<div class="enhance-stat-line"${style}>${display} ${k.toUpperCase()}</div>`;
+}
+
+const ENHANCE_FLAT_STATS = ['str','agi','int','sta','armor','maxHp','maxMp','hit','attackPower','hpRegen'];
+
 function renderEnhanceScreen(uid){
   const orbCount = (state.inventory.material || [])
   .filter(i => i.name === '⚗️ Enhancement Orb')
@@ -4981,8 +5563,16 @@ function renderEnhanceScreen(uid){
   if(!item)return;
   const r=RARITY[item.rarity]||RARITY.normal,enh=item.enh_level??item.enhLevel??item.enhancement??0,maxed=enh>=15,cost=ENHANCE_COST[enh+1]||0,rate=ENHANCE_RATE[enh+1]||0;
   const pips=Array.from({length:15},(_,i)=>`<div class="enhance-pip ${i<enh?enh>=11?'pip-high':'pip-filled':'pip-empty'}"></div>`).join('');
-  const statsHtml=Object.entries(item.stats||{}).map(([k,v])=>`<div class="enhance-stat-line">+${v<1?v.toFixed(3):v} ${k.toUpperCase()}</div>`).join('');
-  const nextHtml=Object.entries(item.stats||{}).map(([k,v])=>{const n=v<1?Math.round(v*1.15*1000)/1000:Math.floor(v*1.15);return `<div class="enhance-stat-line" style="color:var(--green)">+${v<1?n.toFixed(3):n} ${k.toUpperCase()}</div>`;}).join('');
+
+  const statsHtml = Object.entries(item.stats||{})
+    .map(([k,v]) => formatEnhanceStatLine(k, v))
+    .join('');
+
+  const nextHtml = Object.entries(item.stats||{}).map(([k,v]) => {
+    const n = ENHANCE_FLAT_STATS.includes(k) ? Math.floor(v * 1.05) : v;
+    return formatEnhanceStatLine(k, n, 'color:var(--green)');
+  }).join('');
+
   document.getElementById('enhance-screen').innerHTML=`
     <div class="enhance-container">
       <div class="enhance-title">⚒️ Enhancement</div>
@@ -5007,7 +5597,7 @@ function renderEnhanceScreen(uid){
       </div>
       <div style="text-align:center;margin-top:12px;"><button class="start-btn" onclick="closeEnhance()">✅ Close <span style="color:#888;font-size:.8em;">[Esc]</span></button></div>
     </div>`;
-    
+
 }
 function updateEnhanceRateDisplay() {
   const toggle = document.getElementById('enhance-orb-toggle');
@@ -5151,152 +5741,166 @@ async function useItem(uid) {
     await saveInventoryToSupabase();
   }
 }
+// ── ITEM POPUP ENTRY POINT ──
+function showItemPopup(source, id) {
+  const r_ = r => RARITY[r] || RARITY.normal;
+  let item, btns = '', statsHtml = '', reqLine = '';
 
-function showItemPopup(source,id){
-  console.log("source =", source);
-  console.log("id =", id);
-
-  const r_=r=>RARITY[r]||RARITY.normal;
-  let item,btns='',statsHtml='',reqLine='';
-
-  if(source==='shop'){
-    const equipItems = window._shopEquipCache || SHOP_EQUIP
-    const consItems = window._shopConsCache || SHOP_CONS
-    const all=[...equipItems,...consItems];
-    item=all.find(i=>i.id===id);if(!item)return;
-    statsHtml=item.stats
-      ?Object.entries(item.stats).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join('')
-      :item.effect?`<div class="tooltip-stat">Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}</div>`:'';
+  if (source === 'shop') {
+    const all = [...(window._shopEquipCache || SHOP_EQUIP), ...(window._shopConsCache || SHOP_CONS)];
+    item = all.find(i => i.id === id);
+    if (!item) return;
+    statsHtml = buildStatsHtml(item);
+    if (item.effect) statsHtml += `<div class="tooltip-stat">Restore ${item.val} ${item.effect === 'both' ? 'HP+MP' : item.effect.toUpperCase()}</div>`;
     const _reqLv = item.level_req || item.levelReq || 0;
-reqLine = _reqLv > 0
-  ? `<div style="font-size:.78em;margin-bottom:6px;color:${state.level>=_reqLv?'var(--green)':'var(--red)'};">${state.level>=_reqLv?'✅':'🔒'} Level ${_reqLv} Required</div>` : '';
-    btns=`<button class="start-btn" onclick="buyShopItem('${item.id}');closeItemPopup()">💰 <u>B</u>uy (${item.price}g)</button>`;
+    reqLine = _reqLv > 0
+      ? `<div style="font-size:.78em;margin-bottom:6px;color:${state.level >= _reqLv ? 'var(--green)' : 'var(--red)'};">${state.level >= _reqLv ? '✅' : '🔒'} Level ${_reqLv} Required</div>` : '';
+    btns = `<button class="start-btn" onclick="buyShopItem('${item.id}');closeItemPopup()">💰 <u>B</u>uy (${item.price}g)</button>`;
 
   } else {
-    console.log("inventory:", state.inventory);
-    console.log("type:", typeof state.inventory);
-    console.log("isArray:", Array.isArray(state.inventory));
-    item = Object.values(state.inventory)
-  .flat()
-  .find(i => String(i.uid) === String(id));
+    item = Object.values(state.inventory).flat().find(i => String(i.uid) === String(id));
+    if (!item) { console.error('Item not found:', id); return; }
 
-if (!item) {
-  console.error("Item not found:", id);
-  return;
-}
-    statsHtml=item.stats
-      ?Object.entries(item.stats).map(([k,v])=>`<div class="tooltip-stat">+${v} ${k.toUpperCase()}</div>`).join('')
-      :item.effect?`<div class="tooltip-stat">Restore ${item.val} ${item.effect==='both'?'HP+MP':item.effect.toUpperCase()}</div>`:'';
-    const _reqLv = item.level_req || item.levelReq || 0;
-reqLine = _reqLv > 0
-  ? `<div style="font-size:.78em;margin-bottom:6px;color:${state.level>=_reqLv?'var(--green)':'var(--red)'};">${state.level>=_reqLv?'✅':'🔒'} Level ${_reqLv} Required</div>` : '';
+    // ── stats block ──
+    statsHtml = buildStatsHtml(item);
+    if (item.effect) statsHtml += `<div class="tooltip-stat">Restore ${item.val} ${item.effect === 'both' ? 'HP+MP' : item.effect.toUpperCase()}</div>`;
 
-    // Treasure box info
-    if(item.effect==='treasure'){
-      const dropDate=item.droppedAt
-        ?new Date(item.droppedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})
-        :'Unknown';
-      const diff=item.difficulty||'normal';
-      const diffColor=diff==='hell'?'var(--red)':diff==='hard'?'var(--gold)':'var(--green)';
-      statsHtml+=`
+    // ── identity blocks ──
+    statsHtml += getWeaponSlotStatusHtml(item);
+    statsHtml += getWeaponIdentityHtml(item);
+    statsHtml += getArmorPathHtml(item);
+
+    // ── treasure info ──
+    if (item.effect === 'treasure') {
+      const dropDate = item.droppedAt
+        ? new Date(item.droppedAt).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
+        : 'Unknown';
+      const diff = item.difficulty || 'normal';
+      const diffColor = diff === 'hell' ? 'var(--red)' : diff === 'hard' ? 'var(--gold)' : 'var(--green)';
+      statsHtml += `
         <div style="margin:8px 0;padding:8px;background:rgba(255,153,0,0.06);border:1px solid rgba(255,153,0,0.2);border-radius:6px;">
-          <div style="font-size:.78em;color:var(--gold);margin-bottom:4px;">⚔️ From: <strong>${item.sourceBossName||'Unknown Boss'}</strong></div>
+          <div style="font-size:.78em;color:var(--gold);margin-bottom:4px;">⚔️ From: <strong>${item.sourceBossName || 'Unknown Boss'}</strong></div>
           <div style="font-size:.72em;color:var(--text-dim);">📅 Dropped: ${dropDate}</div>
           <div style="font-size:.72em;color:${diffColor};margin-top:2px;">⚠️ Difficulty: ${diff.toUpperCase()}</div>
         </div>`;
     }
 
-    if(item.category==='equipment'){
-      btns=item.equipped
-        ?`<button class="start-btn red-btn" onclick="unequipSlot('${item.slot}');closeItemPopup()"><u>U</u>nequip</button>`
-        :`<button class="start-btn blue-btn" onclick="equipItem('${item.uid}');closeItemPopup()"><u>E</u>quip</button>`;
-      btns+=`<button class="start-btn purple-btn" onclick="closeItemPopup();openEnhance('${item.uid}')">⚒️ <u>H</u>enhance</button>`;
-      if(!item.equipped)btns+=`<button class="start-btn" onclick="closeItemPopup();listItemForAuction('${item.uid}')" style="background:linear-gradient(135deg,#005580,#0088cc);">🏛️ <u>A</u>uction</button>`;
-    }
-    if(item.category==='consumable')btns+=`<button class="start-btn" onclick="useItem('${item.uid}');closeItemPopup()"><u>U</u>se</button>`;
-    if(item.category==='soul_weapon'){
-      const sw=SOUL_WEAPONS[item.slot==='soul'?state.class?.toLowerCase():''];
-      const alreadyHas=state.soulWeapon&&state.soulWeapon.tier>=item.soulTier;
-      const wrongClass=item.classReq&&item.classReq!==state.class?.toLowerCase();
-      const passiveDesc=sw?.passive?`<div style="font-size:.72em;color:var(--deep-gold);margin:4px 0;">⚡ Passive: ${sw.passive.desc}</div>`:'';
-      const skillDesc=sw?.skill?`<div style="font-size:.72em;color:var(--legendary);margin:4px 0;">🎯 Skill: ${sw.skill.name} — ${sw.skill.desc}</div>`:'';
-      statsHtml+=passiveDesc+skillDesc;
-      if(wrongClass){
-        btns=`<button class="start-btn" disabled style="opacity:.4;">❌ Wrong Class</button>`;
-      } else if(alreadyHas){
-        btns=`<button class="start-btn" disabled style="opacity:.4;">✅ Already Bound</button>`;
+    // ── level req ──
+    const _reqLv = item.level_req || item.levelReq || 0;
+    reqLine = _reqLv > 0
+      ? `<div style="font-size:.78em;margin-bottom:6px;color:${state.level >= _reqLv ? 'var(--green)' : 'var(--red)'};">${state.level >= _reqLv ? '✅' : '🔒'} Level ${_reqLv} Required</div>` : '';
+
+    // ── action buttons ──
+    if (item.category === 'equipment') {
+      const weaponBtns = buildWeaponEquipBtns(item);
+      if (weaponBtns) {
+        // weapon — dual slot buttons
+        btns = weaponBtns;
       } else {
-        btns=`<button class="start-btn" style="border-color:var(--legendary);color:var(--legendary);" onclick="equipSoulWeapon('${item.uid}');closeItemPopup()">✨ <u>B</u>ind to Soul</button>`;
+        // armor/helmet/boots/ring/amulet — single slot
+        btns = item.equipped
+          ? `<button class="start-btn red-btn" onclick="unequipSlot('${item.slot}');closeItemPopup()"><u>U</u>nequip</button>`
+          : `<button class="start-btn blue-btn" onclick="equipItem('${item.uid}');closeItemPopup()"><u>E</u>quip</button>`;
       }
+      btns += `<button class="start-btn purple-btn" onclick="closeItemPopup();openEnhance('${item.uid}')">⚒️ <u>H</u>enhance</button>`;
+      if (!item.equipped && item.weaponSlot === null)
+        btns += `<button class="start-btn" onclick="closeItemPopup();listItemForAuction('${item.uid}')" style="background:linear-gradient(135deg,#005580,#0088cc);">🏛️ <u>A</u>uction</button>`;
     }
-    if(!item.equipped){
-      const _qty=item.qty||item.quantity||1;
-      const _total=(item.sellPrice||0)*(item.stackable?_qty:1);
-      btns+=`<button class="start-btn red-btn" onclick="sellItem('${item.uid}');closeItemPopup()"><u>S</u>ell ${item.stackable&&_qty>1?'All':''} (${formatNumber(_total)}g)</button>`;
+
+    if (item.category === 'consumable')
+      btns += `<button class="start-btn" onclick="useItem('${item.uid}');closeItemPopup()"><u>U</u>se</button>`;
+
+    if (item.category === 'soul_weapon') {
+      const sw = SOUL_WEAPONS[item.slot === 'soul' ? state.class?.toLowerCase() : ''];
+      const alreadyHas = state.soulWeapon && state.soulWeapon.tier >= item.soulTier;
+      const wrongClass = item.classReq && item.classReq !== state.class?.toLowerCase();
+      const passiveDesc = sw?.passive ? `<div style="font-size:.72em;color:var(--deep-gold);margin:4px 0;">⚡ Passive: ${sw.passive.desc}</div>` : '';
+      const skillDesc   = sw?.skill   ? `<div style="font-size:.72em;color:var(--legendary);margin:4px 0;">🎯 Skill: ${sw.skill.name} — ${sw.skill.desc}</div>` : '';
+      statsHtml += passiveDesc + skillDesc;
+      btns = wrongClass
+        ? `<button class="start-btn" disabled style="opacity:.4;">❌ Wrong Class</button>`
+        : alreadyHas
+        ? `<button class="start-btn" disabled style="opacity:.4;">✅ Already Bound</button>`
+        : `<button class="start-btn" style="border-color:var(--legendary);color:var(--legendary);" onclick="equipSoulWeapon('${item.uid}');closeItemPopup()">✨ <u>B</u>ind to Soul</button>`;
+    }
+
+    if (!item.equipped && item.weaponSlot === null) {
+      const _qty   = item.qty || item.quantity || 1;
+      const _total = (item.sellPrice || 0) * (item.stackable ? _qty : 1);
+      btns += `<button class="start-btn red-btn" onclick="sellItem('${item.uid}');closeItemPopup()"><u>S</u>ell ${item.stackable && _qty > 1 ? 'All' : ''} (${formatNumber(_total)}g)</button>`;
     }
   }
 
-  showPopup(item, reqLine+statsHtml, btns, source, id);
+  showPopup(item, reqLine + statsHtml, btns, source, id);
 }
 
-function showPopup(item,statsHtml,btns,source,id){
-  // Safety check: If item is missing, don't try to render the popup
-  if (!item) {
-    console.error("showPopup called without an item object");
-    return;
+// ── POPUP RENDERER ──
+function showPopup(item, statsHtml, btns, source, id) {
+  if (!item) { console.error('showPopup called without item'); return; }
+  const r = RARITY[item.rarity] || RARITY.normal;
+
+  // icon: weapon type icon or armor path icon takes priority over name emoji
+  let displayIcon = item.name ? item.name.split(' ')[0] : '❓';
+  if (item.slot === 'weapon' && item.weaponType && WEAPON_TYPES[item.weaponType]) {
+    displayIcon = WEAPON_TYPES[item.weaponType].icon;
+  } else if (['armor','helmet','boots'].includes(item.slot) && item.armorPath && ARMOR_PATHS[item.armorPath]) {
+    displayIcon = ARMOR_PATHS[item.armorPath].icon;
   }
 
-  const r = RARITY[item.rarity] || RARITY.normal;
-  
-  // FIXED: Safe emoji extraction
-  const itemEmoji = item.name ? item.name.split(' ')[0] : '❓';
-  // FIXED: Safe name display
   const itemName = item.displayName || item.name || 'Unknown Item';
+  const enh = item.enh_level ?? item.enhLevel ?? 0;
+  const enhLine = enh > 0
+    ? `<div style="font-size:.75em;color:${enh >= 7 ? 'var(--legendary)' : 'var(--gold)'};">+${enh} Enhanced</div>`
+    : '';
 
-  document.getElementById('item-popup-content').innerHTML=`
+  document.getElementById('item-popup-content').innerHTML = `
     <div style="text-align:center;margin-bottom:10px;">
-      <div style="font-size:2.5em;">${itemEmoji}</div>
+      <div style="font-size:2.5em;">${displayIcon}</div>
       <div style="color:${r.color};font-family:'Cinzel',serif;font-size:1em;font-weight:600;">${itemName}</div>
       <div style="color:${r.color};font-size:.78em;">${r.label}</div>
+      ${enhLine}
     </div>
     <div style="margin:10px 0;">${statsHtml}</div>
-    <div style="color:#888;font-size:.75em;margin-bottom:12px;">Sell: ${formatNumber(item.sellPrice||0)}g</div>
+    <div style="color:#888;font-size:.75em;margin-bottom:12px;">Sell: ${formatNumber(item.sellPrice || 0)}g</div>
     <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">${btns}</div>
     <div style="margin-top:8px;text-align:center;">
       <button class="start-btn" style="background:rgba(255,255,255,.1);color:#aaa;" onclick="closeItemPopup()">✖ Close</button>
     </div>`;
-    
-  document.getElementById('item-popup').style.display='flex';
 
-  // keyboard shortcuts
-  if(window._itemPopupKeyHandler) document.removeEventListener('keydown',window._itemPopupKeyHandler);
-  window._itemPopupKeyHandler=function(e){
-    if(!document.getElementById('item-popup') || document.getElementById('item-popup').style.display==='none') return;
-    const k=e.key.toLowerCase();
-    if(k==='escape'){closeItemPopup();return;}
-    if(source==='shop'){
-      if(k==='b'){buyShopItem(item.id);closeItemPopup();}
+  document.getElementById('item-popup').style.display = 'flex';
+
+  if (window._itemPopupKeyHandler) document.removeEventListener('keydown', window._itemPopupKeyHandler);
+  window._itemPopupKeyHandler = function(e) {
+    if (document.getElementById('item-popup')?.style.display === 'none') return;
+    const k = e.key.toLowerCase();
+    if (k === 'escape') { closeItemPopup(); return; }
+    if (source === 'shop') {
+      if (k === 'b') { buyShopItem(item.id); closeItemPopup(); }
     } else {
-      if(item.category==='equipment'){
-        if(item.equipped&&k==='u'){unequipSlot(item.slot);closeItemPopup();}
-        if(!item.equipped&&k==='e'){equipItem(item.uid);closeItemPopup();}
-        if(k==='h'){closeItemPopup();openEnhance(item.uid);}
-        if(!item.equipped&&k==='a'){closeItemPopup();listItemForAuction(item.uid);}
+      if (item.category === 'equipment') {
+        if (item.slot === 'weapon') {
+          if (!item.weaponSlot && k === '1') { equipWeaponToSlot(item.uid, 1); closeItemPopup(); }
+          if (!item.weaponSlot && k === '2') { equipWeaponToSlot(item.uid, 2); closeItemPopup(); }
+        } else {
+          if (item.equipped && k === 'u') { unequipSlot(item.slot); closeItemPopup(); }
+          if (!item.equipped && k === 'e') { equipItem(item.uid); closeItemPopup(); }
+        }
+        if (k === 'h') { closeItemPopup(); openEnhance(item.uid); }
+        if (!item.equipped && item.weaponSlot === null && k === 'a') { closeItemPopup(); listItemForAuction(item.uid); }
       }
-      if(item.category==='consumable'&&k==='u'){useItem(item.uid);closeItemPopup();}
-      if(item.category==='soul_weapon'&&k==='b'){equipSoulWeapon(item.uid);closeItemPopup();}
-      if(!item.equipped&&k==='s'){sellItem(item.uid);closeItemPopup();}
+      if (item.category === 'consumable' && k === 'u') { useItem(item.uid); closeItemPopup(); }
+      if (item.category === 'soul_weapon' && k === 'b') { equipSoulWeapon(item.uid); closeItemPopup(); }
+      if (!item.equipped && item.weaponSlot === null && k === 's') { sellItem(item.uid); closeItemPopup(); }
     }
   };
-  document.addEventListener('keydown',window._itemPopupKeyHandler);
+  document.addEventListener('keydown', window._itemPopupKeyHandler);
 }
 
-
-function closeItemPopup(){
-  document.getElementById('item-popup').style.display='none';
-  if(window._itemPopupKeyHandler){
-    document.removeEventListener('keydown',window._itemPopupKeyHandler);
-    window._itemPopupKeyHandler=null;
+function closeItemPopup() {
+  document.getElementById('item-popup').style.display = 'none';
+  if (window._itemPopupKeyHandler) {
+    document.removeEventListener('keydown', window._itemPopupKeyHandler);
+    window._itemPopupKeyHandler = null;
   }
 }
 function closeItemPopup(){document.getElementById('item-popup').style.display='none';}
@@ -5354,115 +5958,102 @@ function migrateAutoSell() {
 }
 
 // ── RENDER INVENTORY (updated to include per-tab auto-sell UI) ──
+// ── RENDER INVENTORY ──
 function renderInventory() {
   migrateAutoSell();
 
-  const list  = document.getElementById('inventory-list-merchant') || document.getElementById('inventory-list');
+  const merchantList = document.getElementById('inventory-list-merchant');
+  const townList     = document.getElementById('inventory-list');
+  const list = (merchantList && merchantList.offsetParent !== null) ? merchantList : townList || merchantList;
+  if (!list) return;
+
   const categoryArray = state.inventory[currentInvTab];
   const items = Array.isArray(categoryArray) ? categoryArray : [];
 
-
-  // Soul tab has no slot limit
   const hasLimit = currentInvTab !== 'soul_weapon';
-  const limit  = hasLimit ? getInvSlotLimit(currentInvTab) : null;
-  const used   = hasLimit ? countInvSlots(currentInvTab) : null;
+  const limit    = hasLimit ? getInvSlotLimit(currentInvTab) : null;
+  const used     = hasLimit ? countInvSlots(currentInvTab) : null;
 
-  // ── Auto-sell bar HTML ──
+  // ── Auto-sell bar ──
   const sellableTabs = ['equipment', 'material'];
   const showAutoSell = sellableTabs.includes(currentInvTab);
   const tabSell = state.autoSell[currentInvTab] || {};
-
   const autoSellBar = showAutoSell ? `
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;
       padding:8px 10px;margin-bottom:10px;
-      background:rgba(255,255,255,0.03);border:1px solid var(--border);
-      border-radius:var(--radius);">
-      <span style="font-family:var(--font-title);font-size:.65em;
-        color:var(--text-dim);letter-spacing:1px;margin-right:4px;">
-        AUTO-SELL:
-      </span>
-      <label class="as-check">
-        <input type="checkbox" id="as-${currentInvTab}-normal"
-          ${tabSell.normal ? 'checked' : ''}
-          onchange="saveTabAutoSell('${currentInvTab}')">
-        <span style="color:#aaa;">Normal</span>
-      </label>
-      <label class="as-check">
-        <input type="checkbox" id="as-${currentInvTab}-uncommon"
-          ${tabSell.uncommon ? 'checked' : ''}
-          onchange="saveTabAutoSell('${currentInvTab}')">
-        <span style="color:var(--uncommon);">Uncommon</span>
-      </label>
-      <label class="as-check">
-        <input type="checkbox" id="as-${currentInvTab}-rare"
-          ${tabSell.rare ? 'checked' : ''}
-          onchange="saveTabAutoSell('${currentInvTab}')">
-        <span style="color:var(--rare);">Rare</span>
-      </label>
-      <label class="as-check">
-        <input type="checkbox" id="as-${currentInvTab}-epic"
-          ${tabSell.epic ? 'checked' : ''}
-          onchange="saveTabAutoSell('${currentInvTab}')">
-        <span style="color:var(--epic);">Epic</span>
-      </label>
+      background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--radius);">
+      <span style="font-family:var(--font-title);font-size:.65em;color:var(--text-dim);letter-spacing:1px;margin-right:4px;">AUTO-SELL:</span>
+      ${['normal','uncommon','rare','epic'].map(r => `
+        <label class="as-check">
+          <input type="checkbox" id="as-${currentInvTab}-${r}" ${tabSell[r] ? 'checked' : ''}
+            onchange="saveTabAutoSell('${currentInvTab}')">
+          <span style="color:${r==='normal'?'#aaa':r==='uncommon'?'var(--uncommon)':r==='rare'?'var(--rare)':'var(--epic)'};">
+            ${r.charAt(0).toUpperCase()+r.slice(1)}
+          </span>
+        </label>`).join('')}
       <button class="start-btn" style="margin-left:auto;padding:5px 12px;font-size:.68em;"
-        onclick="autoSellTab('${currentInvTab}')">
-        🗑️ Sell Now
-      </button>
+        onclick="autoSellTab('${currentInvTab}')">🗑️ Sell Now</button>
     </div>` : '';
 
-  // ── Item grid with empty slots ──
-    const filledSlots = items.map(item => {
+  // ── Item grid ──
+  const filledSlots = items.map(item => {
     const stackBadge    = item.stackable && item.qty > 1 ? `<div class="item-icon-stack">×${item.qty}</div>` : '';
     const equippedBadge = item.equipped ? `<div class="item-icon-equipped">E</div>` : '';
-    const enh = item.enh_level ?? item.enhLevel ?? 0;
-    const enhBadge      = enh > 0 ? `<div class="item-icon-stack" style="top:2px;left:3px;right:auto;color:${enh >= 7 ? 'var(--legendary)' : 'var(--gold)'}">+${enh}</div>` : '';
+    const enh           = item.enh_level ?? item.enhLevel ?? 0;
+    const enhBadge      = enh > 0 ? `<div class="item-icon-stack" style="top:2px;left:3px;right:auto;color:${enh>=7?'var(--legendary)':'var(--gold)'};">+${enh}</div>` : '';
     const glowClass     = enh >= 15 ? 'enh-glow-15' : enh >= 7 ? 'enh-glow-7' : '';
-    const reqLevel = item.level_req || item.levelReq || 0;
-    const isLocked = reqLevel > 0 && reqLevel > state.level;
-    const lockBadge = isLocked ? `<div style="position:absolute;top:2px;left:3px;font-size:.6em;color:var(--red);">🔒${reqLevel}</div>` : '';
+    const reqLevel      = item.level_req || item.levelReq || 0;
+    const isLocked      = reqLevel > 0 && reqLevel > state.level;
+    const lockBadge     = isLocked ? `<div style="position:absolute;top:2px;left:3px;font-size:.6em;color:var(--red);">🔒${reqLevel}</div>` : '';
 
-    // Reputation lock
-    const REP_REQ = { rare:'baron', epic:'chief', legendary:'mayor' };
-    const repNeeded = REP_REQ[item.rarity];
-    const repTiers = REPUTATION_TITLES.map(r => r.id);
-    const playerRepIndex = repTiers.indexOf(state.reputationTitle || '');
-    const reqRepIndex = repTiers.indexOf(repNeeded || '');
-    const isRepLocked = repNeeded && playerRepIndex < reqRepIndex;
-    const repLabel = isRepLocked ? REPUTATION_TITLES.find(r => r.id === repNeeded)?.label : null;
-    const repLockBadge = isRepLocked ? `<div style="position:absolute;bottom:2px;left:3px;font-size:.6em;color:var(--epic);">👑${repLabel}</div>` : '';
+    // Rep lock
+    const REP_REQ       = { rare:'baron', epic:'chief', legendary:'mayor' };
+    const repNeeded     = REP_REQ[item.rarity];
+    const repTiers      = REPUTATION_TITLES.map(r => r.id);
+    const playerRepIdx  = repTiers.indexOf(state.reputationTitle || '');
+    const reqRepIdx     = repTiers.indexOf(repNeeded || '');
+    const isRepLocked   = repNeeded && playerRepIdx < reqRepIdx;
+    const repLabel      = isRepLocked ? REPUTATION_TITLES.find(r => r.id === repNeeded)?.label : null;
+    const repLockBadge  = isRepLocked ? `<div style="position:absolute;bottom:2px;left:3px;font-size:.6em;color:var(--epic);">👑${repLabel}</div>` : '';
+
+    // ── NEW: weapon type icon / armor path badge ──
+    let displayEmoji = item.name ? item.name.split(' ')[0] : '❓';
+    if (item.slot === 'weapon' && item.weaponType && WEAPON_TYPES[item.weaponType]) {
+      displayEmoji = WEAPON_TYPES[item.weaponType].icon;
+    }
+    const armorPathBadge = ['armor','helmet','boots'].includes(item.slot) && item.armorPath && ARMOR_PATHS[item.armorPath]
+      ? `<div style="position:absolute;top:2px;right:3px;font-size:.75em;">${ARMOR_PATHS[item.armorPath].icon}</div>`
+      : '';
+
+    // ── weapon slot badge (shows which slot it's equipped in) ──
+    const wSlotBadge = item.slot === 'weapon' && item.weaponSlot
+      ? `<div style="position:absolute;bottom:2px;right:3px;font-size:.6em;color:var(--green);font-weight:bold;">S${item.weaponSlot}</div>`
+      : '';
 
     const isAnyLocked = isLocked || isRepLocked;
 
     return `<div class="item-icon-box ${item.rarity} ${glowClass}"
       onclick="showItemPopup('inv','${item.uid}')" title="${item.name}"
       style="${isAnyLocked ? 'opacity:0.5;' : ''}">
-      <div class="item-icon-emoji">${item.name ? item.name.split(' ')[0] : '❓'}</div>
-      ${stackBadge}${equippedBadge}${enhBadge}${lockBadge}${repLockBadge}
+      <div class="item-icon-emoji">${displayEmoji}</div>
+      ${stackBadge}${equippedBadge}${enhBadge}${lockBadge}${repLockBadge}${armorPathBadge}${wSlotBadge}
     </div>`;
   });
 
-  // Empty slot boxes up to limit
   const emptySlots = hasLimit
-    ? Array.from({length: Math.max(0, limit - used)}, () =>
-        `<div class="item-icon-box empty-slot"></div>`)
+    ? Array.from({ length: Math.max(0, limit - used) }, () => `<div class="item-icon-box empty-slot"></div>`)
     : [];
 
   const allSlots = [...filledSlots, ...emptySlots];
-
   const gridHtml = !hasLimit && !items.length
     ? '<div class="inv-empty">No items here</div>'
     : `<div class="item-grid">${allSlots.join('')}</div>`;
 
-  // ── Slot counter footer ──
   const slotFooter = hasLimit ? `
     <div style="display:flex;justify-content:space-between;align-items:center;
       margin-top:10px;padding:6px 10px;
-      background:rgba(255,255,255,0.03);border:1px solid var(--border);
-      border-radius:var(--radius);">
-      <span style="font-family:var(--font-title);font-size:.65em;color:var(--text-dim);letter-spacing:1px;">
-        BAG SLOTS
-      </span>
+      background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--radius);">
+      <span style="font-family:var(--font-title);font-size:.65em;color:var(--text-dim);letter-spacing:1px;">BAG SLOTS</span>
       <span style="font-family:var(--font-title);font-size:.78em;
         color:${used >= limit ? 'var(--red)' : used >= limit * 0.8 ? 'var(--legendary)' : 'var(--gold)'};">
         ${used} / ${limit}
@@ -5517,7 +6108,7 @@ async function autoSellTab(tab) {
   state.inventory[tab] = bag.filter(i => !toSell.find(s => s.uid === i.uid));
 
   if (count > 0) {
-    addGold(totalGold);
+    //addGold(totalGold);
     addLog(`🗑️ Auto-sold ${count} ${tab} items for ${formatNumber(totalGold)}g!`, 'gold');
     notify(`🗑️ Sold ${count} items for ${formatNumber(totalGold)}g`, 'var(--gold)');
     renderInventory();
@@ -5689,10 +6280,16 @@ function renderSoulWeaponSlot(){
 }
 
 // ── SHOP ──
-function switchShopTab(tab){
-  currentShopTab=tab;
-  document.querySelectorAll('.shop-tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById(`shop-tab-${tab}`).classList.add('active');renderShop();
+function switchShopTab(tab, btn){
+  currentShopTab = tab;
+  const container = btn?.closest('.shop-tab-row') || document;
+  container.querySelectorAll('.shop-tab').forEach(t => t.classList.remove('active'));
+  if (btn) {
+    btn.classList.add('active');
+  } else {
+    document.getElementById(`shop-tab-${tab}`)?.classList.add('active');
+  }
+  renderShop();
 }
 async function renderShop() {
   const container = document.getElementById('shop-content-merchant') || document.getElementById('shop-content')
